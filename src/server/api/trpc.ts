@@ -6,9 +6,10 @@
  * TL;DR - This is where all the tRPC server stuff is created and plugged in. The pieces you will
  * need to use are documented accordingly near the end.
  */
-import { initTRPC } from "@trpc/server";
+import { initTRPC, TRPCError } from "@trpc/server";
 import superjson from "superjson";
 import { ZodError } from "zod";
+import { withAuth } from "@workos-inc/authkit-nextjs";
 
 import { db } from "@/server/db";
 
@@ -97,6 +98,39 @@ const timingMiddleware = t.middleware(async ({ next, path }) => {
 });
 
 /**
+ * Middleware for enforcing authentication.
+ *
+ * Throws an UNAUTHORIZED error if the user is not authenticated.
+ * Provides type-safe access to user in protected procedures.
+ */
+const enforceUserIsAuthed = t.middleware(async ({ next }) => {
+  try {
+    // Call withAuth() only when this middleware is used (in protectedProcedure)
+    const { user } = await withAuth();
+
+    if (!user) {
+      throw new TRPCError({
+        code: "UNAUTHORIZED",
+        message: "You must be logged in to access this resource",
+      });
+    }
+
+    return next({
+      ctx: {
+        // Infers the `user` as non-nullable
+        user: user,
+      },
+    });
+  } catch (error) {
+    // If withAuth() fails or user is not authenticated, throw UNAUTHORIZED
+    throw new TRPCError({
+      code: "UNAUTHORIZED",
+      message: "You must be logged in to access this resource",
+    });
+  }
+});
+
+/**
  * Public (unauthenticated) procedure
  *
  * This is the base piece you use to build new queries and mutations on your tRPC API. It does not
@@ -104,3 +138,15 @@ const timingMiddleware = t.middleware(async ({ next, path }) => {
  * are logged in.
  */
 export const publicProcedure = t.procedure.use(timingMiddleware);
+
+/**
+ * Protected (authenticated) procedure
+ *
+ * If you want a query or mutation to ONLY be accessible to logged in users, use this. It verifies
+ * the session is valid and guarantees `ctx.user` is not null.
+ *
+ * @see https://trpc.io/docs/server/authorization
+ */
+export const protectedProcedure = t.procedure
+  .use(timingMiddleware)
+  .use(enforceUserIsAuthed);

@@ -7,6 +7,7 @@ import { TRPCReactProvider } from "@/trpc/react";
 import { ThemeProvider } from "@/providers/ThemeProvider";
 import { TransitionProvider } from "@/providers/TransitionProvider";
 import { NavBar } from "@/components/navbar/NavBar.server";
+import { AuthKitProvider } from "@workos-inc/authkit-nextjs/components";
 
 export const metadata: Metadata = {
   title: "Create T3 App",
@@ -25,19 +26,19 @@ export default function RootLayout({
   return (
     <html lang="en" className={`${geist.variable}`} suppressHydrationWarning>
       <body suppressHydrationWarning>
-        <TRPCReactProvider>
-          <ThemeProvider
-            attribute="class"
-            defaultTheme="system"
-            enableSystem
-            disableTransitionOnChange
-          >
-            <NavBar />
-            <TransitionProvider>
-              {children}
-            </TransitionProvider>
-          </ThemeProvider>
+        <AuthKitProvider>
+          <TRPCReactProvider>
+            <ThemeProvider
+              attribute="class"
+              defaultTheme="system"
+              enableSystem
+              disableTransitionOnChange
+            >
+              <NavBar />
+              <TransitionProvider>{children}</TransitionProvider>
+            </ThemeProvider>
           </TRPCReactProvider>
+        </AuthKitProvider>
       </body>
     </html>
   );
