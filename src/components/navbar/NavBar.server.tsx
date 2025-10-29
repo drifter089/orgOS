@@ -13,6 +13,9 @@ export function NavBar() {
           <Button variant="ghost" asChild>
             <Link href="/shadcn">Shadcn</Link>
           </Button>
+          <Button variant="ghost" asChild>
+            <Link href="/docs">Docs</Link>
+          </Button>
         </div>
 
         <ThemeSwitch />
