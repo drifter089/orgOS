@@ -1,6 +1,5 @@
 import { FlatCompat } from "@eslint/eslintrc";
 import eslintConfigPrettier from "eslint-config-prettier";
-import eslintPluginImport from "eslint-plugin-import";
 import tseslint from "typescript-eslint";
 
 const compat = new FlatCompat({
@@ -19,9 +18,6 @@ export default tseslint.config(
       ...tseslint.configs.recommendedTypeChecked,
       ...tseslint.configs.stylisticTypeChecked,
     ],
-    plugins: {
-      import: eslintPluginImport,
-    },
     rules: {
       "@typescript-eslint/array-type": "off",
       "@typescript-eslint/consistent-type-definitions": "off",
@@ -37,42 +33,6 @@ export default tseslint.config(
       "@typescript-eslint/no-misused-promises": [
         "error",
         { checksVoidReturn: { attributes: false } },
-      ],
-      "import/order": [
-        "warn",
-        {
-          groups: [
-            "builtin",
-            "external",
-            "internal",
-            ["parent", "sibling"],
-            "index",
-            "object",
-            "type",
-          ],
-          pathGroups: [
-            {
-              pattern: "react",
-              group: "external",
-              position: "before",
-            },
-            {
-              pattern: "next/**",
-              group: "external",
-              position: "before",
-            },
-            {
-              pattern: "@/**",
-              group: "internal",
-            },
-          ],
-          pathGroupsExcludedImportTypes: ["react", "next"],
-          "newlines-between": "always",
-          alphabetize: {
-            order: "asc",
-            caseInsensitive: true,
-          },
-        },
       ],
     },
   },
