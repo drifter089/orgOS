@@ -21,6 +21,7 @@ const docsRoutes = [
     title: "Architecture",
     items: [
       { title: "Overview", href: "/docs/architecture", icon: Book },
+      { title: "Concepts", href: "/docs/architecture/concepts", icon: Book },
       { title: "Decisions", href: "/docs/architecture/decisions", icon: FileText },
       { title: "Patterns", href: "/docs/architecture/patterns", icon: Code },
       { title: "Workflow", href: "/docs/architecture/workflow", icon: FileText },

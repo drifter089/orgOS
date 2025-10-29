@@ -124,9 +124,11 @@
   }
 }
 
-/* Syntax Highlighting Styles for rehype-pretty-code */
+/* Enhanced Syntax Highlighting Styles for rehype-pretty-code */
 code {
   counter-reset: line;
+  font-variant-ligatures: none;
+  font-feature-settings: normal;
 }
 
 code[data-theme*=" "],
@@ -149,6 +151,7 @@ code[data-theme*=" "] span {
   background-color: var(--shiki-dark-bg);
 }
 
+/* Enhanced line numbers */
 code[data-line-numbers] {
   counter-reset: line;
 }
@@ -157,40 +160,277 @@ code[data-line-numbers] > [data-line]::before {
   counter-increment: line;
   content: counter(line);
   display: inline-block;
-  width: 1rem;
-  margin-right: 1.5rem;
+  width: 2rem;
+  margin-right: 2rem;
   text-align: right;
-  color: oklch(0.552 0.016 285.938);
+  color: oklch(0.552 0.016 285.938 / 0.5);
+  user-select: none;
+  font-size: 0.875em;
+}
+
+.dark code[data-line-numbers] > [data-line]::before {
+  color: oklch(0.705 0.015 286.067 / 0.6);
 }
 
 code[data-line-numbers-max-digits="2"] > [data-line]::before {
-  width: 2rem;
+  width: 2.5rem;
 }
 
 code[data-line-numbers-max-digits="3"] > [data-line]::before {
   width: 3rem;
 }
 
+/* Code lines */
+code > [data-line] {
+  padding-left: 1rem;
+  padding-right: 1rem;
+  border-left: 2px solid transparent;
+}
+
+/* Highlighted lines */
 [data-highlighted-line] {
-  background-color: oklch(0.92 0.004 286.32 / 0.1);
-  border-left: 2px solid oklch(0.705 0.015 286.067);
-  padding-left: 0.5rem;
-  margin-left: -0.5rem;
+  background-color: oklch(0.705 0.015 286.067 / 0.08);
+  border-left-color: oklch(0.705 0.015 286.067) !important;
 }
 
 .dark [data-highlighted-line] {
-  background-color: oklch(1 0 0 / 0.05);
+  background-color: oklch(0.705 0.015 286.067 / 0.12);
+  border-left-color: oklch(0.92 0.004 286.32 / 0.4) !important;
 }
 
-/* Prose styles for MDX content */
+/* Enhanced Prose styles for MDX content */
+.prose {
+  @apply text-foreground/90;
+  font-size: 1rem;
+  line-height: 1.75;
+}
+
+/* Inline code */
 .prose code {
-  @apply rounded bg-muted px-[0.3rem] py-[0.2rem] font-mono text-sm font-semibold;
+  @apply rounded bg-muted/80 px-1.5 py-0.5 font-mono text-[0.875em] font-medium border border-border/50;
+  word-wrap: break-word;
 }
 
+/* Code blocks */
 .prose pre {
-  @apply overflow-x-auto rounded-lg border bg-muted/50 p-4;
+  @apply overflow-x-auto rounded-xl border-2 border-border/40 shadow-lg my-10;
+  background: linear-gradient(to bottom, oklch(0.967 0.001 286.375), oklch(0.95 0.001 286.375));
+  padding: 1.5rem;
+  line-height: 1.6;
+  font-size: 0.875rem;
+}
+
+.dark .prose pre {
+  background: linear-gradient(to bottom, oklch(0.21 0.006 285.885), oklch(0.19 0.006 285.885));
+  border-color: oklch(1 0 0 / 0.15);
 }
 
 .prose pre code {
-  @apply bg-transparent p-0 text-sm;
+  @apply bg-transparent p-0 border-0;
+  display: block;
+  font-size: inherit;
+  line-height: inherit;
+}
+
+/* Language label for code blocks */
+.prose pre[data-language]::before {
+  content: attr(data-language);
+  position: absolute;
+  top: 0;
+  right: 1rem;
+  padding: 0.25rem 0.75rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  color: oklch(0.552 0.016 285.938);
+  background: oklch(0.92 0.004 286.32);
+  border-bottom-left-radius: 0.375rem;
+  border-bottom-right-radius: 0.375rem;
+  letter-spacing: 0.05em;
+}
+
+.dark .prose pre[data-language]::before {
+  color: oklch(0.705 0.015 286.067);
+  background: oklch(0.274 0.006 286.033);
+}
+
+/* Custom scrollbar for code blocks */
+.prose pre::-webkit-scrollbar {
+  height: 0.5rem;
+}
+
+.prose pre::-webkit-scrollbar-track {
+  background: oklch(0.92 0.004 286.32 / 0.3);
+  border-radius: 0.25rem;
+}
+
+.prose pre::-webkit-scrollbar-thumb {
+  background: oklch(0.552 0.016 285.938 / 0.5);
+  border-radius: 0.25rem;
+}
+
+.prose pre::-webkit-scrollbar-thumb:hover {
+  background: oklch(0.552 0.016 285.938 / 0.7);
+}
+
+.dark .prose pre::-webkit-scrollbar-track {
+  background: oklch(1 0 0 / 0.05);
+}
+
+.dark .prose pre::-webkit-scrollbar-thumb {
+  background: oklch(0.705 0.015 286.067 / 0.5);
+}
+
+.dark .prose pre::-webkit-scrollbar-thumb:hover {
+  background: oklch(0.705 0.015 286.067 / 0.7);
+}
+
+/* Smooth transitions for code blocks */
+.prose pre {
+  transition: box-shadow 0.2s ease;
+}
+
+.prose pre:hover {
+  box-shadow: 0 10px 25px -5px oklch(0 0 0 / 0.1), 0 8px 10px -6px oklch(0 0 0 / 0.1);
+}
+
+.dark .prose pre:hover {
+  box-shadow: 0 10px 25px -5px oklch(0 0 0 / 0.3), 0 8px 10px -6px oklch(0 0 0 / 0.2);
+}
+
+/* Enhanced prose typography */
+.prose h1 {
+  @apply text-5xl font-bold leading-tight tracking-tight mb-8 mt-2 text-foreground;
+}
+
+.prose h2 {
+  @apply text-3xl font-bold leading-tight tracking-tight mt-16 mb-6 pb-3 border-b text-foreground;
+}
+
+.prose h3 {
+  @apply text-2xl font-semibold leading-snug tracking-tight mt-12 mb-5 text-foreground;
+}
+
+.prose h4 {
+  @apply text-xl font-semibold leading-snug tracking-tight mt-8 mb-4 text-foreground;
+}
+
+.prose p {
+  @apply mb-6 leading-relaxed;
+}
+
+.prose ul,
+.prose ol {
+  @apply my-8 space-y-3;
+}
+
+.prose li {
+  @apply leading-relaxed;
+}
+
+.prose strong {
+  @apply font-semibold text-foreground;
+}
+
+.prose a {
+  @apply font-medium text-primary underline decoration-primary/30 underline-offset-4 transition-colors;
+}
+
+.prose a:hover {
+  @apply text-primary/80 decoration-primary/60;
+}
+
+.prose blockquote {
+  @apply my-8 border-l-4 border-primary/50 bg-muted/30 py-4 pl-6 pr-4 italic leading-relaxed;
+}
+
+.prose hr {
+  @apply my-12 border-t-2 border-border/30;
+}
+
+.prose table {
+  @apply my-10 rounded-lg border border-border/50 shadow-sm;
+}
+
+.prose thead {
+  @apply bg-muted/50;
+}
+
+.prose th {
+  @apply border-b border-border/50 px-6 py-4 font-semibold;
+}
+
+.prose td {
+  @apply border-b border-border/30 px-6 py-4;
+}
+
+.prose img {
+  @apply rounded-xl border-2 border-border/50 shadow-md my-10;
+}
+
+/* Mermaid diagram styles */
+.mermaid {
+  @apply mx-auto my-6;
+}
+
+.mermaid svg {
+  max-width: 100%;
+  height: auto;
+}
+
+/* Light mode mermaid styling */
+:root .mermaid {
+  --mermaid-bg: oklch(1 0 0);
+  --mermaid-primary: oklch(0.21 0.006 285.885);
+  --mermaid-secondary: oklch(0.967 0.001 286.375);
+  --mermaid-text: oklch(0.141 0.005 285.823);
+  --mermaid-border: oklch(0.92 0.004 286.32);
+}
+
+/* Dark mode mermaid styling */
+.dark .mermaid {
+  --mermaid-bg: oklch(0.21 0.006 285.885);
+  --mermaid-primary: oklch(0.92 0.004 286.32);
+  --mermaid-secondary: oklch(0.274 0.006 286.033);
+  --mermaid-text: oklch(0.985 0 0);
+  --mermaid-border: oklch(1 0 0 / 10%);
+}
+
+/* Apply mermaid theme colors */
+.mermaid .node rect,
+.mermaid .node circle,
+.mermaid .node ellipse,
+.mermaid .node polygon {
+  fill: var(--mermaid-secondary);
+  stroke: var(--mermaid-primary);
+  stroke-width: 2px;
+}
+
+.mermaid .edgePath .path {
+  stroke: var(--mermaid-border);
+  stroke-width: 2px;
+}
+
+.mermaid .edgeLabel {
+  background-color: var(--mermaid-bg);
+  color: var(--mermaid-text);
+}
+
+.mermaid .label {
+  color: var(--mermaid-text);
+  font-family: var(--font-sans);
+}
+
+.mermaid .cluster rect {
+  fill: var(--mermaid-bg);
+  stroke: var(--mermaid-border);
+}
+
+.mermaid .actor {
+  fill: var(--mermaid-secondary);
+  stroke: var(--mermaid-primary);
+}
+
+.mermaid line.actor-line {
+  stroke: var(--mermaid-border);
 }
