@@ -123,3 +123,74 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* Syntax Highlighting Styles for rehype-pretty-code */
+code {
+  counter-reset: line;
+}
+
+code[data-theme*=" "],
+code[data-theme*=" "] span {
+  color: var(--shiki-light);
+  background-color: var(--shiki-light-bg);
+}
+
+@media (prefers-color-scheme: dark) {
+  code[data-theme*=" "],
+  code[data-theme*=" "] span {
+    color: var(--shiki-dark);
+    background-color: var(--shiki-dark-bg);
+  }
+}
+
+.dark code[data-theme*=" "],
+.dark code[data-theme*=" "] span {
+  color: var(--shiki-dark);
+  background-color: var(--shiki-dark-bg);
+}
+
+code[data-line-numbers] {
+  counter-reset: line;
+}
+
+code[data-line-numbers] > [data-line]::before {
+  counter-increment: line;
+  content: counter(line);
+  display: inline-block;
+  width: 1rem;
+  margin-right: 1.5rem;
+  text-align: right;
+  color: oklch(0.552 0.016 285.938);
+}
+
+code[data-line-numbers-max-digits="2"] > [data-line]::before {
+  width: 2rem;
+}
+
+code[data-line-numbers-max-digits="3"] > [data-line]::before {
+  width: 3rem;
+}
+
+[data-highlighted-line] {
+  background-color: oklch(0.92 0.004 286.32 / 0.1);
+  border-left: 2px solid oklch(0.705 0.015 286.067);
+  padding-left: 0.5rem;
+  margin-left: -0.5rem;
+}
+
+.dark [data-highlighted-line] {
+  background-color: oklch(1 0 0 / 0.05);
+}
+
+/* Prose styles for MDX content */
+.prose code {
+  @apply rounded bg-muted px-[0.3rem] py-[0.2rem] font-mono text-sm font-semibold;
+}
+
+.prose pre {
+  @apply overflow-x-auto rounded-lg border bg-muted/50 p-4;
+}
+
+.prose pre code {
+  @apply bg-transparent p-0 text-sm;
+}
