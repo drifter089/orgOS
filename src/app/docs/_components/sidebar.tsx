@@ -18,6 +18,16 @@ const docsRoutes = [
     ],
   },
   {
+    title: "Architecture",
+    items: [
+      { title: "Overview", href: "/docs/architecture", icon: Book },
+      { title: "Decisions", href: "/docs/architecture/decisions", icon: FileText },
+      { title: "Patterns", href: "/docs/architecture/patterns", icon: Code },
+      { title: "Workflow", href: "/docs/architecture/workflow", icon: FileText },
+      { title: "Performance", href: "/docs/architecture/performance", icon: FileText },
+    ],
+  },
+  {
     title: "Components",
     items: [
       { title: "Overview", href: "/docs/components", icon: Code },
@@ -42,7 +52,7 @@ function SidebarContent() {
         <div className="space-y-6">
           {docsRoutes.map((section) => (
             <div key={section.title}>
-              <h4 className="mb-2 px-4 text-sm font-semibold text-muted-foreground">
+              <h4 className="text-muted-foreground mb-2 px-4 text-sm font-semibold">
                 {section.title}
               </h4>
               <div className="space-y-1">
@@ -55,7 +65,7 @@ function SidebarContent() {
                         variant={isActive ? "secondary" : "ghost"}
                         className={cn(
                           "w-full justify-start gap-2",
-                          isActive && "bg-secondary"
+                          isActive && "bg-secondary",
                         )}
                       >
                         <Icon className="h-4 w-4" />
@@ -88,12 +98,12 @@ export function DocsSidebar() {
   return (
     <>
       {/* Desktop Sidebar */}
-      <aside className="sticky top-0 hidden h-screen w-64 overflow-hidden border-r bg-background lg:block">
+      <aside className="bg-background sticky top-0 hidden h-screen w-64 overflow-hidden border-r lg:block">
         <SidebarContent />
       </aside>
 
       {/* Mobile Sidebar */}
-      <div className="sticky top-0 z-50 flex items-center justify-between border-b bg-background p-4 lg:hidden">
+      <div className="bg-background sticky top-0 z-50 flex items-center justify-between border-b p-4 lg:hidden">
         <Link href="/docs" className="flex items-center gap-2">
           <Book className="h-6 w-6" />
           <span className="text-xl font-bold">Docs</span>
