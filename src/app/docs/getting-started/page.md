@@ -51,6 +51,41 @@ The project follows a standard Next.js 15 App Router structure:
 2. Check out [Examples](/docs/examples) for common patterns
 3. Read the API reference for detailed information
 
+## Code Quality & Linting
+
+The project uses automated code quality tools to maintain consistency:
+
+**Current Setup:**
+
+- **ESLint** - TypeScript-aware linting with Next.js rules and type-checking
+- **Prettier** - Code formatting with Tailwind CSS and import sorting plugins
+- **Husky + lint-staged** - Automatic linting/formatting on commit
+
+**How it works:**
+When you commit code, Husky runs lint-staged which automatically:
+
+1. Fixes ESLint issues and formats code for `.ts/.tsx/.js/.jsx` files
+2. Formats `.json/.md/.mdx/.css` files with Prettier
+
+**Manual commands:**
+
+```bash
+pnpm lint          # Check for linting issues
+pnpm lint:fix      # Auto-fix linting issues
+pnpm format:check  # Check code formatting
+pnpm format:write  # Auto-format code
+```
+
+**Upgrading over time:**
+To increase code quality standards:
+
+- Add stricter ESLint rules in `eslint.config.js` (eslint.config.js:21)
+- Enable more TypeScript-ESLint rules from `strict` or `strictTypeChecked` configs
+- Add custom rules for project-specific patterns
+- Configure Prettier options in `prettier.config.js` (prettier.config.js:2)
+
+The linting setup uses Prettier for all formatting (including import order) to avoid conflicts with ESLint.
+
 ## Need Help?
 
 If you run into any issues:
