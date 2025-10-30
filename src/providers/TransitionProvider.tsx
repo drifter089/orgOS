@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef } from "react";
+
 import { gsap } from "gsap";
 import { TransitionRouter } from "next-transition-router";
 
@@ -15,7 +16,7 @@ export function TransitionProvider({
   return (
     <TransitionRouter
       auto={true}
-      leave={(next, from, to) => {
+      leave={(next, _from, _to) => {
         const tl = gsap
           .timeline({
             onComplete: next,
@@ -79,11 +80,11 @@ export function TransitionProvider({
 
       <div
         ref={firstLayer}
-        className="fixed inset-0 z-999 -translate-x-full bg-card"
+        className="bg-card fixed inset-0 z-999 -translate-x-full"
       />
       <div
         ref={secondLayer}
-        className="fixed inset-0 z-999 -translate-x-full bg-card"
+        className="bg-card fixed inset-0 z-999 -translate-x-full"
       />
     </TransitionRouter>
   );

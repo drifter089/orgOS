@@ -6,10 +6,10 @@
  * TL;DR - This is where all the tRPC server stuff is created and plugged in. The pieces you will
  * need to use are documented accordingly near the end.
  */
-import { initTRPC, TRPCError } from "@trpc/server";
+import { TRPCError, initTRPC } from "@trpc/server";
+import type { withAuth } from "@workos-inc/authkit-nextjs";
 import superjson from "superjson";
 import { ZodError } from "zod";
-import { withAuth } from "@workos-inc/authkit-nextjs";
 
 import { db } from "@/server/db";
 
@@ -25,9 +25,13 @@ import { db } from "@/server/db";
  *
  * @see https://trpc.io/docs/server/context
  */
-export const createTRPCContext = async (opts: { headers: Headers }) => {
+export const createTRPCContext = async (opts: {
+  headers: Headers;
+  user?: Awaited<ReturnType<typeof withAuth>>["user"] | null;
+}) => {
   return {
     db,
+    user: opts.user ?? null,
     ...opts,
   };
 };
@@ -103,31 +107,23 @@ const timingMiddleware = t.middleware(async ({ next, path }) => {
  * Throws an UNAUTHORIZED error if the user is not authenticated.
  * Provides type-safe access to user in protected procedures.
  */
-const enforceUserIsAuthed = t.middleware(async ({ next }) => {
-  try {
-    // Call withAuth() only when this middleware is used (in protectedProcedure)
-    const { user } = await withAuth();
+const enforceUserIsAuthed = t.middleware(async ({ ctx, next }) => {
+  // Check if user exists in context (set by API route handler)
+  console.log("enforceUserIsAuthed - ctx.user:", ctx.user);
 
-    if (!user) {
-      throw new TRPCError({
-        code: "UNAUTHORIZED",
-        message: "You must be logged in to access this resource",
-      });
-    }
-
-    return next({
-      ctx: {
-        // Infers the `user` as non-nullable
-        user: user,
-      },
-    });
-  } catch (error) {
-    // If withAuth() fails or user is not authenticated, throw UNAUTHORIZED
+  if (!ctx.user) {
     throw new TRPCError({
       code: "UNAUTHORIZED",
       message: "You must be logged in to access this resource",
     });
   }
+
+  return next({
+    ctx: {
+      // Infers the `user` as non-nullable
+      user: ctx.user,
+    },
+  });
 });
 
 /**

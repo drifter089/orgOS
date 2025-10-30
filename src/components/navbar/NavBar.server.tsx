@@ -1,10 +1,22 @@
 import Link from "next/link";
+
+import { getSignUpUrl, signOut, withAuth } from "@workos-inc/authkit-nextjs";
+
 import { Button } from "@/components/ui/button";
+
 import { ThemeSwitch } from "./ThemeSwitch.client";
-import { getSignUpUrl, withAuth, signOut } from "@workos-inc/authkit-nextjs";
 
 export async function NavBar() {
-  const { user } = await withAuth();
+  // Handle optional authentication - gracefully handle routes without auth
+  let user = null;
+  try {
+    const auth = await withAuth();
+    user = auth.user ?? null;
+  } catch {
+    // Auth not available on this route (e.g., /docs excluded from middleware)
+    user = null;
+  }
+
   const signUpUrl = await getSignUpUrl();
 
   return (
@@ -23,7 +35,10 @@ export async function NavBar() {
             asChild
             className="hover:bg-accent hover:text-accent-foreground"
           >
-            <Link href="/shadcn">Shadcn</Link>
+            <Link href="/design-strategy">Design Strategy</Link>
+          </Button>
+          <Button variant="ghost" asChild>
+            <Link href="/render-strategy">Render Strategy</Link>
           </Button>
           <Button variant="ghost" asChild>
             <Link href="/docs">Docs</Link>
