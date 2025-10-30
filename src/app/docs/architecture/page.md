@@ -62,7 +62,7 @@ Our application is built on a modern, type-safe stack optimized for developer ex
 
 ## Project Structure
 
-```
+```text
 src/
 ├── app/                    # Next.js App Router pages
 │   ├── api/               # API routes (WorkOS callbacks, tRPC)
