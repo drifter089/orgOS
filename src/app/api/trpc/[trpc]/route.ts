@@ -1,5 +1,7 @@
-import { fetchRequestHandler } from "@trpc/server/adapters/fetch";
 import { type NextRequest } from "next/server";
+
+import { fetchRequestHandler } from "@trpc/server/adapters/fetch";
+import { withAuth } from "@workos-inc/authkit-nextjs";
 
 import { env } from "@/env";
 import { appRouter } from "@/server/api/root";
@@ -10,8 +12,19 @@ import { createTRPCContext } from "@/server/api/trpc";
  * handling a HTTP request (e.g. when you make requests from Client Components).
  */
 const createContext = async (req: NextRequest) => {
+  // Get user from WorkOS
+  let user = null;
+  try {
+    const auth = await withAuth();
+    user = auth.user ?? null;
+  } catch {
+    // User not authenticated
+    user = null;
+  }
+
   return createTRPCContext({
     headers: req.headers,
+    user,
   });
 };
 
@@ -25,7 +38,7 @@ const handler = (req: NextRequest) =>
       env.NODE_ENV === "development"
         ? ({ path, error }) => {
             console.error(
-              `❌ tRPC failed on ${path ?? "<no-path>"}: ${error.message}`
+              `❌ tRPC failed on ${path ?? "<no-path>"}: ${error.message}`,
             );
           }
         : undefined,

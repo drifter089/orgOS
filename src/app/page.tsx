@@ -1,14 +1,20 @@
 import Link from "next/link";
 
 import { LatestPost } from "@/app/_components/post";
-import { api, HydrateClient } from "@/trpc/server";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { HydrateClient, api } from "@/trpc/server";
 
 export default async function Home() {
   const hello = await api.post.hello({ text: "from tRPC" });
 
-  void api.post.getLatest.prefetch();
+  await api.post.getLatest.prefetch();
 
   return (
     <HydrateClient>
@@ -29,7 +35,7 @@ export default async function Home() {
               target="_blank"
               className="transition-transform hover:scale-105"
             >
-              <Card className="h-full hover:border-primary">
+              <Card className="hover:border-primary h-full">
                 <CardHeader>
                   <CardTitle className="text-2xl">First Steps →</CardTitle>
                 </CardHeader>
@@ -47,14 +53,14 @@ export default async function Home() {
               target="_blank"
               className="transition-transform hover:scale-105"
             >
-              <Card className="h-full hover:border-primary">
+              <Card className="hover:border-primary h-full">
                 <CardHeader>
                   <CardTitle className="text-2xl">Documentation →</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <CardDescription className="text-base">
-                    Learn more about Create T3 App, the libraries it uses, and how
-                    to deploy it.
+                    Learn more about Create T3 App, the libraries it uses, and
+                    how to deploy it.
                   </CardDescription>
                 </CardContent>
               </Card>

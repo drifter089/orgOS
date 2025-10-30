@@ -42,36 +42,44 @@ pnpm db:studio        # Open Prisma Studio GUI
 
 ## Architecture
 
-### Authentication Flow
+**Comprehensive documentation available in:**
 
-The app uses WorkOS AuthKit with a custom middleware setup:
+- **Fundamental Concepts:** `src/app/docs/architecture/concepts/page.md`
+  - React Server Components vs Client Components
+  - TanStack Query hydration & cache strategies
+  - tRPC dual API pattern (server caller vs client hooks)
+  - Complete data flow diagrams
 
-- Middleware (src/middleware.ts) protects routes except `/` and `/api/trpc/*`
-- tRPC handles its own authentication using `protectedProcedure` with the `enforceUserIsAuthed` middleware
-- The middleware calls WorkOS's `withAuth()` to verify user sessions
-- Protected procedures automatically throw UNAUTHORIZED errors if the user is not authenticated
+- **Integration Patterns:** `src/app/docs/architecture/patterns/page.md`
+  - Server prefetching for instant UI
+  - Cache update patterns (invalidation, direct updates, optimistic)
+  - Authentication architecture (no manual checks needed)
+  - Custom tRPC procedures (admin, role-based)
 
-### tRPC Architecture
+### Quick Reference
 
-The tRPC setup follows a dual-pattern for client and server usage:
+**Authentication:**
 
-**Client-side** (src/trpc/react.tsx):
+- WorkOS middleware (src/middleware.ts) runs on all routes, allowing unauthenticated access only to `/` and `/docs`
+- For tRPC API routes (`/api/trpc/*`), the route handler calls `withAuth()` and passes user through tRPC context
+- tRPC `protectedProcedure` validates that `ctx.user` exists and provides type-safe access
+- **No manual auth checks needed** - the route handler + protected procedures handle authentication
+- NavBar includes try-catch for graceful auth handling on public routes
+- See patterns/page.md "Authentication Architecture" section for complete flow details
 
-- Uses `api` from `createTRPCReact<AppRouter>()` for client components
-- Wrapped with `TRPCReactProvider` in the root layout
-- Uses React Query for caching and optimistic updates
+**tRPC Dual API Pattern:**
 
-**Server-side** (src/trpc/server.ts):
+- **Server Components:** Use `api` from `src/trpc/server.ts` - direct function calls, 10x faster
+- **Client Components:** Use `api` from `src/trpc/react.tsx` - React hooks with TanStack Query
+- **Data Flow:** Server prefetch → Dehydrate → Client hydrate → Background refetch
+- See concepts/page.md "tRPC: Type-Safe API Layer" section for complete flow
 
-- Uses `api` from `createHydrationHelpers` for React Server Components
-- Provides direct server-side caller with proper context
-- Use `HydrateClient` to hydrate queries from server to client
+**Adding New tRPC Routes:**
 
-**Adding New Routes**:
-
-1. Create a new router file in `src/server/api/routers/`
-2. Define procedures using `publicProcedure` or `protectedProcedure`
-3. Import and add the router to `appRouter` in `src/server/api/root.ts`
+1. Create router in `src/server/api/routers/[name].ts`
+2. Use `publicProcedure`, `protectedProcedure`, or create custom procedures (e.g., `adminProcedure`)
+3. Add router to `appRouter` in `src/server/api/root.ts`
+4. See patterns/page.md "tRPC Procedure Types & Custom Middleware" for examples
 
 ### Directory Structure
 

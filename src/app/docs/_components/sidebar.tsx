@@ -45,22 +45,29 @@ function SidebarContent() {
   const pathname = usePathname();
 
   return (
-    <div className="flex h-full flex-col gap-4 py-4">
-      <div className="px-4">
-        <Link href="/docs" className="flex items-center gap-2">
-          <Book className="h-6 w-6" />
-          <span className="text-xl font-bold">Documentation</span>
+    <div className="flex h-full flex-col overflow-hidden">
+      <div className="shrink-0 px-6 pt-6 pb-4">
+        <Link
+          href="/docs"
+          className="group flex items-center gap-3 transition-all duration-200 hover:scale-105"
+        >
+          <div className="bg-primary/10 group-hover:bg-primary/20 rounded-lg p-2 transition-colors duration-200">
+            <Book className="text-primary h-5 w-5" />
+          </div>
+          <span className="text-xl font-bold tracking-tight">
+            Documentation
+          </span>
         </Link>
       </div>
 
       <ScrollArea className="flex-1 px-3">
-        <div className="space-y-6">
+        <div className="space-y-8 py-4">
           {docsRoutes.map((section) => (
-            <div key={section.title}>
-              <h4 className="text-muted-foreground mb-2 px-4 text-sm font-semibold">
+            <div key={section.title} className="space-y-3">
+              <h4 className="text-muted-foreground/70 px-4 text-xs font-semibold tracking-wider uppercase">
                 {section.title}
               </h4>
-              <div className="space-y-1">
+              <div className="space-y-1.5">
                 {section.items.map((item) => {
                   const Icon = item.icon;
                   const isActive = pathname === item.href;
@@ -69,11 +76,18 @@ function SidebarContent() {
                       <Button
                         variant={isActive ? "secondary" : "ghost"}
                         className={cn(
-                          "w-full justify-start gap-2",
-                          isActive && "bg-secondary",
+                          "w-full justify-start gap-3 transition-all duration-200",
+                          "hover:translate-x-1",
+                          isActive && "bg-secondary font-medium shadow-sm",
+                          !isActive && "hover:bg-accent/50",
                         )}
                       >
-                        <Icon className="h-4 w-4" />
+                        <Icon
+                          className={cn(
+                            "h-4 w-4 transition-colors duration-200",
+                            isActive && "text-primary",
+                          )}
+                        />
                         {item.title}
                       </Button>
                     </Link>
@@ -85,10 +99,14 @@ function SidebarContent() {
         </div>
       </ScrollArea>
 
-      <div className="border-t px-4 pt-4">
+      <div className="shrink-0 border-t px-4 pt-4 pb-6">
         <div className="flex items-center justify-between">
           <Link href="/">
-            <Button variant="outline" size="sm">
+            <Button
+              variant="outline"
+              size="sm"
+              className="hover:bg-accent transition-all duration-200 hover:scale-105"
+            >
               ← Back to App
             </Button>
           </Link>
@@ -103,25 +121,34 @@ export function DocsSidebar() {
   return (
     <>
       {/* Desktop Sidebar */}
-      <aside className="bg-background sticky top-0 hidden h-screen w-64 overflow-hidden border-r lg:block">
+      <aside className="bg-background/95 supports-[backdrop-filter]:bg-background/60 sticky top-16 hidden h-[calc(100vh-4rem)] w-72 overflow-hidden border-r backdrop-blur lg:block">
         <SidebarContent />
       </aside>
 
       {/* Mobile Sidebar */}
-      <div className="bg-background sticky top-0 z-50 flex items-center justify-between border-b p-4 lg:hidden">
-        <Link href="/docs" className="flex items-center gap-2">
-          <Book className="h-6 w-6" />
-          <span className="text-xl font-bold">Docs</span>
+      <div className="bg-background/95 supports-[backdrop-filter]:bg-background/60 sticky top-16 z-50 flex items-center justify-between border-b px-6 py-5 backdrop-blur lg:hidden">
+        <Link
+          href="/docs"
+          className="group flex items-center gap-3 transition-all duration-200 hover:scale-105"
+        >
+          <div className="bg-primary/10 group-hover:bg-primary/20 rounded-lg p-2 transition-colors duration-200">
+            <Book className="text-primary h-5 w-5" />
+          </div>
+          <span className="text-xl font-bold tracking-tight">Docs</span>
         </Link>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-3">
           <ThemeSwitch />
           <Sheet>
             <SheetTrigger asChild>
-              <Button variant="outline" size="icon">
+              <Button
+                variant="outline"
+                size="icon"
+                className="hover:bg-accent transition-all duration-200 hover:scale-105"
+              >
                 <Menu className="h-5 w-5" />
               </Button>
             </SheetTrigger>
-            <SheetContent side="left" className="w-64 p-0">
+            <SheetContent side="left" className="w-72 p-0">
               <SidebarContent />
             </SheetContent>
           </Sheet>
