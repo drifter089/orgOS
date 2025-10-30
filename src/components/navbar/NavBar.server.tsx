@@ -35,10 +35,14 @@ export async function NavBar() {
             asChild
             className="hover:bg-accent hover:text-accent-foreground"
           >
-            <Link href="/design-strategy">Design Strategy</Link>
+            <Link href="/design-strategy" prefetch={false}>
+              Design Strategy
+            </Link>
           </Button>
           <Button variant="ghost" asChild>
-            <Link href="/render-strategy">Render Strategy</Link>
+            <Link href="/render-strategy" prefetch={false}>
+              Render Strategy
+            </Link>
           </Button>
           <Button variant="ghost" asChild>
             <Link href="/docs">Docs</Link>
@@ -53,13 +57,17 @@ export async function NavBar() {
                 asChild
                 className="hover:bg-accent hover:text-accent-foreground"
               >
-                <Link href="/login">Sign in</Link>
+                <Link href="/login" prefetch={false}>
+                  Sign in
+                </Link>
               </Button>
               <Button
                 asChild
                 className="bg-primary text-primary-foreground hover:bg-primary/90 shadow-sm"
               >
-                <Link href={signUpUrl}>Sign up</Link>
+                <Link href={signUpUrl} prefetch={false}>
+                  Sign up
+                </Link>
               </Button>
             </>
           ) : (
