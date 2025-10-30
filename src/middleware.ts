@@ -5,7 +5,6 @@ export default authkitMiddleware({
     enabled: true,
     unauthenticatedPaths: [
       "/", // Public home page
-      "/docs",
     ],
   },
 });
@@ -17,7 +16,8 @@ export const config = {
      * - _next/static (static files)
      * - _next/image (image optimization)
      * - favicon.ico (favicon)
+     * - docs (all documentation routes)
      */
-    "/((?!_next/static|_next/image|favicon.ico).*)",
+    "/((?!_next/static|_next/image|favicon.ico|docs).*)",
   ],
 };
