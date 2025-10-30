@@ -1,10 +1,9 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 
-@custom-variant dark (&:is(.dark *));
-
 @theme {
-  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif,
+  --font-sans:
+    var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif,
     "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
 }
 
@@ -124,80 +123,6 @@
   }
 }
 
-/* Enhanced Syntax Highlighting Styles for rehype-pretty-code */
-code {
-  counter-reset: line;
-  font-variant-ligatures: none;
-  font-feature-settings: normal;
-}
-
-code[data-theme*=" "],
-code[data-theme*=" "] span {
-  color: var(--shiki-light);
-  background-color: var(--shiki-light-bg);
-}
-
-@media (prefers-color-scheme: dark) {
-  code[data-theme*=" "],
-  code[data-theme*=" "] span {
-    color: var(--shiki-dark);
-    background-color: var(--shiki-dark-bg);
-  }
-}
-
-.dark code[data-theme*=" "],
-.dark code[data-theme*=" "] span {
-  color: var(--shiki-dark);
-  background-color: var(--shiki-dark-bg);
-}
-
-/* Enhanced line numbers */
-code[data-line-numbers] {
-  counter-reset: line;
-}
-
-code[data-line-numbers] > [data-line]::before {
-  counter-increment: line;
-  content: counter(line);
-  display: inline-block;
-  width: 2rem;
-  margin-right: 2rem;
-  text-align: right;
-  color: oklch(0.552 0.016 285.938 / 0.5);
-  user-select: none;
-  font-size: 0.875em;
-}
-
-.dark code[data-line-numbers] > [data-line]::before {
-  color: oklch(0.705 0.015 286.067 / 0.6);
-}
-
-code[data-line-numbers-max-digits="2"] > [data-line]::before {
-  width: 2.5rem;
-}
-
-code[data-line-numbers-max-digits="3"] > [data-line]::before {
-  width: 3rem;
-}
-
-/* Code lines */
-code > [data-line] {
-  padding-left: 1rem;
-  padding-right: 1rem;
-  border-left: 2px solid transparent;
-}
-
-/* Highlighted lines */
-[data-highlighted-line] {
-  background-color: oklch(0.705 0.015 286.067 / 0.08);
-  border-left-color: oklch(0.705 0.015 286.067) !important;
-}
-
-.dark [data-highlighted-line] {
-  background-color: oklch(0.705 0.015 286.067 / 0.12);
-  border-left-color: oklch(0.92 0.004 286.32 / 0.4) !important;
-}
-
 /* Enhanced Prose styles for MDX content */
 .prose {
   @apply text-foreground/90;
@@ -207,26 +132,34 @@ code > [data-line] {
 
 /* Inline code */
 .prose code {
-  @apply rounded bg-muted/80 px-1.5 py-0.5 font-mono text-[0.875em] font-medium border border-border/50;
+  @apply bg-muted/80 border-border/50 rounded border px-1.5 py-0.5 font-mono text-[0.875em] font-medium;
   word-wrap: break-word;
 }
 
 /* Code blocks */
 .prose pre {
-  @apply overflow-x-auto rounded-xl border-2 border-border/40 shadow-lg my-10;
-  background: linear-gradient(to bottom, oklch(0.967 0.001 286.375), oklch(0.95 0.001 286.375));
+  @apply border-border/40 my-10 overflow-x-auto rounded-xl border-2 shadow-lg;
+  background: linear-gradient(
+    to bottom,
+    oklch(0.967 0.001 286.375),
+    oklch(0.95 0.001 286.375)
+  );
   padding: 1.5rem;
   line-height: 1.6;
   font-size: 0.875rem;
 }
 
 .dark .prose pre {
-  background: linear-gradient(to bottom, oklch(0.21 0.006 285.885), oklch(0.19 0.006 285.885));
+  background: linear-gradient(
+    to bottom,
+    oklch(0.21 0.006 285.885),
+    oklch(0.19 0.006 285.885)
+  );
   border-color: oklch(1 0 0 / 0.15);
 }
 
 .prose pre code {
-  @apply bg-transparent p-0 border-0;
+  @apply border-0 bg-transparent p-0;
   display: block;
   font-size: inherit;
   line-height: inherit;
@@ -291,28 +224,32 @@ code > [data-line] {
 }
 
 .prose pre:hover {
-  box-shadow: 0 10px 25px -5px oklch(0 0 0 / 0.1), 0 8px 10px -6px oklch(0 0 0 / 0.1);
+  box-shadow:
+    0 10px 25px -5px oklch(0 0 0 / 0.1),
+    0 8px 10px -6px oklch(0 0 0 / 0.1);
 }
 
 .dark .prose pre:hover {
-  box-shadow: 0 10px 25px -5px oklch(0 0 0 / 0.3), 0 8px 10px -6px oklch(0 0 0 / 0.2);
+  box-shadow:
+    0 10px 25px -5px oklch(0 0 0 / 0.3),
+    0 8px 10px -6px oklch(0 0 0 / 0.2);
 }
 
 /* Enhanced prose typography */
 .prose h1 {
-  @apply text-5xl font-bold leading-tight tracking-tight mb-8 mt-2 text-foreground;
+  @apply text-foreground mt-2 mb-8 text-5xl leading-tight font-bold tracking-tight;
 }
 
 .prose h2 {
-  @apply text-3xl font-bold leading-tight tracking-tight mt-16 mb-6 pb-3 border-b text-foreground;
+  @apply text-foreground mt-16 mb-6 border-b pb-3 text-3xl leading-tight font-bold tracking-tight;
 }
 
 .prose h3 {
-  @apply text-2xl font-semibold leading-snug tracking-tight mt-12 mb-5 text-foreground;
+  @apply text-foreground mt-12 mb-5 text-2xl leading-snug font-semibold tracking-tight;
 }
 
 .prose h4 {
-  @apply text-xl font-semibold leading-snug tracking-tight mt-8 mb-4 text-foreground;
+  @apply text-foreground mt-8 mb-4 text-xl leading-snug font-semibold tracking-tight;
 }
 
 .prose p {
@@ -329,11 +266,11 @@ code > [data-line] {
 }
 
 .prose strong {
-  @apply font-semibold text-foreground;
+  @apply text-foreground font-semibold;
 }
 
 .prose a {
-  @apply font-medium text-primary underline decoration-primary/30 underline-offset-4 transition-colors;
+  @apply text-primary decoration-primary/30 font-medium underline underline-offset-4 transition-colors;
 }
 
 .prose a:hover {
@@ -341,15 +278,15 @@ code > [data-line] {
 }
 
 .prose blockquote {
-  @apply my-8 border-l-4 border-primary/50 bg-muted/30 py-4 pl-6 pr-4 italic leading-relaxed;
+  @apply border-primary/50 bg-muted/30 my-8 border-l-4 py-4 pr-4 pl-6 leading-relaxed italic;
 }
 
 .prose hr {
-  @apply my-12 border-t-2 border-border/30;
+  @apply border-border/30 my-12 border-t-2;
 }
 
 .prose table {
-  @apply my-10 rounded-lg border border-border/50 shadow-sm;
+  @apply border-border/50 my-10 rounded-lg border shadow-sm;
 }
 
 .prose thead {
@@ -357,15 +294,15 @@ code > [data-line] {
 }
 
 .prose th {
-  @apply border-b border-border/50 px-6 py-4 font-semibold;
+  @apply border-border/50 border-b px-6 py-4 font-semibold;
 }
 
 .prose td {
-  @apply border-b border-border/30 px-6 py-4;
+  @apply border-border/30 border-b px-6 py-4;
 }
 
 .prose img {
-  @apply rounded-xl border-2 border-border/50 shadow-md my-10;
+  @apply border-border/50 my-10 rounded-xl border-2 shadow-md;
 }
 
 /* Mermaid diagram styles */

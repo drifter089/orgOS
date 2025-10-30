@@ -624,7 +624,9 @@ export default function ShadcnShowcasePage() {
                 <Checkbox
                   id="terms"
                   checked={checkedState}
-                  onCheckedChange={setCheckedState}
+                  onCheckedChange={(checked) =>
+                    setCheckedState(checked === true)
+                  }
                 />
                 <Label
                   htmlFor="terms"

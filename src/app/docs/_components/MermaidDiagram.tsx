@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+
 import mermaid from "mermaid";
 import { useTheme } from "next-themes";
 
@@ -40,17 +41,21 @@ export function MermaidDiagram({ chart }: MermaidDiagramProps) {
         setSvg(renderedSvg);
       } catch (error) {
         console.error("Failed to render mermaid diagram:", error);
-        setSvg(`<pre class="text-destructive">Error rendering diagram: ${error}</pre>`);
+        const errorMessage =
+          error instanceof Error ? error.message : String(error);
+        setSvg(
+          `<pre class="text-destructive">Error rendering diagram: ${errorMessage}</pre>`,
+        );
       }
     };
 
-    renderDiagram();
+    void renderDiagram();
   }, [chart, theme]);
 
   return (
     <div
       ref={containerRef}
-      className="my-10 flex justify-center overflow-x-auto rounded-xl border-2 border-border/50 bg-card p-6 shadow-sm"
+      className="border-border/50 bg-card my-10 flex justify-center overflow-x-auto rounded-xl border-2 p-6 shadow-sm"
       dangerouslySetInnerHTML={{ __html: svg }}
     />
   );
