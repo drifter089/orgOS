@@ -60,10 +60,12 @@ pnpm db:studio        # Open Prisma Studio GUI
 
 **Authentication:**
 
-- WorkOS middleware (src/middleware.ts) protects routes except `/` and `/api/trpc/*`
-- tRPC `protectedProcedure` automatically validates auth and provides type-safe `ctx.user`
-- **No manual auth checks needed** on protected routes - middleware + protected procedures handle it
-- See patterns/page.md "Authentication Architecture" section for details
+- WorkOS middleware (src/middleware.ts) runs on all routes, allowing unauthenticated access only to `/` and `/docs`
+- For tRPC API routes (`/api/trpc/*`), the route handler calls `withAuth()` and passes user through tRPC context
+- tRPC `protectedProcedure` validates that `ctx.user` exists and provides type-safe access
+- **No manual auth checks needed** - the route handler + protected procedures handle authentication
+- NavBar includes try-catch for graceful auth handling on public routes
+- See patterns/page.md "Authentication Architecture" section for complete flow details
 
 **tRPC Dual API Pattern:**
 

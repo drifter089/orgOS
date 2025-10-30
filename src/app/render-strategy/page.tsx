@@ -8,7 +8,7 @@ import { QueryInvalidationDemo } from "./_components/QueryInvalidationDemo";
 export default async function RenderStrategyPage() {
   // Server-side data prefetching (direct function call, ~5ms)
   // This populates the TanStack Query cache before hydration
-  void api.task.getAll.prefetch();
+  await api.task.getAll.prefetch();
 
   return (
     <HydrateClient>

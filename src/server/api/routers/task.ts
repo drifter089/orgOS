@@ -1,3 +1,4 @@
+import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 
 import { createTRPCRouter, protectedProcedure } from "@/server/api/trpc";
@@ -58,7 +59,10 @@ export const taskRouter = createTRPCRouter({
       });
 
       if (!task) {
-        throw new Error("Task not found or unauthorized");
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "Task not found or unauthorized",
+        });
       }
 
       // Toggle the completed status
@@ -86,7 +90,10 @@ export const taskRouter = createTRPCRouter({
       });
 
       if (!task) {
-        throw new Error("Task not found or unauthorized");
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "Task not found or unauthorized",
+        });
       }
 
       return ctx.db.task.update({
@@ -108,7 +115,10 @@ export const taskRouter = createTRPCRouter({
       });
 
       if (!task) {
-        throw new Error("Task not found or unauthorized");
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "Task not found or unauthorized",
+        });
       }
 
       return ctx.db.task.delete({

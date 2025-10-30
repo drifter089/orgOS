@@ -108,9 +108,6 @@ const timingMiddleware = t.middleware(async ({ next, path }) => {
  * Provides type-safe access to user in protected procedures.
  */
 const enforceUserIsAuthed = t.middleware(async ({ ctx, next }) => {
-  // Check if user exists in context (set by API route handler)
-  console.log("enforceUserIsAuthed - ctx.user:", ctx.user);
-
   if (!ctx.user) {
     throw new TRPCError({
       code: "UNAUTHORIZED",

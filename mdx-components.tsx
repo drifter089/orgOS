@@ -1,21 +1,25 @@
-import type { ComponentType, ReactElement, ReactNode } from "react";
+import type {
+  ComponentType,
+  ImgHTMLAttributes,
+  ReactElement,
+  ReactNode,
+} from "react";
 
 import Image from "next/image";
 import Link from "next/link";
 
 import { CodeBlock } from "@/app/docs/_components/CodeBlock";
+import { MermaidDiagram } from "@/app/docs/_components/MermaidDiagram";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-
-import { MermaidDiagram } from "./src/app/docs/_components/MermaidDiagram";
-import { Alert, AlertDescription, AlertTitle } from "./src/components/ui/alert";
-import { Badge } from "./src/components/ui/badge";
 import {
   Card,
   CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
-} from "./src/components/ui/card";
+} from "@/components/ui/card";
 
 type MDXComponents = Record<
   string,
@@ -84,7 +88,7 @@ export function useMDXComponents(
     },
 
     // Custom image with Next.js Image component
-    img: (props: React.ImgHTMLAttributes<HTMLImageElement>) => {
+    img: (props: ImgHTMLAttributes<HTMLImageElement>) => {
       const src = typeof props.src === "string" ? props.src : "";
       return (
         <div className="my-16">
