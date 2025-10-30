@@ -1,177 +1,162 @@
 # Architecture Overview
 
-This section provides comprehensive documentation of the application's architecture, including technical decisions, patterns, and best practices.
+Quick reference guide to understand the tech stack and codebase organization.
 
 ## Documentation Structure
 
-- **[Overview](#tech-stack)** - Tech stack, request flows, and folder structure (this page)
-- **[Decisions](/docs/architecture/decisions)** - Architectural decisions with rationale and trade-offs
-- **[Patterns](/docs/architecture/patterns)** - Common integration patterns with code examples
-- **[Workflow](/docs/architecture/workflow)** - Development workflow and best practices
-- **[Performance](/docs/architecture/performance)** - Optimizations and environment setup
+- **Overview** (this page) - Tech stack and folder structure to understand the codebase
+- **[Concepts](/docs/architecture/concepts)** - Architectural theory and principles
+- **[Patterns](/docs/architecture/patterns)** - Real code examples showing do's and don'ts
+- **[Decisions](/docs/architecture/decisions)** - Why we chose specific technologies with rationale
 
 ---
 
 ## Tech Stack
 
-**Core Framework:**
-- Next.js 15.2.3 (App Router, React 19)
-- TypeScript 5.8.2
-- Node.js with pnpm
+Our application is built on a modern, type-safe stack optimized for developer experience and performance.
 
-**Data & API Layer:**
-- PostgreSQL database
-- Prisma 6.5.0 (ORM)
-- tRPC 11.0.0 (type-safe APIs)
-- TanStack Query 5.69.0 (client state)
-- Zod 3.24.2 (validation)
-- SuperJSON 2.2.1 (serialization)
+### Core Framework
 
-**Authentication:**
-- WorkOS AuthKit 2.10.0
+- **Next.js 15.2.3** - React framework with App Router
+- **React 19.0.0** - UI library
+- **TypeScript 5.8.2** - Type-safe JavaScript
+- **pnpm 10.17.1** - Fast, disk space efficient package manager
 
-**UI & Styling:**
-- Tailwind CSS 4.0.15
-- Shadcn UI (50+ components)
-- Radix UI primitives
-- Lucide React (icons)
-- next-themes (dark mode)
+### Data & API Layer
 
-**Animations:**
-- GSAP 3.13.0
-- next-transition-router
+- **PostgreSQL** - Primary database
+- **Prisma 6.5.0** - Type-safe ORM with migration support
+- **tRPC 11.0.0** - End-to-end type-safe APIs
+- **TanStack Query 5.69.0** - Powerful data synchronization
+- **Zod 3.24.2** - Schema validation
+- **SuperJSON 2.2.1** - Transparent serialization
 
-**Additional:**
-- MDX 3.1.1 (documentation)
-- react-hook-form + Zod (forms)
-- date-fns, recharts, sonner
+### Authentication
 
----
+- **WorkOS AuthKit 2.10.0** - Enterprise-ready authentication
 
-## High-Level Architecture
+### UI & Styling
 
-### Request Flow
+- **Tailwind CSS 4.0.15** - Utility-first CSS framework
+- **shadcn/ui** - High-quality React components
+- **Radix UI** - Unstyled, accessible component primitives
+- **Lucide React** - Beautiful & consistent icons
+- **next-themes 0.4.6** - Dark mode support
 
-**Server Component Flow:**
-```
-User Request
-  ↓
-Next.js App Router
-  ↓
-Server Component (async)
-  ↓
-tRPC Server Caller (direct, no HTTP)
-  ↓
-tRPC Router + Middleware
-  ↓
-Prisma Query
-  ↓
-PostgreSQL
-  ↓
-Response rendered server-side
-```
+### Developer Experience
 
-**Client Component Flow:**
-```
-User Interaction
-  ↓
-Client Component
-  ↓
-TanStack Query + tRPC React
-  ↓
-HTTP Request to /api/trpc
-  ↓
-tRPC Router + Middleware
-  ↓
-Prisma Query
-  ↓
-PostgreSQL
-  ↓
-JSON Response (SuperJSON serialized)
-  ↓
-Client cache updated
-```
+- **ESLint** - Code linting with Next.js config
+- **Prettier** - Code formatting with import sorting
+- **Husky & lint-staged** - Git hooks for code quality
+- **Playwright** - E2E testing framework
 
-**Authentication Flow:**
-```
-Request
-  ↓
-Next.js Middleware (WorkOS authkitMiddleware)
-  ├─ Public routes (/, /api/trpc/*) → Allow
-  └─ Protected routes → Check session
-       ├─ No session → Redirect to login
-       └─ Has session → Continue
-  ↓
-Route Handler / Component
-  ↓
-(Optional) tRPC protectedProcedure
-  ├─ withAuth() → Get user
-  └─ No user → UNAUTHORIZED error
-```
+### Additional Libraries
+
+- **MDX 3.1.1** - Markdown for documentation with JSX
+- **GSAP 3.13.0** - Professional-grade animations
+- **react-hook-form 7.65.0** - Performant forms with Zod validation
+- **Mermaid 11.12.1** - Diagram and flowchart generation
+- **react-syntax-highlighter 16.1.0** - Code syntax highlighting
 
 ---
 
-## Folder Structure
+## Project Structure
 
 ```
 src/
-├── app/                    # Next.js App Router
+├── app/                    # Next.js App Router pages
+│   ├── api/               # API routes (WorkOS callbacks, tRPC)
+│   ├── docs/              # MDX documentation
+│   ├── shadcn/            # Component showcase
+│   └── _components/       # Page-specific components
+├── components/            # Shared UI components
+│   ├── ui/               # shadcn/ui components
+│   └── navbar/           # Navigation components
+├── server/               # Backend logic (server-only)
 │   ├── api/
-│   │   ├── callback/       # WorkOS auth callback
-│   │   ├── login/          # Login redirect
-│   │   └── trpc/[trpc]/    # tRPC HTTP endpoint
-│   ├── docs/               # Documentation site (MDX)
-│   ├── shadcn/             # Component showcase
-│   ├── _components/        # Page-specific components
-│   ├── layout.tsx          # Root layout (providers)
-│   └── page.tsx            # Home page (Server Component)
-│
-├── components/             # Shared components
-│   ├── navbar/
-│   │   ├── NavBar.server.tsx    # Server Component
-│   │   └── ThemeSwitch.client.tsx # Client Component
-│   └── ui/                 # Shadcn UI components (50+)
-│
-├── server/                 # Backend code (server-only)
-│   ├── api/
-│   │   ├── routers/        # tRPC routers (feature-based)
-│   │   │   └── post.ts     # Example: Post router
-│   │   ├── root.ts         # Root router (combines all)
-│   │   └── trpc.ts         # tRPC config + middleware
-│   └── db.ts               # Prisma client singleton
-│
-├── trpc/                   # tRPC client setup
-│   ├── react.tsx           # Client-side provider
-│   ├── server.ts           # Server-side caller (RSC)
-│   └── query-client.ts     # TanStack Query config
-│
-├── providers/              # React context providers
-│   ├── ThemeProvider.tsx   # Dark mode
-│   └── TransitionProvider.tsx # GSAP transitions
-│
-├── hooks/                  # Custom React hooks
-│   └── use-mobile.ts
-│
-├── lib/                    # Utilities
-│   └── utils.ts            # cn() helper
-│
-├── styles/
-│   └── globals.css         # Tailwind + CSS variables
-│
-├── env.js                  # Environment validation
-└── middleware.ts           # WorkOS authentication
+│   │   ├── routers/     # tRPC routers by feature
+│   │   ├── root.ts      # Root router
+│   │   └── trpc.ts      # tRPC setup
+│   └── db.ts            # Prisma client
+├── trpc/                 # tRPC client configuration
+│   ├── react.tsx        # React Query integration
+│   └── server.ts        # Server-side caller
+├── providers/            # React context providers
+├── hooks/               # Custom React hooks
+├── lib/                 # Utility functions
+├── styles/              # Global CSS
+├── env.js               # Environment validation
+└── middleware.ts        # Auth middleware
 ```
 
+### Directory Breakdown
+
+#### `/app` - Routes and Pages
+
+All application routes using Next.js App Router:
+
+- **`/api`** - API routes for WorkOS callbacks and tRPC endpoint
+- **`/docs`** - MDX documentation site
+- **`/_components`** - Page-specific components (not reused elsewhere)
+- **`layout.tsx`** - Root layout that wraps all pages with providers
+- **`page.tsx`** - Homepage (Server Component by default)
+
+#### `/server` - Backend Code
+
+Server-only code for business logic and data:
+
+- **`/api/routers/`** - tRPC routers organized by feature (e.g., `post.ts`, `user.ts`)
+- **`/api/root.ts`** - Combines all routers into the main app router
+- **`/api/trpc.ts`** - tRPC configuration, context, and middleware
+- **`db.ts`** - Prisma client singleton
+
+#### `/trpc` - Client Configuration
+
+tRPC client setup for React components:
+
+- **`react.tsx`** - React Query integration for client components
+- **`server.ts`** - Server-side caller for React Server Components
+- **`query-client.ts`** - TanStack Query configuration
+
+#### `/components` - Shared UI
+
+Reusable components across the app:
+
+- **`/ui/`** - shadcn/ui components (50+ components)
+- **`/navbar/`** - Navigation with `.server.tsx` and `.client.tsx` variants
+- Root level for custom shared components
+
+#### `/providers` - Context Providers
+
+Global React contexts:
+
+- **`ThemeProvider.tsx`** - Dark/light mode management
+- **`TransitionProvider.tsx`** - Page transition animations
+
+#### `/hooks` - Custom Hooks
+
+Reusable React hooks for common functionality
+
 ---
 
-## Quick Links
+## Naming Conventions
 
-For detailed information, see:
-- **[Architectural Decisions](/docs/architecture/decisions)** - Why we chose tRPC, Server Components, Prisma, and more
-- **[Integration Patterns](/docs/architecture/patterns)** - Common code patterns with examples
-- **[Development Workflow](/docs/architecture/workflow)** - How to add features and follow best practices
-- **[Performance & Environment](/docs/architecture/performance)** - Optimizations and env setup
+### File Naming
 
----
+**Components:**
 
-**Living Document:** This architecture documentation will evolve as the codebase grows.
+- UI Components: `kebab-case.tsx` (e.g., `button.tsx`, `dialog.tsx`)
+- Server Components: `ComponentName.server.tsx`
+- Client Components: `ComponentName.client.tsx`
+
+**API & Utilities:**
+
+- tRPC Routers: `camelCase.ts` matching the resource (e.g., `post.ts`, `user.ts`)
+- Hooks: `use-hook-name.ts` (e.g., `use-mobile.ts`)
+- Utilities: `kebab-case.ts`
+
+### Import Conventions
+
+- Use `~` alias for src directory imports (e.g., `~/lib/utils`)
+- Group imports: React → Third-party → Local → Types
+- Prefer named exports for components

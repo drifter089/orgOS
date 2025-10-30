@@ -2,12 +2,14 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { cn } from "@/lib/utils";
+
+import { Book, Code, FileText, Home, Menu } from "lucide-react";
+
+import { ThemeSwitch } from "@/components/navbar/ThemeSwitch.client";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
-import { Menu, FileText, Home, Book, Code } from "lucide-react";
-import { ThemeSwitch } from "@/components/navbar/ThemeSwitch.client";
+import { cn } from "@/lib/utils";
 
 const docsRoutes = [
   {
@@ -22,10 +24,12 @@ const docsRoutes = [
     items: [
       { title: "Overview", href: "/docs/architecture", icon: Book },
       { title: "Concepts", href: "/docs/architecture/concepts", icon: Book },
-      { title: "Decisions", href: "/docs/architecture/decisions", icon: FileText },
       { title: "Patterns", href: "/docs/architecture/patterns", icon: Code },
-      { title: "Workflow", href: "/docs/architecture/workflow", icon: FileText },
-      { title: "Performance", href: "/docs/architecture/performance", icon: FileText },
+      {
+        title: "Decisions",
+        href: "/docs/architecture/decisions",
+        icon: FileText,
+      },
     ],
   },
   {
