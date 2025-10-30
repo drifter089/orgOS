@@ -17,9 +17,9 @@ import {
   CardTitle,
 } from "./src/components/ui/card";
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 type MDXComponents = Record<
   string,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   | ComponentType<any>
   | ReactElement
   | ((props: Record<string, unknown>) => ReactElement)
@@ -84,17 +84,20 @@ export function useMDXComponents(
     },
 
     // Custom image with Next.js Image component
-    img: (props: React.ImgHTMLAttributes<HTMLImageElement>) => (
-      <div className="my-16">
-        <Image
-          src={props.src ?? ""}
-          alt={props.alt ?? ""}
-          width={800}
-          height={600}
-          className="border-border/30 rounded-xl border-2 shadow-lg transition-all duration-300 hover:shadow-xl"
-        />
-      </div>
-    ),
+    img: (props: React.ImgHTMLAttributes<HTMLImageElement>) => {
+      const src = typeof props.src === "string" ? props.src : "";
+      return (
+        <div className="my-16">
+          <Image
+            src={src}
+            alt={props.alt ?? ""}
+            width={800}
+            height={600}
+            className="border-border/30 rounded-xl border-2 shadow-lg transition-all duration-300 hover:shadow-xl"
+          />
+        </div>
+      );
+    },
 
     // Horizontal rule with more spacing
     hr: () => <hr className="border-border/20 my-20 border-t-2" />,
