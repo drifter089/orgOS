@@ -21,17 +21,17 @@ export function LiveTaskList() {
   if (isLoading) {
     return (
       <div className="space-y-4">
-        <div className="grid grid-cols-3 gap-4 rounded-lg border-2 border-orange-200 bg-orange-50 p-4 dark:border-orange-800 dark:bg-orange-950/20">
+        <div className="border-muted bg-muted/50 grid grid-cols-3 gap-4 rounded-lg border-2 p-4">
           <div className="text-center">
             <div className="text-foreground text-2xl font-bold">...</div>
             <div className="text-muted-foreground text-xs">Total Tasks</div>
           </div>
           <div className="text-center">
-            <div className="text-2xl font-bold text-blue-600">...</div>
+            <div className="text-foreground text-2xl font-bold">...</div>
             <div className="text-muted-foreground text-xs">Pending</div>
           </div>
           <div className="text-center">
-            <div className="text-2xl font-bold text-green-600">...</div>
+            <div className="text-foreground text-2xl font-bold">...</div>
             <div className="text-muted-foreground text-xs">Completed</div>
           </div>
         </div>
@@ -45,17 +45,19 @@ export function LiveTaskList() {
   return (
     <div className="space-y-4">
       {/* Stats - Auto-updates when mutations run */}
-      <div className="grid grid-cols-3 gap-4 rounded-lg border-2 border-orange-200 bg-orange-50 p-4 dark:border-orange-800 dark:bg-orange-950/20">
+      <div className="border-muted bg-muted/50 grid grid-cols-3 gap-4 rounded-lg border-2 p-4">
         <div className="text-center">
           <div className="text-foreground text-2xl font-bold">{totalTasks}</div>
           <div className="text-muted-foreground text-xs">Total Tasks</div>
         </div>
         <div className="text-center">
-          <div className="text-2xl font-bold text-blue-600">{pendingTasks}</div>
+          <div className="text-foreground text-2xl font-bold">
+            {pendingTasks}
+          </div>
           <div className="text-muted-foreground text-xs">Pending</div>
         </div>
         <div className="text-center">
-          <div className="text-2xl font-bold text-green-600">
+          <div className="text-foreground text-2xl font-bold">
             {completedTasks}
           </div>
           <div className="text-muted-foreground text-xs">Completed</div>
@@ -68,7 +70,7 @@ export function LiveTaskList() {
           All Tasks ({totalTasks}):
         </div>
         {totalTasks === 0 ? (
-          <div className="text-muted-foreground rounded-lg border border-dashed p-8 text-center text-sm">
+          <div className="border-border text-muted-foreground rounded-lg border border-dashed p-8 text-center text-sm">
             No tasks yet. Create one using the forms below!
           </div>
         ) : (
@@ -76,13 +78,13 @@ export function LiveTaskList() {
             {tasks?.map((task) => (
               <div
                 key={task.id}
-                className="flex items-center justify-between rounded-lg border-2 border-slate-200 bg-slate-50 p-3 shadow-sm transition-all hover:shadow-md dark:border-slate-700 dark:bg-slate-900"
+                className="border-border bg-card flex items-center justify-between rounded-lg border-2 p-3 shadow-sm transition-all hover:shadow-md"
               >
                 <div className="flex items-center gap-3">
                   {task.completed ? (
-                    <CheckCircle2 className="h-5 w-5 flex-shrink-0 text-green-600" />
+                    <CheckCircle2 className="text-primary h-5 w-5 flex-shrink-0" />
                   ) : (
-                    <Circle className="h-5 w-5 flex-shrink-0 text-blue-600" />
+                    <Circle className="text-muted-foreground h-5 w-5 flex-shrink-0" />
                   )}
                   <span className="text-foreground text-sm font-semibold">
                     {task.title}
@@ -92,14 +94,12 @@ export function LiveTaskList() {
                   {task.completed && (
                     <Badge
                       variant="outline"
-                      className="border-green-600 bg-green-50 text-green-700 dark:bg-green-950 dark:text-green-400"
+                      className="border-primary/50 bg-primary/10 text-primary"
                     >
                       Done
                     </Badge>
                   )}
-                  <Badge className="bg-purple-600 text-white">
-                    P{task.priority}
-                  </Badge>
+                  <Badge variant="secondary">P{task.priority}</Badge>
                 </div>
               </div>
             ))}
