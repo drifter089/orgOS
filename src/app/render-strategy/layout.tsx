@@ -27,24 +27,6 @@ export default function RenderStrategyLayout({
             with nested Server/Client components
           </p>
         </div>
-
-        <div className="bg-card rounded-lg border p-4 text-sm">
-          <p className="mb-2 font-medium">What you&apos;ll see:</p>
-          <ul className="text-muted-foreground ml-4 list-disc space-y-1">
-            <li>
-              <strong>Query Invalidation:</strong> Safest pattern - refetches
-              from server after mutation
-            </li>
-            <li>
-              <strong>Direct Cache Updates:</strong> Efficient pattern - updates
-              cache using mutation response
-            </li>
-            <li>
-              <strong>Optimistic Updates:</strong> Best UX - instant UI feedback
-              with error rollback
-            </li>
-          </ul>
-        </div>
       </div>
 
       {children}

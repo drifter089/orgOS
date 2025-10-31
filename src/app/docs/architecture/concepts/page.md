@@ -886,6 +886,29 @@ graph TD
 4. **Prefetch on server** → Eliminate loading states
 5. **Invalidate after mutations** → Keep cache synchronized
 
+### Server Components for Dynamic Data
+
+You CAN use Server Components throughout your app for displaying data, but for data that changes with mutations, Client Components reading from TanStack Query cache is actually the better pattern (which is why T3 Stack uses it).
+
+**Alternative approaches to update Server Components after mutations:**
+
+- `router.refresh()` - Re-runs all Server Components on the current route
+- `revalidatePath()` - Re-validates specific paths (used in Server Actions)
+
+**Why T3 Stack prefers the Client Component pattern:**
+
+The Server prefetch → Client Component reads cache → mutations update cache pattern provides better UX with:
+
+- Instant UI updates without full page re-renders
+- Optimistic updates for immediate feedback
+- Granular cache invalidation control
+- Seamless integration with TanStack Query's synchronization
+
+**When to use each approach:**
+
+- **Server Components alone:** Static content, rarely-changing data, or simple pages without user mutations
+- **Server prefetch + Client Components (T3 pattern):** Interactive features with frequent mutations, forms, dashboards, or any UI requiring instant feedback
+
 ---
 
 ## Additional Resources

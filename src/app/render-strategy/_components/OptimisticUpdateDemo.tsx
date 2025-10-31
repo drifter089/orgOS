@@ -194,14 +194,6 @@ export function OptimisticUpdateDemo() {
             )
           )}
         </div>
-
-        {/* Pattern Explanation */}
-        <div className="bg-muted text-muted-foreground rounded-md p-3 text-xs">
-          <strong className="text-foreground">How it works:</strong> Update
-          cache immediately in onMutate (before server responds). Store previous
-          state for rollback. If mutation fails, restore previous state. Instant
-          UI feedback!
-        </div>
       </CardContent>
     </Card>
   );

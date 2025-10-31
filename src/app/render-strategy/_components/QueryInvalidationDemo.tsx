@@ -155,13 +155,6 @@ export function QueryInvalidationDemo() {
             )
           )}
         </div>
-
-        {/* Pattern Explanation */}
-        <div className="bg-muted text-muted-foreground rounded-md p-3 text-xs">
-          <strong className="text-foreground">How it works:</strong> After
-          mutation completes, invalidate() marks the query as stale and triggers
-          a refetch from the server. This guarantees UI matches database state.
-        </div>
       </CardContent>
     </Card>
   );
