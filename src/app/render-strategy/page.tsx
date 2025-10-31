@@ -1,9 +1,9 @@
 import { HydrateClient, api } from "@/trpc/server";
 
 import { DirectCacheUpdateDemo } from "./_components/DirectCacheUpdateDemo";
-import { NestedComponentDiagram } from "./_components/NestedComponentDiagram";
 import { OptimisticUpdateDemo } from "./_components/OptimisticUpdateDemo";
 import { QueryInvalidationDemo } from "./_components/QueryInvalidationDemo";
+import { ServerTaskList } from "./_components/ServerTaskList";
 
 export default async function RenderStrategyPage() {
   // Server-side data prefetching (direct function call, ~5ms)
@@ -13,12 +13,12 @@ export default async function RenderStrategyPage() {
   return (
     <HydrateClient>
       <div className="space-y-8">
-        {/* Component Architecture Visualization */}
+        {/* Server Component displaying prefetched data */}
         <section>
           <h2 className="mb-4 text-2xl font-semibold">
-            Nested Component Architecture
+            Server-Side Data Prefetching
           </h2>
-          <NestedComponentDiagram />
+          <ServerTaskList />
         </section>
 
         {/* Mutation Strategy Demos */}

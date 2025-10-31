@@ -19,6 +19,18 @@ export default tseslint.config(
       ...tseslint.configs.stylisticTypeChecked,
     ],
     rules: {
+      // Block commits with console.log and console.warn
+      "no-console": ["error", { allow: ["error", "info"] }],
+
+      // Warn about TODO/FIXME/HACK comments (doesn't block commits)
+      "no-warning-comments": [
+        "warn",
+        {
+          terms: ["todo", "fixme", "hack", "xxx", "note"],
+          location: "start",
+        },
+      ],
+
       "@typescript-eslint/array-type": "off",
       "@typescript-eslint/consistent-type-definitions": "off",
       "@typescript-eslint/consistent-type-imports": [

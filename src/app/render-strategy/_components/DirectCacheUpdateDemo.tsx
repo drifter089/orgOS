@@ -132,13 +132,6 @@ export function DirectCacheUpdateDemo() {
             )
           )}
         </div>
-
-        {/* Pattern Explanation */}
-        <div className="bg-muted text-muted-foreground rounded-md p-3 text-xs">
-          <strong className="text-foreground">How it works:</strong> Use the
-          mutation response to update cache via setData(). No refetch needed
-          since we have the complete updated data. Fast and efficient!
-        </div>
       </CardContent>
     </Card>
   );
