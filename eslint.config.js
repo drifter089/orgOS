@@ -76,9 +76,16 @@ export default tseslint.config(
       // Detect and block commented-out code
       "no-commented-code/no-commented-code": "error",
 
+      // Block inline comments (comments on the same line as code)
+      "no-inline-comments": "error",
+
       // Control ESLint directive comments to prevent abuse
       "eslint-comments/no-unlimited-disable": "error",
       "eslint-comments/no-unused-disable": "error",
+
+      // Enforce using @/ path alias instead of relative imports (../../)
+      // Only blocks imports starting with ../ or ./ going up directories
+      "import/no-relative-packages": "error",
 
       // NOTE: import/no-unused-modules is disabled due to flat config compatibility issues
       // Alternative: use "ts-prune" or "knip" CLI tools for unused exports detection
