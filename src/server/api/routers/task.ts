@@ -20,7 +20,7 @@ export const taskRouter = createTRPCRouter({
       const task = await ctx.db.task.findFirst({
         where: {
           id: input.id,
-          userId: ctx.user.id, // Ensure user owns this task
+          userId: ctx.user.id,
         },
       });
       return task ?? null;
