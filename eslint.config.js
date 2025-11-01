@@ -95,8 +95,10 @@ export default tseslint.config(
       "eslint-comments/no-unlimited-disable": "error",
       "eslint-comments/no-unused-disable": "error",
 
-      // Enforce using @/ path alias instead of relative imports (../../)
-      // Only blocks imports starting with ../ or ./ going up directories
+      // NOTE: import/no-relative-packages only prevents imports into node_modules
+      // (e.g., "../../node_modules/foo"), not project-relative imports like "../utils"
+      // Project already uses @/ alias everywhere, so this rule provides minimal value
+      // and is kept for edge case protection against node_modules imports
       "import/no-relative-packages": "error",
 
       // NOTE: import/no-unused-modules is disabled due to flat config compatibility issues
