@@ -12,11 +12,22 @@ const compat = new FlatCompat({
 
 export default tseslint.config(
   {
-    ignores: [".next", "backups", "scripts", "next-env.d.ts"],
+    ignores: [
+      ".next",
+      "backups",
+      "scripts",
+      "dev/**", // Ignore development scripts and utilities
+      "next-env.d.ts",
+      "src/app/docs/**", // Ignore all documentation files and components
+      "*.config.js", // Ignore root config files (postcss, prettier, etc.)
+      "*.config.ts",
+      "*.config.mjs",
+      "mdx-components.tsx", // Ignore MDX components file
+    ],
   },
   ...compat.extends("next/core-web-vitals"),
   {
-    files: ["**/*.ts", "**/*.tsx"],
+    files: ["src/**/*.ts", "src/**/*.tsx"], // Only lint files in src/
     plugins: {
       "unused-imports": unusedImports,
       import: importPlugin,
