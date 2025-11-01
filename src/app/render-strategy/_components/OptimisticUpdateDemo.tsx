@@ -128,7 +128,7 @@ export function OptimisticUpdateDemo() {
         {metrics && metrics.mutationEnd > 0 && (
           <PerformanceMetrics
             metrics={{
-              optimisticUpdateTime: 0, // Instant
+              optimisticUpdateTime: 0,
               mutationDuration: metrics.mutationEnd - metrics.mutationStart,
               totalDuration: metrics.mutationEnd - metrics.optimisticUpdateTime,
               strategy: "optimistic",

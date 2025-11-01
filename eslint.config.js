@@ -1,5 +1,9 @@
 import { FlatCompat } from "@eslint/eslintrc";
 import eslintConfigPrettier from "eslint-config-prettier";
+import eslintComments from "eslint-plugin-eslint-comments";
+import importPlugin from "eslint-plugin-import";
+import noCommentedCode from "eslint-plugin-no-commented-code";
+import unusedImports from "eslint-plugin-unused-imports";
 import tseslint from "typescript-eslint";
 
 const compat = new FlatCompat({
@@ -8,11 +12,29 @@ const compat = new FlatCompat({
 
 export default tseslint.config(
   {
-    ignores: [".next"],
+    ignores: [
+      ".next",
+      "backups",
+      "scripts",
+      "dev/**", // Ignore development scripts and utilities
+      "next-env.d.ts",
+      "src/app/docs/**", // Ignore all documentation files and components
+      "src/components/ui/**", // Ignore shadcn/ui components (pre-built, third-party)
+      "*.config.js", // Ignore root config files (postcss, prettier, etc.)
+      "*.config.ts",
+      "*.config.mjs",
+      "mdx-components.tsx", // Ignore MDX components file
+    ],
   },
   ...compat.extends("next/core-web-vitals"),
   {
-    files: ["**/*.ts", "**/*.tsx"],
+    files: ["src/**/*.ts", "src/**/*.tsx"], // Only lint files in src/
+    plugins: {
+      "unused-imports": unusedImports,
+      import: importPlugin,
+      "no-commented-code": noCommentedCode,
+      "eslint-comments": eslintComments,
+    },
     extends: [
       ...tseslint.configs.recommended,
       ...tseslint.configs.recommendedTypeChecked,
@@ -37,9 +59,17 @@ export default tseslint.config(
         "warn",
         { prefer: "type-imports", fixStyle: "inline-type-imports" },
       ],
-      "@typescript-eslint/no-unused-vars": [
-        "warn",
-        { argsIgnorePattern: "^_" },
+      // Upgraded to error level for stricter enforcement
+      "@typescript-eslint/no-unused-vars": "off", // Turned off in favor of unused-imports plugin
+      "unused-imports/no-unused-imports": "error",
+      "unused-imports/no-unused-vars": [
+        "error",
+        {
+          vars: "all",
+          varsIgnorePattern: "^_",
+          args: "after-used",
+          argsIgnorePattern: "^_",
+        },
       ],
       "@typescript-eslint/require-await": "off",
       "@typescript-eslint/no-misused-promises": [
@@ -54,6 +84,37 @@ export default tseslint.config(
       "@typescript-eslint/consistent-indexed-object-style": "warn",
       "@typescript-eslint/no-unnecessary-type-assertion": "warn",
       "@typescript-eslint/no-base-to-string": "warn",
+
+      // Detect and block commented-out code
+      "no-commented-code/no-commented-code": "error",
+
+      // Block inline comments (comments on the same line as code)
+      "no-inline-comments": "error",
+
+      // Control ESLint directive comments to prevent abuse
+      "eslint-comments/no-unlimited-disable": "error",
+      "eslint-comments/no-unused-disable": "error",
+
+      // NOTE: import/no-relative-packages only prevents imports into node_modules
+      // (e.g., "../../node_modules/foo"), not project-relative imports like "../utils"
+      // Project already uses @/ alias everywhere, so this rule provides minimal value
+      // and is kept for edge case protection against node_modules imports
+      "import/no-relative-packages": "error",
+
+      // NOTE: import/no-unused-modules is disabled due to flat config compatibility issues
+      // Alternative: use "ts-prune" or "knip" CLI tools for unused exports detection
+      // "import/no-unused-modules": ["off"],
+    },
+    settings: {
+      "import/resolver": {
+        typescript: {
+          alwaysTryTypes: true,
+          project: "./tsconfig.json",
+        },
+      },
+      "import/parsers": {
+        "@typescript-eslint/parser": [".ts", ".tsx"],
+      },
     },
   },
   // Prettier config must be last to override formatting rules
