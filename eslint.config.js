@@ -19,6 +19,7 @@ export default tseslint.config(
       "dev/**", // Ignore development scripts and utilities
       "next-env.d.ts",
       "src/app/docs/**", // Ignore all documentation files and components
+      "src/components/ui/**", // Ignore shadcn/ui components (pre-built, third-party)
       "*.config.js", // Ignore root config files (postcss, prettier, etc.)
       "*.config.ts",
       "*.config.mjs",
