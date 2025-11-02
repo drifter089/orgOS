@@ -7,7 +7,6 @@ Quick reference guide to understand the tech stack and codebase organization.
 - **Overview** (this page) - Tech stack and folder structure to understand the codebase
 - **[Concepts](/docs/architecture/concepts)** - Architectural theory and principles
 - **[Patterns](/docs/architecture/patterns)** - Real code examples showing do's and don'ts
-- **[Decisions](/docs/architecture/decisions)** - Why we chose specific technologies with rationale
 
 ---
 

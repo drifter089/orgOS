@@ -25,18 +25,6 @@ const docsRoutes = [
       { title: "Overview", href: "/docs/architecture", icon: Book },
       { title: "Concepts", href: "/docs/architecture/concepts", icon: Book },
       { title: "Patterns", href: "/docs/architecture/patterns", icon: Code },
-      {
-        title: "Decisions",
-        href: "/docs/architecture/decisions",
-        icon: FileText,
-      },
-    ],
-  },
-  {
-    title: "Components",
-    items: [
-      { title: "Overview", href: "/docs/components", icon: Code },
-      { title: "Examples", href: "/docs/examples", icon: Book },
     ],
   },
 ];

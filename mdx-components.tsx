@@ -4,6 +4,7 @@ import type {
   ReactElement,
   ReactNode,
 } from "react";
+import { isValidElement } from "react";
 
 import Image from "next/image";
 import Link from "next/link";
@@ -20,6 +21,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { slugify } from "@/lib/slugify";
 
 type MDXComponents = Record<
   string,
@@ -28,6 +30,33 @@ type MDXComponents = Record<
   | ReactElement
   | ((props: Record<string, unknown>) => ReactElement)
 >;
+
+/**
+ * Recursively extracts plain text from React children
+ * Handles nested elements, arrays, and fragments
+ */
+function getTextFromChildren(children: ReactNode): string {
+  if (typeof children === "string") {
+    return children;
+  }
+
+  if (typeof children === "number") {
+    return String(children);
+  }
+
+  if (Array.isArray(children)) {
+    return children.map(getTextFromChildren).join("");
+  }
+
+  if (isValidElement(children)) {
+    const props = children.props as { children?: ReactNode };
+    if (props.children) {
+      return getTextFromChildren(props.children);
+    }
+  }
+
+  return "";
+}
 
 export function useMDXComponents(
   components: MDXComponents = {},
@@ -39,21 +68,42 @@ export function useMDXComponents(
         {children}
       </h1>
     ),
-    h2: ({ children }: { children: ReactNode }) => (
-      <h2 className="border-border/50 mt-20 mb-10 scroll-m-20 border-b pb-4 text-3xl leading-tight font-bold tracking-tight transition-colors duration-200 first:mt-0">
-        {children}
-      </h2>
-    ),
-    h3: ({ children }: { children: ReactNode }) => (
-      <h3 className="mt-16 mb-8 scroll-m-20 text-2xl leading-snug font-semibold tracking-tight transition-colors duration-200">
-        {children}
-      </h3>
-    ),
-    h4: ({ children }: { children: ReactNode }) => (
-      <h4 className="mt-12 mb-6 scroll-m-20 text-xl leading-snug font-semibold tracking-tight transition-colors duration-200">
-        {children}
-      </h4>
-    ),
+    h2: ({ children }: { children: ReactNode }) => {
+      const text = getTextFromChildren(children);
+      const id = slugify(text);
+      return (
+        <h2
+          id={id}
+          className="border-border/50 mt-20 mb-10 scroll-m-20 border-b pb-4 text-3xl leading-tight font-bold tracking-tight transition-colors duration-200 first:mt-0"
+        >
+          {children}
+        </h2>
+      );
+    },
+    h3: ({ children }: { children: ReactNode }) => {
+      const text = getTextFromChildren(children);
+      const id = slugify(text);
+      return (
+        <h3
+          id={id}
+          className="mt-16 mb-8 scroll-m-20 text-2xl leading-snug font-semibold tracking-tight transition-colors duration-200"
+        >
+          {children}
+        </h3>
+      );
+    },
+    h4: ({ children }: { children: ReactNode }) => {
+      const text = getTextFromChildren(children);
+      const id = slugify(text);
+      return (
+        <h4
+          id={id}
+          className="mt-12 mb-6 scroll-m-20 text-xl leading-snug font-semibold tracking-tight transition-colors duration-200"
+        >
+          {children}
+        </h4>
+      );
+    },
 
     // Custom paragraph with increased line height and spacing
     p: ({ children }: { children: ReactNode }) => (
