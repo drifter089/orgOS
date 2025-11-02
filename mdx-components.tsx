@@ -48,8 +48,11 @@ function getTextFromChildren(children: ReactNode): string {
     return children.map(getTextFromChildren).join("");
   }
 
-  if (isValidElement(children) && children.props.children) {
-    return getTextFromChildren(children.props.children);
+  if (isValidElement(children)) {
+    const props = children.props as { children?: ReactNode };
+    if (props.children) {
+      return getTextFromChildren(props.children);
+    }
   }
 
   return "";
