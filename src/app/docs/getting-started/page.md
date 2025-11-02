@@ -175,7 +175,6 @@ export const appRouter = createTRPCRouter({
 3. **Use in a component**:
 
 ```tsx
-// In a client component
 "use client";
 
 import { api } from "~/trpc/react";
@@ -261,6 +260,32 @@ pnpm db:push
 # Open Prisma Studio - visual database editor
 pnpm db:studio
 ```
+
+### Testing Commands
+
+The project uses [Playwright](https://playwright.dev/docs/intro) for end-to-end testing. Run tests to ensure your changes work correctly:
+
+```bash
+# Run all end-to-end tests
+pnpm exec playwright test
+
+# Start interactive UI mode for debugging
+pnpm exec playwright test --ui
+
+# Run tests only on Desktop Chrome
+pnpm exec playwright test --project=chromium
+
+# Run tests in a specific file
+pnpm exec playwright test example
+
+# Run tests in debug mode with breakpoints
+pnpm exec playwright test --debug
+
+# Auto generate tests with Codegen
+pnpm exec playwright codegen
+```
+
+Test files are located in `./tests/example.spec.ts` with configuration in `./playwright.config.ts`.
 
 ### Common Development Workflow
 
