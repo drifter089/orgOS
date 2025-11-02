@@ -6,7 +6,7 @@ Patterns are organized to mirror the conceptual flow: Server/Client Architecture
 
 ---
 
-## Pattern: Server Prefetching for Instant UI
+## Server Prefetching for Instant UI
 
 ```typescript
 // src/app/dashboard/page.tsx (Server Component)
@@ -50,7 +50,7 @@ export function UserProfile() {
 
 ---
 
-## Pattern: useSuspenseQuery for Declarative Loading
+## useSuspenseQuery for Declarative Loading
 
 ```typescript
 "use client";
@@ -94,7 +94,7 @@ export function PostsSection() {
 
 ---
 
-## Pattern: Query Invalidation (Recommended Default)
+## Query Invalidation (Recommended Default)
 
 ```typescript
 "use client";
@@ -156,7 +156,7 @@ await queryClient.invalidateQueries({
 
 ---
 
-## Pattern: Direct Cache Updates (Efficient Alternative)
+## Direct Cache Updates (Efficient Alternative)
 
 ```typescript
 "use client";
@@ -209,7 +209,7 @@ export function TodoList() {
 
 ---
 
-## Pattern: Optimistic Updates for Instant Feedback
+## Optimistic Updates for Instant Feedback
 
 ```typescript
 "use client";
@@ -270,7 +270,7 @@ export function LikeButton({ postId }: { postId: string }) {
 
 ---
 
-## Pattern: Event Handler Prefetching
+## Event Handler Prefetching
 
 ```typescript
 "use client";
@@ -308,7 +308,7 @@ export function PostCard({ postId }: { postId: string }) {
 
 ---
 
-## Pattern: Authentication Architecture (No Manual Checks Needed)
+## Authentication Architecture (No Manual Checks Needed)
 
 **Key Principle:** With WorkOS middleware + tRPC protected procedures, you **rarely need to manually check auth**. The architecture handles it automatically.
 
@@ -321,7 +321,7 @@ export function PostCard({ postId }: { postId: string }) {
 
 ---
 
-### Standard Pattern: Protected Page (No Auth Checks)
+### Protected Page (No Auth Checks)
 
 ```typescript
 // src/app/dashboard/page.tsx (Server Component)
@@ -365,7 +365,7 @@ export function UserProfile() {
 
 ---
 
-### Exception: Public Pages with Conditional UI
+### Public Pages with Conditional UI
 
 **ONLY use manual auth checks on public routes** (like landing pages in `unauthenticatedPaths`) where you want to show different UI.
 
@@ -420,7 +420,7 @@ export default async function HomePage() {
 
 ---
 
-## Pattern: tRPC Procedure Types & Custom Middleware
+## tRPC Procedure Types & Custom Middleware
 
 ### Understanding tRPC Procedures
 
