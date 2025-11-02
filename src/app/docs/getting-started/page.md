@@ -175,12 +175,9 @@ export const appRouter = createTRPCRouter({
 3. **Use in a component**:
 
 ```tsx
-// In a client component
 "use client";
 
 import { api } from "~/trpc/react";
-
-// In a client component
 
 // In a client component
 
