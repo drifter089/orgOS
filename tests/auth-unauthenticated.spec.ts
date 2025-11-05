@@ -5,7 +5,7 @@ import { expect, test } from "@playwright/test";
 test.describe("Unauthenticated Access", () => {
   test("should allow access to public routes", async ({ page }) => {
     // 1. Navigate to home page
-    await page.goto("http://localhost:3000/");
+    await page.goto("/");
 
     // 2. Verify page loads successfully
     await expect(
@@ -20,11 +20,11 @@ test.describe("Unauthenticated Access", () => {
     await expect(page.getByRole("link", { name: "Sign up" })).toBeVisible();
 
     // 5. Navigate to docs page
-    await page.goto("http://localhost:3000/docs");
+    await page.goto("/docs");
 
     // 6. Verify docs page loads successfully
     await expect(
-      page.getByRole("heading", { name: "Welcome to OrgOS Documentation" }),
+      page.getByRole("heading", { name: "OrgOS Documentation" }),
     ).toBeVisible();
   });
 
@@ -32,14 +32,14 @@ test.describe("Unauthenticated Access", () => {
     page,
   }) => {
     // 1. Navigate to protected route /design-strategy
-    await page.goto("http://localhost:3000/design-strategy");
+    await page.goto("/design-strategy");
 
     // 2. Verify redirect to WorkOS sign-in page occurred
     await expect(page.getByRole("heading", { name: "Sign in" })).toBeVisible();
     await expect(page).toHaveURL(/authkit\.app/);
 
     // 3. Navigate to another protected route /render-strategy
-    await page.goto("http://localhost:3000/render-strategy");
+    await page.goto("/render-strategy");
 
     // 4. Verify redirect to WorkOS sign-in page occurred again
     await expect(page.getByRole("heading", { name: "Sign in" })).toBeVisible();
@@ -50,7 +50,7 @@ test.describe("Unauthenticated Access", () => {
     page,
   }) => {
     // 1. Start from home page
-    await page.goto("http://localhost:3000/");
+    await page.goto("/");
 
     // 2. Click "Sign in" button in NavBar
     await page.getByRole("link", { name: "Sign in" }).click();
@@ -72,7 +72,7 @@ test.describe("WorkOS Authentication Flow", () => {
     page,
   }) => {
     // 1. Navigate to sign-in page
-    await page.goto("http://localhost:3000/");
+    await page.goto("/");
     await page.getByRole("link", { name: "Sign in" }).click();
 
     // 2. Wait for WorkOS authentication page
@@ -110,7 +110,7 @@ test.describe("WorkOS Authentication Flow", () => {
     // 3. Integrate with an email testing service (e.g., Mailinator, Mailtrap)
     // 4. Use WorkOS impersonation feature if available in your plan
 
-    await page.goto("http://localhost:3000/");
+    await page.goto("/");
     await page.getByRole("link", { name: "Sign in" }).click();
 
     // Fill in email
@@ -137,7 +137,7 @@ test.describe("Direct Protected Route Access", () => {
     page,
   }) => {
     // 1. Navigate directly to protected route
-    await page.goto("http://localhost:3000/render-strategy");
+    await page.goto("/render-strategy");
 
     // 2. Verify redirect to WorkOS sign-in page
     await expect(page.getByRole("heading", { name: "Sign in" })).toBeVisible();
