@@ -1,8 +1,1 @@
 pnpm lint-staged
-
-# Check documentation sync
-pnpm sync:docs:check 2>/dev/null || {
-  echo "⚠️  Documentation sync issues detected."
-  echo "Run 'pnpm sync:docs --fix' to resolve."
-  exit 0  # Don't block commit, just warn
-}
