@@ -42,7 +42,7 @@ pnpm db:studio        # Open Prisma Studio GUI
 # Documentation Sync
 pnpm sync:docs        # Validate docs (pattern-based, fast)
 pnpm sync:docs:fix    # Auto-fix version numbers and dates
-pnpm ai-sync:docs     # AI-powered full sync (requires ANTHROPIC_API_KEY)
+pnpm ai-sync:docs     # AI-powered full sync (requires OPENROUTER_API_KEY)
 ```
 
 ## Documentation Sync System
@@ -58,19 +58,19 @@ This project has an intelligent documentation system that keeps docs synchronize
 
 **AI-Powered Sync (Intelligent):**
 
-- Analyzes git commits and code changes with Claude AI
+- Analyzes git commits and code changes with Claude AI via OpenRouter
 - Generates CHANGELOG entries from commits
 - Moves completed ROADMAP items automatically
 - **Updates documentation pages** based on code changes
 - Adds Mermaid diagrams and code examples
 - Works like the `docs-writer` agent
 - Runs daily via GitHub Actions, creates PRs for review
-- Use: `pnpm ai-sync:docs` (requires ANTHROPIC_API_KEY)
+- Use: `pnpm ai-sync:docs` (requires OPENROUTER_API_KEY)
 
 **Setup AI Sync:**
 
 ```bash
-export ANTHROPIC_API_KEY="sk-ant-your-key-here"
+export OPENROUTER_API_KEY="sk-or-your-key-here"
 pnpm ai-sync:docs
 ```
 

@@ -36,8 +36,8 @@ jobs:
       - name: Install dependencies
         run: pnpm install
 
-      - name: Install Anthropic SDK
-        run: pnpm add @anthropic-ai/sdk glob
+      - name: Install OpenAI SDK (for OpenRouter)
+        run: pnpm add openai glob
 
       - name: Sync with latest main
         run: |
@@ -47,7 +47,7 @@ jobs:
 
       - name: Run AI Documentation Sync
         env:
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
         run: node scripts/ai-sync-docs.js
 
       - name: Check for changes
