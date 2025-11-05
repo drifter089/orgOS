@@ -8,7 +8,7 @@ This is a T3 Stack application built with Next.js 15, tRPC, Prisma, and WorkOS A
 
 ## Core Technologies
 
-- **Next.js 15** - React framework with App Router
+- **Next.js 15.2.3** - React framework with App Router
 - **tRPC** - End-to-end typesafe APIs
 - **Prisma** - Database ORM with PostgreSQL
 - **WorkOS AuthKit** - Authentication provider
