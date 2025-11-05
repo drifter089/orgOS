@@ -306,7 +306,7 @@ Return a JSON object with this exact structure:
 
   const message = await anthropic.chat.completions.create({
     model: "anthropic/claude-sonnet-4.5",
-    max_tokens: 16000,
+    max_tokens: 64000, // Increased to handle large documentation updates
     temperature: 0.3, // Lower temperature for more consistent docs
     messages: [
       {
@@ -317,6 +317,12 @@ Return a JSON object with this exact structure:
   });
 
   const responseText = message.choices[0].message.content;
+
+  // Check if response was truncated
+  if (message.choices[0].finish_reason === "length") {
+    log("⚠️  Warning: Response was truncated due to token limit", "yellow");
+    log("Consider reducing the scope or increasing max_tokens", "yellow");
+  }
 
   // Extract JSON from response (handle markdown code blocks)
   const jsonMatch =
@@ -330,7 +336,19 @@ Return a JSON object with this exact structure:
     throw new Error("Invalid response format from Claude");
   }
 
-  const updates = JSON.parse(jsonMatch[1]);
+  let updates;
+  try {
+    updates = JSON.parse(jsonMatch[1]);
+  } catch (parseError) {
+    log("Error: Failed to parse JSON from Claude response", "red");
+    log(`Parse error: ${parseError.message}`, "red");
+    log("Response length:", "gray");
+    log(`  Full response: ${responseText.length} chars`, "gray");
+    log(`  JSON match: ${jsonMatch[1].length} chars`, "gray");
+    log("JSON preview (last 500 chars):", "gray");
+    log(jsonMatch[1].slice(-500), "gray");
+    throw new Error(`JSON parse failed: ${parseError.message}`);
+  }
 
   log("✓ Analysis complete", "green");
   log(
