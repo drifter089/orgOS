@@ -52,7 +52,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Prettier with import sorting
   - Husky pre-commit hooks
   - lint-staged for staged file checking
-- **Testing**: Playwright 1.51.1 setup and configuration
+- **Testing**: Playwright 1.56.1 setup and configuration
 - **Project Documentation**:
   - ROADMAP.md for feature planning
   - CHANGELOG.md (this file)

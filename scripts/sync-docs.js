@@ -233,7 +233,7 @@ function validateDocLinks(files) {
 }
 
 // Main sync function
-async function syncDocumentation() {
+function syncDocumentation() {
   logSection("Documentation Sync Tool");
 
   log(
@@ -370,8 +370,10 @@ async function syncDocumentation() {
 }
 
 // Run the sync
-syncDocumentation().catch((error) => {
+try {
+  syncDocumentation();
+} catch (error) {
   log(`\nFatal error: ${error.message}`, "red");
   console.error(error);
   process.exit(1);
-});
+}
