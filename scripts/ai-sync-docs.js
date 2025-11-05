@@ -208,22 +208,22 @@ ${content.slice(0, 1500)}${content.length > 1500 ? "\n... (truncated)" : ""}
 Please analyze the commits and changed files to update the following:
 
 ### 1. Update CHANGELOG.md
-- Add entries to the \`[Unreleased]\` section based on recent commits
+- Generate ONLY the new entries to add to the \`[Unreleased]\` section
 - Use keepachangelog.com format: Added, Changed, Fixed, Removed, etc.
 - Be specific and user-focused
 - Extract meaningful features/fixes from commit messages
+- Return ONLY the new entries, NOT the full file
 
 ### 2. Update ROADMAP.md
-- Move completed items from "In Progress" to "Completed" section
-- Update progress percentages based on actual work done
-- Check off completed tasks with [x]
-- Add new items if commits reveal new planned work
+- Identify which items need to be moved or updated
+- Return specific instructions for changes (not full file)
+- List items to check off as completed [x]
+- List items to move from "In Progress" to "Completed"
 
 ### 3. Update CLAUDE.md
-- Sync all version numbers from package.json dependencies
-- Update tech stack if new major dependencies were added
-- Add architectural notes if significant patterns emerged
-- Update development commands if scripts changed
+- Identify version mismatches between package.json and CLAUDE.md
+- Return ONLY the changes needed (not full file)
+- List specific version updates or new sections to add
 
 ### 4. Update Documentation Pages (Like docs-writer agent)
 **This is critical**: Identify which documentation pages need updates based on code changes:
@@ -265,20 +265,33 @@ sequenceDiagram
 
 ## Response Format
 
-Return a JSON object with this exact structure:
+Return a JSON object with this exact structure (return ONLY changes, not full files):
 
 \`\`\`json
 {
-  "changelog": "full updated CHANGELOG.md content",
-  "roadmap": "full updated ROADMAP.md content",
-  "claudeMd": "full updated CLAUDE.md content",
+  "changelogEntries": {
+    "added": ["New feature description"],
+    "changed": ["Modified feature description"],
+    "fixed": ["Bug fix description"],
+    "removed": []
+  },
+  "roadmapUpdates": {
+    "itemsToComplete": ["Item text that should be marked [x]"],
+    "itemsToMove": ["Item text to move from In Progress to Completed"]
+  },
+  "claudeMdUpdates": {
+    "versionChanges": [
+      {"package": "next", "oldVersion": "15.2.3", "newVersion": "15.2.4"}
+    ],
+    "newSections": []
+  },
   "docsUpdates": [
     {
       "file": "testing/page.md",
       "section": "## Test Patterns",
       "action": "add_after",
       "content": "### New Section\\nContent here...",
-      "reason": "Added section on testing tRPC mutations based on new test files"
+      "reason": "Added section based on new test files"
     }
   ],
   "summary": {
@@ -287,8 +300,7 @@ Return a JSON object with this exact structure:
     "versionUpdates": 3,
     "docsUpdated": 1,
     "highlights": [
-      "Added testing documentation for tRPC mutations",
-      "Moved 2 completed items to changelog"
+      "Added testing documentation for tRPC mutations"
     ]
   }
 }
@@ -306,7 +318,7 @@ Return a JSON object with this exact structure:
 
   const message = await anthropic.chat.completions.create({
     model: "anthropic/claude-sonnet-4.5",
-    max_tokens: 64000, // Increased to handle large documentation updates
+    max_tokens: 16000, // Enough for incremental updates (not full files)
     temperature: 0.3, // Lower temperature for more consistent docs
     messages: [
       {
@@ -357,6 +369,141 @@ Return a JSON object with this exact structure:
   );
 
   return updates;
+}
+
+// Apply CHANGELOG updates
+async function applyChangelogUpdates(entries) {
+  const changelogPath = path.join(rootDir, "CHANGELOG.md");
+  let content = await fs.readFile(changelogPath, "utf-8");
+
+  if (!entries || Object.keys(entries).length === 0) {
+    log("No changelog updates needed", "gray");
+    return;
+  }
+
+  // Find the [Unreleased] section
+  const unreleasedRegex = /## \[Unreleased\]([\s\S]*?)(?=\n## \[|$)/;
+  const match = content.match(unreleasedRegex);
+
+  if (!match) {
+    log("⚠️  Could not find [Unreleased] section in CHANGELOG", "yellow");
+    return;
+  }
+
+  let unreleasedSection = match[1];
+
+  // Add entries for each category
+  const categories = {
+    added: "### Added",
+    changed: "### Changed",
+    fixed: "### Fixed",
+    removed: "### Removed",
+  };
+
+  for (const [category, entries] of Object.entries(entries)) {
+    if (!entries || entries.length === 0) continue;
+
+    const categoryHeader = categories[category];
+    const newEntries = entries.map((entry) => `- ${entry}`).join("\n");
+
+    // Check if category section exists
+    if (unreleasedSection.includes(categoryHeader)) {
+      // Add to existing category
+      unreleasedSection = unreleasedSection.replace(
+        new RegExp(`(${categoryHeader}\\n)`),
+        `$1${newEntries}\n`,
+      );
+    } else {
+      // Add new category section
+      unreleasedSection += `\n${categoryHeader}\n\n${newEntries}\n`;
+    }
+  }
+
+  // Replace the unreleased section
+  content = content.replace(
+    unreleasedRegex,
+    `## [Unreleased]${unreleasedSection}`,
+  );
+
+  await fs.writeFile(changelogPath, content, "utf-8");
+  log("✓ Updated CHANGELOG.md", "green");
+}
+
+// Apply ROADMAP updates
+async function applyRoadmapUpdates(updates) {
+  const roadmapPath = path.join(rootDir, "ROADMAP.md");
+  let content = await fs.readFile(roadmapPath, "utf-8");
+
+  if (
+    !updates ||
+    ((!updates.itemsToComplete || updates.itemsToComplete.length === 0) &&
+      (!updates.itemsToMove || updates.itemsToMove.length === 0))
+  ) {
+    log("No roadmap updates needed", "gray");
+    return;
+  }
+
+  // Mark items as completed
+  if (updates.itemsToComplete && updates.itemsToComplete.length > 0) {
+    for (const item of updates.itemsToComplete) {
+      content = content.replace(`- [ ] ${item}`, `- [x] ${item}`);
+    }
+  }
+
+  // Move items from In Progress to Completed
+  if (updates.itemsToMove && updates.itemsToMove.length > 0) {
+    for (const item of updates.itemsToMove) {
+      // Remove from In Progress (as checked item)
+      const itemRegex = new RegExp(
+        `- \\[x\\] ${item.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\n`,
+        "g",
+      );
+      content = content.replace(itemRegex, "");
+
+      // Add to Completed section
+      const completedRegex = /(### ✅ Completed[\s\S]*?)(\n###|$)/;
+      content = content.replace(completedRegex, `$1- [x] ${item}\n$2`);
+    }
+  }
+
+  await fs.writeFile(roadmapPath, content, "utf-8");
+  log("✓ Updated ROADMAP.md", "green");
+}
+
+// Apply CLAUDE.md updates
+async function applyClaudeMdUpdates(updates) {
+  const claudePath = path.join(rootDir, "CLAUDE.md");
+  let content = await fs.readFile(claudePath, "utf-8");
+
+  if (
+    !updates ||
+    ((!updates.versionChanges || updates.versionChanges.length === 0) &&
+      (!updates.newSections || updates.newSections.length === 0))
+  ) {
+    log("No CLAUDE.md updates needed", "gray");
+    return;
+  }
+
+  // Update version numbers
+  if (updates.versionChanges && updates.versionChanges.length > 0) {
+    for (const change of updates.versionChanges) {
+      const pattern = new RegExp(
+        `(${change.package}.*?)${change.oldVersion}`,
+        "gi",
+      );
+      content = content.replace(pattern, `$1${change.newVersion}`);
+    }
+  }
+
+  // Add new sections
+  if (updates.newSections && updates.newSections.length > 0) {
+    for (const section of updates.newSections) {
+      content += `\n\n${section}`;
+    }
+  }
+
+  await fs.writeFile(claudePath, content, "utf-8");
+  log("✓ Updated CLAUDE.md", "green");
 }
 
 // Apply documentation updates
@@ -444,26 +591,14 @@ async function main() {
   // Apply updates
   logSection("💾 Writing Updates");
 
-  await fs.writeFile(
-    path.join(rootDir, "CHANGELOG.md"),
-    updates.changelog,
-    "utf-8",
-  );
-  log("✓ Updated CHANGELOG.md", "green");
+  // Update CHANGELOG.md
+  await applyChangelogUpdates(updates.changelogEntries);
 
-  await fs.writeFile(
-    path.join(rootDir, "ROADMAP.md"),
-    updates.roadmap,
-    "utf-8",
-  );
-  log("✓ Updated ROADMAP.md", "green");
+  // Update ROADMAP.md
+  await applyRoadmapUpdates(updates.roadmapUpdates);
 
-  await fs.writeFile(
-    path.join(rootDir, "CLAUDE.md"),
-    updates.claudeMd,
-    "utf-8",
-  );
-  log("✓ Updated CLAUDE.md", "green");
+  // Update CLAUDE.md
+  await applyClaudeMdUpdates(updates.claudeMdUpdates);
 
   // Apply documentation updates
   await applyDocsUpdates(updates.docsUpdates);
