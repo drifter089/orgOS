@@ -15,12 +15,12 @@
  *
  * Usage:
  *   node scripts/ai-sync-docs.js           # Run sync and show changes
- *   ANTHROPIC_API_KEY=key node scripts/ai-sync-docs.js
+ *   OPENROUTER_API_KEY=key node scripts/ai-sync-docs.js
  */
-import Anthropic from "@anthropic-ai/sdk";
 import { execSync } from "child_process";
 import * as fs from "fs/promises";
 import { glob } from "glob";
+import OpenAI from "openai";
 import path from "path";
 import { fileURLToPath } from "url";
 
@@ -49,15 +49,18 @@ function logSection(title) {
   console.log("=".repeat(70));
 }
 
-// Initialize Anthropic client
+// Initialize OpenRouter client (uses OpenAI SDK)
 function createAnthropicClient() {
-  const apiKey = process.env.ANTHROPIC_API_KEY;
+  const apiKey = process.env.OPENROUTER_API_KEY;
   if (!apiKey) {
-    log("Error: ANTHROPIC_API_KEY environment variable not set", "red");
-    log("Set it with: export ANTHROPIC_API_KEY=your-key-here", "yellow");
+    log("Error: OPENROUTER_API_KEY environment variable not set", "red");
+    log("Set it with: export OPENROUTER_API_KEY=your-key-here", "yellow");
     process.exit(1);
   }
-  return new Anthropic({ apiKey });
+  return new OpenAI({
+    baseURL: "https://openrouter.ai/api/v1",
+    apiKey: apiKey,
+  });
 }
 
 // Get recent git activity
@@ -298,11 +301,11 @@ Return a JSON object with this exact structure:
 - Focus on keeping documentation in sync with actual implementation
 `;
 
-  log("Sending request to Claude API...", "gray");
-  log(`Model: claude-sonnet-4-5-20250929`, "gray");
+  log("Sending request to OpenRouter (Claude Sonnet 4.5)...", "gray");
+  log(`Model: anthropic/claude-sonnet-4.5`, "gray");
 
-  const message = await anthropic.messages.create({
-    model: "claude-sonnet-4-5-20250929",
+  const message = await anthropic.chat.completions.create({
+    model: "anthropic/claude-sonnet-4.5",
     max_tokens: 16000,
     temperature: 0.3, // Lower temperature for more consistent docs
     messages: [
@@ -313,7 +316,7 @@ Return a JSON object with this exact structure:
     ],
   });
 
-  const responseText = message.content[0].text;
+  const responseText = message.choices[0].message.content;
 
   // Extract JSON from response (handle markdown code blocks)
   const jsonMatch =
@@ -331,7 +334,7 @@ Return a JSON object with this exact structure:
 
   log("✓ Analysis complete", "green");
   log(
-    `Tokens used: ${message.usage.input_tokens} in, ${message.usage.output_tokens} out`,
+    `Tokens used: ${message.usage.prompt_tokens} in, ${message.usage.completion_tokens} out`,
     "gray",
   );
 
