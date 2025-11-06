@@ -1,319 +1,1040 @@
-# React Flow Integration
+# React Flow Workflow Builder
 
-Complete guide for integrating React Flow (now @xyflow/react) into your Next.js 15 application with TypeScript support.
+Complete guide to the React Flow integration in orgOS, a full-featured workflow builder with drag-and-drop, auto-layout, and execution capabilities.
 
 ---
 
 ## Overview
 
-React Flow is a powerful library for building node-based editors, workflow visualizations, and interactive diagrams. It provides a flexible API with built-in features like drag-and-drop, zoom/pan, custom nodes, and connections.
+The `/workflow` route in orgOS provides a complete workflow builder implementation using React Flow (@xyflow/react). This integration demonstrates advanced patterns including:
 
-**Use Cases:**
+- Server-side data loading with Next.js 15 App Router
+- Client-side state management with Zustand
+- Custom node types with interactive handles
+- Drag and drop from sidebar
+- Auto-layout with ELKjs
+- Workflow execution engine
+- Theme support with next-themes
 
-- Workflow builders and automation tools
-- Data flow visualizations
-- Organizational charts and mind maps
-- Decision trees and state machines
-- Visual programming interfaces
-
----
-
-## Installation
-
-### 1. Install React Flow
-
-```bash
-pnpm add @xyflow/react
-```
-
-### 2. Install TypeScript Types (if needed)
-
-Types are included in the package, but you may want additional type definitions:
-
-```bash
-pnpm add -D @types/react @types/react-dom
-```
+**Live Example:** Visit `/workflow` (requires authentication)
 
 ---
 
-## Basic Setup
+## Architecture
 
-### 1. Create a Client Component
+### High-Level Flow
 
-React Flow requires client-side JavaScript, so create a Client Component:
+```mermaid
+graph TB
+    A[Browser requests /workflow] --> B[WorkOS Middleware validates auth]
+    B --> C[layout.tsx - Server Component]
+    C --> D[loadData - loads mock data]
+    D --> E[layoutGraph - ELKjs auto-layout]
+    E --> F[AppStoreProvider - initializes Zustand]
+    F --> G[ReactFlowProvider - wraps React Flow]
+    G --> H[page.tsx - Server Component]
+    H --> I[Workflow - Client Component]
+    I --> J[React Flow Canvas with nodes/edges]
+```
 
-```tsx
-// src/components/FlowDiagram.client.tsx
-"use client";
+### Directory Structure
 
-import { useCallback } from "react";
+```
+src/app/workflow/
+├── layout.tsx              # Server layout - data loading & providers
+├── page.tsx                # Server page - renders SidebarLayout + Workflow
+├── config.ts               # Node type configurations
+├── mock-data.ts            # Initial data loader with layoutGraph
+├── components/
+│   ├── workflow.tsx        # Main React Flow canvas (client)
+│   ├── controls.tsx        # Canvas controls (zoom, layout toggle)
+│   ├── nodes/
+│   │   ├── index.tsx       # Node type registry & factories
+│   │   ├── initial-node.tsx
+│   │   ├── transform-node.tsx
+│   │   ├── branch-node.tsx
+│   │   ├── join-node.tsx
+│   │   ├── output-node.tsx
+│   │   └── workflow-node/
+│   │       ├── index.tsx       # Base WorkflowNode component
+│   │       └── node-handle.tsx # Custom handle with add button
+│   ├── edges/
+│   │   └── workflow-edge/
+│   │       ├── index.tsx       # Custom edge component
+│   │       └── edge-button.tsx # Add node between edges
+│   ├── flow-context-menu.tsx
+│   ├── flow-dropdown-menu.tsx
+│   ├── flow-run-button.tsx
+│   └── settings-dialog.tsx
+├── hooks/
+│   ├── useDragAndDrop.ts       # Drag & drop from sidebar
+│   ├── use-layout.tsx          # ELK auto-layout hook
+│   └── use-workflow-runner.tsx # Workflow execution engine
+├── store/
+│   ├── index.tsx           # AppStoreProvider wrapper
+│   └── app-store.ts        # Zustand store definition
+├── layouts/
+│   └── sidebar-layout/
+│       ├── index.tsx
+│       └── app-sidebar.tsx # Draggable node palette
+└── utils/
+    ├── layout-helper.ts    # ELKjs integration
+    └── icon-mapping.ts     # Lucide icon mapping
+```
 
-import {
-  Background,
-  Controls,
-  type Edge,
-  MiniMap,
-  type Node,
-  type OnConnect,
-  ReactFlow,
-  addEdge,
-  useEdgesState,
-  useNodesState,
-} from "@xyflow/react";
-import "@xyflow/react/dist/style.css";
+---
 
-// src/components/FlowDiagram.client.tsx
+## Getting Started
 
-const initialNodes: Node[] = [
-  { id: "1", position: { x: 0, y: 0 }, data: { label: "Node 1" } },
-  { id: "2", position: { x: 0, y: 100 }, data: { label: "Node 2" } },
-];
+### Prerequisites
 
-const initialEdges: Edge[] = [{ id: "e1-2", source: "1", target: "2" }];
+The workflow route requires authentication. Ensure you're logged in via WorkOS:
 
-export function FlowDiagram() {
-  const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
-  const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
+```typescript
+// src/middleware.ts
+export default authkitMiddleware({
+  middlewareAuth: {
+    enabled: true,
+    unauthenticatedPaths: ["/"], // /workflow requires auth
+  },
+});
+```
 
-  const onConnect: OnConnect = useCallback(
-    (connection) => setEdges((eds) => addEdge(connection, eds)),
-    [setEdges],
-  );
+### Accessing the Workflow Builder
+
+1. Navigate to `/workflow` in your browser
+2. If not authenticated, you'll be redirected to WorkOS login
+3. Once authenticated, the workflow builder loads with initial mock data
+
+---
+
+## Server vs Client Architecture
+
+### Layout (Server Component)
+
+**File:** `/home/akshat/orgos-work/org_os/src/app/workflow/layout.tsx`
+
+```typescript
+import { ReactFlowProvider } from '@xyflow/react';
+import { AppStoreProvider } from './store';
+import { loadData } from './mock-data';
+
+export default async function WorkflowLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  // Load data on server during render
+  const { nodes, edges } = await loadData();
 
   return (
-    <div style={{ width: "100%", height: "500px" }}>
-      <ReactFlow
-        nodes={nodes}
-        edges={edges}
-        onNodesChange={onNodesChange}
-        onEdgesChange={onEdgesChange}
-        onConnect={onConnect}
-      >
-        <Controls />
-        <MiniMap />
-        <Background variant="dots" gap={12} size={1} />
-      </ReactFlow>
-    </div>
+    <AppStoreProvider initialState={{ nodes, edges }}>
+      <ReactFlowProvider initialNodes={nodes} initialEdges={edges}>
+        {children}
+      </ReactFlowProvider>
+    </AppStoreProvider>
   );
 }
 ```
 
-### 2. Use in Server Component
+**Key Points:**
 
-```tsx
-// src/app/workflow/page.tsx
-import { FlowDiagram } from "@/components/FlowDiagram.client";
+- Runs on the server (async component)
+- Loads initial workflow data via `loadData()`
+- Auto-layouts nodes using ELKjs before hydration
+- Wraps children with state providers
+- Passes initial state to both Zustand and React Flow
 
-export default function WorkflowPage() {
+### Page (Server Component)
+
+**File:** `/home/akshat/orgos-work/org_os/src/app/workflow/page.tsx`
+
+```typescript
+import SidebarLayout from './layouts/sidebar-layout';
+import Workflow from './components/workflow';
+
+export const metadata = {
+  title: 'Workflow',
+  description: 'A Next.js-based React Flow template...',
+};
+
+export const dynamic = 'force-dynamic';
+
+export default async function Page() {
   return (
-    <div className="container mx-auto py-8">
-      <h1 className="mb-6 text-3xl font-bold">Workflow Editor</h1>
-      <FlowDiagram />
-    </div>
+    <SidebarLayout>
+      <Workflow />
+    </SidebarLayout>
   );
 }
 ```
 
----
+**Key Points:**
 
-## Integration with T3 Stack
+- `force-dynamic` prevents static generation
+- Renders layout with sidebar and main canvas
+- Minimal logic - composition only
 
-### Persist Flow State with tRPC
+### Workflow Component (Client)
 
-#### 1. Create tRPC Router
-
-```typescript
-// src/server/api/routers/flow.ts
-import { z } from "zod";
-
-import { createTRPCRouter, protectedProcedure } from "@/server/api/trpc";
-
-const NodeSchema = z.object({
-  id: z.string(),
-  type: z.string().optional(),
-  position: z.object({
-    x: z.number(),
-    y: z.number(),
-  }),
-  data: z.record(z.any()),
-});
-
-const EdgeSchema = z.object({
-  id: z.string(),
-  source: z.string(),
-  target: z.string(),
-  type: z.string().optional(),
-});
-
-export const flowRouter = createTRPCRouter({
-  getFlow: protectedProcedure
-    .input(z.object({ flowId: z.string() }))
-    .query(async ({ ctx, input }) => {
-      return await ctx.db.flow.findUnique({
-        where: { id: input.flowId, userId: ctx.user.id },
-      });
-    }),
-
-  saveFlow: protectedProcedure
-    .input(
-      z.object({
-        flowId: z.string(),
-        nodes: z.array(NodeSchema),
-        edges: z.array(EdgeSchema),
-      }),
-    )
-    .mutation(async ({ ctx, input }) => {
-      return await ctx.db.flow.upsert({
-        where: { id: input.flowId },
-        update: {
-          nodes: input.nodes,
-          edges: input.edges,
-        },
-        create: {
-          id: input.flowId,
-          userId: ctx.user.id,
-          nodes: input.nodes,
-          edges: input.edges,
-        },
-      });
-    }),
-});
-```
-
-#### 2. Add to Root Router
+**File:** `/home/akshat/orgos-work/org_os/src/app/workflow/components/workflow.tsx`
 
 ```typescript
-// src/server/api/root.ts
-import { flowRouter } from "./routers/flow";
+'use client';
 
-export const appRouter = createCallerFactory(createTRPCRouter)({
-  // ... other routers
-  flow: flowRouter,
-});
-```
+import { ReactFlow, Background, ConnectionLineType } from '@xyflow/react';
+import { useTheme } from 'next-themes';
+import { useAppStore } from '@/app/workflow/store';
+import { nodeTypes } from './nodes';
+import { WorkflowEdge } from './edges/workflow-edge';
 
-#### 3. Use in Component
+const edgeTypes = { workflow: WorkflowEdge };
+const defaultEdgeOptions = { type: 'workflow' };
 
-```tsx
-"use client";
-
-import { useCallback, useEffect } from "react";
-
-import { ReactFlow, useEdgesState, useNodesState } from "@xyflow/react";
-
-import { api } from "@/trpc/react";
-
-export function PersistedFlow({ flowId }: { flowId: string }) {
-  const { data: flowData } = api.flow.getFlow.useQuery({ flowId });
-  const saveFlowMutation = api.flow.saveFlow.useMutation();
-
-  const [nodes, setNodes, onNodesChange] = useNodesState(flowData?.nodes ?? []);
-  const [edges, setEdges, onEdgesChange] = useEdgesState(flowData?.edges ?? []);
-
-  // Auto-save every 5 seconds
-  useEffect(() => {
-    const interval = setInterval(() => {
-      if (nodes.length > 0 || edges.length > 0) {
-        saveFlowMutation.mutate({ flowId, nodes, edges });
-      }
-    }, 5000);
-
-    return () => clearInterval(interval);
-  }, [flowId, nodes, edges]);
+export default function Workflow() {
+  const store = useAppStore(useShallow(selector));
+  const { onDragOver, onDrop } = useDragAndDrop();
+  const { resolvedTheme } = useTheme();
 
   return (
     <ReactFlow
-      nodes={nodes}
-      edges={edges}
-      onNodesChange={onNodesChange}
-      onEdgesChange={onEdgesChange}
-    />
-  );
-}
-```
-
----
-
-## Custom Nodes
-
-### 1. Define Custom Node Component
-
-```tsx
-// src/components/flow/CustomNode.tsx
-"use client";
-
-import { Handle, type NodeProps, Position } from "@xyflow/react";
-
-// src/components/flow/CustomNode.tsx
-
-export function CustomNode({
-  data,
-}: NodeProps<{ label: string; description?: string }>) {
-  return (
-    <div className="border-primary bg-background rounded-lg border-2 p-4 shadow-lg">
-      <Handle type="target" position={Position.Top} />
-      <div>
-        <div className="font-bold">{data.label}</div>
-        {data.description && (
-          <div className="text-muted-foreground text-sm">
-            {data.description}
-          </div>
-        )}
-      </div>
-      <Handle type="source" position={Position.Bottom} />
-    </div>
-  );
-}
-```
-
-### 2. Register Node Types
-
-```tsx
-// src/components/FlowDiagram.client.tsx
-"use client";
-
-import { type NodeTypes, ReactFlow } from "@xyflow/react";
-
-import { CustomNode } from "./flow/CustomNode";
-
-// src/components/FlowDiagram.client.tsx
-
-const nodeTypes: NodeTypes = {
-  custom: CustomNode,
-};
-
-export function FlowDiagram() {
-  const initialNodes = [
-    {
-      id: "1",
-      type: "custom",
-      position: { x: 0, y: 0 },
-      data: { label: "Custom Node", description: "This is a custom node" },
-    },
-  ];
-
-  return (
-    <ReactFlow nodes={initialNodes} nodeTypes={nodeTypes}>
-      {/* ... */}
+      nodes={store.nodes}
+      edges={store.edges}
+      onNodesChange={store.onNodesChange}
+      onEdgesChange={store.onEdgesChange}
+      onConnect={store.onConnect}
+      connectionLineType={ConnectionLineType.SmoothStep}
+      nodeTypes={nodeTypes}
+      edgeTypes={edgeTypes}
+      onDragOver={onDragOver}
+      onDrop={onDrop}
+      colorMode={resolvedTheme}
+      defaultEdgeOptions={defaultEdgeOptions}
+      fitView
+    >
+      <Background />
+      <WorkflowControls />
+      <FlowContextMenu />
+      <FlowRunButton />
     </ReactFlow>
   );
 }
 ```
 
+**Key Points:**
+
+- Client component (requires browser APIs)
+- Reads state from Zustand store
+- Registers custom node and edge types
+- Handles drag & drop events
+- Syncs with next-themes for light/dark mode
+
 ---
 
-## Styling with Tailwind
+## Data Loading & Initialization
 
-### Override Default Styles
+### Mock Data Loader
 
-```tsx
-// globals.css or component CSS
-.react-flow__node {
-  @apply rounded-lg border-2 border-border bg-background shadow-md;
+**File:** `/home/akshat/orgos-work/org_os/src/app/workflow/mock-data.ts`
+
+```typescript
+import { createEdge } from "./components/edges";
+import { createNodeByType } from "./components/nodes";
+import { layoutGraph } from "./utils/layout-helper";
+
+const initialNodes = [
+  createNodeByType({ type: "initial-node", id: "workflowNode_1" }),
+  createNodeByType({ type: "branch-node", id: "workflowNode_2" }),
+  createNodeByType({ type: "transform-node", id: "workflowNode_3" }),
+  createNodeByType({ type: "output-node", id: "workflowNode_4" }),
+  createNodeByType({ type: "output-node", id: "workflowNode_5" }),
+];
+
+const initialEdges = [
+  createEdge("workflowNode_1", "workflowNode_2"),
+  createEdge("workflowNode_2", "workflowNode_3", "true"),
+  createEdge("workflowNode_3", "workflowNode_4"),
+  createEdge("workflowNode_2", "workflowNode_5", "false"),
+];
+
+export async function loadData() {
+  const layoutedNodes = await layoutGraph(initialNodes, initialEdges);
+  return { nodes: layoutedNodes, edges: initialEdges };
+}
+```
+
+**Integration Pattern:**
+
+1. `layout.tsx` calls `await loadData()` on server
+2. ELKjs calculates optimal node positions
+3. Initial state passed to providers
+4. Client hydrates with pre-positioned nodes
+5. No layout shift on page load
+
+---
+
+## State Management with Zustand
+
+### Store Architecture
+
+**File:** `/home/akshat/orgos-work/org_os/src/app/workflow/store/app-store.ts`
+
+```typescript
+import { addEdge, applyEdgeChanges, applyNodeChanges } from "@xyflow/react";
+import { create } from "zustand";
+import { subscribeWithSelector } from "zustand/middleware";
+
+export type AppState = {
+  nodes: AppNode[];
+  edges: AppEdge[];
+  layout: "fixed" | "free";
+  draggedNodes: Map<string, AppNode>;
+  connectionSites: Map<string, PotentialConnection>;
+  potentialConnection?: PotentialConnection;
+};
+
+export type AppActions = {
+  toggleLayout: () => void;
+  onNodesChange: OnNodesChange<AppNode>;
+  setNodes: (nodes: AppNode[]) => void;
+  addNode: (node: AppNode) => void;
+  removeNode: (nodeId: string) => void;
+  addNodeByType: (type: AppNodeType, position: XYPosition) => string | null;
+  addNodeInBetween: (params) => void;
+  onEdgesChange: OnEdgesChange<AppEdge>;
+  onConnect: OnConnect;
+  onNodeDragStart: OnNodeDrag<AppNode>;
+  onNodeDragStop: OnNodeDrag<AppNode>;
+  checkForPotentialConnection: (position, options?) => void;
+  resetPotentialConnection: () => void;
+};
+
+export function createAppStore(initialState?: Partial<AppState>) {
+  return create<AppStore>()(
+    subscribeWithSelector((set, get) => ({
+      nodes: initialState?.nodes ?? [],
+      edges: initialState?.edges ?? [],
+      layout: "free",
+      draggedNodes: new Map(),
+      connectionSites: new Map(),
+
+      onNodesChange: (changes) => {
+        const nextNodes = applyNodeChanges(changes, get().nodes);
+        set({ nodes: nextNodes });
+      },
+
+      addNodeByType: (type, position) => {
+        const newNode = createNodeByType({ type, position });
+        get().addNode(newNode);
+        return newNode.id;
+      },
+
+      // ... more actions
+    })),
+  );
+}
+```
+
+### Provider Setup
+
+**File:** `/home/akshat/orgos-work/org_os/src/app/workflow/store/index.tsx`
+
+```typescript
+'use client';
+
+import { createContext, useContext, useState } from 'react';
+import { useStore } from 'zustand';
+import { createAppStore } from './app-store';
+
+const AppStoreContext = createContext<AppStoreApi | undefined>(undefined);
+
+export function AppStoreProvider({ children, initialState }) {
+  const [store] = useState(() => createAppStore(initialState));
+  return <AppStoreContext value={store}>{children}</AppStoreContext>;
 }
 
+export function useAppStore<T>(selector: (store: AppStore) => T): T {
+  const appStoreContext = useContext(AppStoreContext);
+  if (!appStoreContext) {
+    throw new Error('useAppStore must be used within AppStoreProvider');
+  }
+  return useStore(appStoreContext, selector);
+}
+```
+
+**Usage in Components:**
+
+```typescript
+"use client";
+
+import { useShallow } from "zustand/react/shallow";
+
+import { useAppStore } from "@/app/workflow/store";
+
+const selector = (state: AppStore) => ({
+  nodes: state.nodes,
+  addNode: state.addNode,
+  removeNode: state.removeNode,
+});
+
+export function MyComponent() {
+  const { nodes, addNode, removeNode } = useAppStore(useShallow(selector));
+  // Use state...
+}
+```
+
+---
+
+## Node Types & Configuration
+
+### Node Type Registry
+
+**File:** `/home/akshat/orgos-work/org_os/src/app/workflow/config.ts`
+
+```typescript
+import { Position } from "@xyflow/react";
+
+export const NODE_SIZE = { width: 260, height: 50 };
+
+export const nodesConfig: Record<AppNodeType, NodeConfig> = {
+  "initial-node": {
+    id: "initial-node",
+    title: "Initial Node",
+    status: "initial",
+    handles: [
+      {
+        type: "source",
+        position: Position.Bottom,
+        x: NODE_SIZE.width * 0.5,
+        y: NODE_SIZE.height,
+      },
+    ],
+    icon: "Rocket",
+  },
+  "transform-node": {
+    id: "transform-node",
+    title: "Transform Node",
+    handles: [
+      {
+        type: "source",
+        position: Position.Bottom,
+        x: NODE_SIZE.width * 0.5,
+        y: NODE_SIZE.height,
+      },
+      {
+        type: "target",
+        position: Position.Top,
+        x: NODE_SIZE.width * 0.5,
+        y: 0,
+      },
+    ],
+    icon: "Spline",
+  },
+  "branch-node": {
+    id: "branch-node",
+    title: "Branch Node",
+    handles: [
+      {
+        type: "target",
+        position: Position.Top,
+        x: NODE_SIZE.width * 0.5,
+        y: 0,
+      },
+      {
+        id: "true",
+        type: "source",
+        position: Position.Bottom,
+        x: NODE_SIZE.width / 3,
+        y: NODE_SIZE.height,
+      },
+      {
+        id: "false",
+        type: "source",
+        position: Position.Bottom,
+        x: NODE_SIZE.width - NODE_SIZE.width / 3,
+        y: NODE_SIZE.height,
+      },
+    ],
+    icon: "Merge",
+  },
+  // join-node and output-node...
+};
+```
+
+### Available Node Types
+
+1. **Initial Node** - Workflow entry point (1 source handle)
+2. **Transform Node** - Data transformation (1 target, 1 source)
+3. **Branch Node** - Conditional split (1 target, 2 sources: true/false)
+4. **Join Node** - Merge branches (2 targets: true/false, 1 source)
+5. **Output Node** - Workflow end point (1 target handle)
+
+### Node Implementation
+
+**File:** `/home/akshat/orgos-work/org_os/src/app/workflow/components/nodes/initial-node.tsx`
+
+```typescript
+import { type WorkflowNodeProps } from '.';
+import { nodesConfig } from '../../config';
+import WorkflowNode from './workflow-node';
+import { NodeHandle } from './workflow-node/node-handle';
+
+export function InitialNode({ id, data }: WorkflowNodeProps) {
+  return (
+    <WorkflowNode id={id} data={data}>
+      {nodesConfig['initial-node'].handles.map((handle) => (
+        <NodeHandle
+          key={`${handle.type}-${handle.id}`}
+          id={handle.id}
+          type={handle.type}
+          position={handle.position}
+          x={handle.x}
+          y={handle.y}
+        />
+      ))}
+      {/* Custom node content here */}
+    </WorkflowNode>
+  );
+}
+```
+
+---
+
+## Custom Components
+
+### Base WorkflowNode
+
+**File:** `/home/akshat/orgos-work/org_os/src/app/workflow/components/nodes/workflow-node/index.tsx`
+
+```typescript
+import { Play, Trash } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { BaseNode, BaseNodeHeader, BaseNodeHeaderTitle } from '@/components/base-node';
+import { NodeStatusIndicator } from '@/components/node-status-indicator';
+import { useWorkflowRunner } from '@/app/workflow/hooks/use-workflow-runner';
+
+function WorkflowNode({ id, data, children }) {
+  const { runWorkflow } = useWorkflowRunner();
+  const removeNode = useAppStore((s) => s.removeNode);
+
+  const IconComponent = data?.icon ? iconMapping[data.icon] : undefined;
+
+  return (
+    <NodeStatusIndicator status={data?.status}>
+      <BaseNode style={{ width: 260, height: 50 }}>
+        <BaseNodeHeader>
+          {IconComponent && <IconComponent aria-label={data?.icon} />}
+          <BaseNodeHeaderTitle>{data?.title}</BaseNodeHeaderTitle>
+          <Button variant="ghost" onClick={() => runWorkflow(id)}>
+            <Play className="stroke-blue-500 fill-blue-500" />
+          </Button>
+          <Button variant="ghost" onClick={() => removeNode(id)}>
+            <Trash />
+          </Button>
+        </BaseNodeHeader>
+        {children}
+      </BaseNode>
+    </NodeStatusIndicator>
+  );
+}
+```
+
+**Features:**
+
+- Icon from lucide-react via icon-mapping
+- Status indicator (initial, loading, success, error)
+- Play button to run workflow from this node
+- Delete button to remove node
+- BaseNode wrapper for consistent styling
+
+### NodeHandle Component
+
+**File:** `/home/akshat/orgos-work/org_os/src/app/workflow/components/nodes/workflow-node/node-handle.tsx`
+
+Custom handle with "+" button to add nodes directly:
+
+```typescript
+import { Position, useConnection, useNodeConnections } from '@xyflow/react';
+import { Button } from '@/components/ui/button';
+import { ButtonHandle } from '@/components/button-handle';
+import { FlowDropdownMenu } from '@/app/workflow/components/flow-dropdown-menu';
+
+export function NodeHandle({ type, position, id, x, y }) {
+  const connections = useNodeConnections({ handleType: type, handleId: id });
+  const isConnectionInProgress = useConnection((c) => c.inProgress);
+  const { isOpen, toggleDropdown } = useDropdown();
+  const { addNodeInBetween } = useAppStore();
+
+  const displayAddButton = connections.length === 0 && !isConnectionInProgress;
+
+  const onAddNode = (nodeType: AppNodeType) => {
+    addNodeInBetween({
+      type: nodeType,
+      [type]: nodeId,
+      [`${type}HandleId`]: id,
+      position: getIndicatorPosition(nodePosition, x, y, type),
+    });
+    toggleDropdown();
+  };
+
+  return (
+    <ButtonHandle
+      type={type}
+      position={position}
+      id={id}
+      style={{ transform: `translate(${x}px, ${y}px)` }}
+      showButton={displayAddButton}
+    >
+      <Button onClick={toggleDropdown} size="icon" variant="secondary">
+        +
+      </Button>
+      {isOpen && (
+        <FlowDropdownMenu
+          onAddNode={onAddNode}
+          filterNodes={compatibleNodeTypes(type)}
+        />
+      )}
+    </ButtonHandle>
+  );
+}
+```
+
+**Features:**
+
+- Shows "+" button when handle is empty
+- Opens dropdown menu with compatible node types
+- Automatically connects new node between existing ones
+- Hides during active connection (prevents UI clutter)
+
+### WorkflowEdge Component
+
+**File:** `/home/akshat/orgos-work/org_os/src/app/workflow/components/edges/workflow-edge/index.tsx`
+
+```typescript
+import { BaseEdge, getBezierPath, type EdgeProps } from '@xyflow/react';
+import { EdgeButton } from './edge-button';
+
+export function WorkflowEdge({
+  id, sourceX, sourceY, targetX, targetY,
+  sourcePosition, targetPosition, source, target,
+  sourceHandleId, style, markerEnd,
+}: EdgeProps<AppEdge>) {
+  const [edgePath, labelX, labelY] = getBezierPath({
+    sourceX, sourceY, sourcePosition,
+    targetX, targetY, targetPosition,
+  });
+
+  return (
+    <>
+      <BaseEdge
+        id={id}
+        path={edgePath}
+        markerEnd={markerEnd}
+        style={{ ...style, pointerEvents: 'auto' }}
+      />
+      <EdgeButton
+        id={id}
+        x={labelX}
+        y={labelY}
+        source={source}
+        target={target}
+        sourceHandleId={sourceHandleId}
+      />
+    </>
+  );
+}
+```
+
+**Features:**
+
+- Bezier curve path for smooth connections
+- EdgeButton at midpoint to insert nodes
+- Custom styling support
+- Pointer events enabled for interaction
+
+---
+
+## Drag and Drop from Sidebar
+
+### Sidebar Implementation
+
+**File:** `/home/akshat/orgos-work/org_os/src/app/workflow/layouts/sidebar-layout/app-sidebar.tsx`
+
+```typescript
+'use client';
+
+import { useState, useCallback } from 'react';
+import { useReactFlow } from '@xyflow/react';
+import { SidebarMenuItem, SidebarMenuButton } from '@/components/ui/sidebar';
+import { nodesConfig } from '../../config';
+
+function DraggableItem(props: NodeConfig) {
+  const { screenToFlowPosition } = useReactFlow();
+  const { addNode, checkForPotentialConnection } = useAppStore();
+  const [isDragging, setIsDragging] = useState(false);
+
+  const onDragStart = (e: React.DragEvent) => {
+    e.dataTransfer.setData('application/reactflow', JSON.stringify(props));
+    setIsDragging(true);
+  };
+
+  const onDrag = (e: React.DragEvent) => {
+    const flowPosition = screenToFlowPosition({ x: e.clientX, y: e.clientY });
+    checkForPotentialConnection(flowPosition);
+  };
+
+  return (
+    <SidebarMenuItem
+      draggable
+      onDragStart={onDragStart}
+      onDrag={onDrag}
+      onDragEnd={() => setIsDragging(false)}
+    >
+      <SidebarMenuButton>
+        <IconComponent />
+        <span>{props.title}</span>
+      </SidebarMenuButton>
+    </SidebarMenuItem>
+  );
+}
+```
+
+### Drop Handler
+
+**File:** `/home/akshat/orgos-work/org_os/src/app/workflow/hooks/useDragAndDrop.ts`
+
+```typescript
+import { useCallback } from "react";
+
+import { useReactFlow } from "@xyflow/react";
+
+import { useAppStore } from "@/app/workflow/store";
+
+export function useDragAndDrop() {
+  const { screenToFlowPosition } = useReactFlow();
+  const { addNode, addNodeInBetween, potentialConnection } = useAppStore();
+
+  const onDrop = useCallback(
+    (event: React.DragEvent) => {
+      const nodeProps = JSON.parse(
+        event.dataTransfer.getData("application/reactflow"),
+      );
+
+      if (potentialConnection) {
+        // Insert node between two connected nodes
+        addNodeInBetween({
+          type: nodeProps.id,
+          source: potentialConnection.source?.node,
+          target: potentialConnection.target?.node,
+          sourceHandleId: potentialConnection.source?.handle,
+          targetHandleId: potentialConnection.target?.handle,
+          position: potentialConnection.position,
+        });
+      } else {
+        // Add node at drop position
+        const position = screenToFlowPosition({
+          x: event.clientX,
+          y: event.clientY,
+        });
+        const newNode = createNodeByType({ type: nodeProps.id, position });
+        addNode(newNode);
+      }
+    },
+    [addNode, addNodeInBetween, potentialConnection],
+  );
+
+  const onDragOver = useCallback((event: React.DragEvent) => {
+    event.preventDefault();
+  }, []);
+
+  return { onDrop, onDragOver };
+}
+```
+
+**Smart Drop Behavior:**
+
+1. **Drop on empty canvas** - Adds node at cursor position
+2. **Drop near handle** - Connects to that handle automatically
+3. **Drop near edge** - Inserts node between connected nodes
+
+---
+
+## Auto-Layout with ELKjs
+
+### Layout Helper
+
+**File:** `/home/akshat/orgos-work/org_os/src/app/workflow/utils/layout-helper.ts`
+
+```typescript
+import ELK, { type ElkNode } from "elkjs/lib/elk.bundled.js";
+
+import { nodesConfig } from "../config";
+
+const layoutOptions = {
+  "elk.algorithm": "layered",
+  "elk.direction": "DOWN",
+  "elk.layered.spacing.edgeNodeBetweenLayers": "80",
+  "elk.spacing.nodeNode": "150",
+  "elk.layered.nodePlacement.strategy": "SIMPLE",
+};
+
+export async function layoutGraph(nodes: AppNode[], edges: Edge[]) {
+  const elk = new ELK();
+
+  const graph: ElkNode = {
+    id: "root",
+    layoutOptions,
+    edges: edges.map((edge) => ({
+      id: edge.id,
+      sources: [
+        edge.sourceHandle
+          ? `${edge.source}-source-${edge.sourceHandle}`
+          : edge.source,
+      ],
+      targets: [
+        edge.targetHandle
+          ? `${edge.target}-target-${edge.targetHandle}`
+          : edge.target,
+      ],
+    })),
+    children: nodes.map((node) => {
+      const { targetPorts, sourcePorts } = getPorts(node);
+      return {
+        id: node.id,
+        width: node.width ?? node.measured?.width ?? 150,
+        height: node.height ?? node.measured?.height ?? 50,
+        ports: [...targetPorts, ...sourcePorts],
+        layoutOptions: { "org.eclipse.elk.portConstraints": "FIXED_ORDER" },
+      };
+    }),
+  };
+
+  const elkNodes = await elk.layout(graph);
+
+  return nodes.map((node) => {
+    const layoutedNode = elkNodes.children?.find((n) => n.id === node.id);
+    if (layoutedNode?.x && layoutedNode?.y) {
+      return { ...node, position: { x: layoutedNode.x, y: layoutedNode.y } };
+    }
+    return node;
+  });
+}
+```
+
+**When Layout Runs:**
+
+1. **Initial load** - `loadData()` in layout.tsx
+2. **Layout toggle** - User clicks layout button in controls
+3. **Node dimensions change** - Automatic re-layout in fixed mode
+
+### Layout Toggle
+
+Users can toggle between:
+
+- **Free mode** - Manual positioning, drag anywhere
+- **Fixed mode** - Auto-layout on dimension changes
+
+```typescript
+// In app-store.ts
+toggleLayout: () =>
+  set(state => ({
+    layout: state.layout === 'fixed' ? 'free' : 'fixed',
+  })),
+
+onNodesChange: (changes) => {
+  const nextNodes = applyNodeChanges(changes, get().nodes);
+
+  if (get().layout === 'fixed' &&
+      changes.some(change => change.type === 'dimensions')) {
+    void layoutGraph(nextNodes, get().edges).then(layoutedNodes => {
+      set({ nodes: layoutedNodes });
+    });
+  } else {
+    set({ nodes: nextNodes });
+  }
+},
+```
+
+---
+
+## Workflow Runner
+
+### Execution Engine
+
+**File:** `/home/akshat/orgos-work/org_os/src/app/workflow/hooks/use-workflow-runner.tsx`
+
+```typescript
+"use client";
+
+import { useCallback, useRef, useState } from "react";
+
+import { useAppStore } from "@/app/workflow/store";
+
+export function useWorkflowRunner() {
+  const [logMessages, setLogMessages] = useState<string[]>([]);
+  const isRunning = useRef(false);
+  const { getNodes, setNodes, getEdges } = useAppStore();
+
+  const updateNodeStatus = useCallback(
+    (nodeId: string, status: string) => {
+      setNodes(
+        getNodes().map((node) =>
+          node.id === nodeId
+            ? { ...node, data: { ...node.data, status } }
+            : node,
+        ),
+      );
+    },
+    [setNodes, getNodes],
+  );
+
+  const processNode = useCallback(
+    async (node: AppNode) => {
+      updateNodeStatus(node.id, "loading");
+      setLogMessages((prev) => [...prev, `${node.data.title} processing...`]);
+
+      await new Promise((resolve) => setTimeout(resolve, 2000));
+
+      if (!isRunning.current) {
+        resetNodeStatus();
+        return;
+      }
+
+      updateNodeStatus(node.id, "success");
+    },
+    [updateNodeStatus],
+  );
+
+  const runWorkflow = useCallback(
+    async (startNodeId?: string) => {
+      if (isRunning.current) return;
+
+      const nodes = getNodes();
+      const edges = getEdges();
+      isRunning.current = true;
+
+      const _startNodeId =
+        startNodeId ||
+        nodes.find((node) => !edges.some((e) => e.target === node.id))?.id;
+
+      if (!_startNodeId) return;
+
+      setLogMessages(["Starting workflow..."]);
+
+      const nodesToProcess = collectNodesToProcess(nodes, edges, _startNodeId);
+
+      for (const node of nodesToProcess) {
+        if (!isRunning.current) break;
+        await processNode(node);
+      }
+
+      setLogMessages((prev) => [...prev, "Workflow processing complete."]);
+      isRunning.current = false;
+    },
+    [getNodes, getEdges, processNode],
+  );
+
+  return {
+    logMessages,
+    runWorkflow,
+    stopWorkflow,
+    isRunning: isRunning.current,
+  };
+}
+```
+
+**Features:**
+
+- **Graph traversal** - Visits nodes in dependency order
+- **Status updates** - Visual feedback (loading, success, error)
+- **Logging** - Messages displayed in UI
+- **Cancellation** - Stop button to halt execution
+- **Customizable** - Replace `processNode` with real logic
+
+**Execution Triggers:**
+
+1. Click Play button on any node (starts from that node)
+2. Click "Run Workflow" button (starts from initial node)
+
+---
+
+## Theme Support
+
+### Dark Mode Integration
+
+**File:** `/home/akshat/orgos-work/org_os/src/app/workflow/components/workflow.tsx`
+
+```typescript
+'use client';
+
+import { useTheme } from 'next-themes';
+import { useState, useEffect } from 'react';
+import { ReactFlow, type ColorMode } from '@xyflow/react';
+
+export default function Workflow() {
+  const { theme, resolvedTheme } = useTheme();
+  const [mounted, setMounted] = useState(false);
+
+  // Avoid hydration mismatch
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  const colorMode = mounted ? (resolvedTheme as ColorMode) : 'light';
+
+  return (
+    <ReactFlow
+      colorMode={colorMode}
+      // ... other props
+    >
+      <Background />
+    </ReactFlow>
+  );
+}
+```
+
+**Why this pattern?**
+
+- next-themes uses localStorage (client-only)
+- Server renders with unknown theme
+- Wait for client mount to avoid mismatch
+- Default to light mode during hydration
+
+---
+
+## CSS Layer Strategy
+
+### Global Styles
+
+**File:** `/home/akshat/orgos-work/org_os/src/styles/globals.css`
+
+```css
+@import "@xyflow/react/dist/style.css" layer(base);
+@import "tailwindcss";
+```
+
+**Why `layer(base)`?**
+
+React Flow styles must load before Tailwind utilities to allow overrides:
+
+```css
+/* React Flow styles in base layer */
+.react-flow__node {
+  /* Default styles */
+}
+
+/* Tailwind utilities can override */
 .react-flow__node.selected {
-  @apply border-primary ring-2 ring-primary ring-offset-2;
+  @apply border-muted-foreground shadow-lg;
+}
+```
+
+**Custom Overrides:**
+
+```css
+/* In component or globals.css */
+.react-flow__node {
+  @apply bg-card rounded-md border;
 }
 
 .react-flow__edge-path {
@@ -325,246 +1046,371 @@ export function FlowDiagram() {
 }
 ```
 
-### Dark Mode Support
+---
 
-```tsx
-"use client";
+## Authentication Requirement
 
-import { Background, ReactFlow } from "@xyflow/react";
-import { useTheme } from "next-themes";
+### WorkOS Middleware Protection
 
-export function FlowDiagram() {
-  const { theme } = useTheme();
+**File:** `/home/akshat/orgos-work/org_os/src/middleware.ts`
 
+```typescript
+import { authkitMiddleware } from "@workos-inc/authkit-nextjs";
+
+export default authkitMiddleware({
+  middlewareAuth: {
+    enabled: true,
+    unauthenticatedPaths: ["/"], // /workflow requires auth
+  },
+});
+
+export const config = {
+  matcher: ["/((?!_next/static|_next/image|favicon.ico|docs).*)"],
+};
+```
+
+**How it works:**
+
+1. User visits `/workflow`
+2. Middleware intercepts request
+3. Checks for WorkOS session
+4. If authenticated: proceeds to page
+5. If not authenticated: redirects to login
+
+**No manual auth checks needed** - middleware handles it automatically!
+
+---
+
+## Type Safety
+
+### Typed Nodes and Edges
+
+**File:** `/home/akshat/orgos-work/org_os/src/app/workflow/components/nodes/index.tsx`
+
+```typescript
+import { type Node } from "@xyflow/react";
+
+export type WorkflowNodeData = {
+  title?: string;
+  label?: string;
+  icon?: keyof typeof iconMapping;
+  status?: "loading" | "success" | "error" | "initial";
+};
+
+export type AppNode =
+  | Node<WorkflowNodeData, "initial-node">
+  | Node<WorkflowNodeData, "transform-node">
+  | Node<WorkflowNodeData, "join-node">
+  | Node<WorkflowNodeData, "branch-node">
+  | Node<WorkflowNodeData, "output-node">;
+
+export type AppNodeType = NonNullable<AppNode["type"]>;
+```
+
+**Benefits:**
+
+- Full autocomplete for node types
+- Type-safe node data access
+- Compile-time error checking
+- Better refactoring support
+
+---
+
+## Customization Guide
+
+### Adding a New Node Type
+
+1. **Define configuration** in `config.ts`:
+
+```typescript
+export const nodesConfig = {
+  // ... existing types
+  "custom-node": {
+    id: "custom-node",
+    title: "Custom Node",
+    handles: [
+      { type: "target", position: Position.Top, x: 130, y: 0 },
+      { type: "source", position: Position.Bottom, x: 130, y: 50 },
+    ],
+    icon: "Sparkles",
+  },
+};
+```
+
+2. **Create component** in `components/nodes/custom-node.tsx`:
+
+```typescript
+import { type WorkflowNodeProps } from '.';
+import { nodesConfig } from '../../config';
+import WorkflowNode from './workflow-node';
+import { NodeHandle } from './workflow-node/node-handle';
+
+export function CustomNode({ id, data }: WorkflowNodeProps) {
   return (
-    <ReactFlow>
-      <Background
-        variant="dots"
-        gap={12}
-        size={1}
-        color={theme === "dark" ? "#333" : "#ddd"}
-      />
-    </ReactFlow>
+    <WorkflowNode id={id} data={data}>
+      {nodesConfig['custom-node'].handles.map((handle) => (
+        <NodeHandle
+          key={`${handle.type}-${handle.id}`}
+          id={handle.id}
+          type={handle.type}
+          position={handle.position}
+          x={handle.x}
+          y={handle.y}
+        />
+      ))}
+      {/* Your custom UI here */}
+    </WorkflowNode>
   );
 }
 ```
 
----
+3. **Register in index.tsx**:
 
-## Advanced Features
-
-### 1. Sub-flows and Grouping
-
-```tsx
-const nodes = [
-  {
-    id: "group-1",
-    type: "group",
-    position: { x: 0, y: 0 },
-    style: { width: 400, height: 300 },
-    data: { label: "Group A" },
-  },
-  {
-    id: "1",
-    type: "default",
-    position: { x: 50, y: 50 },
-    data: { label: "Node 1" },
-    parentNode: "group-1",
-    extent: "parent",
-  },
-];
+```typescript
+export const nodeTypes = {
+  "initial-node": InitialNode,
+  "transform-node": TransformNode,
+  "branch-node": BranchNode,
+  "join-node": JoinNode,
+  "output-node": OutputNode,
+  "custom-node": CustomNode, // Add here
+};
 ```
 
-### 2. Undo/Redo
+4. **Update type union**:
 
-```tsx
-'use client';
+```typescript
+export type AppNode =
+  | Node<WorkflowNodeData, "initial-node">
+  | Node<WorkflowNodeData, "transform-node">
+  | Node<WorkflowNodeData, "join-node">
+  | Node<WorkflowNodeData, "branch-node">
+  | Node<WorkflowNodeData, "output-node">
+  | Node<WorkflowNodeData, "custom-node">; // Add here
+```
 
-import { useReactFlow } from '@xyflow/react';
-import { useState } from 'react';
+### Persisting Workflows
 
-export function useFlowHistory() {
-  const { getNodes, getEdges, setNodes, setEdges } = useReactFlow();
-  const [history, setHistory] = useState<Array<{ nodes: Node[]; edges: Edge[] }>>([]);
-  const [currentIndex, setCurrentIndex] = useState(-1);
+Replace `mock-data.ts` with database integration:
 
-  const save State = () => {
-    const newHistory = history.slice(0, currentIndex + 1);
-    newHistory.push({ nodes: getNodes(), edges: getEdges() });
-    setHistory(newHistory);
-    setCurrentIndex(newHistory.length - 1);
-  };
+```typescript
+// src/app/workflow/layout.tsx
+import { api } from "@/trpc/server";
 
-  const undo = () => {
-    if (currentIndex > 0) {
-      const prevState = history[currentIndex - 1];
-      setNodes(prevState.nodes);
-      setEdges(prevState.edges);
-      setCurrentIndex(currentIndex - 1);
-    }
-  };
+export default async function WorkflowLayout({ children }) {
+  // Fetch from database instead of mock data
+  const workflow = await api.workflow.get({ id: workflowId });
+  const layoutedNodes = await layoutGraph(workflow.nodes, workflow.edges);
 
-  const redo = () => {
-    if (currentIndex < history.length - 1) {
-      const nextState = history[currentIndex + 1];
-      setNodes(nextState.nodes);
-      setEdges(nextState.edges);
-      setCurrentIndex(currentIndex + 1);
-    }
-  };
-
-  return { saveState, undo, redo, canUndo: currentIndex > 0, canRedo: currentIndex < history.length - 1 };
+  return (
+    <AppStoreProvider initialState={{ nodes: layoutedNodes, edges: workflow.edges }}>
+      <ReactFlowProvider initialNodes={layoutedNodes} initialEdges={workflow.edges}>
+        {children}
+      </ReactFlowProvider>
+    </AppStoreProvider>
+  );
 }
 ```
 
-### 3. Export to Image
+**Auto-save with Zustand subscription:**
 
-```tsx
+```typescript
+// In layout.tsx or separate file
 "use client";
 
-import { useReactFlow } from "@xyflow/react";
-import { toPng } from "html-to-image";
+import { useEffect } from "react";
 
-export function useFlowExport() {
-  const { getNodes } = useReactFlow();
+import { useAppStore } from "@/app/workflow/store";
+import { api } from "@/trpc/react";
 
-  const exportToPng = async () => {
-    const flowElement = document.querySelector(".react-flow") as HTMLElement;
-    if (!flowElement) return;
+// In layout.tsx or separate file
 
-    const dataUrl = await toPng(flowElement, {
-      backgroundColor: "#ffffff",
-      width: flowElement.offsetWidth,
-      height: flowElement.offsetHeight,
-    });
+export function WorkflowAutoSave({ workflowId }: { workflowId: string }) {
+  const saveWorkflow = api.workflow.save.useMutation();
 
-    const link = document.createElement("a");
-    link.download = "flow-diagram.png";
-    link.href = dataUrl;
-    link.click();
-  };
+  useEffect(() => {
+    const unsubscribe = useAppStore.subscribe(
+      (state) => ({ nodes: state.nodes, edges: state.edges }),
+      ({ nodes, edges }) => {
+        // Debounce in production
+        saveWorkflow.mutate({ workflowId, nodes, edges });
+      },
+      { equalityFn: shallow },
+    );
 
-  return { exportToPng };
+    return unsubscribe;
+  }, [workflowId]);
+
+  return null;
 }
+```
+
+### Custom Workflow Runner
+
+Replace the demo runner with real execution logic:
+
+```typescript
+const processNode = useCallback(
+  async (node: AppNode) => {
+    updateNodeStatus(node.id, "loading");
+
+    try {
+      // Call your API endpoint
+      const result = await fetch("/api/execute-node", {
+        method: "POST",
+        body: JSON.stringify({
+          nodeId: node.id,
+          nodeType: node.type,
+          nodeData: node.data,
+        }),
+      });
+
+      const data = await result.json();
+
+      if (data.success) {
+        updateNodeStatus(node.id, "success");
+      } else {
+        updateNodeStatus(node.id, "error");
+      }
+    } catch (error) {
+      updateNodeStatus(node.id, "error");
+      setLogMessages((prev) => [...prev, `Error: ${error.message}`]);
+    }
+  },
+  [updateNodeStatus],
+);
 ```
 
 ---
 
 ## Best Practices
 
-### 1. Server Prefetch Flow Data
+### Performance Optimization
 
-```tsx
-// src/app/workflow/[id]/page.tsx
-import { HydrationBoundary, dehydrate } from "@tanstack/react-query";
-
-import { FlowEditor } from "@/components/FlowEditor.client";
-import { createQueryClient } from "@/trpc/query-client";
-import { api } from "@/trpc/server";
-
-export default async function WorkflowPage({
-  params,
-}: {
-  params: { id: string };
-}) {
-  const queryClient = createQueryClient();
-
-  // Prefetch flow data on server
-  await queryClient.prefetchQuery({
-    queryKey: ["flow", "getFlow", { flowId: params.id }],
-    queryFn: () => api.flow.getFlow({ flowId: params.id }),
-  });
-
-  return (
-    <HydrationBoundary state={dehydrate(queryClient)}>
-      <FlowEditor flowId={params.id} />
-    </HydrationBoundary>
-  );
-}
-```
-
-### 2. Optimize Performance
-
-```tsx
-import { memo } from "react";
-
-import type { NodeProps } from "@xyflow/react";
-
-// Memoize custom nodes to prevent unnecessary re-renders
-export const CustomNode = memo(({ data }: NodeProps) => {
-  return <div>{data.label}</div>;
-});
-
-CustomNode.displayName = "CustomNode";
-```
-
-### 3. Type-Safe Node Data
+1. **Memoize selectors** with `useShallow`:
 
 ```typescript
-// src/types/flow.ts
-import type { Edge, Node } from "@xyflow/react";
+import { useShallow } from "zustand/react/shallow";
 
-export type CustomNodeData = {
-  label: string;
-  description?: string;
-  icon?: string;
-};
+const selector = (state: AppStore) => ({
+  nodes: state.nodes,
+  addNode: state.addNode,
+});
 
-export type CustomNode = Node<CustomNodeData, "custom">;
+const { nodes, addNode } = useAppStore(useShallow(selector));
+```
 
-export type FlowState = {
-  nodes: CustomNode[];
-  edges: Edge[];
-};
+2. **Minimize re-renders** by selecting only needed state:
+
+```typescript
+// Bad - re-renders on any state change
+const store = useAppStore((state) => state);
+
+// Good - re-renders only when nodes change
+const nodes = useAppStore((state) => state.nodes);
+```
+
+3. **Use React.memo** for expensive node components:
+
+```typescript
+export const CustomNode = memo(({ id, data }: WorkflowNodeProps) => {
+  // Expensive rendering logic
+});
+```
+
+### State Management
+
+1. **Keep Zustand as single source of truth** for workflow state
+2. **Use React Flow's built-in state** only for UI interactions (selection, viewport)
+3. **Sync state carefully** when updating both stores
+
+### Accessibility
+
+1. **Keyboard navigation** - React Flow provides built-in support
+2. **ARIA labels** - Add to custom buttons and controls
+3. **Focus management** - Ensure keyboard users can access all features
+
+```typescript
+<Button
+  onClick={onRemove}
+  aria-label={`Delete ${data.title}`}
+>
+  <Trash />
+</Button>
 ```
 
 ---
 
 ## Troubleshooting
 
-### Issue: "Window is not defined"
+### Hydration Mismatch with Theme
 
-React Flow requires browser APIs. Ensure you're using it in a Client Component:
+**Problem:** "Hydration failed because the initial UI does not match"
 
-```tsx
-"use client";
+**Solution:** Wait for client mount before using theme:
 
-import dynamic from "next/dynamic";
+```typescript
+const [mounted, setMounted] = useState(false);
 
-// Dynamic import with no SSR
-const FlowDiagram = dynamic(() => import("@/components/FlowDiagram.client"), {
-  ssr: false,
-  loading: () => <div>Loading diagram...</div>,
-});
+useEffect(() => {
+  setMounted(true);
+}, []);
+
+const colorMode = mounted ? (resolvedTheme as ColorMode) : "light";
 ```
 
-### Issue: Layout/Positioning Issues
+### Nodes Not Appearing
 
-Ensure parent container has explicit dimensions:
+**Problem:** Nodes array is empty or not rendering
 
-```tsx
-<div style={{ width: "100%", height: "600px" }}>
-  <ReactFlow />
-</div>
-```
+**Checklist:**
 
-### Issue: Handles Not Connecting
+1. Verify `loadData()` is called in layout.tsx
+2. Check initial state is passed to providers
+3. Ensure node types are registered in `nodeTypes` object
+4. Verify node dimensions are set (width/height or measured)
 
-Ensure node types are properly registered:
+### Layout Issues
 
-```tsx
-const nodeTypes = {
-  custom: CustomNode,
-};
+**Problem:** Nodes overlap or have incorrect positions
 
-<ReactFlow nodeTypes={nodeTypes} />;
-```
+**Solutions:**
+
+1. Ensure ELKjs runs before hydration: `await layoutGraph(nodes, edges)`
+2. Check node dimensions are accurate
+3. Verify handles have correct positions in config
+4. Use `fitView` prop on ReactFlow for initial zoom
+
+### Drag and Drop Not Working
+
+**Problem:** Cannot drag nodes from sidebar to canvas
+
+**Checklist:**
+
+1. Verify `onDragOver` and `onDrop` are passed to ReactFlow
+2. Check `draggable` attribute on sidebar items
+3. Ensure `screenToFlowPosition` is used for coordinate conversion
+4. Verify `createNodeByType` returns valid node
 
 ---
 
 ## Resources
 
 - [React Flow Documentation](https://reactflow.dev)
-- [React Flow Examples](https://reactflow.dev/examples)
 - [React Flow TypeScript Guide](https://reactflow.dev/learn/advanced-use/typescript)
-- [@xyflow/react on npm](https://www.npmjs.com/package/@xyflow/react)
+- [ELKjs Documentation](https://eclipse.dev/elk/)
+- [Zustand Documentation](https://zustand-demo.pmnd.rs/)
+- [next-themes](https://github.com/pacocoursey/next-themes)
+- [WorkOS AuthKit](https://workos.com/docs/authkit)
+
+---
+
+## Next Steps
+
+1. **Persist workflows** - Add database integration with Prisma
+2. **Real execution** - Implement actual node processing logic
+3. **Validation** - Add schema validation with Zod
+4. **Undo/Redo** - Implement history tracking
+5. **Export/Import** - JSON export and import functionality
+6. **Templates** - Pre-built workflow templates
+7. **Collaboration** - Real-time multi-user editing with WebSockets
