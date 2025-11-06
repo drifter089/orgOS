@@ -45,6 +45,11 @@ export async function NavBar() {
             </Link>
           </Button>
           <Button variant="ghost" asChild>
+            <Link href="/workflow" prefetch={false}>
+              Workflow
+            </Link>
+          </Button>
+          <Button variant="ghost" asChild>
             <Link href="/docs">Docs</Link>
           </Button>
         </div>
