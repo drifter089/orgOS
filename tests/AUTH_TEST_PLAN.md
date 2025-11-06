@@ -4,7 +4,7 @@
 
 This test plan covers comprehensive end-to-end testing for the T3 Stack application with WorkOS AuthKit authentication. The application is built with Next.js 15, tRPC, Prisma, and PostgreSQL, featuring:
 
-- **Authentication**: WorkOS AuthKit with middleware-based protection
+- **Authentication**: WorkOS AuthKit with programmatic authentication for tests
 - **Protected Routes**: `/design-strategy`, `/render-strategy` require authentication
 - **Public Routes**: `/`, `/docs` are publicly accessible
 - **Task Management**: Full CRUD operations with user-scoped data
@@ -22,7 +22,7 @@ This test plan covers comprehensive end-to-end testing for the T3 Stack applicat
 
 **Key Features to Test:**
 
-- Login/logout flows using WorkOS impersonation
+- Login/logout flows using WorkOS SDK programmatic authentication
 - Access control for protected routes
 - Task CRUD operations (create, read, update, delete, toggle completion)
 - Task priority updates with optimistic UI
@@ -42,32 +42,121 @@ This test plan covers comprehensive end-to-end testing for the T3 Stack applicat
    pnpm dev
    ```
 
-2. **Test Credentials** (from .env):
+2. **Dependencies**: Install test-specific dependencies
+
+   ```bash
+   pnpm install @workos-inc/node iron-session @playwright/test
+   ```
+
+3. **Test Credentials**: Defined in `tests/helpers/auth.ts`
+
+   The `TEST_USERS` object contains test user credentials:
    - Email: `akshat-test@test.com`
    - Password: `akshat-test`
-   - These credentials exist in the WorkOS dashboard for impersonation
+   - Role: `user` (standard user)
 
-3. **Database**: PostgreSQL database must be accessible and migrated
+   These credentials exist in the WorkOS dashboard for authentication.
+
+4. **Environment Variables**: Required for authentication
+
+   ```bash
+   WORKOS_API_KEY=your_workos_api_key
+   WORKOS_CLIENT_ID=your_workos_client_id
+   WORKOS_COOKIE_PASSWORD=your_cookie_password  # 32-character string
+   ```
+
+5. **Database**: PostgreSQL database must be accessible and migrated
+
    ```bash
    pnpm db:generate
    ```
 
 ### Authentication Strategy
 
-**Option A: WorkOS UI Flow (Recommended)**
+**Programmatic Authentication (Current Implementation)**
 
-- Use the WorkOS AuthKit UI components
-- Navigate to `/api/login` which redirects to WorkOS sign-in page
-- Enter test credentials through the UI
-- WorkOS handles the OAuth flow and redirects back to `/api/callback`
+Tests use the WorkOS SDK's `authenticateWithPassword()` method to authenticate users programmatically, eliminating the need for UI-based authentication flows. This approach:
 
-**Option B: Direct API Authentication (Advanced)**
+1. **Global Setup** (`tests/global-setup.ts`):
+   - Runs once before all tests
+   - Authenticates test users using WorkOS SDK
+   - Creates encrypted session cookies compatible with AuthKit
+   - Saves authentication state to `tests/.auth/user.json`
+   - Verifies authentication works by checking for "Sign out" button
 
-- Use `workos.userManagement.authenticateWithPassword()` method
-- Requires additional setup to handle cookie management
-- More complex but allows programmatic authentication without UI interaction
+2. **Authentication Helpers** (`tests/helpers/auth.ts`):
+   - `authenticateUser()` function handles WorkOS authentication
+   - Uses `iron-session` to create encrypted cookies matching production format
+   - Cookie name: `wos-session` (confirmed from browser DevTools)
+   - Returns user info and session cookie ready for browser context
 
-**Recommendation**: Use Option A for initial test development as it closely mirrors real user behavior and doesn't require mocking or cookie manipulation.
+3. **Test Fixtures** (`tests/fixtures/auth.fixture.ts`):
+   - `authenticatedPage`: Loads saved authentication state for authenticated tests
+   - `unauthenticatedPage`: Creates fresh context without authentication
+   - Fixtures handle browser context creation and cleanup automatically
+
+**Benefits of Programmatic Authentication:**
+
+- **Speed**: No UI navigation or form interaction required
+- **Reliability**: No dependency on WorkOS UI structure or network latency
+- **Reusability**: Authentication happens once in global setup, reused across tests
+- **Maintainability**: Changes to WorkOS UI don't break tests
+- **Parallelization**: Multiple tests can run with pre-authenticated contexts
+
+**Running Global Setup:**
+
+The global setup runs automatically before tests:
+
+```bash
+# Run all tests (global setup runs first)
+pnpm test
+
+# Run specific test file
+npx playwright test tests/auth-authenticated.spec.ts
+```
+
+### Programmatic Authentication Details
+
+**How `authenticateUser()` Works:**
+
+1. **WorkOS Authentication**:
+   ```typescript
+   const authResponse = await workos.userManagement.authenticateWithPassword({
+     clientId: process.env.WORKOS_CLIENT_ID,
+     email: user.email,
+     password: user.password,
+   });
+   ```
+
+2. **Session Cookie Creation**:
+   ```typescript
+   // Create session data matching AuthKit Next.js structure
+   const sessionData = {
+     accessToken: authResponse.accessToken,
+     refreshToken: authResponse.refreshToken,
+     user: authResponse.user,
+     impersonator: authResponse.impersonator,
+   };
+
+   // Encrypt with iron-session (same as production)
+   const sealedSession = await seal(sessionData, cookiePassword, defaults);
+   ```
+
+3. **Cookie Configuration**:
+   - Name: `wos-session`
+   - HTTP Only: `true`
+   - Secure: `false` (development), `true` (production)
+   - SameSite: `lax`
+   - Domain: `localhost`
+   - Path: `/`
+
+**Authentication State Persistence:**
+
+- Saved to `tests/.auth/user.json` by global setup
+- Contains cookies, localStorage, and sessionStorage
+- Reloaded by fixtures for each test
+- No re-authentication needed between tests
+- State remains valid for entire test run
 
 ### Test Data Management
 
@@ -120,32 +209,46 @@ This test plan covers comprehensive end-to-end testing for the T3 Stack applicat
 - Original requested path is preserved for post-login redirect
 - No application content is displayed before redirect
 
-#### 1.3 Sign In with Valid Credentials
+#### 1.3 Programmatic Authentication (Global Setup)
 
 **Steps:**
 
-1. Start from home page `http://localhost:3000/`
-2. Click "Sign in" button in NavBar
-3. Verify redirect to WorkOS authentication page
-4. Enter email: `akshat-test@test.com`
-5. Enter password: `akshat-test`
-6. Click submit/sign-in button
-7. Wait for redirect back to application
+Global setup automatically handles authentication before tests run:
+
+1. Global setup invokes `authenticateUser()` from `tests/helpers/auth.ts`
+2. Function calls `workos.userManagement.authenticateWithPassword()` with test credentials
+3. WorkOS returns access token, refresh token, and user data
+4. Session data is encrypted using `iron-session` with `WORKOS_COOKIE_PASSWORD`
+5. Encrypted session cookie (`wos-session`) is created
+6. Browser context is created and cookie is added
+7. Navigation to home page verifies "Sign out" button is visible
+8. Authentication state is saved to `tests/.auth/user.json`
 
 **Expected Results:**
 
-- WorkOS authentication page loads successfully
-- Email and password fields are present and functional
-- After submission, user is redirected to home page (`/`)
-- NavBar displays welcome message with user's first name
-- "Sign out" button replaces "Sign in" and "Sign up" buttons
-- User session is established (cookies set)
+- Global setup completes without errors
+- Console logs show: "Successfully authenticated: akshat-test@test.com"
+- Authentication state file is created at `tests/.auth/user.json`
+- Verification page shows "Sign out" button
+- User session is established and ready for tests
+- All subsequent tests using `authenticatedPage` fixture have valid session
+
+**Implementation Note:**
+
+Tests don't need to manually sign in. The `authenticatedPage` fixture automatically loads the saved authentication state:
+
+```typescript
+test('my test', async ({ authenticatedPage }) => {
+  // User is already authenticated - no sign-in needed
+  await authenticatedPage.goto('/protected-route');
+});
+```
 
 #### 1.4 Session Persistence
 
 **Steps:**
 
-1. Sign in as per scenario 1.3
+1. Use `authenticatedPage` fixture (pre-authenticated)
 2. Navigate to `/design-strategy` (protected route)
 3. Verify page loads successfully
 4. Refresh the browser (F5)
@@ -160,7 +263,7 @@ This test plan covers comprehensive end-to-end testing for the T3 Stack applicat
 
 - User remains authenticated after page refresh
 - All protected routes remain accessible
-- Session cookies persist (check `workos-session` or similar)
+- Session cookies persist (check `wos-session` cookie)
 - No re-authentication required
 - User info consistently displayed across navigation
 
@@ -168,12 +271,13 @@ This test plan covers comprehensive end-to-end testing for the T3 Stack applicat
 
 **Steps:**
 
-1. Ensure user is signed in (from scenario 1.3)
-2. Verify "Sign out" button is visible in NavBar
-3. Click "Sign out" button
-4. Wait for page response
-5. Verify NavBar state changes
-6. Attempt to navigate to `/design-strategy`
+1. Use `authenticatedPage` fixture (pre-authenticated)
+2. Navigate to home page
+3. Verify "Sign out" button is visible in NavBar
+4. Click "Sign out" button
+5. Wait for page response
+6. Verify NavBar state changes
+7. Attempt to navigate to `/design-strategy`
 
 **Expected Results:**
 
@@ -184,35 +288,34 @@ This test plan covers comprehensive end-to-end testing for the T3 Stack applicat
 - Attempting to access `/design-strategy` redirects to sign-in page
 - User is no longer authenticated
 
-#### 1.6 Sign In with Direct Navigation to Protected Route
+#### 1.6 Direct Navigation to Protected Route (Authenticated)
 
 **Steps:**
 
-1. Clear all cookies (start unauthenticated)
+1. Use `authenticatedPage` fixture (pre-authenticated)
 2. Navigate directly to `http://localhost:3000/render-strategy`
-3. Verify redirect to WorkOS sign-in page
-4. Enter valid credentials (akshat-test@test.com / akshat-test)
-5. Complete sign-in
+3. Verify page loads without redirect
+4. Check that content is visible
 
 **Expected Results:**
 
-- User is redirected to WorkOS authentication
-- After successful sign-in, user is redirected to `/render-strategy` (original destination)
-- Page loads successfully with authenticated content
-- User session is established
+- Page loads successfully without redirect to sign-in
+- User is already authenticated from fixture
+- Page content displays immediately
+- User session is active
 
 ---
 
 ### 2. Protected Routes Functionality
 
 **Seed**: `tests/seed.spec.ts`
-**Pre-condition**: User must be authenticated (run sign-in flow first)
+**Pre-condition**: User must be authenticated (use `authenticatedPage` fixture)
 
 #### 2.1 Design Strategy Page Access
 
 **Steps:**
 
-1. Ensure user is signed in
+1. Use `authenticatedPage` fixture
 2. Navigate to `http://localhost:3000/design-strategy`
 3. Wait for page to fully load
 4. Verify page title is "Shadcn Component Showcase"
@@ -232,7 +335,7 @@ This test plan covers comprehensive end-to-end testing for the T3 Stack applicat
 
 **Steps:**
 
-1. Ensure user is signed in
+1. Use `authenticatedPage` fixture
 2. Navigate to `http://localhost:3000/render-strategy`
 3. Wait for page to fully load
 4. Verify page displays two main sections:
@@ -258,13 +361,13 @@ This test plan covers comprehensive end-to-end testing for the T3 Stack applicat
 ### 3. Task Management - Create Operations
 
 **Seed**: `tests/seed.spec.ts`
-**Pre-condition**: User must be authenticated and on `/render-strategy` page
+**Pre-condition**: User must be authenticated and on `/render-strategy` page (use `authenticatedPage` fixture)
 
 #### 3.1 Create Task via Query Invalidation Strategy
 
 **Steps:**
 
-1. Navigate to `/render-strategy`
+1. Navigate to `/render-strategy` using `authenticatedPage`
 2. Locate the "Query Invalidation" card (blue border, "Recommended" badge)
 3. Find the task creation form input field
 4. Type a unique task title (e.g., "Test Task QI - [timestamp]")
@@ -377,18 +480,17 @@ This test plan covers comprehensive end-to-end testing for the T3 Stack applicat
 ### 4. Task Management - Read Operations
 
 **Seed**: `tests/seed.spec.ts`
-**Pre-condition**: User must be authenticated and have created at least 3 tasks
+**Pre-condition**: User must be authenticated and have created at least 3 tasks (use `authenticatedPage` fixture)
 
 #### 4.1 View Task List on Page Load
 
 **Steps:**
 
-1. Ensure user has created 3+ tasks
-2. Sign out of the application
-3. Sign back in
-4. Navigate to `/render-strategy`
-5. Wait for page to load
-6. Observe the task lists in all three strategy cards
+1. Ensure user has created 3+ tasks (from previous tests or setup)
+2. Create a new browser context with `authenticatedPage` fixture
+3. Navigate to `/render-strategy`
+4. Wait for page to load
+5. Observe the task lists in all three strategy cards
 
 **Expected Results:**
 
@@ -403,13 +505,12 @@ This test plan covers comprehensive end-to-end testing for the T3 Stack applicat
 
 **Steps:**
 
-1. Sign in as test user (akshat-test@test.com)
+1. Use `authenticatedPage` fixture (standard user)
 2. Create a task: "User 1 Task - [timestamp]"
 3. Note the task appears in the list
-4. Sign out
-5. (If available) Sign in as a different test user
-6. Navigate to `/render-strategy`
-7. Verify the previous user's task is NOT visible
+4. (If available) Create and use a second authenticated user fixture
+5. Navigate to `/render-strategy` with second user
+6. Verify the previous user's task is NOT visible
 
 **Expected Results:**
 
@@ -426,7 +527,7 @@ This test plan covers comprehensive end-to-end testing for the T3 Stack applicat
 **Steps:**
 
 1. Create a new test user or use database cleanup
-2. Sign in as user with no tasks
+2. Create fixture with user who has no tasks
 3. Navigate to `/render-strategy`
 4. Observe the task list sections
 
@@ -444,13 +545,13 @@ This test plan covers comprehensive end-to-end testing for the T3 Stack applicat
 ### 5. Task Management - Update Operations
 
 **Seed**: `tests/seed.spec.ts`
-**Pre-condition**: User must be authenticated and have created at least 1 task
+**Pre-condition**: User must be authenticated and have created at least 1 task (use `authenticatedPage` fixture)
 
 #### 5.1 Toggle Task Completion (Direct Cache Update)
 
 **Steps:**
 
-1. Navigate to `/render-strategy`
+1. Navigate to `/render-strategy` using `authenticatedPage`
 2. Ensure at least one incomplete task exists
 3. Locate the "Direct Cache Update" card
 4. Find a task in the list (should have no checkmark)
@@ -516,13 +617,13 @@ This test plan covers comprehensive end-to-end testing for the T3 Stack applicat
 ### 6. Task Management - Delete Operations
 
 **Seed**: `tests/seed.spec.ts`
-**Pre-condition**: User must be authenticated and have created at least 2 tasks
+**Pre-condition**: User must be authenticated and have created at least 2 tasks (use `authenticatedPage` fixture)
 
 #### 6.1 Delete Task
 
 **Steps:**
 
-1. Navigate to `/render-strategy`
+1. Navigate to `/render-strategy` using `authenticatedPage`
 2. Note the current task count in any strategy card
 3. Locate a delete button/icon for a specific task
 4. Note the task title before deletion
@@ -566,13 +667,13 @@ This test plan covers comprehensive end-to-end testing for the T3 Stack applicat
 ### 7. Cross-Feature Integration Tests
 
 **Seed**: `tests/seed.spec.ts`
-**Pre-condition**: User must be authenticated
+**Pre-condition**: User must be authenticated (use `authenticatedPage` fixture)
 
 #### 7.1 Complete User Journey
 
 **Steps:**
 
-1. Sign in with valid credentials
+1. Use `authenticatedPage` fixture (already signed in)
 2. Navigate to home page - verify public content
 3. Navigate to `/design-strategy` - verify access granted
 4. Navigate to `/render-strategy` - verify page loads
@@ -598,7 +699,7 @@ This test plan covers comprehensive end-to-end testing for the T3 Stack applicat
 
 **Steps:**
 
-1. Navigate to `/render-strategy`
+1. Navigate to `/render-strategy` using `authenticatedPage`
 2. Open browser DevTools Network tab
 3. Create a task in Query Invalidation card
 4. While that mutation is pending, try to create another task
@@ -620,7 +721,7 @@ This test plan covers comprehensive end-to-end testing for the T3 Stack applicat
 
 **Steps:**
 
-1. Navigate to `/render-strategy`
+1. Navigate to `/render-strategy` using `authenticatedPage`
 2. Start creating a task (click submit)
 3. Immediately navigate to home page (before mutation completes)
 4. Wait 2-3 seconds
@@ -646,7 +747,7 @@ This test plan covers comprehensive end-to-end testing for the T3 Stack applicat
 
 **Steps:**
 
-1. Sign in as normal user
+1. Use `authenticatedPage` fixture
 2. Navigate to `/render-strategy`
 3. Open browser DevTools and delete session cookies manually
 4. Try to create a task
@@ -666,7 +767,7 @@ This test plan covers comprehensive end-to-end testing for the T3 Stack applicat
 
 **Steps:**
 
-1. Navigate to `/render-strategy`
+1. Navigate to `/render-strategy` using `authenticatedPage`
 2. Open browser DevTools Network tab
 3. Enable "Offline" mode
 4. Try to create a task
@@ -687,7 +788,7 @@ This test plan covers comprehensive end-to-end testing for the T3 Stack applicat
 
 **Steps:**
 
-1. Navigate to `/render-strategy`
+1. Navigate to `/render-strategy` using `authenticatedPage`
 2. Enter a very long task title (500+ characters)
 3. Try to submit
 4. Observe validation or truncation
@@ -704,7 +805,7 @@ This test plan covers comprehensive end-to-end testing for the T3 Stack applicat
 
 **Steps:**
 
-1. Navigate to `/render-strategy`
+1. Navigate to `/render-strategy` using `authenticatedPage`
 2. Create task with title: `<script>alert('XSS')</script>`
 3. Create task with title: `Test & "Task" with 'quotes'`
 4. Create task with title: `Unicode Test: 日本語 🎉 测试`
@@ -723,7 +824,7 @@ This test plan covers comprehensive end-to-end testing for the T3 Stack applicat
 
 **Steps:**
 
-1. Navigate to `/render-strategy`
+1. Navigate to `/render-strategy` using `authenticatedPage`
 2. Enter a task title
 3. Click "Create Task" button multiple times rapidly (3-4 clicks)
 4. Observe the result
@@ -740,8 +841,8 @@ This test plan covers comprehensive end-to-end testing for the T3 Stack applicat
 
 **Steps:**
 
-1. Start on home page
-2. Sign in
+1. Use `authenticatedPage` fixture
+2. Navigate to home page
 3. Navigate to `/render-strategy`
 4. Create a task
 5. Navigate to `/design-strategy`
@@ -762,13 +863,13 @@ This test plan covers comprehensive end-to-end testing for the T3 Stack applicat
 ### 9. Performance & UX Tests
 
 **Seed**: `tests/seed.spec.ts`
-**Pre-condition**: User must be authenticated
+**Pre-condition**: User must be authenticated (use `authenticatedPage` fixture)
 
 #### 9.1 Server-Side Prefetch Performance
 
 **Steps:**
 
-1. Sign in and create 5 tasks
+1. Use `authenticatedPage` fixture and create 5 tasks
 2. Clear browser cache
 3. Navigate to `/render-strategy`
 4. Measure time to first meaningful paint
@@ -788,7 +889,7 @@ This test plan covers comprehensive end-to-end testing for the T3 Stack applicat
 
 **Steps:**
 
-1. Navigate to `/render-strategy`
+1. Navigate to `/render-strategy` using `authenticatedPage`
 2. Create one task in each strategy card
 3. Compare the performance metrics displayed
 4. Record timing for each strategy:
@@ -808,8 +909,8 @@ This test plan covers comprehensive end-to-end testing for the T3 Stack applicat
 
 **Steps:**
 
-1. Create 20+ tasks for the test user
-2. Sign out and sign back in
+1. Create 20+ tasks for the test user using `authenticatedPage`
+2. Create new browser context with authentication
 3. Navigate to `/render-strategy`
 4. Measure page load time
 5. Observe rendering performance
@@ -828,13 +929,13 @@ This test plan covers comprehensive end-to-end testing for the T3 Stack applicat
 ### 10. Accessibility Tests
 
 **Seed**: `tests/seed.spec.ts`
-**Pre-condition**: User must be authenticated
+**Pre-condition**: User must be authenticated (use `authenticatedPage` fixture)
 
 #### 10.1 Keyboard Navigation
 
 **Steps:**
 
-1. Navigate to `/render-strategy`
+1. Navigate to `/render-strategy` using `authenticatedPage`
 2. Use Tab key to navigate through interactive elements
 3. Try to create a task using only keyboard:
    - Tab to input field
@@ -858,7 +959,7 @@ This test plan covers comprehensive end-to-end testing for the T3 Stack applicat
 **Steps:**
 
 1. Enable screen reader (NVDA, JAWS, or VoiceOver)
-2. Navigate to `/render-strategy`
+2. Navigate to `/render-strategy` using `authenticatedPage`
 3. Listen to page structure announcements
 4. Navigate to task creation form
 5. Create a task while listening to feedback
@@ -879,7 +980,7 @@ This test plan covers comprehensive end-to-end testing for the T3 Stack applicat
 
 **Steps:**
 
-1. Navigate to `/render-strategy`
+1. Navigate to `/render-strategy` using `authenticatedPage`
 2. Use browser DevTools to check color contrast ratios
 3. Verify task completion uses more than just color (checkmark icon)
 4. Check focus indicators meet WCAG standards
@@ -902,12 +1003,14 @@ This test plan covers comprehensive end-to-end testing for the T3 Stack applicat
 - **Primary Test User**:
   - Email: `akshat-test@test.com`
   - Password: `akshat-test`
+  - Role: `user` (standard user)
   - Should exist in WorkOS dashboard
-  - Should have test data in database
+  - Defined in `tests/helpers/auth.ts` as `TEST_USERS.standard`
 
 - **Secondary Test User** (Optional, for multi-user testing):
-  - Email: TBD
+  - Email: TBD (add to `TEST_USERS` object when needed)
   - Password: TBD
+  - Add to global setup when implemented
 
 ### Test Data Conventions
 
@@ -932,8 +1035,10 @@ This test plan covers comprehensive end-to-end testing for the T3 Stack applicat
 
 ### Authentication
 
-- Sign-in redirects to WorkOS, then back to app
-- Protected routes redirect unauthenticated users
+- Programmatic authentication via WorkOS SDK
+- Global setup creates and saves authentication state
+- Tests use fixtures to load pre-authenticated contexts
+- Protected routes accessible to authenticated users
 - Session persists across page refreshes
 - Sign-out clears session and redirects appropriately
 
@@ -968,42 +1073,128 @@ This test plan covers comprehensive end-to-end testing for the T3 Stack applicat
 
 ## Implementation Notes
 
-### Authentication Setup in Tests
+### Using Authentication Fixtures
 
 **Recommended Approach**:
 
 ```typescript
-// In test setup or before authenticated tests
-test.describe("Authenticated User Tests", () => {
-  test.beforeEach(async ({ page }) => {
-    // Navigate to login
-    await page.goto("http://localhost:3000/api/login");
+// Import fixtures instead of base Playwright test
+import { test, expect } from './fixtures/auth.fixture';
 
-    // Wait for WorkOS page
-    await page.waitForURL(/https:\/\/auth.*workos\.com/);
+test.describe('Authenticated User Tests', () => {
+  // Use authenticatedPage fixture - user is already signed in
+  test('should access protected route', async ({ authenticatedPage }) => {
+    await authenticatedPage.goto('/render-strategy');
 
-    // Fill in credentials
-    await page.fill('input[name="email"]', "akshat-test@test.com");
-    await page.fill('input[name="password"]', "akshat-test");
-
-    // Submit and wait for redirect
-    await page.click('button[type="submit"]');
-    await page.waitForURL("http://localhost:3000/");
-
-    // Verify authentication
-    await expect(page.locator("text=Welcome")).toBeVisible();
+    // No sign-in needed - authentication handled by fixture
+    await expect(authenticatedPage).toHaveURL('/render-strategy');
+    await expect(authenticatedPage.getByText('Mutation Strategies')).toBeVisible();
   });
 
-  // Individual test cases follow...
+  // Use unauthenticatedPage fixture for tests requiring no auth
+  test('should redirect unauthenticated users', async ({ unauthenticatedPage }) => {
+    await unauthenticatedPage.goto('/render-strategy');
+
+    // Should redirect to WorkOS sign-in
+    await expect(unauthenticatedPage.url()).toContain('workos');
+  });
+});
+```
+
+### Global Setup Process
+
+The global setup (`tests/global-setup.ts`) runs automatically before all tests:
+
+1. **Authentication**:
+   - Calls `authenticateUser(TEST_USERS.standard)` from `tests/helpers/auth.ts`
+   - WorkOS SDK authenticates with email/password
+   - Returns user info and encrypted session cookie
+
+2. **Cookie Creation**:
+   - Uses `iron-session` to encrypt session data
+   - Cookie structure matches production AuthKit format
+   - Cookie name: `wos-session` (confirmed from DevTools)
+
+3. **Verification**:
+   - Creates browser context with authentication cookie
+   - Navigates to home page
+   - Checks for "Sign out" button (confirms auth works)
+
+4. **State Saving**:
+   - Saves entire browser state to `tests/.auth/user.json`
+   - Includes cookies, localStorage, sessionStorage
+   - Reused by fixtures in test files
+
+5. **Console Output**:
+   ```
+   [Global Setup] Starting authentication setup...
+   [Auth] Authenticating user: akshat-test@test.com
+   [Auth] Successfully authenticated: akshat-test@test.com
+   [Auth] Created encrypted session cookie
+   [Global Setup] ✓ Verified authentication for: akshat-test@test.com
+   [Global Setup] ✓ Saved auth state to: tests/.auth/user.json
+   [Global Setup] ✓ Authentication setup completed successfully
+   ```
+
+### Fixture Usage Examples
+
+**Authenticated Page Fixture**:
+
+```typescript
+import { test, expect } from './fixtures/auth.fixture';
+
+test('create task as authenticated user', async ({ authenticatedPage }) => {
+  // Already authenticated - go straight to protected route
+  await authenticatedPage.goto('/render-strategy');
+
+  // Interact with the page
+  await authenticatedPage.fill('input[placeholder="New task title..."]', 'Test Task');
+  await authenticatedPage.click('button:has-text("Create Task")');
+
+  // Verify results
+  await expect(authenticatedPage.getByText('Test Task')).toBeVisible();
+});
+```
+
+**Unauthenticated Page Fixture**:
+
+```typescript
+import { test, expect } from './fixtures/auth.fixture';
+
+test('redirect to sign-in when not authenticated', async ({ unauthenticatedPage }) => {
+  // No authentication - should redirect
+  await unauthenticatedPage.goto('/design-strategy');
+
+  // Verify redirect to WorkOS
+  await expect(unauthenticatedPage.url()).toContain('workos');
+});
+```
+
+**Using Both Fixtures in One Test File**:
+
+```typescript
+import { test, expect } from './fixtures/auth.fixture';
+
+test.describe('Route Access Control', () => {
+  test('authenticated users can access protected routes', async ({ authenticatedPage }) => {
+    await authenticatedPage.goto('/design-strategy');
+    await expect(authenticatedPage).toHaveURL('/design-strategy');
+  });
+
+  test('unauthenticated users cannot access protected routes', async ({ unauthenticatedPage }) => {
+    await unauthenticatedPage.goto('/design-strategy');
+    await expect(unauthenticatedPage.url()).toContain('workos');
+  });
 });
 ```
 
 **Important Considerations**:
 
-1. WorkOS page structure may vary - inspect actual elements
-2. Cookie persistence may require context storage
-3. Consider shared authentication state across tests
-4. Session expiration timing may affect long-running tests
+1. **No Manual Authentication**: Tests don't need to navigate to sign-in or enter credentials
+2. **Fixture Isolation**: Each fixture creates its own browser context
+3. **State Persistence**: Authentication state is loaded from saved file
+4. **Cleanup**: Fixtures automatically close contexts after tests
+5. **Parallelization**: Multiple tests can run with same authenticated state
 
 ### tRPC Testing
 
@@ -1047,6 +1238,7 @@ When running in CI:
 4. Store test credentials securely (environment variables)
 5. Use headed vs headless mode appropriately
 6. Configure retry logic for flaky tests
+7. Ensure `WORKOS_API_KEY`, `WORKOS_CLIENT_ID`, and `WORKOS_COOKIE_PASSWORD` are set
 
 ---
 
@@ -1054,19 +1246,29 @@ When running in CI:
 
 ### Current Limitations
 
-1. **WorkOS Impersonation**: Tests depend on external WorkOS service availability
+1. **Single Test User**: Only one standard user currently configured
 2. **Test Data Isolation**: Tests may interfere with each other if run in parallel
 3. **UI Elements**: Some UI controls (delete buttons, checkboxes) may not be exposed yet
 4. **Error Simulation**: Requires additional tooling to simulate server errors
 
 ### Future Enhancements
 
-1. **Mock Authentication**: Consider mocking WorkOS for faster, isolated tests
+1. **Multiple User Types**: Add admin and paid user fixtures
+   - Uncomment admin/paid sections in `tests/helpers/auth.ts`
+   - Uncomment admin/paid sections in `tests/global-setup.ts`
+   - Uncomment admin/paid fixtures in `tests/fixtures/auth.fixture.ts`
+
 2. **Test Fixtures**: Create fixture data for consistent test scenarios
+
 3. **Visual Regression**: Add screenshot comparison tests
+
 4. **API Testing**: Direct tRPC API testing alongside E2E tests
+
 5. **Load Testing**: Test with many concurrent users
+
 6. **Mobile Testing**: Add mobile viewport and touch interaction tests
+
+7. **Role-Based Access**: Test admin-only routes and features when implemented
 
 ---
 
@@ -1096,6 +1298,15 @@ When running in CI:
 - `src/app/render-strategy/page.tsx` - Task UI page
 - `src/app/render-strategy/_components/` - Strategy implementations
 
+**Test Infrastructure**:
+
+- `tests/helpers/auth.ts` - Authentication utilities and TEST_USERS
+- `tests/global-setup.ts` - Global setup with programmatic authentication
+- `tests/fixtures/auth.fixture.ts` - authenticatedPage and unauthenticatedPage fixtures
+- `tests/auth-authenticated.spec.ts` - Core authentication tests
+- `tests/task-crud.spec.ts` - Task management tests
+- `playwright.config.ts` - Playwright configuration with globalSetup
+
 **Configuration**:
 
 - `.env` - Environment variables (test credentials)
@@ -1104,23 +1315,40 @@ When running in CI:
 
 ### Troubleshooting
 
-**Issue**: WorkOS authentication page structure changes
-**Solution**: Use Playwright codegen to inspect current structure: `npx playwright codegen http://localhost:3000/api/login`
+**Issue**: Global setup fails with "WORKOS_API_KEY environment variable is required"
+**Solution**: Ensure `.env` file contains all required WorkOS environment variables
+
+**Issue**: Authentication verification fails in global setup
+**Solution**: Check that test user exists in WorkOS dashboard and credentials are correct
+
+**Issue**: Tests fail with "Cannot find auth state file"
+**Solution**: Ensure global setup ran successfully and created `tests/.auth/user.json`
 
 **Issue**: Session cookies not persisting between tests
-**Solution**: Use `storageState` to save/restore authentication state
+**Solution**: Verify fixtures are loading `storageState` from correct path
 
 **Issue**: tRPC UNAUTHORIZED errors in authenticated tests
-**Solution**: Verify cookies are present, check middleware configuration, ensure user context is passed correctly
+**Solution**: Verify `authenticatedPage` fixture is being used and auth state file exists
 
 **Issue**: Tasks from previous test runs affecting results
 **Solution**: Implement data cleanup in test teardown, or use database transactions that rollback
+
+**Issue**: Cookie encryption fails
+**Solution**: Ensure `WORKOS_COOKIE_PASSWORD` is at least 32 characters long
 
 ---
 
 ## Version History
 
-- **v1.0** - Initial comprehensive test plan
-- Created: 2025-11-02
-- Author: Claude Code (Assisted)
-- Project: T3 Stack Application with WorkOS Auth Testing
+- **v2.0** - Updated for programmatic authentication with WorkOS SDK
+  - Added programmatic authentication using `authenticateWithPassword()`
+  - Implemented global setup for pre-test authentication
+  - Created authentication fixtures for test reusability
+  - Removed UI-based authentication steps
+  - Updated all scenarios to use new fixture approach
+  - Updated: 2025-11-05
+
+- **v1.0** - Initial comprehensive test plan with UI-based authentication
+  - Created: 2025-11-02
+  - Author: Claude Code (Assisted)
+  - Project: T3 Stack Application with WorkOS Auth Testing
