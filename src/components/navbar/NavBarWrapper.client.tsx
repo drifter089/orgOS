@@ -1,6 +1,12 @@
 "use client";
 
-import { type ReactNode, useEffect, useRef, useState } from "react";
+import {
+  type ReactNode,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 
 import { cn } from "@/lib/utils";
 
@@ -11,11 +17,11 @@ interface NavBarWrapperProps {
 export function NavBarWrapper({ children }: NavBarWrapperProps) {
   const [isVisible, setIsVisible] = useState(true);
   const [lastScrollY, setLastScrollY] = useState(0);
-  const [isHoveringNav, setIsHoveringNav] = useState(false);
+  const isHoveringNavRef = useRef(false);
   const hideTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Function to schedule auto-hide
-  const scheduleHide = () => {
+  // Function to schedule auto-hide using ref for hover state
+  const scheduleHide = useCallback(() => {
     // Clear any existing timeout
     if (hideTimeoutRef.current) {
       clearTimeout(hideTimeoutRef.current);
@@ -23,17 +29,17 @@ export function NavBarWrapper({ children }: NavBarWrapperProps) {
 
     // Schedule hide after 1 second if not hovering
     hideTimeoutRef.current = setTimeout(() => {
-      if (!isHoveringNav) {
+      if (!isHoveringNavRef.current) {
         setIsVisible(false);
       }
     }, 1000);
-  };
+  }, []);
 
   // Function to show navbar and schedule hide
-  const showAndScheduleHide = () => {
+  const showAndScheduleHide = useCallback(() => {
     setIsVisible(true);
     scheduleHide();
-  };
+  }, [scheduleHide]);
 
   useEffect(() => {
     // Auto-hide on initial mount after 1 second
@@ -53,7 +59,7 @@ export function NavBarWrapper({ children }: NavBarWrapperProps) {
 
     const handleMouseMove = (e: MouseEvent) => {
       // Show navbar when mouse is near the top (within 100px)
-      if (e.clientY < 100 && !isVisible) {
+      if (e.clientY < 100) {
         showAndScheduleHide();
       }
     };
@@ -68,10 +74,10 @@ export function NavBarWrapper({ children }: NavBarWrapperProps) {
         clearTimeout(hideTimeoutRef.current);
       }
     };
-  }, [isVisible, isHoveringNav]);
+  }, [scheduleHide, showAndScheduleHide]);
 
   const handleMouseEnter = () => {
-    setIsHoveringNav(true);
+    isHoveringNavRef.current = true;
     setIsVisible(true);
     // Clear hide timeout when hovering
     if (hideTimeoutRef.current) {
@@ -80,7 +86,7 @@ export function NavBarWrapper({ children }: NavBarWrapperProps) {
   };
 
   const handleMouseLeave = () => {
-    setIsHoveringNav(false);
+    isHoveringNavRef.current = false;
     // Schedule hide when mouse leaves
     scheduleHide();
   };
