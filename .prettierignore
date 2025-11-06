@@ -1,0 +1,27 @@
+# Dependencies
+node_modules
+
+# Build outputs
+.next
+out
+dist
+build
+
+# Cache
+.turbo
+.eslintcache
+
+# Tests
+tests
+playwright-report
+test-results
+
+# Environment
+.env
+.env.local
+.env.production.local
+
+# Misc
+*.log
+.DS_Store
+coverage

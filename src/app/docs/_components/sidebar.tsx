@@ -3,7 +3,17 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
-import { Book, Code, FileText, Home, Menu } from "lucide-react";
+import {
+  Book,
+  Code,
+  FileText,
+  FolderGit2,
+  Home,
+  Menu,
+  TestTube2,
+  Workflow,
+  Wrench,
+} from "lucide-react";
 
 import { ThemeSwitch } from "@/components/navbar/ThemeSwitch.client";
 import { Button } from "@/components/ui/button";
@@ -24,19 +34,41 @@ const docsRoutes = [
     items: [
       { title: "Overview", href: "/docs/architecture", icon: Book },
       { title: "Concepts", href: "/docs/architecture/concepts", icon: Book },
-      { title: "Patterns", href: "/docs/architecture/patterns", icon: Code },
       {
-        title: "Decisions",
-        href: "/docs/architecture/decisions",
-        icon: FileText,
+        title: "  ├─ Server & Client",
+        href: "/docs/architecture/concepts/server-and-client-components",
+        icon: Code,
+        indent: true,
       },
+      {
+        title: "  ├─ TanStack Query",
+        href: "/docs/architecture/concepts/tanstack-query",
+        icon: Code,
+        indent: true,
+      },
+      {
+        title: "  └─ tRPC API Layer",
+        href: "/docs/architecture/concepts/trpc-api-layer",
+        icon: Code,
+        indent: true,
+      },
+      { title: "Patterns", href: "/docs/architecture/patterns", icon: Code },
     ],
   },
   {
-    title: "Components",
+    title: "Development",
     items: [
-      { title: "Overview", href: "/docs/components", icon: Code },
-      { title: "Examples", href: "/docs/examples", icon: Book },
+      { title: "Testing", href: "/docs/testing", icon: TestTube2 },
+      { title: "React Flow", href: "/docs/react-flow", icon: Workflow },
+      { title: "AI & Dev Tools", href: "/docs/ai-and-dev-tools", icon: Wrench },
+      { title: "CI/CD", href: "/docs/ci-cd", icon: Code },
+    ],
+  },
+  {
+    title: "Project",
+    items: [
+      { title: "Roadmap", href: "/docs/roadmap", icon: FolderGit2 },
+      { title: "Changelog", href: "/docs/changelog", icon: FileText },
     ],
   },
 ];
@@ -60,8 +92,8 @@ function SidebarContent() {
         </Link>
       </div>
 
-      <ScrollArea className="flex-1 px-3">
-        <div className="space-y-8 py-4">
+      <ScrollArea className="flex-1 overflow-y-auto px-3">
+        <div className="space-y-8 py-4 pb-8">
           {docsRoutes.map((section) => (
             <div key={section.title} className="space-y-3">
               <h4 className="text-muted-foreground/70 px-4 text-xs font-semibold tracking-wider uppercase">
@@ -80,6 +112,7 @@ function SidebarContent() {
                           "hover:translate-x-1",
                           isActive && "bg-secondary font-medium shadow-sm",
                           !isActive && "hover:bg-accent/50",
+                          (item as { indent?: boolean }).indent && "text-sm",
                         )}
                       >
                         <Icon

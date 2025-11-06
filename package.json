@@ -18,6 +18,10 @@
     "lint:fix": "eslint . --fix",
     "preview": "next build && next start",
     "start": "next start",
+    "sync:docs": "node scripts/sync-docs.js",
+    "sync:docs:check": "node scripts/sync-docs.js --check",
+    "sync:docs:fix": "node scripts/sync-docs.js --fix",
+    "ai-sync:docs": "node scripts/ai-sync-docs.js",
     "typecheck": "tsc --noEmit",
     "prepare": "husky"
   },
@@ -71,6 +75,7 @@
     "lucide-react": "^0.548.0",
     "mermaid": "^11.12.1",
     "next": "^15.2.3",
+    "next-mdx-remote": "^5.0.0",
     "next-themes": "^0.4.6",
     "next-transition-router": "^0.2.11",
     "react": "^19.0.0",
@@ -93,12 +98,15 @@
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3.3.1",
+    "@playwright/test": "^1.56.1",
     "@tailwindcss/postcss": "^4.0.15",
     "@tanstack/react-query-devtools": "^5.69.0",
     "@trivago/prettier-plugin-sort-imports": "^5.2.2",
     "@types/node": "^20.14.10",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
+    "@workos-inc/node": "^7.72.2",
+    "dotenv": "^17.2.3",
     "eslint": "^9.23.0",
     "eslint-config-next": "^15.2.3",
     "eslint-config-prettier": "^10.1.8",
@@ -109,6 +117,7 @@
     "eslint-plugin-unused-imports": "^4.3.0",
     "glob": "^11.0.3",
     "husky": "^9.1.7",
+    "iron-session": "^8.0.4",
     "lint-staged": "^16.2.6",
     "playwright": "^1.56.1",
     "postcss": "^8.5.3",
@@ -132,6 +141,7 @@
     ],
     "*.{json,md,mdx,css}": [
       "prettier --write"
-    ]
+    ],
+    "tests/**": []
   }
 }

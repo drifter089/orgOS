@@ -8,7 +8,7 @@ This is a T3 Stack application built with Next.js 15, tRPC, Prisma, and WorkOS A
 
 ## Core Technologies
 
-- **Next.js 15** - React framework with App Router
+- **Next.js 15.2.3** - React framework with App Router
 - **tRPC** - End-to-end typesafe APIs
 - **Prisma** - Database ORM with PostgreSQL
 - **WorkOS AuthKit** - Authentication provider
@@ -38,7 +38,43 @@ pnpm db:generate      # Generate Prisma client and run migrations
 pnpm db:migrate       # Deploy migrations to database
 pnpm db:push          # Push schema changes without migrations
 pnpm db:studio        # Open Prisma Studio GUI
+
+# Documentation Sync
+pnpm sync:docs        # Validate docs (pattern-based, fast)
+pnpm sync:docs:fix    # Auto-fix version numbers and dates
+pnpm ai-sync:docs     # AI-powered full sync (requires OPENROUTER_API_KEY)
 ```
+
+## Documentation Sync System
+
+This project has an intelligent documentation system that keeps docs synchronized with code:
+
+**Pattern-Based Sync (Fast):**
+
+- Validates version numbers in CLAUDE.md match package.json
+- Updates date stamps in ROADMAP.md and CHANGELOG.md
+- Runs on pre-commit hooks (non-blocking validation)
+- Use: `pnpm sync:docs:fix` for quick updates
+
+**AI-Powered Sync (Intelligent):**
+
+- Analyzes git commits and code changes with Claude AI via OpenRouter
+- Generates CHANGELOG entries from commits
+- Moves completed ROADMAP items automatically
+- **Updates documentation pages** based on code changes
+- Adds Mermaid diagrams and code examples
+- Works like the `docs-writer` agent
+- Runs daily via GitHub Actions, creates PRs for review
+- Use: `pnpm ai-sync:docs` (requires OPENROUTER_API_KEY)
+
+**Setup AI Sync:**
+
+```bash
+export OPENROUTER_API_KEY="sk-or-your-key-here"
+pnpm ai-sync:docs
+```
+
+**See:** `scripts/README.md` for complete documentation sync guide
 
 ## Architecture
 
