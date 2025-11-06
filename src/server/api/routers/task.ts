@@ -17,10 +17,11 @@ export const taskRouter = createTRPCRouter({
   getById: protectedProcedure
     .input(z.object({ id: z.string() }))
     .query(async ({ ctx, input }) => {
+      // Ensure user owns this task
       const task = await ctx.db.task.findFirst({
         where: {
           id: input.id,
-          userId: ctx.user.id, // Ensure user owns this task
+          userId: ctx.user.id,
         },
       });
       return task ?? null;

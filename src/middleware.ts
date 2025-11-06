@@ -4,7 +4,8 @@ export default authkitMiddleware({
   middlewareAuth: {
     enabled: true,
     unauthenticatedPaths: [
-      "/", // Public home page
+      // Public home page
+      "/",
     ],
   },
 });
