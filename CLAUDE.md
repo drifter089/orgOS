@@ -39,6 +39,15 @@ pnpm db:migrate       # Deploy migrations to database
 pnpm db:push          # Push schema changes without migrations
 pnpm db:studio        # Open Prisma Studio GUI
 
+# Testing
+pnpm exec playwright test                 # Run all Playwright tests
+pnpm exec playwright test --project=chromium  # Run tests in Chromium only
+pnpm exec playwright test tests/auth-authenticated.spec.ts  # Run specific test file
+pnpm exec playwright test --ui            # Run tests in UI mode
+pnpm exec playwright test --debug         # Run tests in debug mode
+pnpm exec playwright show-report         # Show test report
+pnpm exec playwright codegen             # Generate test code
+
 # Documentation Sync
 pnpm sync:docs        # Validate docs (pattern-based, fast)
 pnpm sync:docs:fix    # Auto-fix version numbers and dates
@@ -124,16 +133,24 @@ src/
 ├── app/                    # Next.js App Router pages
 │   ├── api/               # API routes (WorkOS callbacks, tRPC)
 │   ├── docs/              # MDX documentation with custom components
+│   ├── workflow/          # React Flow workflow builder with custom nodes/edges
+│   │   ├── components/   # Workflow UI components (nodes, edges, controls)
+│   │   ├── store/        # Zustand state management for workflow
+│   │   └── hooks/        # Workflow-specific hooks (layout, runner)
+│   ├── design-strategy/  # Component showcase/design system demo
+│   ├── render-strategy/  # tRPC data fetching patterns demo
 │   └── _components/       # Page-specific components
 ├── components/            # Shared UI components
 │   ├── ui/               # shadcn/ui components
 │   └── navbar/           # Navigation components
+├── hooks/                 # Shared custom hooks
 ├── providers/            # React context providers (Theme, Transition)
 ├── server/               # Server-only code
 │   ├── api/             # tRPC routers and procedures
 │   └── db.ts            # Prisma client singleton
 ├── trpc/                 # tRPC client setup
 ├── styles/               # Global CSS
+├── lib/                  # Utility functions
 ├── env.js                # Environment variable validation with Zod
 └── middleware.ts         # WorkOS authentication middleware
 ```
@@ -187,3 +204,45 @@ UI components are from shadcn/ui and located in src/components/ui/. They use:
 - cn() utility from src/lib/utils.ts for class merging
 
 When adding new shadcn components, use the CLI (configured in components.json) rather than manual copying.
+
+## State Management
+
+The project uses multiple state management approaches:
+
+- **Zustand:** Local state management (see src/app/workflow/store/)
+  - Context-based store pattern with Provider component
+  - Used for workflow builder state management
+  - Example: `useAppStore` hook in workflow feature
+- **TanStack Query:** Server state (via tRPC hooks)
+  - Handles data fetching, caching, and synchronization
+  - Automatic cache invalidation and refetching
+- **React Context:** Theme, transitions, and feature-specific state
+
+## Testing
+
+The project uses Playwright for end-to-end testing:
+
+- **Test Directory:** `tests/`
+- **Configuration:** `playwright.config.ts`
+- **Test Setup:** Global setup in `tests/global-setup.ts` handles authentication
+- **Fixtures:** Custom fixtures in `tests/fixtures/auth.fixture.ts` provide authenticated browser contexts
+- **CI Integration:** GitHub Actions workflow in `.github/workflows/playwright.yml`
+
+**Writing Tests:**
+
+1. Use the `authenticatedPage` fixture for tests requiring auth
+2. Tests run against `http://localhost:3000` (dev server auto-starts)
+3. Test environment variables configured in `.env` (see TEST*USER*\* vars)
+4. See `tests/auth-authenticated.spec.ts` for examples
+
+## React Flow Workflow Builder
+
+The `/workflow` route features a visual workflow builder powered by React Flow:
+
+- **Custom Nodes:** Initial, Transform, Branch, Join, Output nodes (src/app/workflow/components/nodes/)
+- **Custom Edges:** Workflow edges with interactive buttons (src/app/workflow/components/edges/)
+- **Auto Layout:** ELK.js-based automatic graph layout (src/app/workflow/hooks/use-layout.tsx)
+- **State Management:** Zustand store with Context pattern (src/app/workflow/store/)
+- **Features:** Context menus, drag-and-drop, node execution visualization
+
+When working with workflow components, note that the store must be accessed via `useAppStore` hook within `AppStoreProvider`.
