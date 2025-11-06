@@ -156,6 +156,6 @@ Reusable React hooks for common functionality
 
 ### Import Conventions
 
-- Use `~` alias for src directory imports (e.g., `~/lib/utils`)
+- Use `@` alias for src directory imports (e.g., `@/lib/utils`)
 - Group imports: React → Third-party → Local → Types
 - Prefer named exports for components
