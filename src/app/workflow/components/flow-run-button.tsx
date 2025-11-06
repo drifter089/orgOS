@@ -19,7 +19,7 @@ export function FlowRunButton() {
   };
 
   return (
-    <Panel position="top-right">
+    <Panel position="bottom-left" className="mb-20 ml-4">
       <Button onClick={onClickRun} size="sm" className="text-xs">
         {isRunning ? (
           <>
