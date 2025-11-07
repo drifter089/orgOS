@@ -6,6 +6,7 @@ import { api } from "@/trpc/server";
 import { TeamCanvasWrapper } from "./_components/team-canvas-wrapper";
 import { TeamSidebar } from "./_components/team-sidebar";
 import { TeamSidebarTrigger } from "./_components/team-sidebar-trigger";
+import { TeamSwitcher } from "./_components/team-switcher";
 import { TeamStoreProvider } from "./store/team-store";
 import { type StoredEdge, type StoredNode } from "./types/canvas";
 import { enrichNodesWithRoleData } from "./utils/canvas-serialization";
@@ -48,6 +49,13 @@ export default async function TeamPage({
         {/* Main Canvas Area with Inset for proper spacing */}
         <SidebarInset className="flex-1 overflow-hidden">
           <div className="relative h-full w-full">
+            {/* Team Switcher - Always visible in top-left */}
+            <TeamSwitcher
+              currentTeamId={team.id}
+              currentTeamName={team.name}
+              className="absolute top-20 left-4 z-10"
+            />
+
             {/* Sidebar Trigger - Always visible in top-right */}
             <TeamSidebarTrigger
               roleCount={team.roles.length}
