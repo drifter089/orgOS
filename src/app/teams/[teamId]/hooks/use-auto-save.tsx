@@ -22,17 +22,39 @@ export function useAutoSave() {
   const setLastSaved = useTeamStore((state) => state.setLastSaved);
 
   const saveTimeoutRef = useRef<NodeJS.Timeout | undefined>(undefined);
+  const pendingSnapshotRef = useRef<{
+    nodes: ReturnType<typeof serializeNodes>;
+    edges: ReturnType<typeof serializeEdges>;
+  } | null>(null);
 
   const updateTeam = api.team.update.useMutation({
     onSuccess: () => {
-      markClean();
-      setSaving(false);
-      setLastSaved(new Date());
+      // Only mark clean if no changes happened since we started saving
+      const lastSent = pendingSnapshotRef.current;
+      const currentSnapshot = {
+        nodes: serializeNodes(nodes),
+        edges: serializeEdges(edges),
+      };
+
+      const mutatedWhileSaving =
+        !lastSent ||
+        JSON.stringify(lastSent.nodes) !==
+          JSON.stringify(currentSnapshot.nodes) ||
+        JSON.stringify(lastSent.edges) !==
+          JSON.stringify(currentSnapshot.edges);
+
+      if (!mutatedWhileSaving) {
+        markClean();
+        setLastSaved(new Date());
+      }
     },
     onError: (error) => {
       console.error("Failed to save team:", error);
-      setSaving(false);
       // TODO: Show error toast
+    },
+    onSettled: () => {
+      setSaving(false);
+      pendingSnapshotRef.current = null;
     },
   });
 
@@ -54,6 +76,12 @@ export function useAutoSave() {
       // Serialize nodes and edges for storage
       const serializedNodes = serializeNodes(nodes);
       const serializedEdges = serializeEdges(edges);
+
+      // Store snapshot of what we're sending
+      pendingSnapshotRef.current = {
+        nodes: serializedNodes,
+        edges: serializedEdges,
+      };
 
       updateTeam.mutate({
         id: teamId,

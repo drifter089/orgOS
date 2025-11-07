@@ -1,7 +1,10 @@
 import { TRPCError } from "@trpc/server";
 
-import { type db as PrismaClient } from "@/server/db";
+import { type db } from "@/server/db";
 import { workos } from "@/server/workos";
+
+// Derive proper DB type from the db instance
+type DB = typeof db;
 
 /**
  * Verify that a user belongs to a specific organization
@@ -51,7 +54,7 @@ export async function getUserOrganizationId(userId: string): Promise<string> {
  * @throws TRPCError with code FORBIDDEN if user doesn't have access
  */
 export async function getTeamAndVerifyAccess(
-  db: typeof PrismaClient,
+  db: DB,
   teamId: string,
   userId: string,
 ) {
@@ -77,7 +80,7 @@ export async function getTeamAndVerifyAccess(
  * @throws TRPCError with code FORBIDDEN if user doesn't have access
  */
 export async function getRoleAndVerifyAccess(
-  db: typeof PrismaClient,
+  db: DB,
   roleId: string,
   userId: string,
 ) {

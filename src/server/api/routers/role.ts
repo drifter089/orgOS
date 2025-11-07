@@ -29,7 +29,27 @@ export const roleRouter = createTRPCRouter({
     )
     .mutation(async ({ ctx, input }) => {
       // Verify access to team
-      await getTeamAndVerifyAccess(ctx.db, input.teamId, ctx.user.id);
+      const team = await getTeamAndVerifyAccess(
+        ctx.db,
+        input.teamId,
+        ctx.user.id,
+      );
+
+      // If assignedUserId is provided, verify the user is in the organization
+      if (input.assignedUserId !== undefined && input.assignedUserId !== null) {
+        const assignedUserMemberships =
+          await workos.userManagement.listOrganizationMemberships({
+            userId: input.assignedUserId,
+            organizationId: team.organizationId,
+          });
+
+        if (!assignedUserMemberships.data.length) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "User is not a member of this organization",
+          });
+        }
+      }
 
       // Create role
       return ctx.db.role.create({
@@ -57,7 +77,23 @@ export const roleRouter = createTRPCRouter({
     )
     .mutation(async ({ ctx, input }) => {
       // Verify access to role
-      await getRoleAndVerifyAccess(ctx.db, input.id, ctx.user.id);
+      const role = await getRoleAndVerifyAccess(ctx.db, input.id, ctx.user.id);
+
+      // If assignedUserId is being updated, verify the user is in the organization
+      if (input.assignedUserId !== undefined && input.assignedUserId !== null) {
+        const assignedUserMemberships =
+          await workos.userManagement.listOrganizationMemberships({
+            userId: input.assignedUserId,
+            organizationId: role.team.organizationId,
+          });
+
+        if (!assignedUserMemberships.data.length) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "User is not a member of this organization",
+          });
+        }
+      }
 
       // Update role
       const { id, ...data } = input;
