@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 
 import {
   Book,
+  ClipboardList,
   Code,
   FileText,
   FolderGit2,
@@ -62,6 +63,16 @@ const docsRoutes = [
       { title: "React Flow", href: "/docs/react-flow", icon: Workflow },
       { title: "AI & Dev Tools", href: "/docs/ai-and-dev-tools", icon: Wrench },
       { title: "CI/CD", href: "/docs/ci-cd", icon: Code },
+    ],
+  },
+  {
+    title: "Planning",
+    items: [
+      {
+        title: "Team Management System",
+        href: "/docs/planning/team-management-system",
+        icon: ClipboardList,
+      },
     ],
   },
   {

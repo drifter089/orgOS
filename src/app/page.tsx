@@ -12,9 +12,13 @@ import {
 import { HydrateClient, api } from "@/trpc/server";
 
 export default async function Home() {
-  const hello = await api.post.hello({ text: "from tRPC" });
-
-  await api.post.getLatest.prefetch();
+  let hello;
+  try {
+    hello = await api.post.hello({ text: "from tRPC" });
+    await api.post.getLatest.prefetch();
+  } catch (error) {
+    hello = { greeting: "Hello from tRPC (database offline)" };
+  }
 
   return (
     <HydrateClient>
@@ -73,7 +77,9 @@ export default async function Home() {
             </p>
           </div>
 
-          <LatestPost />
+          {hello.greeting !== "Hello from tRPC (database offline)" && (
+            <LatestPost />
+          )}
         </div>
       </main>
     </HydrateClient>

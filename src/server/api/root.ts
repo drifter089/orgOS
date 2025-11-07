@@ -1,5 +1,9 @@
+import { metricRouter } from "@/server/api/routers/metric";
+import { organizationRouter } from "@/server/api/routers/organization";
 import { postRouter } from "@/server/api/routers/post";
+import { roleRouter } from "@/server/api/routers/role";
 import { taskRouter } from "@/server/api/routers/task";
+import { teamRouter } from "@/server/api/routers/team";
 import { createCallerFactory, createTRPCRouter } from "@/server/api/trpc";
 
 /**
@@ -10,6 +14,10 @@ import { createCallerFactory, createTRPCRouter } from "@/server/api/trpc";
 export const appRouter = createTRPCRouter({
   post: postRouter,
   task: taskRouter,
+  organization: organizationRouter,
+  team: teamRouter,
+  role: roleRouter,
+  metric: metricRouter,
 });
 
 // export type definition of API
