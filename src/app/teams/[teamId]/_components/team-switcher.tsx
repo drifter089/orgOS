@@ -3,6 +3,7 @@
 import Link from "next/link";
 
 import { Check, ChevronsUpDown, Users } from "lucide-react";
+import { useTransitionRouter } from "next-transition-router";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -27,6 +28,7 @@ export function TeamSwitcher({
   currentTeamName,
   className,
 }: TeamSwitcherProps) {
+  const router = useTransitionRouter();
   const { data: teams, isLoading } = api.team.getAll.useQuery();
 
   return (
@@ -58,6 +60,14 @@ export function TeamSwitcher({
               <Link
                 href={`/teams/${team.id}`}
                 className="flex items-center justify-between"
+                onClick={(e) => {
+                  // Allow opening in new tab with cmd/ctrl+click
+                  if (e.metaKey || e.ctrlKey) return;
+
+                  // Use transition router for normal clicks
+                  e.preventDefault();
+                  router.push(`/teams/${team.id}`);
+                }}
               >
                 <div className="flex flex-col gap-1">
                   <span className="font-medium">{team.name}</span>
