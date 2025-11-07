@@ -5,6 +5,7 @@ import { createTRPCRouter, protectedProcedure } from "@/server/api/trpc";
 import {
   getRoleAndVerifyAccess,
   getTeamAndVerifyAccess,
+  getUserOrganizationId,
 } from "@/server/api/utils/authorization";
 import { workos } from "@/server/workos";
 
@@ -184,23 +185,10 @@ export const roleRouter = createTRPCRouter({
   getByUser: protectedProcedure
     .input(z.object({ userId: z.string() }))
     .query(async ({ ctx, input }) => {
-      // Get current user's organization memberships to verify access
-      const currentUserMemberships =
-        await workos.userManagement.listOrganizationMemberships({
-          userId: ctx.user.id,
-          limit: 1,
-        });
+      // Get current user's organization ID using the same helper other APIs use
+      const organizationId = await getUserOrganizationId(ctx.user.id);
 
-      if (!currentUserMemberships.data.length) {
-        throw new TRPCError({
-          code: "NOT_FOUND",
-          message: "User is not a member of any organization",
-        });
-      }
-
-      const organizationId = currentUserMemberships.data[0]!.organizationId;
-
-      // Verify the target user is in the same organization
+      // Verify the target user is a member of this specific organization
       const targetUserMemberships =
         await workos.userManagement.listOrganizationMemberships({
           userId: input.userId,
