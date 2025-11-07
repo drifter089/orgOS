@@ -6,6 +6,13 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 This is a T3 Stack application built with Next.js 15, tRPC, Prisma, and WorkOS AuthKit for authentication. The project uses pnpm as the package manager and includes a comprehensive documentation system with MDX support.
 
+**Core Features:**
+
+- **Team Management System**: Visual team canvas using React Flow to create and manage organizational roles
+- **Role & Metric System**: Define roles with associated KPIs and metrics, track performance
+- **Organization-Based Access**: Multi-tenant architecture with WorkOS organizations
+- **Interactive Documentation**: MDX-powered docs with live code examples and Mermaid diagrams
+
 ## Core Technologies
 
 - **Next.js 15.2.3** - React framework with App Router
@@ -37,6 +44,7 @@ pnpm format:write     # Format code with Prettier
 pnpm db:generate      # Generate Prisma client and run migrations
 pnpm db:migrate       # Deploy migrations to database
 pnpm db:push          # Push schema changes without migrations
+pnpm db:seed          # Seed database with sample metrics
 pnpm db:studio        # Open Prisma Studio GUI
 
 # Testing
@@ -126,6 +134,12 @@ pnpm ai-sync:docs
 3. Add router to `appRouter` in `src/server/api/root.ts`
 4. See patterns/page.md "tRPC Procedure Types & Custom Middleware" for examples
 
+**Authorization Helpers (src/server/api/utils/authorization.ts):**
+
+- `getUserOrganizationId(userId)`: Get WorkOS organization ID for a user
+- `getTeamAndVerifyAccess(db, teamId, userId)`: Verify user has access to team within their organization
+- These utilities enforce multi-tenant isolation at the data layer
+
 ### Directory Structure
 
 ```
@@ -169,8 +183,12 @@ The docs system (src/app/docs/) supports:
 Required environment variables (see .env.example):
 
 - `DATABASE_URL` - PostgreSQL connection string
-- `DIRECT_URL` - Direct database URL (for Prisma migrations)
-- WorkOS credentials (check .env for actual keys)
+- `WORKOS_API_KEY` - WorkOS API key (sk*test*...)
+- `WORKOS_CLIENT_ID` - WorkOS client ID
+- `WORKOS_COOKIE_PASSWORD` - 32-character secret for session cookies
+- `NEXT_PUBLIC_WORKOS_REDIRECT_URI` - OAuth callback URL (e.g., http://localhost:3000/api/callback)
+- `TEST_USER_EMAIL` - Test user email for Playwright tests
+- `TEST_USER_PASSWORD` - Test user password for Playwright tests
 
 Environment variables are validated using @t3-oss/env-nextjs in src/env.js. When adding new variables:
 
@@ -194,6 +212,16 @@ Import sorting: Uses @trivago/prettier-plugin-sort-imports with inline type impo
 - Use `pnpm db:generate` after schema changes to update client
 - The db client is a singleton exported from src/server/db.ts
 - In development, Prisma logs all queries, errors, and warnings
+
+**Data Model:**
+
+- **Team**: Organization-scoped teams with React Flow canvas state (nodes, edges, viewport)
+- **Role**: Team roles with titles, purposes, assigned users, and associated metrics
+- **Metric**: KPIs with types (percentage, number, duration, rate), targets, and current values
+- **Task**: User tasks with completion tracking (legacy demo model)
+- **Post**: Simple demo model for tRPC examples
+
+See prisma/schema.prisma for complete relationships and indexes.
 
 ## Working with Components
 
@@ -235,14 +263,24 @@ The project uses Playwright for end-to-end testing:
 3. Test environment variables configured in `.env` (see TEST*USER*\* vars)
 4. See `tests/auth-authenticated.spec.ts` for examples
 
-## React Flow Workflow Builder
+## React Flow Features
 
-The `/workflow` route features a visual workflow builder powered by React Flow:
+**Workflow Builder (`/workflow`):**
 
+- Visual workflow builder powered by React Flow
 - **Custom Nodes:** Initial, Transform, Branch, Join, Output nodes (src/app/workflow/components/nodes/)
 - **Custom Edges:** Workflow edges with interactive buttons (src/app/workflow/components/edges/)
 - **Auto Layout:** ELK.js-based automatic graph layout (src/app/workflow/hooks/use-layout.tsx)
 - **State Management:** Zustand store with Context pattern (src/app/workflow/store/)
 - **Features:** Context menus, drag-and-drop, node execution visualization
+- Store must be accessed via `useAppStore` hook within `AppStoreProvider`
 
-When working with workflow components, note that the store must be accessed via `useAppStore` hook within `AppStoreProvider`.
+**Team Canvas (`/teams/[teamId]`):**
+
+- Visual team organization canvas for creating and managing roles
+- **Persistence:** Canvas state (nodes, edges, viewport) stored in Team model as JSON
+- **Data Flow:** Server fetches team → Enrich nodes with role data → Client-side canvas
+- **Components:** TeamCanvasWrapper (client), TeamSidebar (role management), TeamSidebarTrigger
+- **State:** TeamStoreProvider manages canvas state and role data synchronization
+- **Authorization:** Multi-tenant access control via WorkOS organizations
+- See src/app/teams/[teamId]/utils/canvas-serialization.ts for data transformation logic

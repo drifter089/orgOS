@@ -5,6 +5,7 @@ import { createTRPCRouter, protectedProcedure } from "@/server/api/trpc";
 import {
   getRoleAndVerifyAccess,
   getTeamAndVerifyAccess,
+  getUserOrganizationId,
 } from "@/server/api/utils/authorization";
 import { workos } from "@/server/workos";
 
@@ -176,5 +177,52 @@ export const roleRouter = createTRPCRouter({
         include: { metric: true },
         orderBy: { createdAt: "asc" },
       });
+    }),
+
+  /**
+   * Get all roles assigned to a specific user in the current organization
+   */
+  getByUser: protectedProcedure
+    .input(z.object({ userId: z.string() }))
+    .query(async ({ ctx, input }) => {
+      // Get current user's organization ID using the same helper other APIs use
+      const organizationId = await getUserOrganizationId(ctx.user.id);
+
+      // Verify the target user is a member of this specific organization
+      const targetUserMemberships =
+        await workos.userManagement.listOrganizationMemberships({
+          userId: input.userId,
+          organizationId,
+        });
+
+      if (!targetUserMemberships.data.length) {
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "Target user is not in your organization",
+        });
+      }
+
+      // Get all roles assigned to this user in teams within the organization
+      const roles = await ctx.db.role.findMany({
+        where: {
+          assignedUserId: input.userId,
+          team: {
+            organizationId,
+          },
+        },
+        include: {
+          metric: true,
+          team: {
+            select: {
+              id: true,
+              name: true,
+              description: true,
+            },
+          },
+        },
+        orderBy: [{ team: { name: "asc" } }, { createdAt: "asc" }],
+      });
+
+      return roles;
     }),
 });

@@ -53,7 +53,7 @@ export async function OrganizationDetails() {
       <Separator />
 
       <CardContent className="pt-6">
-        <div className="grid gap-6 md:grid-cols-2">
+        <div className="grid gap-6 sm:grid-cols-2">
           {/* Created Date */}
           <div className="flex items-start gap-3">
             <div className="bg-muted flex h-10 w-10 items-center justify-center rounded-lg">
