@@ -82,30 +82,32 @@ export default async function OrganizationPage() {
 
   return (
     <HydrateClient>
-      <div className="container mx-auto space-y-8 py-8">
-        {/* Page Header */}
-        <div className="space-y-2">
-          <h1 className="text-4xl font-bold tracking-tight">Organization</h1>
-          <p className="text-muted-foreground">
-            View and manage your organization details and members
-          </p>
+      <div className="min-h-screen">
+        <div className="container mx-auto max-w-7xl px-6 py-8 sm:px-8 sm:py-12 lg:px-12 lg:py-16">
+          {/* Page Header */}
+          <div className="mb-12 space-y-3">
+            <h1 className="text-4xl font-bold tracking-tight">Organization</h1>
+            <p className="text-muted-foreground text-lg">
+              View and manage your organization details and members
+            </p>
+          </div>
+
+          {/* Organization Details Section */}
+          <section className="mb-12">
+            <h2 className="mb-6 text-2xl font-semibold">Details</h2>
+            <Suspense fallback={<OrganizationDetailsLoading />}>
+              <OrganizationDetails />
+            </Suspense>
+          </section>
+
+          {/* Members List Section */}
+          <section className="mb-12">
+            <h2 className="mb-6 text-2xl font-semibold">Members</h2>
+            <Suspense fallback={<MembersListLoading />}>
+              <MembersList />
+            </Suspense>
+          </section>
         </div>
-
-        {/* Organization Details Section */}
-        <section>
-          <h2 className="mb-4 text-2xl font-semibold">Details</h2>
-          <Suspense fallback={<OrganizationDetailsLoading />}>
-            <OrganizationDetails />
-          </Suspense>
-        </section>
-
-        {/* Members List Section */}
-        <section>
-          <h2 className="mb-4 text-2xl font-semibold">Members</h2>
-          <Suspense fallback={<MembersListLoading />}>
-            <MembersList />
-          </Suspense>
-        </section>
       </div>
     </HydrateClient>
   );

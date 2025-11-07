@@ -177,4 +177,64 @@ export const roleRouter = createTRPCRouter({
         orderBy: { createdAt: "asc" },
       });
     }),
+
+  /**
+   * Get all roles assigned to a specific user in the current organization
+   */
+  getByUser: protectedProcedure
+    .input(z.object({ userId: z.string() }))
+    .query(async ({ ctx, input }) => {
+      // Get current user's organization memberships to verify access
+      const currentUserMemberships =
+        await workos.userManagement.listOrganizationMemberships({
+          userId: ctx.user.id,
+          limit: 1,
+        });
+
+      if (!currentUserMemberships.data.length) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "User is not a member of any organization",
+        });
+      }
+
+      const organizationId = currentUserMemberships.data[0]!.organizationId;
+
+      // Verify the target user is in the same organization
+      const targetUserMemberships =
+        await workos.userManagement.listOrganizationMemberships({
+          userId: input.userId,
+          organizationId,
+        });
+
+      if (!targetUserMemberships.data.length) {
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "Target user is not in your organization",
+        });
+      }
+
+      // Get all roles assigned to this user in teams within the organization
+      const roles = await ctx.db.role.findMany({
+        where: {
+          assignedUserId: input.userId,
+          team: {
+            organizationId,
+          },
+        },
+        include: {
+          metric: true,
+          team: {
+            select: {
+              id: true,
+              name: true,
+              description: true,
+            },
+          },
+        },
+        orderBy: [{ team: { name: "asc" } }, { createdAt: "asc" }],
+      });
+
+      return roles;
+    }),
 });
