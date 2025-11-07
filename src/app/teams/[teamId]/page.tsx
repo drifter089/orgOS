@@ -1,10 +1,11 @@
 import { notFound } from "next/navigation";
 
-import { SidebarProvider } from "@/components/ui/sidebar";
+import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import { api } from "@/trpc/server";
 
 import { TeamCanvasWrapper } from "./_components/team-canvas-wrapper";
 import { TeamSidebar } from "./_components/team-sidebar";
+import { TeamSidebarTrigger } from "./_components/team-sidebar-trigger";
 import { TeamStoreProvider } from "./store/team-store";
 import { type StoredEdge, type StoredNode } from "./types/canvas";
 import { enrichNodesWithRoleData } from "./utils/canvas-serialization";
@@ -34,23 +35,37 @@ export default async function TeamPage({
     ? (team.reactFlowEdges as StoredEdge[])
     : [];
 
+  // Default to open on desktop screens, closed on mobile
+  // This provides better discoverability on larger screens
+  const defaultSidebarOpen = true;
+
   return (
     <TeamStoreProvider teamId={team.id} teamName={team.name}>
-      <SidebarProvider defaultOpen={false}>
-        <div className="flex h-screen w-full overflow-hidden">
-          {/* Main Canvas Area */}
-          <div className="flex-1 overflow-hidden">
+      <SidebarProvider
+        defaultOpen={defaultSidebarOpen}
+        className="flex h-screen w-full overflow-hidden"
+      >
+        {/* Main Canvas Area with Inset for proper spacing */}
+        <SidebarInset className="flex-1 overflow-hidden">
+          <div className="relative h-full w-full">
+            {/* Sidebar Trigger - Always visible in top-right */}
+            <TeamSidebarTrigger
+              roleCount={team.roles.length}
+              className="absolute top-4 right-4 z-10"
+            />
+
+            {/* Canvas */}
             <TeamCanvasWrapper initialNodes={nodes} initialEdges={edges} />
           </div>
+        </SidebarInset>
 
-          {/* Right Sidebar */}
-          <TeamSidebar
-            teamId={team.id}
-            teamName={team.name}
-            teamDescription={team.description}
-            roleCount={team.roles.length}
-          />
-        </div>
+        {/* Right Sidebar */}
+        <TeamSidebar
+          teamId={team.id}
+          teamName={team.name}
+          teamDescription={team.description}
+          roleCount={team.roles.length}
+        />
       </SidebarProvider>
     </TeamStoreProvider>
   );

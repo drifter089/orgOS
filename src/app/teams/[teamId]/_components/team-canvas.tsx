@@ -45,7 +45,7 @@ export function TeamCanvas() {
   const handleNodeDoubleClick: NodeMouseHandler = (event, node) => {
     if (node.type === "role-node") {
       setSelectedRole({
-        ...node.data,
+        ...(node.data as RoleNodeData),
         nodeId: node.id,
       });
       setEditDialogOpen(true);
@@ -54,8 +54,8 @@ export function TeamCanvas() {
 
   return (
     <div className="relative h-full w-full">
-      {/* Save Status Indicator */}
-      <div className="absolute top-4 right-4 z-10 flex items-center gap-2">
+      {/* Save Status Indicator - Positioned below the sidebar trigger */}
+      <div className="absolute top-16 right-4 z-10 flex items-center gap-2">
         {isSaving ? (
           <Badge variant="secondary" className="gap-2">
             <Loader2 className="h-3 w-3 animate-spin" />

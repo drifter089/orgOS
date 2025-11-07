@@ -9,7 +9,6 @@ import {
   SidebarGroupContent,
   SidebarGroupLabel,
   SidebarHeader,
-  SidebarRail,
 } from "@/components/ui/sidebar";
 
 import { CreateRoleDialog } from "./role-dialog";
@@ -29,12 +28,17 @@ export function TeamSidebar({
   ...props
 }: TeamSidebarProps) {
   return (
-    <Sidebar side="right" className="border-l-0" {...props}>
-      <SidebarHeader>
-        <div className="px-2 py-4">
-          <h2 className="text-2xl font-bold tracking-tight">{teamName}</h2>
+    <Sidebar
+      side="right"
+      collapsible="icon"
+      className="bg-sidebar border-l"
+      {...props}
+    >
+      <SidebarHeader className="border-b">
+        <div className="px-4 py-4">
+          <h2 className="text-xl font-semibold tracking-tight">{teamName}</h2>
           {teamDescription && (
-            <p className="text-muted-foreground mt-1 text-sm">
+            <p className="text-muted-foreground mt-1 line-clamp-2 text-sm">
               {teamDescription}
             </p>
           )}
@@ -42,25 +46,32 @@ export function TeamSidebar({
       </SidebarHeader>
       <SidebarContent>
         <SidebarGroup>
-          <SidebarGroupLabel>Team Info</SidebarGroupLabel>
+          <SidebarGroupLabel className="text-muted-foreground px-4 text-xs font-medium tracking-wider uppercase">
+            Team Info
+          </SidebarGroupLabel>
           <SidebarGroupContent>
-            <div className="px-2 py-2">
-              <p className="text-muted-foreground text-sm">
-                {roleCount} role{roleCount !== 1 ? "s" : ""}
-              </p>
+            <div className="space-y-2 px-4 py-2">
+              <div className="flex items-center justify-between">
+                <span className="text-muted-foreground text-sm">Roles</span>
+                <span className="text-sm font-medium">{roleCount}</span>
+              </div>
             </div>
           </SidebarGroupContent>
         </SidebarGroup>
+
+        <div className="bg-border mx-4 my-2 h-px" />
+
         <SidebarGroup>
-          <SidebarGroupLabel>Actions</SidebarGroupLabel>
+          <SidebarGroupLabel className="text-muted-foreground px-4 text-xs font-medium tracking-wider uppercase">
+            Actions
+          </SidebarGroupLabel>
           <SidebarGroupContent>
-            <div className="px-2 py-2">
+            <div className="px-4 py-2">
               <CreateRoleDialog teamId={teamId} />
             </div>
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>
-      <SidebarRail />
     </Sidebar>
   );
 }
