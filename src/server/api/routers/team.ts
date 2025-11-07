@@ -1,30 +1,18 @@
-import { TRPCError } from "@trpc/server";
-import { WorkOS } from "@workos-inc/node";
 import { z } from "zod";
 
 import { createTRPCRouter, protectedProcedure } from "@/server/api/trpc";
-
-// Initialize WorkOS client
-const workos = new WorkOS(process.env.WORKOS_API_KEY);
+import {
+  getTeamAndVerifyAccess,
+  getUserOrganizationId,
+} from "@/server/api/utils/authorization";
 
 export const teamRouter = createTRPCRouter({
   /**
    * Get all teams for user's organization
    */
   getAll: protectedProcedure.query(async ({ ctx }) => {
-    // Get user's organization memberships
-    const memberships = await workos.userManagement.listOrganizationMemberships(
-      {
-        userId: ctx.user.id,
-        limit: 1,
-      },
-    );
-
-    if (!memberships.data[0]) {
-      return [];
-    }
-
-    const organizationId = memberships.data[0].organizationId;
+    // Get user's organization ID
+    const organizationId = await getUserOrganizationId(ctx.user.id);
 
     // Fetch all teams for this organization
     return ctx.db.team.findMany({
@@ -42,7 +30,11 @@ export const teamRouter = createTRPCRouter({
   getById: protectedProcedure
     .input(z.object({ id: z.string() }))
     .query(async ({ ctx, input }) => {
-      const team = await ctx.db.team.findUnique({
+      // Verify access to team
+      await getTeamAndVerifyAccess(ctx.db, input.id, ctx.user.id);
+
+      // Fetch team with full role and metric details
+      return ctx.db.team.findUnique({
         where: { id: input.id },
         include: {
           roles: {
@@ -50,29 +42,6 @@ export const teamRouter = createTRPCRouter({
           },
         },
       });
-
-      if (!team) {
-        throw new TRPCError({
-          code: "NOT_FOUND",
-          message: "Team not found",
-        });
-      }
-
-      // Authorization: Check if user belongs to same organization
-      const memberships =
-        await workos.userManagement.listOrganizationMemberships({
-          userId: ctx.user.id,
-          organizationId: team.organizationId,
-        });
-
-      if (!memberships.data.length) {
-        throw new TRPCError({
-          code: "FORBIDDEN",
-          message: "You do not have access to this team",
-        });
-      }
-
-      return team;
     }),
 
   /**
@@ -86,21 +55,8 @@ export const teamRouter = createTRPCRouter({
       }),
     )
     .mutation(async ({ ctx, input }) => {
-      // Get user's organization
-      const memberships =
-        await workos.userManagement.listOrganizationMemberships({
-          userId: ctx.user.id,
-          limit: 1,
-        });
-
-      if (!memberships.data[0]) {
-        throw new TRPCError({
-          code: "FORBIDDEN",
-          message: "Must belong to an organization to create teams",
-        });
-      }
-
-      const organizationId = memberships.data[0].organizationId;
+      // Get user's organization ID
+      const organizationId = await getUserOrganizationId(ctx.user.id);
 
       // Create team
       return ctx.db.team.create({
@@ -131,31 +87,8 @@ export const teamRouter = createTRPCRouter({
       }),
     )
     .mutation(async ({ ctx, input }) => {
-      // Verify team exists
-      const team = await ctx.db.team.findUnique({
-        where: { id: input.id },
-      });
-
-      if (!team) {
-        throw new TRPCError({
-          code: "NOT_FOUND",
-          message: "Team not found",
-        });
-      }
-
-      // Authorization: Check if user belongs to same organization
-      const memberships =
-        await workos.userManagement.listOrganizationMemberships({
-          userId: ctx.user.id,
-          organizationId: team.organizationId,
-        });
-
-      if (!memberships.data.length) {
-        throw new TRPCError({
-          code: "FORBIDDEN",
-          message: "You do not have access to modify this team",
-        });
-      }
+      // Verify access to team
+      await getTeamAndVerifyAccess(ctx.db, input.id, ctx.user.id);
 
       // Update team
       const { id, ...data } = input;
@@ -172,31 +105,8 @@ export const teamRouter = createTRPCRouter({
   delete: protectedProcedure
     .input(z.object({ id: z.string() }))
     .mutation(async ({ ctx, input }) => {
-      // Verify team exists
-      const team = await ctx.db.team.findUnique({
-        where: { id: input.id },
-      });
-
-      if (!team) {
-        throw new TRPCError({
-          code: "NOT_FOUND",
-          message: "Team not found",
-        });
-      }
-
-      // Authorization: Check if user belongs to same organization
-      const memberships =
-        await workos.userManagement.listOrganizationMemberships({
-          userId: ctx.user.id,
-          organizationId: team.organizationId,
-        });
-
-      if (!memberships.data.length) {
-        throw new TRPCError({
-          code: "FORBIDDEN",
-          message: "You do not have access to delete this team",
-        });
-      }
+      // Verify access to team
+      await getTeamAndVerifyAccess(ctx.db, input.id, ctx.user.id);
 
       // Delete team (cascade will delete all roles)
       await ctx.db.team.delete({

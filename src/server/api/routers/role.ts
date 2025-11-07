@@ -1,11 +1,12 @@
 import { TRPCError } from "@trpc/server";
-import { WorkOS } from "@workos-inc/node";
 import { z } from "zod";
 
 import { createTRPCRouter, protectedProcedure } from "@/server/api/trpc";
-
-// Initialize WorkOS client
-const workos = new WorkOS(process.env.WORKOS_API_KEY);
+import {
+  getRoleAndVerifyAccess,
+  getTeamAndVerifyAccess,
+} from "@/server/api/utils/authorization";
+import { workos } from "@/server/workos";
 
 export const roleRouter = createTRPCRouter({
   /**
@@ -26,31 +27,8 @@ export const roleRouter = createTRPCRouter({
       }),
     )
     .mutation(async ({ ctx, input }) => {
-      // Verify user has access to team
-      const team = await ctx.db.team.findUnique({
-        where: { id: input.teamId },
-      });
-
-      if (!team) {
-        throw new TRPCError({
-          code: "NOT_FOUND",
-          message: "Team not found",
-        });
-      }
-
-      // Check org membership
-      const memberships =
-        await workos.userManagement.listOrganizationMemberships({
-          userId: ctx.user.id,
-          organizationId: team.organizationId,
-        });
-
-      if (!memberships.data.length) {
-        throw new TRPCError({
-          code: "FORBIDDEN",
-          message: "You do not have access to this team",
-        });
-      }
+      // Verify access to team
+      await getTeamAndVerifyAccess(ctx.db, input.teamId, ctx.user.id);
 
       // Create role
       return ctx.db.role.create({
@@ -77,32 +55,8 @@ export const roleRouter = createTRPCRouter({
       }),
     )
     .mutation(async ({ ctx, input }) => {
-      // Fetch role to verify team access
-      const role = await ctx.db.role.findUnique({
-        where: { id: input.id },
-        include: { team: true },
-      });
-
-      if (!role) {
-        throw new TRPCError({
-          code: "NOT_FOUND",
-          message: "Role not found",
-        });
-      }
-
-      // Check org membership
-      const memberships =
-        await workos.userManagement.listOrganizationMemberships({
-          userId: ctx.user.id,
-          organizationId: role.team.organizationId,
-        });
-
-      if (!memberships.data.length) {
-        throw new TRPCError({
-          code: "FORBIDDEN",
-          message: "You do not have access to modify this role",
-        });
-      }
+      // Verify access to role
+      await getRoleAndVerifyAccess(ctx.db, input.id, ctx.user.id);
 
       // Update role
       const { id, ...data } = input;
@@ -119,32 +73,8 @@ export const roleRouter = createTRPCRouter({
   delete: protectedProcedure
     .input(z.object({ id: z.string() }))
     .mutation(async ({ ctx, input }) => {
-      // Fetch role to verify team access
-      const role = await ctx.db.role.findUnique({
-        where: { id: input.id },
-        include: { team: true },
-      });
-
-      if (!role) {
-        throw new TRPCError({
-          code: "NOT_FOUND",
-          message: "Role not found",
-        });
-      }
-
-      // Check org membership
-      const memberships =
-        await workos.userManagement.listOrganizationMemberships({
-          userId: ctx.user.id,
-          organizationId: role.team.organizationId,
-        });
-
-      if (!memberships.data.length) {
-        throw new TRPCError({
-          code: "FORBIDDEN",
-          message: "You do not have access to delete this role",
-        });
-      }
+      // Verify access to role
+      await getRoleAndVerifyAccess(ctx.db, input.id, ctx.user.id);
 
       // Delete role
       await ctx.db.role.delete({
@@ -165,38 +95,19 @@ export const roleRouter = createTRPCRouter({
       }),
     )
     .mutation(async ({ ctx, input }) => {
-      // Verify role exists and user has access
-      const role = await ctx.db.role.findUnique({
-        where: { id: input.roleId },
-        include: { team: true },
-      });
+      // Verify role exists and current user has access
+      const role = await getRoleAndVerifyAccess(
+        ctx.db,
+        input.roleId,
+        ctx.user.id,
+      );
 
-      if (!role) {
-        throw new TRPCError({
-          code: "NOT_FOUND",
-          message: "Role not found",
+      // Verify assigned user also belongs to the same org
+      const assignedUserMemberships =
+        await workos.userManagement.listOrganizationMemberships({
+          userId: input.userId,
+          organizationId: role.team.organizationId,
         });
-      }
-
-      // Verify both current user and assigned user belong to org
-      const [currentUserMemberships, assignedUserMemberships] =
-        await Promise.all([
-          workos.userManagement.listOrganizationMemberships({
-            userId: ctx.user.id,
-            organizationId: role.team.organizationId,
-          }),
-          workos.userManagement.listOrganizationMemberships({
-            userId: input.userId,
-            organizationId: role.team.organizationId,
-          }),
-        ]);
-
-      if (!currentUserMemberships.data.length) {
-        throw new TRPCError({
-          code: "FORBIDDEN",
-          message: "You do not have access to this role",
-        });
-      }
 
       if (!assignedUserMemberships.data.length) {
         throw new TRPCError({
@@ -219,31 +130,8 @@ export const roleRouter = createTRPCRouter({
   getByTeam: protectedProcedure
     .input(z.object({ teamId: z.string() }))
     .query(async ({ ctx, input }) => {
-      // Verify user has access to team
-      const team = await ctx.db.team.findUnique({
-        where: { id: input.teamId },
-      });
-
-      if (!team) {
-        throw new TRPCError({
-          code: "NOT_FOUND",
-          message: "Team not found",
-        });
-      }
-
-      // Check org membership
-      const memberships =
-        await workos.userManagement.listOrganizationMemberships({
-          userId: ctx.user.id,
-          organizationId: team.organizationId,
-        });
-
-      if (!memberships.data.length) {
-        throw new TRPCError({
-          code: "FORBIDDEN",
-          message: "You do not have access to this team",
-        });
-      }
+      // Verify access to team
+      await getTeamAndVerifyAccess(ctx.db, input.teamId, ctx.user.id);
 
       // Return roles for the team
       return ctx.db.role.findMany({

@@ -36,6 +36,9 @@ export async function NavBar() {
             <NavLink href="/workflow" prefetch={false}>
               Workflow
             </NavLink>
+            <NavLink href="/teams" prefetch={false}>
+              Teams
+            </NavLink>
             <NavLink href="/docs">Docs</NavLink>
           </div>
 

@@ -1,0 +1,143 @@
+"use client";
+
+import { useState } from "react";
+
+import { useRouter } from "next/navigation";
+
+import { zodResolver } from "@hookform/resolvers/zod";
+import { Plus } from "lucide-react";
+import { useForm } from "react-hook-form";
+import { z } from "zod";
+
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { api } from "@/trpc/react";
+
+const createTeamSchema = z.object({
+  name: z.string().min(1, "Name is required").max(100),
+  description: z.string().max(500).optional(),
+});
+
+type CreateTeamForm = z.infer<typeof createTeamSchema>;
+
+export function CreateTeamDialog() {
+  const [open, setOpen] = useState(false);
+  const router = useRouter();
+  const utils = api.useUtils();
+
+  const form = useForm<CreateTeamForm>({
+    resolver: zodResolver(createTeamSchema),
+    defaultValues: {
+      name: "",
+      description: "",
+    },
+  });
+
+  const createTeam = api.team.create.useMutation({
+    onSuccess: (data) => {
+      setOpen(false);
+      form.reset();
+      // Invalidate teams list to trigger refetch in TeamsList component
+      void utils.team.getAll.invalidate();
+      router.push(`/teams/${data.id}`);
+    },
+    onError: (error) => {
+      console.error("Failed to create team:", error);
+      // TODO: Show error toast
+    },
+  });
+
+  function onSubmit(data: CreateTeamForm) {
+    createTeam.mutate(data);
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button>
+          <Plus className="mr-2 h-4 w-4" />
+          New Team
+        </Button>
+      </DialogTrigger>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Create New Team</DialogTitle>
+          <DialogDescription>
+            Create a new team to organize roles and workflows
+          </DialogDescription>
+        </DialogHeader>
+
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+            <FormField
+              control={form.control}
+              name="name"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Name</FormLabel>
+                  <FormControl>
+                    <Input
+                      placeholder="e.g., Product Team"
+                      {...field}
+                      autoFocus
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="description"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Description (optional)</FormLabel>
+                  <FormControl>
+                    <Textarea
+                      placeholder="Describe the purpose of this team..."
+                      rows={3}
+                      {...field}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <DialogFooter>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setOpen(false)}
+              >
+                Cancel
+              </Button>
+              <Button type="submit" disabled={createTeam.isPending}>
+                {createTeam.isPending ? "Creating..." : "Create Team"}
+              </Button>
+            </DialogFooter>
+          </form>
+        </Form>
+      </DialogContent>
+    </Dialog>
+  );
+}
