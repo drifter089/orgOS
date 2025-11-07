@@ -1,7 +1,9 @@
+import { CollectionFrequency, type Prisma } from "@prisma/client";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 
 import { createTRPCRouter, protectedProcedure } from "@/server/api/trpc";
+import { getUserOrganizationId } from "@/server/api/utils/authorization";
 
 /**
  * Generate mock metric value based on type and target
@@ -43,16 +45,19 @@ function generateMockValue(type: string, targetValue?: number | null): number {
 
 export const metricRouter = createTRPCRouter({
   /**
-   * Get all metrics
+   * Get all metrics for user's organization
    */
   getAll: protectedProcedure.query(async ({ ctx }) => {
+    const organizationId = await getUserOrganizationId(ctx.user.id);
+
     return ctx.db.metric.findMany({
+      where: { organizationId },
       orderBy: { name: "asc" },
     });
   }),
 
   /**
-   * Create new metric
+   * Create new metric for user's organization
    */
   create: protectedProcedure
     .input(
@@ -62,16 +67,24 @@ export const metricRouter = createTRPCRouter({
         type: z.enum(["percentage", "number", "duration", "rate"]),
         targetValue: z.number().optional(),
         unit: z.string().optional(),
+        category: z.string().optional(),
+        collectionFrequency: z.nativeEnum(CollectionFrequency).default("DAILY"),
+        dataSource: z.string().optional(),
       }),
     )
     .mutation(async ({ ctx, input }) => {
+      const organizationId = await getUserOrganizationId(ctx.user.id);
+
       return ctx.db.metric.create({
-        data: input,
+        data: {
+          ...input,
+          organizationId,
+        },
       });
     }),
 
   /**
-   * Update metric
+   * Update metric (organization scoping is enforced by checking metric ownership)
    */
   update: protectedProcedure
     .input(
@@ -82,9 +95,26 @@ export const metricRouter = createTRPCRouter({
         targetValue: z.number().optional(),
         currentValue: z.number().optional(),
         unit: z.string().optional(),
+        category: z.string().optional(),
+        collectionFrequency: z.nativeEnum(CollectionFrequency).optional(),
+        dataSource: z.string().optional(),
       }),
     )
     .mutation(async ({ ctx, input }) => {
+      const organizationId = await getUserOrganizationId(ctx.user.id);
+
+      // Verify metric belongs to user's organization
+      const metric = await ctx.db.metric.findUnique({
+        where: { id: input.id },
+      });
+
+      if (metric?.organizationId !== organizationId) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Metric not found or you don't have access",
+        });
+      }
+
       const { id, ...data } = input;
       return ctx.db.metric.update({
         where: { id },
@@ -94,36 +124,144 @@ export const metricRouter = createTRPCRouter({
 
   /**
    * Generate mock data for a metric
-   * Uses simple algorithm for now, can be enhanced with AI generation later
+   * Creates a MetricValue record with generated data
    */
   generateMockData: protectedProcedure
     .input(z.object({ id: z.string() }))
     .mutation(async ({ ctx, input }) => {
+      const organizationId = await getUserOrganizationId(ctx.user.id);
+
       const metric = await ctx.db.metric.findUnique({
         where: { id: input.id },
       });
 
-      if (!metric) {
+      if (metric?.organizationId !== organizationId) {
         throw new TRPCError({
           code: "NOT_FOUND",
-          message: "Metric not found",
+          message: "Metric not found or you don't have access",
         });
       }
 
       // Generate mock value
       const mockValue = generateMockValue(metric.type, metric.targetValue);
+      const roundedValue = Math.round(mockValue * 100) / 100;
 
-      // Store the prompt used for generation (for future AI implementation)
-      const prompt = `Generate a realistic ${metric.type} value for the metric "${metric.name}". ${metric.description || ""}. Target: ${metric.targetValue || "none"}. Unit: ${metric.unit || "none"}`;
+      // Create MetricValue record
+      await ctx.db.metricValue.create({
+        data: {
+          metricId: metric.id,
+          value: roundedValue,
+          timestamp: new Date(),
+          metadata: {
+            generated: true,
+            source: "mock_generator",
+          },
+        },
+      });
 
-      // Update metric with generated value
+      // Update metric's current value
       return ctx.db.metric.update({
         where: { id: input.id },
         data: {
-          currentValue: Math.round(mockValue * 100) / 100, // Round to 2 decimal places
-          mockDataPrompt: prompt,
+          currentValue: roundedValue,
         },
       });
+    }),
+
+  /**
+   * Get historical values for a metric
+   */
+  getHistory: protectedProcedure
+    .input(
+      z.object({
+        metricId: z.string(),
+        startDate: z.date().optional(),
+        endDate: z.date().optional(),
+        limit: z.number().min(1).max(1000).default(100),
+      }),
+    )
+    .query(async ({ ctx, input }) => {
+      const organizationId = await getUserOrganizationId(ctx.user.id);
+
+      // Verify metric belongs to user's organization
+      const metric = await ctx.db.metric.findUnique({
+        where: { id: input.metricId },
+      });
+
+      if (metric?.organizationId !== organizationId) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Metric not found or you don't have access",
+        });
+      }
+
+      // Build where clause for date filtering
+      const where: {
+        metricId: string;
+        timestamp?: { gte?: Date; lte?: Date };
+      } = {
+        metricId: input.metricId,
+      };
+
+      if (input.startDate || input.endDate) {
+        where.timestamp = {};
+        if (input.startDate) where.timestamp.gte = input.startDate;
+        if (input.endDate) where.timestamp.lte = input.endDate;
+      }
+
+      return ctx.db.metricValue.findMany({
+        where,
+        orderBy: { timestamp: "desc" },
+        take: input.limit,
+      });
+    }),
+
+  /**
+   * Add a new metric value (for manual data entry or integrations)
+   */
+  addValue: protectedProcedure
+    .input(
+      z.object({
+        metricId: z.string(),
+        value: z.number(),
+        timestamp: z.date().optional(),
+        metadata: z.record(z.unknown()).optional(),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const organizationId = await getUserOrganizationId(ctx.user.id);
+
+      // Verify metric belongs to user's organization
+      const metric = await ctx.db.metric.findUnique({
+        where: { id: input.metricId },
+      });
+
+      if (metric?.organizationId !== organizationId) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Metric not found or you don't have access",
+        });
+      }
+
+      // Create the metric value
+      const metricValue = await ctx.db.metricValue.create({
+        data: {
+          metricId: input.metricId,
+          value: input.value,
+          timestamp: input.timestamp ?? new Date(),
+          ...(input.metadata && {
+            metadata: input.metadata as Prisma.InputJsonValue,
+          }),
+        },
+      });
+
+      // Update metric's current value to the latest
+      await ctx.db.metric.update({
+        where: { id: input.metricId },
+        data: { currentValue: input.value },
+      });
+
+      return metricValue;
     }),
 
   /**
@@ -132,6 +270,20 @@ export const metricRouter = createTRPCRouter({
   delete: protectedProcedure
     .input(z.object({ id: z.string() }))
     .mutation(async ({ ctx, input }) => {
+      const organizationId = await getUserOrganizationId(ctx.user.id);
+
+      // Verify metric belongs to user's organization
+      const metric = await ctx.db.metric.findUnique({
+        where: { id: input.id },
+      });
+
+      if (metric?.organizationId !== organizationId) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Metric not found or you don't have access",
+        });
+      }
+
       // Check if metric is used by any roles
       const rolesUsingMetric = await ctx.db.role.count({
         where: { metricId: input.id },
@@ -144,7 +296,7 @@ export const metricRouter = createTRPCRouter({
         });
       }
 
-      // Delete metric
+      // Delete metric (cascade will delete MetricValues)
       await ctx.db.metric.delete({
         where: { id: input.id },
       });

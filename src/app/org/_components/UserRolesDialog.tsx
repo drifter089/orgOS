@@ -122,11 +122,20 @@ export function UserRolesDialog({
                             {role.metric.unit}
                           </span>
                         )}
-                        {role.metric.targetValue !== null && (
+                        {/* Show role-specific goal if set, otherwise show metric's default target */}
+                        {role.metricGoal !== null ? (
                           <span>
-                            <strong>Target:</strong> {role.metric.targetValue}
+                            <strong>Your Goal:</strong> {role.metricGoal}
                             {role.metric.unit}
                           </span>
+                        ) : (
+                          role.metric.targetValue !== null && (
+                            <span>
+                              <strong>Default Target:</strong>{" "}
+                              {role.metric.targetValue}
+                              {role.metric.unit}
+                            </span>
+                          )
                         )}
                       </div>
                     </div>

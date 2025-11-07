@@ -12,6 +12,22 @@ datasource db {
 
 }
 
+// Metric System Enums
+enum MetricType {
+    PERCENTAGE
+    NUMBER
+    DURATION
+    RATE
+}
+
+enum CollectionFrequency {
+    REAL_TIME
+    DAILY
+    WEEKLY
+    MONTHLY
+    QUARTERLY
+}
+
 model Post {
     id        Int      @id @default(autoincrement())
     name      String
@@ -66,6 +82,7 @@ model Role {
     title          String
     purpose        String   @db.Text
     metricId       String   // References Metric (one-to-one from Role perspective)
+    metricGoal     Float?   // Role-specific target (overrides metric's default targetValue)
 
     // Optional assignment
     assignedUserId String?  // WorkOS user ID
@@ -86,23 +103,49 @@ model Role {
 }
 
 model Metric {
-    id             String   @id @default(cuid())
-    name           String   // e.g., "Customer Satisfaction", "Response Time"
+    id             String              @id @default(cuid())
+    name           String              // e.g., "Customer Satisfaction", "Response Time"
     description    String?
+    organizationId String?             // WorkOS organization ID - metrics are org-scoped (optional for migration)
 
     // KPI properties
-    type           String   // "percentage", "number", "duration", "rate"
-    targetValue    Float?   // Target threshold
-    currentValue   Float?   // Current value (mock data)
-    unit           String?  // "ms", "%", "requests", etc.
+    type           String              // Legacy string type for migration compatibility
+    targetValue    Float?              // Default/suggested target threshold
+    currentValue   Float?              // Current value (computed from latest MetricValue)
+    unit           String?             // "ms", "%", "requests", etc.
+
+    // Collection metadata
+    category       String?             // e.g., "user_signups", "error_tracking", "performance"
+    collectionFrequency CollectionFrequency @default(DAILY) // How often data is collected
+    dataSource     String?             // Future: "posthog", "sentry", "manual", etc.
 
     // Mock data generation
-    mockDataPrompt String?  @db.Text // AI prompt for generating mock data
+    mockDataPrompt String?             @db.Text // AI prompt for generating mock data
 
-    roles          Role[]   // One metric can be used by many roles
+    roles          Role[]              // One metric can be used by many roles
+    values         MetricValue[]       // Time-series historical data
 
-    createdAt      DateTime @default(now())
-    updatedAt      DateTime @updatedAt
+    createdAt      DateTime            @default(now())
+    updatedAt      DateTime            @updatedAt
 
     @@index([name])
+    @@index([organizationId])
+    @@index([category])
+}
+
+// Time-series data points for metrics
+model MetricValue {
+    id        String   @id @default(cuid())
+    metricId  String
+    value     Float    // The actual metric value at this point in time
+    timestamp DateTime @default(now()) // When this value was recorded
+    metadata  Json?    // Optional: additional context (source, tags, etc.)
+
+    metric    Metric   @relation(fields: [metricId], references: [id], onDelete: Cascade)
+
+    createdAt DateTime @default(now())
+
+    @@index([metricId])
+    @@index([timestamp])
+    @@index([metricId, timestamp]) // Composite index for time-series queries
 }

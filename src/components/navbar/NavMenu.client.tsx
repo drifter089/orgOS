@@ -3,7 +3,14 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
-import { Building2, Code2, Palette, Users, Workflow } from "lucide-react";
+import {
+  Building2,
+  Code2,
+  Palette,
+  TrendingUp,
+  Users,
+  Workflow,
+} from "lucide-react";
 
 import {
   NavigationMenu,
@@ -47,7 +54,7 @@ export function NavMenu() {
           </NavigationMenuLink>
         </NavigationMenuItem>
 
-        {/* Organization - Dropdown with Org and Teams */}
+        {/* Organization - Dropdown with Org, Teams, and Metrics */}
         <NavigationMenuItem>
           <NavigationMenuTrigger
             className={cn(
@@ -64,9 +71,19 @@ export function NavMenu() {
                 href="/org"
                 title="Organization"
                 icon={<Building2 className="text-primary size-5" />}
-                active={isActivePath("/org")}
+                active={
+                  isActivePath("/org") && !pathname.startsWith("/org/metrics")
+                }
               >
                 Manage your organization settings, members, and configuration
+              </ListItem>
+              <ListItem
+                href="/org/metrics"
+                title="Metrics"
+                icon={<TrendingUp className="text-primary size-5" />}
+                active={isActivePath("/org/metrics")}
+              >
+                Manage KPI metrics and track performance indicators
               </ListItem>
               <ListItem
                 href="/teams"

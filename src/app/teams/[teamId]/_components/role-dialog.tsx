@@ -3,11 +3,12 @@
 import { useEffect, useState } from "react";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Plus } from "lucide-react";
+import { Plus, Sparkles } from "lucide-react";
 import { nanoid } from "nanoid";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 
+import { MetricDialog } from "@/app/org/_components/metric-dialog";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -44,6 +45,7 @@ const roleSchema = z.object({
   title: z.string().min(1, "Title is required").max(100),
   purpose: z.string().min(1, "Purpose is required"),
   metricId: z.string().min(1, "Please select a metric"),
+  metricGoal: z.coerce.number().positive().optional(),
   assignedUserId: z.string().nullable().optional(),
   color: z
     .string()
@@ -83,6 +85,8 @@ export function RoleDialog({
   const open = isControlled ? controlledOpen : internalOpen;
   const setOpen = isControlled ? onOpenChange! : setInternalOpen;
 
+  const [metricDialogOpen, setMetricDialogOpen] = useState(false);
+
   const isEditMode = !!roleData;
   const nodes = useTeamStore((state) => state.nodes);
   const setNodes = useTeamStore((state) => state.setNodes);
@@ -94,6 +98,7 @@ export function RoleDialog({
       title: "",
       purpose: "",
       metricId: "",
+      metricGoal: undefined,
       assignedUserId: null,
       color: COLORS[0],
     },
@@ -107,6 +112,7 @@ export function RoleDialog({
           title: roleData.title,
           purpose: roleData.purpose,
           metricId: roleData.metricId ?? "",
+          metricGoal: roleData.metricGoal ?? undefined,
           assignedUserId: roleData.assignedUserId ?? null,
           color: roleData.color ?? COLORS[0],
         });
@@ -115,6 +121,7 @@ export function RoleDialog({
           title: "",
           purpose: "",
           metricId: "",
+          metricGoal: undefined,
           assignedUserId: null,
           color: COLORS[0],
         });
@@ -150,6 +157,7 @@ export function RoleDialog({
           metricName: newRole.metric.name,
           metricValue: newRole.metric.currentValue ?? undefined,
           metricUnit: newRole.metric.unit ?? undefined,
+          metricGoal: newRole.metricGoal ?? undefined,
           assignedUserId: newRole.assignedUserId,
           assignedUserName: newRole.assignedUserId
             ? (members.find((m) => m.user.id === newRole.assignedUserId)?.user
@@ -188,6 +196,7 @@ export function RoleDialog({
               metricName: updatedRole.metric.name,
               metricValue: updatedRole.metric.currentValue ?? undefined,
               metricUnit: updatedRole.metric.unit ?? undefined,
+              metricGoal: updatedRole.metricGoal ?? undefined,
               assignedUserId: updatedRole.assignedUserId,
               assignedUserName: updatedRole.assignedUserId
                 ? (members.find((m) => m.user.id === updatedRole.assignedUserId)
@@ -221,6 +230,7 @@ export function RoleDialog({
         title: data.title,
         purpose: data.purpose,
         metricId: data.metricId,
+        metricGoal: data.metricGoal,
         assignedUserId:
           data.assignedUserId === "__none__" ? null : data.assignedUserId,
         color: data.color,
@@ -232,6 +242,7 @@ export function RoleDialog({
         title: data.title,
         purpose: data.purpose,
         metricId: data.metricId,
+        metricGoal: data.metricGoal,
         assignedUserId:
           data.assignedUserId === "__none__" ? null : data.assignedUserId,
         nodeId,
@@ -309,7 +320,19 @@ export function RoleDialog({
               name="metricId"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Metric</FormLabel>
+                  <div className="flex items-center justify-between">
+                    <FormLabel>Metric</FormLabel>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="h-8 text-xs"
+                      onClick={() => setMetricDialogOpen(true)}
+                    >
+                      <Sparkles className="mr-1 h-3 w-3" />
+                      New Metric
+                    </Button>
+                  </div>
                   <Select onValueChange={field.onChange} value={field.value}>
                     <FormControl>
                       <SelectTrigger>
@@ -317,21 +340,70 @@ export function RoleDialog({
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      {metrics.map((metric) => (
-                        <SelectItem key={metric.id} value={metric.id}>
-                          <div className="flex items-center justify-between gap-4">
-                            <span>{metric.name}</span>
-                            <span className="text-muted-foreground text-xs">
-                              {metric.currentValue?.toFixed(1)} {metric.unit}
-                            </span>
-                          </div>
-                        </SelectItem>
-                      ))}
+                      {metrics.length === 0 ? (
+                        <div className="text-muted-foreground p-2 text-center text-xs">
+                          No metrics yet. Create one above!
+                        </div>
+                      ) : (
+                        metrics.map((metric) => (
+                          <SelectItem key={metric.id} value={metric.id}>
+                            <div className="flex items-center justify-between gap-4">
+                              <span>{metric.name}</span>
+                              <span className="text-muted-foreground text-xs">
+                                {metric.currentValue?.toFixed(1)} {metric.unit}
+                              </span>
+                            </div>
+                          </SelectItem>
+                        ))
+                      )}
                     </SelectContent>
                   </Select>
                   <FormMessage />
                 </FormItem>
               )}
+            />
+
+            <FormField
+              control={form.control}
+              name="metricGoal"
+              render={({ field }) => {
+                const selectedMetric = metrics.find(
+                  (m) => m.id === form.watch("metricId"),
+                );
+                return (
+                  <FormItem>
+                    <FormLabel>Role Goal (Optional)</FormLabel>
+                    <FormControl>
+                      <Input
+                        type="number"
+                        step="0.01"
+                        placeholder={
+                          selectedMetric?.targetValue
+                            ? `Default: ${selectedMetric.targetValue} ${selectedMetric.unit ?? ""}`
+                            : "Enter target value"
+                        }
+                        {...field}
+                        value={field.value ?? ""}
+                        onChange={(e) =>
+                          field.onChange(
+                            e.target.value === ""
+                              ? undefined
+                              : parseFloat(e.target.value),
+                          )
+                        }
+                      />
+                    </FormControl>
+                    {selectedMetric && (
+                      <p className="text-muted-foreground text-xs">
+                        {selectedMetric.targetValue
+                          ? `Metric default target: ${selectedMetric.targetValue} ${selectedMetric.unit ?? ""}`
+                          : "No default target set for this metric"}
+                      </p>
+                    )}
+                    <FormMessage />
+                  </FormItem>
+                );
+              }}
             />
 
             <FormField
@@ -417,6 +489,16 @@ export function RoleDialog({
           </form>
         </Form>
       </DialogContent>
+
+      {/* Nested Metric Creation Dialog */}
+      <MetricDialog
+        open={metricDialogOpen}
+        onOpenChange={setMetricDialogOpen}
+        onSuccess={() => {
+          // Refetch metrics after successful creation
+          void utils.metric.getAll.refetch();
+        }}
+      />
     </Dialog>
   );
 }

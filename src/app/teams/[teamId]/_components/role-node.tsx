@@ -22,6 +22,7 @@ export type RoleNodeData = {
   metricName?: string;
   metricValue?: number;
   metricUnit?: string;
+  metricGoal?: number; // Role-specific target
   assignedUserId?: string | null;
   assignedUserName?: string;
   color?: string;
@@ -88,14 +89,21 @@ function RoleNodeComponent({ data, selected }: NodeProps<RoleNode>) {
 
         {/* Metric */}
         {data.metricName && (
-          <div className="flex items-center gap-2 text-xs">
-            <TrendingUp className="text-muted-foreground h-3 w-3" />
-            <span className="text-muted-foreground">{data.metricName}:</span>
-            <Badge variant="secondary" className="text-xs">
-              {data.metricValue !== undefined && data.metricValue !== null
-                ? `${data.metricValue.toFixed(1)} ${data.metricUnit ?? ""}`
-                : "N/A"}
-            </Badge>
+          <div className="flex flex-col gap-1 text-xs">
+            <div className="flex items-center gap-2">
+              <TrendingUp className="text-muted-foreground h-3 w-3" />
+              <span className="text-muted-foreground">{data.metricName}:</span>
+              <Badge variant="secondary" className="text-xs">
+                {data.metricValue !== undefined && data.metricValue !== null
+                  ? `${data.metricValue.toFixed(1)} ${data.metricUnit ?? ""}`
+                  : "N/A"}
+              </Badge>
+            </div>
+            {data.metricGoal !== undefined && data.metricGoal !== null && (
+              <div className="text-muted-foreground ml-5 text-[10px]">
+                Goal: {data.metricGoal.toFixed(1)} {data.metricUnit ?? ""}
+              </div>
+            )}
           </div>
         )}
 

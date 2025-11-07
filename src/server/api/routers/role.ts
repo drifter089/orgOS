@@ -20,6 +20,7 @@ export const roleRouter = createTRPCRouter({
         title: z.string().min(1).max(100),
         purpose: z.string().min(1),
         metricId: z.string(),
+        metricGoal: z.number().optional(), // Role-specific target for the metric
         nodeId: z.string(),
         assignedUserId: z.string().nullable().optional(),
         color: z
@@ -69,6 +70,7 @@ export const roleRouter = createTRPCRouter({
         title: z.string().min(1).max(100).optional(),
         purpose: z.string().min(1).optional(),
         metricId: z.string().optional(),
+        metricGoal: z.number().optional(), // Role-specific target for the metric
         assignedUserId: z.string().nullable().optional(),
         color: z
           .string()
