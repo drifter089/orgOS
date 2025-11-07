@@ -18,9 +18,11 @@ export type RoleNodeData = {
   roleId: string;
   title: string;
   purpose: string;
+  metricId?: string;
   metricName?: string;
   metricValue?: number;
   metricUnit?: string;
+  assignedUserId?: string | null;
   assignedUserName?: string;
   color?: string;
 };

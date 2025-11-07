@@ -106,8 +106,8 @@ export function RoleDialog({
         form.reset({
           title: roleData.title,
           purpose: roleData.purpose,
-          metricId: "", // We need to fetch this from the role
-          assignedUserId: null, // We need to fetch this from the role
+          metricId: roleData.metricId ?? "",
+          assignedUserId: roleData.assignedUserId ?? null,
           color: roleData.color ?? COLORS[0],
         });
       } else {
@@ -133,8 +133,9 @@ export function RoleDialog({
 
   const createRole = api.role.create.useMutation({
     onSuccess: (newRole) => {
-      // Generate a unique node ID
-      const nodeId = `role-node-${nanoid(8)}`;
+      // Use nodeId from the role (passed through API)
+      const nodeId =
+        (newRole.nodeId as string | undefined) ?? `role-node-${nanoid(8)}`;
 
       // Add node to canvas
       const newNode = {
@@ -145,9 +146,11 @@ export function RoleDialog({
           roleId: newRole.id,
           title: newRole.title,
           purpose: newRole.purpose,
+          metricId: newRole.metric.id,
           metricName: newRole.metric.name,
           metricValue: newRole.metric.currentValue ?? undefined,
           metricUnit: newRole.metric.unit ?? undefined,
+          assignedUserId: newRole.assignedUserId,
           assignedUserName: newRole.assignedUserId
             ? (members.find((m) => m.user.id === newRole.assignedUserId)?.user
                 .firstName ?? `User ${newRole.assignedUserId.substring(0, 8)}`)
@@ -181,9 +184,11 @@ export function RoleDialog({
               ...node.data,
               title: updatedRole.title,
               purpose: updatedRole.purpose,
+              metricId: updatedRole.metric.id,
               metricName: updatedRole.metric.name,
               metricValue: updatedRole.metric.currentValue ?? undefined,
               metricUnit: updatedRole.metric.unit ?? undefined,
+              assignedUserId: updatedRole.assignedUserId,
               assignedUserName: updatedRole.assignedUserId
                 ? (members.find((m) => m.user.id === updatedRole.assignedUserId)
                     ?.user.firstName ??
@@ -216,7 +221,8 @@ export function RoleDialog({
         title: data.title,
         purpose: data.purpose,
         metricId: data.metricId,
-        assignedUserId: data.assignedUserId,
+        assignedUserId:
+          data.assignedUserId === "__none__" ? null : data.assignedUserId,
         color: data.color,
       });
     } else {
@@ -226,6 +232,8 @@ export function RoleDialog({
         title: data.title,
         purpose: data.purpose,
         metricId: data.metricId,
+        assignedUserId:
+          data.assignedUserId === "__none__" ? null : data.assignedUserId,
         nodeId,
         color: data.color,
       });

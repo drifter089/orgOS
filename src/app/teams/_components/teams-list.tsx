@@ -26,12 +26,12 @@ export function TeamsList() {
   if (!teams || teams.length === 0) {
     return (
       <Card className="border-dashed">
-        <CardHeader className="py-12 text-center">
-          <CardTitle>No teams yet</CardTitle>
-          <CardDescription>
+        <CardHeader className="py-16 text-center">
+          <CardTitle className="text-2xl">No teams yet</CardTitle>
+          <CardDescription className="text-base">
             Create your first team to start building role structures
           </CardDescription>
-          <div className="pt-4">
+          <div className="pt-6">
             <CreateTeamDialog />
           </div>
         </CardHeader>
@@ -40,21 +40,23 @@ export function TeamsList() {
   }
 
   return (
-    <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+    <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-3">
       {teams.map((team) => (
         <Link key={team.id} href={`/teams/${team.id}`}>
-          <Card className="cursor-pointer transition-all duration-200 hover:scale-[1.02] hover:shadow-lg">
-            <CardHeader>
-              <CardTitle className="line-clamp-1">{team.name}</CardTitle>
-              <CardDescription className="line-clamp-2">
+          <Card className="h-full cursor-pointer transition-all duration-300 hover:scale-[1.03] hover:shadow-xl">
+            <CardHeader className="space-y-3">
+              <CardTitle className="line-clamp-1 text-xl">
+                {team.name}
+              </CardTitle>
+              <CardDescription className="line-clamp-2 text-base">
                 {team.description ?? "No description"}
               </CardDescription>
-              <div className="text-muted-foreground flex items-center justify-between pt-4 text-sm">
-                <span>
+              <div className="text-muted-foreground flex items-center justify-between border-t pt-4 text-sm">
+                <span className="font-medium">
                   {team._count.roles} role
                   {team._count.roles !== 1 ? "s" : ""}
                 </span>
-                <span>
+                <span className="text-xs">
                   Updated{" "}
                   {new Date(team.updatedAt).toLocaleDateString("en-US", {
                     month: "short",

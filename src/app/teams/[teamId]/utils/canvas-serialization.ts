@@ -13,6 +13,7 @@ type RoleWithMetric = {
   color: string;
   assignedUserId: string | null;
   metric: {
+    id: string;
     name: string;
     currentValue: number | null;
     unit: string | null;
@@ -70,9 +71,11 @@ export function enrichNodesWithRoleData(
         roleId: role?.id ?? node.data?.roleId ?? "",
         title: role?.title ?? node.data?.title ?? "Untitled Role",
         purpose: role?.purpose ?? "",
+        metricId: role?.metric?.id,
         metricName: role?.metric?.name,
         metricValue: role?.metric?.currentValue ?? undefined,
         metricUnit: role?.metric?.unit ?? undefined,
+        assignedUserId: role?.assignedUserId ?? null,
         assignedUserName: role?.assignedUserId
           ? `User ${role.assignedUserId.substring(0, 8)}`
           : undefined,

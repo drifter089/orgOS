@@ -30,7 +30,7 @@ export function TeamSidebar({
   return (
     <Sidebar
       side="right"
-      collapsible="icon"
+      collapsible="offcanvas"
       className="bg-sidebar border-l"
       {...props}
     >

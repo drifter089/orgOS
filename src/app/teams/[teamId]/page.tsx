@@ -51,7 +51,7 @@ export default async function TeamPage({
             {/* Sidebar Trigger - Always visible in top-right */}
             <TeamSidebarTrigger
               roleCount={team.roles.length}
-              className="absolute top-4 right-4 z-10"
+              className="absolute right-4 bottom-8 z-10"
             />
 
             {/* Canvas */}

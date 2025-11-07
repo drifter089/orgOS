@@ -50,11 +50,11 @@ export async function MembersList() {
       <CardContent className="pt-6">
         <div className="space-y-4">
           {members.map(({ user, membership }) => {
-            // Get initials for avatar
+            // Get initials for avatar with safe fallbacks
             const initials =
               user.firstName && user.lastName
                 ? `${user.firstName[0]}${user.lastName[0]}`.toUpperCase()
-                : (user.email[0]?.toUpperCase() ?? "U");
+                : (user.email?.[0]?.toUpperCase() ?? "U");
 
             return (
               <div
@@ -75,7 +75,7 @@ export async function MembersList() {
                       <p className="font-semibold">
                         {user.firstName && user.lastName
                           ? `${user.firstName} ${user.lastName}`
-                          : user.email}
+                          : (user.email ?? "No name")}
                       </p>
                       {membership.status === "active" && (
                         <UserCheck className="h-4 w-4 text-green-600" />
@@ -83,7 +83,7 @@ export async function MembersList() {
                     </div>
                     <div className="text-muted-foreground flex items-center gap-1.5 text-sm">
                       <Mail className="h-3.5 w-3.5" />
-                      <span>{user.email}</span>
+                      <span>{user.email ?? "No email"}</span>
                     </div>
                   </div>
                 </div>

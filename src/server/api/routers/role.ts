@@ -20,6 +20,7 @@ export const roleRouter = createTRPCRouter({
         purpose: z.string().min(1),
         metricId: z.string(),
         nodeId: z.string(),
+        assignedUserId: z.string().nullable().optional(),
         color: z
           .string()
           .regex(/^#[0-9A-F]{6}$/i)
