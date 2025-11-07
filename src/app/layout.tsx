@@ -38,7 +38,10 @@ export const metadata: Metadata = {
     title: "ORG-OS",
     description: "Your organizational operating system",
   },
-  icons: [{ rel: "icon", url: "/favicon.ico" }],
+  icons: [
+    { rel: "icon", url: "/favicon.svg", type: "image/svg+xml" },
+    { rel: "icon", url: "/favicon.ico", sizes: "any" },
+  ],
 };
 
 const geist = Geist({

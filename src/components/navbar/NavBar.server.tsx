@@ -1,7 +1,7 @@
 import Link from "next/link";
 
 import { getSignUpUrl, signOut, withAuth } from "@workos-inc/authkit-nextjs";
-import { Github } from "lucide-react";
+import { Boxes, Github } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 
@@ -26,8 +26,16 @@ export async function NavBar() {
     <NavBarWrapper>
       <nav className="border-border bg-background/95 supports-backdrop-filter:bg-background/80 w-full border-b shadow-sm backdrop-blur-md">
         <div className="container mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
-          {/* Navigation Menu - now using NavigationMenu component */}
-          <NavMenu />
+          <div className="flex items-center gap-6">
+            {/* Logo */}
+            <Link href="/" className="flex items-center gap-2">
+              <Boxes className="text-primary h-7 w-7" />
+              <span className="text-xl font-bold tracking-tight">ORG-OS</span>
+            </Link>
+
+            {/* Navigation Menu */}
+            <NavMenu />
+          </div>
 
           <div className="flex items-center gap-3">
             {!user ? (
