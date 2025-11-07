@@ -32,6 +32,7 @@ type TeamState = {
   isDirty: boolean;
   lastSaved: Date | null;
   isSaving: boolean;
+  isInitialized: boolean;
 };
 
 type TeamActions = {
@@ -48,6 +49,7 @@ type TeamActions = {
   // Dirty state management
   markDirty: () => void;
   markClean: () => void;
+  setInitialized: (initialized: boolean) => void;
 
   // Saving state
   setSaving: (saving: boolean) => void;
@@ -69,18 +71,25 @@ export function createTeamStore(
     isDirty: false,
     lastSaved: null,
     isSaving: false,
+    isInitialized: false,
 
     // React Flow handlers
     onNodesChange: (changes) => {
       const nextNodes = applyNodeChanges(changes, get().nodes);
       set({ nodes: nextNodes });
-      get().markDirty();
+      // Only mark dirty if initialized (prevents initial React Flow setup from triggering saves)
+      if (get().isInitialized) {
+        get().markDirty();
+      }
     },
 
     onEdgesChange: (changes) => {
       const nextEdges = applyEdgeChanges(changes, get().edges);
       set({ edges: nextEdges });
-      get().markDirty();
+      // Only mark dirty if initialized
+      if (get().isInitialized) {
+        get().markDirty();
+      }
     },
 
     onConnect: (connection) => {
@@ -93,7 +102,10 @@ export function createTeamStore(
         get().edges,
       );
       set({ edges: nextEdges });
-      get().markDirty();
+      // Only mark dirty if initialized
+      if (get().isInitialized) {
+        get().markDirty();
+      }
     },
 
     // State setters
@@ -107,6 +119,7 @@ export function createTeamStore(
     // Dirty state management
     markDirty: () => set({ isDirty: true }),
     markClean: () => set({ isDirty: false }),
+    setInitialized: (initialized) => set({ isInitialized: initialized }),
 
     // Saving state
     setSaving: (saving) => set({ isSaving: saving }),
