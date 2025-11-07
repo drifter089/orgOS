@@ -9,11 +9,11 @@ test.describe("Unauthenticated Access", () => {
 
     // 2. Verify page loads successfully
     await expect(
-      page.getByRole("heading", { name: "Create T3 App" }),
+      page.getByRole("heading", { name: "ORG-OS" }),
     ).toBeVisible();
 
     // 3. Check that content is visible
-    await expect(page.getByText("Hello from tRPC")).toBeVisible();
+    await expect(page.getByText("Your organizational operating system")).toBeVisible();
 
     // 4. Verify "Sign in" and "Sign up" buttons are visible in NavBar
     await expect(page.getByRole("link", { name: "Sign in" })).toBeVisible();
