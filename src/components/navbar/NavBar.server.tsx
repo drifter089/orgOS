@@ -1,11 +1,12 @@
 import Link from "next/link";
 
 import { getSignUpUrl, signOut, withAuth } from "@workos-inc/authkit-nextjs";
+import { Boxes, Github } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 
 import { NavBarWrapper } from "./NavBarWrapper.client";
-import { NavLink } from "./NavLink.client";
+import { NavMenu } from "./NavMenu.client";
 import { ThemeSwitch } from "./ThemeSwitch.client";
 
 export async function NavBar() {
@@ -25,21 +26,15 @@ export async function NavBar() {
     <NavBarWrapper>
       <nav className="border-border bg-background/95 supports-backdrop-filter:bg-background/80 w-full border-b shadow-sm backdrop-blur-md">
         <div className="container mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center gap-1">
-            <NavLink href="/">Home</NavLink>
-            <NavLink href="/design-strategy" prefetch={false}>
-              Design Strategy
-            </NavLink>
-            <NavLink href="/render-strategy" prefetch={false}>
-              Render Strategy
-            </NavLink>
-            <NavLink href="/workflow" prefetch={false}>
-              Workflow
-            </NavLink>
-            <NavLink href="/teams" prefetch={false}>
-              Teams
-            </NavLink>
-            <NavLink href="/docs">Docs</NavLink>
+          <div className="flex items-center gap-6">
+            {/* Logo */}
+            <Link href="/" className="flex items-center gap-2">
+              <Boxes className="text-primary h-7 w-7" />
+              <span className="text-xl font-bold tracking-tight">ORG-OS</span>
+            </Link>
+
+            {/* Navigation Menu */}
+            <NavMenu />
           </div>
 
           <div className="flex items-center gap-3">
@@ -84,7 +79,22 @@ export async function NavBar() {
                 </form>
               </>
             )}
-            <div className="border-border ml-2 border-l pl-3">
+            <div className="border-border ml-2 flex items-center gap-3 border-l pl-3">
+              <Button
+                variant="ghost"
+                size="icon"
+                asChild
+                className="hover:bg-accent hover:text-accent-foreground"
+              >
+                <Link
+                  href="https://github.com/drifter089/orgOS"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  <Github className="h-5 w-5" />
+                  <span className="sr-only">GitHub</span>
+                </Link>
+              </Button>
               <ThemeSwitch />
             </div>
           </div>
