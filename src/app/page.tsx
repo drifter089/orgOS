@@ -1,87 +1,27 @@
-import Link from "next/link";
-
-import { LatestPost } from "@/app/_components/post";
-import { Badge } from "@/components/ui/badge";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { HydrateClient, api } from "@/trpc/server";
-
-export default async function Home() {
-  let hello;
-  try {
-    hello = await api.post.hello({ text: "from tRPC" });
-    await api.post.getLatest.prefetch();
-  } catch (error) {
-    hello = { greeting: "Hello from tRPC (database offline)" };
-  }
-
+export default function Home() {
   return (
-    <HydrateClient>
-      <main className="bg-background flex min-h-screen flex-col items-center justify-center">
-        <div className="container flex flex-col items-center justify-center gap-12 px-4 py-16">
-          <div className="space-y-4 text-center">
-            <h1 className="text-foreground text-5xl font-extrabold tracking-tight sm:text-[5rem]">
-              Create <span className="text-primary">T3</span> App
-            </h1>
-            <Badge variant="secondary" className="text-base">
-              Next.js • tRPC • Tailwind • Prisma
-            </Badge>
-          </div>
+    <main className="bg-background relative flex h-screen w-full items-center justify-center overflow-hidden">
+      {/* Gradient background with blur orbs */}
+      <div className="absolute inset-0">
+        {/* Animated blur orbs with different colors */}
+        <div className="bg-primary/40 absolute top-0 left-0 h-[500px] w-[500px] rounded-full blur-[120px]" />
+        <div className="bg-secondary/40 absolute top-1/3 right-0 h-[600px] w-[600px] rounded-full blur-[120px]" />
+        <div className="bg-accent/30 absolute bottom-0 left-1/3 h-[550px] w-[550px] rounded-full blur-[120px]" />
+        <div className="bg-destructive/20 absolute top-1/2 right-1/3 h-[450px] w-[450px] rounded-full blur-[120px]" />
 
-          <div className="grid w-full grid-cols-1 gap-4 sm:grid-cols-2 md:gap-8">
-            <Link
-              href="https://create.t3.gg/en/usage/first-steps"
-              target="_blank"
-              className="transition-transform hover:scale-105"
-            >
-              <Card className="hover:border-primary h-full">
-                <CardHeader>
-                  <CardTitle className="text-2xl">First Steps →</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <CardDescription className="text-base">
-                    Just the basics - Everything you need to know to set up your
-                    database and authentication.
-                  </CardDescription>
-                </CardContent>
-              </Card>
-            </Link>
+        {/* Blur overlay to soften the background */}
+        <div className="bg-background/40 absolute inset-0 backdrop-blur-3xl" />
+      </div>
 
-            <Link
-              href="https://create.t3.gg/en/introduction"
-              target="_blank"
-              className="transition-transform hover:scale-105"
-            >
-              <Card className="hover:border-primary h-full">
-                <CardHeader>
-                  <CardTitle className="text-2xl">Documentation →</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <CardDescription className="text-base">
-                    Learn more about Create T3 App, the libraries it uses, and
-                    how to deploy it.
-                  </CardDescription>
-                </CardContent>
-              </Card>
-            </Link>
-          </div>
-
-          <div className="flex flex-col items-center gap-2">
-            <p className="text-foreground text-2xl">
-              {hello ? hello.greeting : "Loading tRPC query..."}
-            </p>
-          </div>
-
-          {hello.greeting !== "Hello from tRPC (database offline)" && (
-            <LatestPost />
-          )}
-        </div>
-      </main>
-    </HydrateClient>
+      {/* Content */}
+      <div className="relative z-10 w-full max-w-7xl px-6 text-center">
+        <h1 className="from-foreground via-foreground/90 to-foreground/70 bg-gradient-to-br bg-clip-text text-[6rem] leading-[0.85] font-black tracking-tighter text-transparent sm:text-[10rem] md:text-[14rem] lg:text-[18rem]">
+          ORG-OS
+        </h1>
+        <p className="text-foreground/80 mt-12 text-xl font-semibold sm:text-2xl md:text-3xl">
+          Your organizational operating system
+        </p>
+      </div>
+    </main>
   );
 }
