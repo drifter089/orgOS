@@ -4,6 +4,7 @@ import { createTRPCRouter, protectedProcedure } from "@/server/api/trpc";
 import {
   getAllDirectoryUsers,
   getDirectory,
+  verifyOrganizationAccess,
 } from "@/server/api/utils/authorization";
 import { workos } from "@/server/workos";
 
@@ -162,16 +163,24 @@ export const organizationRouter = createTRPCRouter({
   getCurrentOrgMembers: protectedProcedure.query(async ({ ctx }) => {
     try {
       // Get directory details (cached)
-
       const directory = await getDirectory();
 
-      // Get all directory users (cached)
+      if (!directory.organizationId) {
+        throw new Error("Directory organization ID not found");
+      }
 
+      // Enforce directory membership - only directory users can retrieve the roster
+      await verifyOrganizationAccess(
+        ctx.user.id,
+        directory.organizationId,
+        "organization members",
+        false,
+      );
+
+      // Get all directory users (cached)
       const allUsers = await getAllDirectoryUsers();
 
       // Transform directory users to match the expected format
-      // This keeps the frontend compatible
-
       const membersWithDetails = allUsers.map((directoryUser) => {
         return {
           membership: {

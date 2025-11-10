@@ -77,14 +77,15 @@ export async function getDirectory(): Promise<Directory> {
  * @param userId - Can be either WorkOS auth user ID OR directory user ID
  */
 async function isDirectoryUser(userId: string): Promise<boolean> {
+  // Check ID format first before making any API calls
+  const isDirectoryUserId = userId.startsWith("directory_user_");
+
   try {
     // Get all directory users first
     const allUsers = await getAllDirectoryUsers();
 
-    // Check if userId is a directory user ID (starts with directory_user_)
-    if (userId.startsWith("directory_user_")) {
-      // This is a directory user ID, check if it exists in directory
-
+    // Check if userId is a directory user ID
+    if (isDirectoryUserId) {
       const directoryUser = allUsers.find((user) => user.id === userId);
       return !!directoryUser;
     }
@@ -94,22 +95,40 @@ async function isDirectoryUser(userId: string): Promise<boolean> {
     const authEmail = workosUser.email.toLowerCase();
 
     // Check if user's email matches any directory user
-
     const directoryUser = allUsers.find((user) => {
       return user.email?.toLowerCase() === authEmail;
     });
 
     return !!directoryUser;
   } catch (error) {
-    // If we get an error while checking directory users, log it but don't fail
-    // This prevents race conditions during cache initialization
     console.error("Error checking directory user:", error);
 
     // If this is clearly a directory user ID, assume they're valid during errors
     // This handles the race condition where cache is being populated
-    if (userId.startsWith("directory_user_")) {
-      console.info("Assuming directory user is valid during error:", userId);
+    if (isDirectoryUserId) {
+      console.info(
+        "Assuming directory user is valid during cache initialization:",
+        userId,
+      );
       return true;
+    }
+
+    // For auth user IDs during cache initialization, try to verify by domain
+    // This prevents FORBIDDEN errors during the brief moment cache is populating
+    try {
+      const workosUser = await workos.userManagement.getUser(userId);
+      const authEmail = workosUser.email.toLowerCase();
+
+      // Check if email matches your directory domain (adjust as needed)
+      if (authEmail.endsWith("@acta.so")) {
+        console.info(
+          "Assuming user is directory member during cache initialization:",
+          authEmail,
+        );
+        return true;
+      }
+    } catch (userError) {
+      console.error("Could not verify user during fallback:", userError);
     }
 
     return false;
@@ -119,14 +138,14 @@ async function isDirectoryUser(userId: string): Promise<boolean> {
 /**
  * Verify that a user belongs to a specific organization (directory-based)
  * All directory users have access to the same organization
- * @param allowNonDirectory - If true, allows non-directory users (defaults to true for permissive mode)
+ * @param allowNonDirectory - If true, allows non-directory users (defaults to false for strict mode)
  * @throws TRPCError with code FORBIDDEN if user doesn't have access
  */
 export async function verifyOrganizationAccess(
   userId: string,
   organizationId: string,
   resourceName = "resource",
-  allowNonDirectory = true,
+  allowNonDirectory = false,
 ): Promise<void> {
   // Get directory org ID (cached)
 
@@ -156,12 +175,12 @@ export async function verifyOrganizationAccess(
 /**
  * Get the user's organization ID from directory
  * All directory users belong to the same organization
- * @param allowNonDirectory - If true, allows non-directory users (defaults to true for permissive mode)
+ * @param allowNonDirectory - If true, allows non-directory users (defaults to false for strict mode)
  * @throws TRPCError with code FORBIDDEN if user doesn't belong to directory (only when allowNonDirectory is false)
  */
 export async function getUserOrganizationId(
   userId: string,
-  allowNonDirectory = true,
+  allowNonDirectory = false,
 ): Promise<string> {
   // Check if user is in directory
   const hasAccess = await isDirectoryUser(userId);
