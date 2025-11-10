@@ -1,42 +1,68 @@
-import { WorkOS } from "@workos-inc/node";
 import { z } from "zod";
 
 import { createTRPCRouter, protectedProcedure } from "@/server/api/trpc";
-
-// Initialize WorkOS client
-const workos = new WorkOS(process.env.WORKOS_API_KEY);
+import {
+  getAllDirectoryUsers,
+  getDirectory,
+} from "@/server/api/utils/authorization";
+import { workos } from "@/server/workos";
 
 export const organizationRouter = createTRPCRouter({
   /**
-   * Get the current user's organization data
-   * Returns the first organization the user belongs to
+   * Get the current user's organization data from Directory
+   * Matches user by email to directory, returns directory organization
    */
   getCurrent: protectedProcedure.query(async ({ ctx }) => {
     try {
-      // Get all organization memberships for the current user
-      const memberships =
-        await workos.userManagement.listOrganizationMemberships({
-          userId: ctx.user.id,
-          limit: 1, // Get the first organization
-        });
+      // Get auth user
+      const workosUser = await workos.userManagement.getUser(ctx.user.id);
+      const authEmail = workosUser.email.toLowerCase();
 
-      if (!memberships.data || memberships.data.length === 0) {
+      // Get directory details (cached)
+
+      const directory = await getDirectory();
+
+      // Get all directory users (cached)
+
+      const allUsers = await getAllDirectoryUsers();
+
+      // Find matched directory user
+
+      const directoryUser = allUsers.find((user) => {
+        return user.email?.toLowerCase() === authEmail;
+      });
+
+      if (!directoryUser) {
         return null;
       }
 
-      const membership = memberships.data[0];
-      if (!membership) {
-        return null;
-      }
-
-      // Get full organization details using organizations API
-      const organization = await workos.organizations.getOrganization(
-        membership.organizationId,
-      );
-
+      // Return in the same format as before for frontend compatibility
       return {
-        organization,
-        membership,
+        organization: {
+          id: directory.organizationId,
+
+          name: directory.name,
+          object: "organization",
+          // Map directory fields to organization structure
+
+          createdAt: directory.createdAt,
+
+          updatedAt: directory.updatedAt,
+        },
+        membership: {
+          id: directoryUser.id,
+          userId: ctx.user.id,
+
+          organizationId: directory.organizationId,
+          role: {
+            // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing
+            slug: directoryUser.role?.slug || "member",
+          },
+
+          status: directoryUser.state,
+        },
+
+        directoryUser, // Include full directory user data
       };
     } catch (error) {
       console.error("Error fetching organization:", error);
@@ -130,45 +156,61 @@ export const organizationRouter = createTRPCRouter({
     }),
 
   /**
-   * Get members in the current user's organization
-   * Automatically uses the first organization the user belongs to
+   * Get members in the current user's organization from Directory
+   * Returns all directory users as organization members
    */
   getCurrentOrgMembers: protectedProcedure.query(async ({ ctx }) => {
     try {
-      // Get the user's first organization
-      const memberships =
-        await workos.userManagement.listOrganizationMemberships({
-          userId: ctx.user.id,
-          limit: 1,
-        });
+      // Get directory details (cached)
 
-      if (!memberships.data || memberships.data.length === 0) {
-        return [];
-      }
+      const directory = await getDirectory();
 
-      const firstMembership = memberships.data[0];
-      if (!firstMembership) {
-        return [];
-      }
+      // Get all directory users (cached)
 
-      const organizationId = firstMembership.organizationId;
+      const allUsers = await getAllDirectoryUsers();
 
-      // Get all members of that organization
-      const allMemberships =
-        await workos.userManagement.listOrganizationMemberships({
-          organizationId,
-        });
+      // Transform directory users to match the expected format
+      // This keeps the frontend compatible
 
-      // Fetch user details for each membership
-      const membersWithDetails = await Promise.all(
-        allMemberships.data.map(async (membership) => {
-          const user = await workos.userManagement.getUser(membership.userId);
-          return {
-            membership,
-            user,
-          };
-        }),
-      );
+      const membersWithDetails = allUsers.map((directoryUser) => {
+        return {
+          membership: {
+            id: directoryUser.id, // Use directory user id as membership id
+
+            userId: directoryUser.id,
+
+            organizationId: directory.organizationId,
+            role: {
+              // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing
+              slug: directoryUser.role?.slug || "member",
+            },
+
+            status: directoryUser.state,
+
+            createdAt: directoryUser.createdAt,
+
+            updatedAt: directoryUser.updatedAt,
+          },
+          user: {
+            id: directoryUser.id,
+
+            email: directoryUser.email,
+
+            firstName: directoryUser.firstName,
+
+            lastName: directoryUser.lastName,
+            emailVerified: directoryUser.state === "active",
+            profilePictureUrl:
+              (directoryUser as unknown as Record<string, unknown>).avatarUrl ??
+              null,
+            jobTitle: directoryUser.jobTitle,
+            groups: directoryUser.groups,
+            customAttributes: directoryUser.customAttributes,
+          },
+
+          directoryUser, // Include full directory user data
+        };
+      });
 
       return membersWithDetails;
     } catch (error) {

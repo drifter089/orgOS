@@ -1,4 +1,3 @@
-import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 
 import { createTRPCRouter, protectedProcedure } from "@/server/api/trpc";
@@ -6,8 +5,8 @@ import {
   getRoleAndVerifyAccess,
   getTeamAndVerifyAccess,
   getUserOrganizationId,
+  verifyUserInDirectory,
 } from "@/server/api/utils/authorization";
-import { workos } from "@/server/workos";
 
 export const roleRouter = createTRPCRouter({
   /**
@@ -36,20 +35,9 @@ export const roleRouter = createTRPCRouter({
         ctx.user.id,
       );
 
-      // If assignedUserId is provided, verify the user is in the organization
+      // If assignedUserId is provided, verify the user is in the directory
       if (input.assignedUserId !== undefined && input.assignedUserId !== null) {
-        const assignedUserMemberships =
-          await workos.userManagement.listOrganizationMemberships({
-            userId: input.assignedUserId,
-            organizationId: team.organizationId,
-          });
-
-        if (!assignedUserMemberships.data.length) {
-          throw new TRPCError({
-            code: "BAD_REQUEST",
-            message: "User is not a member of this organization",
-          });
-        }
+        await verifyUserInDirectory(input.assignedUserId, team.organizationId);
       }
 
       // Create role
@@ -80,20 +68,12 @@ export const roleRouter = createTRPCRouter({
       // Verify access to role
       const role = await getRoleAndVerifyAccess(ctx.db, input.id, ctx.user.id);
 
-      // If assignedUserId is being updated, verify the user is in the organization
+      // If assignedUserId is being updated, verify the user is in the directory
       if (input.assignedUserId !== undefined && input.assignedUserId !== null) {
-        const assignedUserMemberships =
-          await workos.userManagement.listOrganizationMemberships({
-            userId: input.assignedUserId,
-            organizationId: role.team.organizationId,
-          });
-
-        if (!assignedUserMemberships.data.length) {
-          throw new TRPCError({
-            code: "BAD_REQUEST",
-            message: "User is not a member of this organization",
-          });
-        }
+        await verifyUserInDirectory(
+          input.assignedUserId,
+          role.team.organizationId,
+        );
       }
 
       // Update role
@@ -140,19 +120,8 @@ export const roleRouter = createTRPCRouter({
         ctx.user.id,
       );
 
-      // Verify assigned user also belongs to the same org
-      const assignedUserMemberships =
-        await workos.userManagement.listOrganizationMemberships({
-          userId: input.userId,
-          organizationId: role.team.organizationId,
-        });
-
-      if (!assignedUserMemberships.data.length) {
-        throw new TRPCError({
-          code: "BAD_REQUEST",
-          message: "User is not a member of this organization",
-        });
-      }
+      // Verify assigned user belongs to the directory
+      await verifyUserInDirectory(input.userId, role.team.organizationId);
 
       // Update role assignment
       return ctx.db.role.update({
@@ -185,22 +154,11 @@ export const roleRouter = createTRPCRouter({
   getByUser: protectedProcedure
     .input(z.object({ userId: z.string() }))
     .query(async ({ ctx, input }) => {
-      // Get current user's organization ID using the same helper other APIs use
+      // Get current user's organization ID from directory
       const organizationId = await getUserOrganizationId(ctx.user.id);
 
-      // Verify the target user is a member of this specific organization
-      const targetUserMemberships =
-        await workos.userManagement.listOrganizationMemberships({
-          userId: input.userId,
-          organizationId,
-        });
-
-      if (!targetUserMemberships.data.length) {
-        throw new TRPCError({
-          code: "FORBIDDEN",
-          message: "Target user is not in your organization",
-        });
-      }
+      // Verify the target user is in the directory
+      await verifyUserInDirectory(input.userId, organizationId);
 
       // Get all roles assigned to this user in teams within the organization
       const roles = await ctx.db.role.findMany({

@@ -248,16 +248,18 @@ export function TeamSidebar({
 
         {/* Organization Members */}
         <SidebarGroup>
-          <SidebarGroupLabel className="text-muted-foreground px-4 text-xs font-semibold tracking-wider uppercase">
+          <div className="px-4">
             <div className="flex items-center justify-between">
-              <span>Team Members</span>
+              <SidebarGroupLabel className="text-muted-foreground px-0 text-xs font-semibold tracking-wider uppercase">
+                Team Members
+              </SidebarGroupLabel>
               {members && (
                 <Badge variant="secondary" className="text-xs font-semibold">
                   {members.length}
                 </Badge>
               )}
             </div>
-          </SidebarGroupLabel>
+          </div>
           <SidebarGroupContent>
             <div className="space-y-2 px-4 py-2">
               {membersLoading ? (
