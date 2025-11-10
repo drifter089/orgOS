@@ -46,8 +46,8 @@ function MemberCard({ user, userId }: { user: User; userId: string }) {
       : (user.email ?? "Member");
 
   return (
-    <div className="bg-card hover:bg-accent/50 flex items-center justify-between gap-3 rounded-lg border p-3 transition-colors">
-      <div className="flex items-center gap-3 overflow-hidden">
+    <div className="bg-card hover:bg-accent/50 flex min-w-0 items-center justify-between gap-2 rounded-lg border p-3 transition-colors">
+      <div className="flex min-w-0 flex-1 items-center gap-3 overflow-hidden">
         <Avatar className="h-9 w-9 flex-shrink-0">
           <AvatarFallback className="bg-primary/10 text-primary text-xs font-medium">
             {initials}
@@ -57,7 +57,7 @@ function MemberCard({ user, userId }: { user: User; userId: string }) {
           <p className="truncate text-sm leading-tight font-medium">
             {userName}
           </p>
-          <div className="text-muted-foreground mt-0.5 flex items-center gap-1.5 text-xs">
+          <div className="text-muted-foreground mt-0.5 flex min-w-0 items-center gap-1.5 text-xs">
             <Mail className="h-3 w-3 flex-shrink-0" />
             <span className="truncate">{user.email ?? "No email"}</span>
           </div>
@@ -132,10 +132,10 @@ function RolesList({ teamId }: { teamId: string }) {
       {roles.map((role) => (
         <div
           key={role.id}
-          className="group bg-card hover:bg-accent/50 relative flex items-start gap-3 rounded-lg border p-3 transition-colors"
+          className="group bg-card hover:bg-accent/50 relative flex min-w-0 items-start gap-2 rounded-lg border p-3 transition-colors"
         >
-          <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-2">
+          <div className="min-w-0 flex-1 overflow-hidden">
+            <div className="flex min-w-0 items-center gap-2">
               <div
                 className="border-background h-3 w-3 flex-shrink-0 rounded-full border-2 shadow-sm"
                 style={{
@@ -211,8 +211,8 @@ export function TeamSidebar({
       }
       {...props}
     >
-      <SidebarHeader className="border-b px-6 py-4">
-        <div className="space-y-3">
+      <SidebarHeader className="border-b px-4 py-4">
+        <div className="space-y-1.5">
           <div>
             <h2 className="text-xl font-bold tracking-tight">{teamName}</h2>
             {teamDescription && (
@@ -224,14 +224,14 @@ export function TeamSidebar({
           <CreateRoleDialog teamId={teamId} />
         </div>
       </SidebarHeader>
-      <SidebarContent className="px-2">
+      <SidebarContent className="overflow-y-auto">
         {/* Team Info */}
-        <SidebarGroup>
-          <SidebarGroupLabel className="text-muted-foreground px-4 text-xs font-semibold tracking-wider uppercase">
+        <SidebarGroup className="py-3">
+          <SidebarGroupLabel className="text-muted-foreground px-4 pb-2 text-xs font-semibold tracking-wider uppercase">
             Team Info
           </SidebarGroupLabel>
           <SidebarGroupContent>
-            <div className="px-4 py-2">
+            <div className="px-4">
               <div className="bg-card flex items-center justify-between rounded-lg border px-3 py-2">
                 <span className="text-muted-foreground text-sm font-medium">
                   Total Roles
@@ -244,11 +244,11 @@ export function TeamSidebar({
           </SidebarGroupContent>
         </SidebarGroup>
 
-        <SidebarSeparator />
+        <SidebarSeparator className="my-0" />
 
         {/* Organization Members */}
-        <SidebarGroup>
-          <SidebarGroupLabel className="text-muted-foreground px-4 text-xs font-semibold tracking-wider uppercase">
+        <SidebarGroup className="py-3">
+          <SidebarGroupLabel className="text-muted-foreground px-4 pb-2 text-xs font-semibold tracking-wider uppercase">
             <div className="flex items-center justify-between">
               <span>Team Members</span>
               {members && (
@@ -259,7 +259,7 @@ export function TeamSidebar({
             </div>
           </SidebarGroupLabel>
           <SidebarGroupContent>
-            <div className="space-y-2 px-4 py-2">
+            <div className="space-y-2 px-4">
               {membersLoading ? (
                 <>
                   {[1, 2, 3].map((i) => (
@@ -283,15 +283,15 @@ export function TeamSidebar({
           </SidebarGroupContent>
         </SidebarGroup>
 
-        <SidebarSeparator />
+        <SidebarSeparator className="my-0" />
 
         {/* Roles List */}
-        <SidebarGroup>
-          <SidebarGroupLabel className="text-muted-foreground px-4 text-xs font-semibold tracking-wider uppercase">
+        <SidebarGroup className="py-3">
+          <SidebarGroupLabel className="text-muted-foreground px-4 pb-2 text-xs font-semibold tracking-wider uppercase">
             Roles
           </SidebarGroupLabel>
           <SidebarGroupContent>
-            <div className="px-4 py-2">
+            <div className="px-4">
               <RolesList teamId={teamId} />
             </div>
           </SidebarGroupContent>
