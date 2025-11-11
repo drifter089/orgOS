@@ -43,7 +43,7 @@ import { type RoleNodeData } from "./role-node";
 const roleSchema = z.object({
   title: z.string().min(1, "Title is required").max(100),
   purpose: z.string().min(1, "Purpose is required"),
-  metricId: z.string().min(1, "Please select a metric"),
+  metricId: z.string().optional(),
   assignedUserId: z.string().nullable().optional(),
   color: z
     .string()
@@ -144,31 +144,38 @@ export function RoleDialog({
       const tempRoleId = `temp-role-${nanoid(8)}`;
       const nodeId = variables.nodeId;
 
-      const selectedMetric = metrics.find((m) => m.id === variables.metricId);
+      const selectedMetric = variables.metricId
+        ? metrics.find((m) => m.id === variables.metricId)
+        : null;
 
       const optimisticRole = {
         id: tempRoleId,
         title: variables.title,
         purpose: variables.purpose,
         teamId: variables.teamId,
-        metricId: variables.metricId,
+        metricId: variables.metricId ?? null,
         nodeId: variables.nodeId,
         assignedUserId: variables.assignedUserId ?? null,
         color: variables.color ?? "#3b82f6",
         createdAt: new Date(),
         updatedAt: new Date(),
-        metric: selectedMetric ?? {
-          id: variables.metricId,
-          name: "Loading...",
-          description: null,
-          type: "number" as const,
-          targetValue: null,
-          currentValue: null,
-          unit: null,
-          mockDataPrompt: null,
-          createdAt: new Date(),
-          updatedAt: new Date(),
-        },
+        metric: selectedMetric
+          ? selectedMetric
+          : variables.metricId
+            ? {
+                id: variables.metricId,
+                name: "Loading...",
+                description: null,
+                organizationId: "",
+                type: "number" as const,
+                targetValue: null,
+                currentValue: null,
+                unit: null,
+                mockDataPrompt: null,
+                createdAt: new Date(),
+                updatedAt: new Date(),
+              }
+            : null,
         isPending: true,
       };
 
@@ -180,8 +187,8 @@ export function RoleDialog({
           roleId: tempRoleId,
           title: variables.title,
           purpose: variables.purpose,
-          metricId: variables.metricId,
-          metricName: selectedMetric?.name ?? "Loading...",
+          metricId: variables.metricId ?? undefined,
+          metricName: selectedMetric?.name ?? undefined,
           metricValue: selectedMetric?.currentValue ?? undefined,
           metricUnit: selectedMetric?.unit ?? undefined,
           assignedUserId: variables.assignedUserId ?? null,
@@ -220,9 +227,9 @@ export function RoleDialog({
             data: {
               ...node.data,
               roleId: newRole.id,
-              metricName: newRole.metric.name,
-              metricValue: newRole.metric.currentValue ?? undefined,
-              metricUnit: newRole.metric.unit ?? undefined,
+              metricName: newRole.metric?.name ?? undefined,
+              metricValue: newRole.metric?.currentValue ?? undefined,
+              metricUnit: newRole.metric?.unit ?? undefined,
               isPending: undefined,
             },
           };
@@ -260,10 +267,10 @@ export function RoleDialog({
               ...node.data,
               title: updatedRole.title,
               purpose: updatedRole.purpose,
-              metricId: updatedRole.metric.id,
-              metricName: updatedRole.metric.name,
-              metricValue: updatedRole.metric.currentValue ?? undefined,
-              metricUnit: updatedRole.metric.unit ?? undefined,
+              metricId: updatedRole.metric?.id ?? undefined,
+              metricName: updatedRole.metric?.name ?? undefined,
+              metricValue: updatedRole.metric?.currentValue ?? undefined,
+              metricUnit: updatedRole.metric?.unit ?? undefined,
               assignedUserId: updatedRole.assignedUserId,
               assignedUserName: updatedRole.assignedUserId
                 ? (members.find((m) => m.user.id === updatedRole.assignedUserId)
@@ -309,7 +316,10 @@ export function RoleDialog({
         teamId,
         title: data.title,
         purpose: data.purpose,
-        metricId: data.metricId,
+        metricId:
+          data.metricId === "__none__" || !data.metricId
+            ? undefined
+            : data.metricId,
         assignedUserId:
           data.assignedUserId === "__none__" ? null : data.assignedUserId,
         nodeId,
@@ -387,14 +397,18 @@ export function RoleDialog({
               name="metricId"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Metric</FormLabel>
-                  <Select onValueChange={field.onChange} value={field.value}>
+                  <FormLabel>Metric (Optional)</FormLabel>
+                  <Select
+                    onValueChange={field.onChange}
+                    value={field.value ?? undefined}
+                  >
                     <FormControl>
                       <SelectTrigger>
-                        <SelectValue placeholder="Select a metric" />
+                        <SelectValue placeholder="Select a metric (optional)" />
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
+                      <SelectItem value="__none__">None</SelectItem>
                       {metrics.map((metric) => (
                         <SelectItem key={metric.id} value={metric.id}>
                           <div className="flex items-center justify-between gap-4">

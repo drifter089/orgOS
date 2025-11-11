@@ -17,7 +17,7 @@ type RoleWithMetric = {
     name: string;
     currentValue: number | null;
     unit: string | null;
-  };
+  } | null;
 };
 
 /**
