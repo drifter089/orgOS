@@ -30,11 +30,15 @@ interface TeamSidebarProps extends ComponentProps<typeof Sidebar> {
   roleCount: number;
 }
 
-function MemberCard({ user, userId }: { user: User; userId: string }) {
-  const { data: roles, isLoading } = api.role.getByUser.useQuery({
-    userId,
-  });
-
+function MemberCard({
+  user,
+  userId,
+  roleCount,
+}: {
+  user: User;
+  userId: string;
+  roleCount: number;
+}) {
   const initials =
     user.firstName && user.lastName
       ? `${user.firstName[0]}${user.lastName[0]}`.toUpperCase()
@@ -64,16 +68,12 @@ function MemberCard({ user, userId }: { user: User; userId: string }) {
         </div>
       </div>
       <div className="flex-shrink-0">
-        {isLoading ? (
-          <Skeleton className="h-5 w-9" />
-        ) : (
-          <Badge
-            variant="secondary"
-            className="min-w-[2rem] justify-center text-xs font-semibold"
-          >
-            {roles?.length ?? 0}
-          </Badge>
-        )}
+        <Badge
+          variant="secondary"
+          className="min-w-[2rem] justify-center text-xs font-semibold"
+        >
+          {roleCount}
+        </Badge>
       </div>
     </div>
   );
@@ -88,18 +88,29 @@ function RolesList({ teamId }: { teamId: string }) {
 
   const utils = api.useUtils();
   const deleteRole = api.role.delete.useMutation({
-    onSuccess: async (_, variables) => {
-      // Remove the node from the canvas
+    onMutate: async (variables) => {
+      await utils.role.getByTeam.cancel({ teamId });
+
+      const previousRoles = utils.role.getByTeam.getData({ teamId });
+
+      utils.role.getByTeam.setData({ teamId }, (old) => {
+        if (!old) return [];
+        return old.filter((role) => role.id !== variables.id);
+      });
+
       const updatedNodes = nodes.filter(
         (node) => node.data.roleId !== variables.id,
       );
       setNodes(updatedNodes);
       markDirty();
 
-      // Invalidate roles query to refresh the list
-      // Note: We don't invalidate team.getById here to avoid race condition with canvas state
-      // The auto-save will handle updating the canvas state on the server
-      await utils.role.getByTeam.invalidate({ teamId });
+      return { previousRoles };
+    },
+    onError: (error, variables, context) => {
+      if (context?.previousRoles) {
+        utils.role.getByTeam.setData({ teamId }, context.previousRoles);
+      }
+      console.error("Failed to delete role:", error);
     },
     onSettled: () => {
       setDeletingRoleId(null);
@@ -199,6 +210,18 @@ export function TeamSidebar({
   const { data: members, isLoading: membersLoading } =
     api.organization.getCurrentOrgMembers.useQuery();
 
+  const { data: teamRoles } = api.role.getByTeam.useQuery({ teamId });
+
+  const roleCountByUser = (teamRoles ?? []).reduce(
+    (acc, role) => {
+      if (role.assignedUserId) {
+        acc[role.assignedUserId] = (acc[role.assignedUserId] ?? 0) + 1;
+      }
+      return acc;
+    },
+    {} as Record<string, number>,
+  );
+
   return (
     <Sidebar
       side="right"
@@ -278,6 +301,7 @@ export function TeamSidebar({
                     key={member.membership.id}
                     user={member.user}
                     userId={member.user.id}
+                    roleCount={roleCountByUser[member.user.id] ?? 0}
                   />
                 ))
               )}

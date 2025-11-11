@@ -162,8 +162,10 @@ export function RoleDialog({
       setNodes([...nodes, newNode]);
       markDirty();
 
-      // Refresh team data
-      void utils.team.getById.invalidate({ id: teamId });
+      utils.role.getByTeam.setData({ teamId }, (old) => {
+        if (!old) return [newRole];
+        return [...old, newRole];
+      });
 
       setOpen(false);
       form.reset();
@@ -204,8 +206,12 @@ export function RoleDialog({
       setNodes(updatedNodes);
       markDirty();
 
-      // Refresh team data
-      void utils.team.getById.invalidate({ id: teamId });
+      utils.role.getByTeam.setData({ teamId }, (old) => {
+        if (!old) return [updatedRole];
+        return old.map((role) =>
+          role.id === updatedRole.id ? updatedRole : role,
+        );
+      });
 
       setOpen(false);
     },
