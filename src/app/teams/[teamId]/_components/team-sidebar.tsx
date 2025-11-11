@@ -112,7 +112,6 @@ function RolesList({ teamId }: { teamId: string }) {
       if (context?.previousRoles) {
         utils.role.getByTeam.setData({ teamId }, context.previousRoles);
       }
-      console.error("Failed to delete role:", error);
     },
     onSettled: () => {
       setDeletingRoleId(null);
