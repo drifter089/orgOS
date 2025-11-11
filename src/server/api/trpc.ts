@@ -11,6 +11,7 @@ import type { withAuth } from "@workos-inc/authkit-nextjs";
 import superjson from "superjson";
 import { ZodError } from "zod";
 
+import { getWorkspaceContext } from "@/server/api/utils/authorization";
 import { db } from "@/server/db";
 
 /**
@@ -101,12 +102,6 @@ const timingMiddleware = t.middleware(async ({ next, path }) => {
   return result;
 });
 
-/**
- * Middleware for enforcing authentication.
- *
- * Throws an UNAUTHORIZED error if the user is not authenticated.
- * Provides type-safe access to user in protected procedures.
- */
 const enforceUserIsAuthed = t.middleware(async ({ ctx, next }) => {
   if (!ctx.user) {
     throw new TRPCError({
@@ -117,29 +112,37 @@ const enforceUserIsAuthed = t.middleware(async ({ ctx, next }) => {
 
   return next({
     ctx: {
-      // Infers the `user` as non-nullable
       user: ctx.user,
     },
   });
 });
 
-/**
- * Public (unauthenticated) procedure
- *
- * This is the base piece you use to build new queries and mutations on your tRPC API. It does not
- * guarantee that a user querying is authorized, but you can still access user session data if they
- * are logged in.
- */
+const attachWorkspaceContext = t.middleware(async ({ ctx, next }) => {
+  if (!ctx.user) {
+    throw new TRPCError({
+      code: "UNAUTHORIZED",
+      message: "You must be logged in to access this resource",
+    });
+  }
+
+  const workspace = await getWorkspaceContext(ctx.user.id);
+
+  return next({
+    ctx: {
+      ...ctx,
+      user: ctx.user,
+      workspace,
+    },
+  });
+});
+
 export const publicProcedure = t.procedure.use(timingMiddleware);
 
-/**
- * Protected (authenticated) procedure
- *
- * If you want a query or mutation to ONLY be accessible to logged in users, use this. It verifies
- * the session is valid and guarantees `ctx.user` is not null.
- *
- * @see https://trpc.io/docs/server/authorization
- */
 export const protectedProcedure = t.procedure
   .use(timingMiddleware)
   .use(enforceUserIsAuthed);
+
+export const workspaceProcedure = t.procedure
+  .use(timingMiddleware)
+  .use(enforceUserIsAuthed)
+  .use(attachWorkspaceContext);

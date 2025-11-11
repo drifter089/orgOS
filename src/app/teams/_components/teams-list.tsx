@@ -8,17 +8,38 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
 import { api } from "@/trpc/react";
 
 import { CreateTeamDialog } from "./create-team-dialog";
+
+function TeamCardSkeleton() {
+  return (
+    <Card className="h-full">
+      <CardHeader className="space-y-3">
+        <Skeleton className="h-6 w-3/4" />
+        <div className="space-y-2">
+          <Skeleton className="h-4 w-full" />
+          <Skeleton className="h-4 w-2/3" />
+        </div>
+        <div className="flex items-center justify-between border-t pt-4">
+          <Skeleton className="h-4 w-16" />
+          <Skeleton className="h-3 w-20" />
+        </div>
+      </CardHeader>
+    </Card>
+  );
+}
 
 export function TeamsList() {
   const { data: teams, isLoading } = api.team.getAll.useQuery();
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center py-12">
-        <p className="text-muted-foreground">Loading teams...</p>
+      <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-3">
+        {[1, 2, 3, 4, 5, 6].map((i) => (
+          <TeamCardSkeleton key={i} />
+        ))}
       </div>
     );
   }
@@ -41,33 +62,72 @@ export function TeamsList() {
 
   return (
     <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-3">
-      {teams.map((team) => (
-        <Link key={team.id} href={`/teams/${team.id}`}>
-          <Card className="h-full cursor-pointer transition-all duration-300 hover:scale-[1.03] hover:shadow-xl">
-            <CardHeader className="space-y-3">
-              <CardTitle className="line-clamp-1 text-xl">
-                {team.name}
-              </CardTitle>
-              <CardDescription className="line-clamp-2 text-base">
-                {team.description ?? "No description"}
-              </CardDescription>
-              <div className="text-muted-foreground flex items-center justify-between border-t pt-4 text-sm">
-                <span className="font-medium">
-                  {team._count.roles} role
-                  {team._count.roles !== 1 ? "s" : ""}
-                </span>
-                <span className="text-xs">
-                  Updated{" "}
-                  {new Date(team.updatedAt).toLocaleDateString("en-US", {
-                    month: "short",
-                    day: "numeric",
-                  })}
-                </span>
-              </div>
-            </CardHeader>
-          </Card>
-        </Link>
-      ))}
+      {teams.map((team) => {
+        const isPending = "isPending" in team && team.isPending;
+
+        if (isPending) {
+          return (
+            <Card
+              key={team.id}
+              className="h-full cursor-not-allowed opacity-60 transition-all duration-300"
+            >
+              <CardHeader className="space-y-3">
+                <div className="flex items-center gap-2">
+                  <CardTitle className="line-clamp-1 text-xl">
+                    {team.name}
+                  </CardTitle>
+                  <div className="flex items-center gap-1">
+                    <div className="bg-primary h-1.5 w-1.5 animate-pulse rounded-full" />
+                    <div
+                      className="bg-primary h-1.5 w-1.5 animate-pulse rounded-full"
+                      style={{ animationDelay: "0.2s" }}
+                    />
+                    <div
+                      className="bg-primary h-1.5 w-1.5 animate-pulse rounded-full"
+                      style={{ animationDelay: "0.4s" }}
+                    />
+                  </div>
+                </div>
+                <CardDescription className="line-clamp-2 text-base">
+                  {team.description ?? "No description"}
+                </CardDescription>
+                <div className="text-muted-foreground flex items-center justify-between border-t pt-4 text-sm">
+                  <span className="font-medium">Creating...</span>
+                  <span className="text-xs italic">Saving</span>
+                </div>
+              </CardHeader>
+            </Card>
+          );
+        }
+
+        return (
+          <Link key={team.id} href={`/teams/${team.id}`}>
+            <Card className="h-full cursor-pointer transition-all duration-300 hover:scale-[1.03] hover:shadow-xl">
+              <CardHeader className="space-y-3">
+                <CardTitle className="line-clamp-1 text-xl">
+                  {team.name}
+                </CardTitle>
+                <CardDescription className="line-clamp-2 text-base">
+                  {team.description ?? "No description"}
+                </CardDescription>
+                <div className="text-muted-foreground flex items-center justify-between border-t pt-4 text-sm">
+                  <span className="font-medium">
+                    {team._count.roles} role
+                    {team._count.roles !== 1 ? "s" : ""}
+                  </span>
+                  <span className="text-xs">
+                    Updated{" "}
+                    {new Date(team.updatedAt).toLocaleDateString("en-US", {
+                      month: "short",
+                      day: "numeric",
+                    })}
+                  </span>
+                </div>
+              </CardHeader>
+            </Card>
+          </Link>
+        );
+      })}
     </div>
   );
 }

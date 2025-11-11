@@ -1,53 +1,29 @@
 import { z } from "zod";
 
-import { createTRPCRouter, protectedProcedure } from "@/server/api/trpc";
-import {
-  getTeamAndVerifyAccess,
-  getUserOrganizationId,
-} from "@/server/api/utils/authorization";
+import { createTRPCRouter, workspaceProcedure } from "@/server/api/trpc";
+import { getTeamAndVerifyAccess } from "@/server/api/utils/authorization";
 
 export const teamRouter = createTRPCRouter({
-  /**
-   * Get all teams for user's organization
-   */
-  getAll: protectedProcedure.query(async ({ ctx }) => {
-    // Get user's organization ID
-    const organizationId = await getUserOrganizationId(ctx.user.id);
-
-    // Fetch all teams for this organization
+  getAll: workspaceProcedure.query(async ({ ctx }) => {
     return ctx.db.team.findMany({
-      where: { organizationId },
-      include: {
-        _count: { select: { roles: true } },
-      },
+      where: { organizationId: ctx.workspace.organizationId },
+      include: { _count: { select: { roles: true } } },
       orderBy: { updatedAt: "desc" },
     });
   }),
 
-  /**
-   * Get single team with all roles and metrics
-   */
-  getById: protectedProcedure
+  getById: workspaceProcedure
     .input(z.object({ id: z.string() }))
     .query(async ({ ctx, input }) => {
-      // Verify access to team
       await getTeamAndVerifyAccess(ctx.db, input.id, ctx.user.id);
 
-      // Fetch team with full role and metric details
       return ctx.db.team.findUnique({
         where: { id: input.id },
-        include: {
-          roles: {
-            include: { metric: true },
-          },
-        },
+        include: { roles: { include: { metric: true } } },
       });
     }),
 
-  /**
-   * Create new team
-   */
-  create: protectedProcedure
+  create: workspaceProcedure
     .input(
       z.object({
         name: z.string().min(1).max(100),
@@ -55,15 +31,11 @@ export const teamRouter = createTRPCRouter({
       }),
     )
     .mutation(async ({ ctx, input }) => {
-      // Get user's organization ID
-      const organizationId = await getUserOrganizationId(ctx.user.id);
-
-      // Create team
       return ctx.db.team.create({
         data: {
           name: input.name,
           description: input.description,
-          organizationId,
+          organizationId: ctx.workspace.organizationId,
           createdBy: ctx.user.id,
           reactFlowNodes: [],
           reactFlowEdges: [],
@@ -72,10 +44,7 @@ export const teamRouter = createTRPCRouter({
       });
     }),
 
-  /**
-   * Update team (name, description, or canvas state)
-   */
-  update: protectedProcedure
+  update: workspaceProcedure
     .input(
       z.object({
         id: z.string(),
@@ -87,10 +56,8 @@ export const teamRouter = createTRPCRouter({
       }),
     )
     .mutation(async ({ ctx, input }) => {
-      // Verify access to team
       await getTeamAndVerifyAccess(ctx.db, input.id, ctx.user.id);
 
-      // Update team
       const { id, ...data } = input;
       return ctx.db.team.update({
         where: { id },
@@ -99,20 +66,12 @@ export const teamRouter = createTRPCRouter({
       });
     }),
 
-  /**
-   * Delete team
-   */
-  delete: protectedProcedure
+  delete: workspaceProcedure
     .input(z.object({ id: z.string() }))
     .mutation(async ({ ctx, input }) => {
-      // Verify access to team
       await getTeamAndVerifyAccess(ctx.db, input.id, ctx.user.id);
 
-      // Delete team (cascade will delete all roles)
-      await ctx.db.team.delete({
-        where: { id: input.id },
-      });
-
+      await ctx.db.team.delete({ where: { id: input.id } });
       return { success: true };
     }),
 });

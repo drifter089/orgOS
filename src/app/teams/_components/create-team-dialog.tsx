@@ -52,16 +52,45 @@ export function CreateTeamDialog() {
   });
 
   const createTeam = api.team.create.useMutation({
-    onSuccess: (data) => {
+    onMutate: async (newTeam) => {
       setOpen(false);
       form.reset();
-      // Invalidate teams list to trigger refetch in TeamsList component
+
+      await utils.team.getAll.cancel();
+
+      const previousTeams = utils.team.getAll.getData();
+
+      const optimisticTeam = {
+        id: "temp-" + Date.now(),
+        name: newTeam.name,
+        description: newTeam.description ?? null,
+        organizationId: "optimistic",
+        createdBy: "optimistic",
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        reactFlowNodes: [],
+        reactFlowEdges: [],
+        viewport: null,
+        _count: { roles: 0 },
+        isPending: true,
+      };
+
+      utils.team.getAll.setData(undefined, (old) => {
+        if (!old) return [optimisticTeam];
+        return [optimisticTeam, ...old];
+      });
+
+      return { previousTeams };
+    },
+    onSuccess: (data) => {
       void utils.team.getAll.invalidate();
       router.push(`/teams/${data.id}`);
     },
-    onError: (error) => {
+    onError: (error, newTeam, context) => {
+      if (context?.previousTeams) {
+        utils.team.getAll.setData(undefined, context.previousTeams);
+      }
       console.error("Failed to create team:", error);
-      // TODO: Show error toast
     },
   });
 

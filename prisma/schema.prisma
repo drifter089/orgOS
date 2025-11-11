@@ -89,6 +89,7 @@ model Metric {
     id             String   @id @default(cuid())
     name           String   // e.g., "Customer Satisfaction", "Response Time"
     description    String?
+    organizationId String   // WorkOS organization ID
 
     // KPI properties
     type           String   // "percentage", "number", "duration", "rate"
@@ -104,5 +105,6 @@ model Metric {
     createdAt      DateTime @default(now())
     updatedAt      DateTime @updatedAt
 
+    @@index([organizationId])
     @@index([name])
 }

@@ -18,6 +18,7 @@ import {
   SidebarSeparator,
 } from "@/components/ui/sidebar";
 import { Skeleton } from "@/components/ui/skeleton";
+import { cn } from "@/lib/utils";
 import { api } from "@/trpc/react";
 
 import { useTeamStore } from "../store/team-store";
@@ -30,20 +31,25 @@ interface TeamSidebarProps extends ComponentProps<typeof Sidebar> {
   roleCount: number;
 }
 
-function MemberCard({ user, userId }: { user: User; userId: string }) {
-  const { data: roles, isLoading } = api.role.getByUser.useQuery({
-    userId,
-  });
+function MemberCard({
+  user,
+  roleCount,
+}: {
+  user: User | Record<string, unknown>;
+  roleCount: number;
+}) {
+  const userObj = user as Record<string, unknown>;
+  const firstName = userObj.firstName as string | null | undefined;
+  const lastName = userObj.lastName as string | null | undefined;
+  const email = userObj.email as string | null | undefined;
 
   const initials =
-    user.firstName && user.lastName
-      ? `${user.firstName[0]}${user.lastName[0]}`.toUpperCase()
-      : (user.email?.[0]?.toUpperCase() ?? "U");
+    firstName && lastName
+      ? `${firstName[0]}${lastName[0]}`.toUpperCase()
+      : (email?.[0]?.toUpperCase() ?? "U");
 
   const userName =
-    user.firstName && user.lastName
-      ? `${user.firstName} ${user.lastName}`
-      : (user.email ?? "Member");
+    firstName && lastName ? `${firstName} ${lastName}` : (email ?? "Member");
 
   return (
     <div className="bg-card hover:bg-accent/50 flex items-center justify-between gap-3 rounded-lg border p-3 transition-colors">
@@ -59,21 +65,17 @@ function MemberCard({ user, userId }: { user: User; userId: string }) {
           </p>
           <div className="text-muted-foreground mt-0.5 flex items-center gap-1.5 text-xs">
             <Mail className="h-3 w-3 flex-shrink-0" />
-            <span className="truncate">{user.email ?? "No email"}</span>
+            <span className="truncate">{email ?? "No email"}</span>
           </div>
         </div>
       </div>
       <div className="flex-shrink-0">
-        {isLoading ? (
-          <Skeleton className="h-5 w-9" />
-        ) : (
-          <Badge
-            variant="secondary"
-            className="min-w-[2rem] justify-center text-xs font-semibold"
-          >
-            {roles?.length ?? 0}
-          </Badge>
-        )}
+        <Badge
+          variant="secondary"
+          className="min-w-[2rem] justify-center text-xs font-semibold"
+        >
+          {roleCount}
+        </Badge>
       </div>
     </div>
   );
@@ -88,18 +90,29 @@ function RolesList({ teamId }: { teamId: string }) {
 
   const utils = api.useUtils();
   const deleteRole = api.role.delete.useMutation({
-    onSuccess: async (_, variables) => {
-      // Remove the node from the canvas
+    onMutate: async (variables) => {
+      await utils.role.getByTeam.cancel({ teamId });
+
+      const previousRoles = utils.role.getByTeam.getData({ teamId });
+
+      utils.role.getByTeam.setData({ teamId }, (old) => {
+        if (!old) return [];
+        return old.filter((role) => role.id !== variables.id);
+      });
+
       const updatedNodes = nodes.filter(
         (node) => node.data.roleId !== variables.id,
       );
       setNodes(updatedNodes);
       markDirty();
 
-      // Invalidate roles query to refresh the list
-      // Note: We don't invalidate team.getById here to avoid race condition with canvas state
-      // The auto-save will handle updating the canvas state on the server
-      await utils.role.getByTeam.invalidate({ teamId });
+      return { previousRoles };
+    },
+    onError: (error, variables, context) => {
+      if (context?.previousRoles) {
+        utils.role.getByTeam.setData({ teamId }, context.previousRoles);
+      }
+      console.error("Failed to delete role:", error);
     },
     onSettled: () => {
       setDeletingRoleId(null);
@@ -129,62 +142,91 @@ function RolesList({ teamId }: { teamId: string }) {
 
   return (
     <div className="space-y-2.5">
-      {roles.map((role) => (
-        <div
-          key={role.id}
-          className="group bg-card hover:bg-accent/50 relative flex items-start gap-3 rounded-lg border p-3 transition-colors"
-        >
-          <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-2">
-              <div
-                className="border-background h-3 w-3 flex-shrink-0 rounded-full border-2 shadow-sm"
-                style={{
-                  backgroundColor: role.color,
-                  boxShadow: `0 0 0 1px ${role.color}40`,
-                }}
-                aria-label={`Role color: ${role.color}`}
-              />
-              <h4 className="truncate text-sm leading-tight font-semibold">
-                {role.title}
-              </h4>
+      {roles.map((role) => {
+        const isPending = Boolean(
+          "isPending" in role && (role as { isPending?: boolean }).isPending,
+        );
+
+        return (
+          <div
+            key={role.id}
+            className={cn(
+              "group bg-card hover:bg-accent/50 relative flex items-start gap-3 overflow-hidden rounded-lg border p-3 transition-colors",
+              isPending && "opacity-60",
+            )}
+          >
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-2">
+                <div
+                  className="border-background h-3 w-3 flex-shrink-0 rounded-full border-2 shadow-sm"
+                  style={{
+                    backgroundColor: role.color,
+                    boxShadow: `0 0 0 1px ${role.color}40`,
+                  }}
+                  aria-label={`Role color: ${role.color}`}
+                />
+                <h4 className="truncate text-sm leading-tight font-semibold">
+                  {role.title}
+                </h4>
+                {isPending && (
+                  <div className="flex items-center gap-1">
+                    <div className="bg-primary h-1.5 w-1.5 animate-pulse rounded-full" />
+                    <div
+                      className="bg-primary h-1.5 w-1.5 animate-pulse rounded-full"
+                      style={{ animationDelay: "0.2s" }}
+                    />
+                    <div
+                      className="bg-primary h-1.5 w-1.5 animate-pulse rounded-full"
+                      style={{ animationDelay: "0.4s" }}
+                    />
+                  </div>
+                )}
+              </div>
+              <p className="text-muted-foreground mt-1.5 line-clamp-2 text-xs leading-relaxed">
+                {role.purpose}
+              </p>
+              {role.metric && (
+                <Badge
+                  variant="outline"
+                  className="border-primary/20 mt-2 max-w-full text-xs font-medium"
+                >
+                  <span className="truncate">{role.metric.name}</span>
+                </Badge>
+              )}
+              {isPending && (
+                <p className="text-muted-foreground mt-1 text-xs italic">
+                  Saving...
+                </p>
+              )}
             </div>
-            <p className="text-muted-foreground mt-1.5 line-clamp-2 text-xs leading-relaxed">
-              {role.purpose}
-            </p>
-            {role.metric && (
-              <Badge
-                variant="outline"
-                className="border-primary/20 mt-2 text-xs font-medium"
+            {!isPending && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="text-muted-foreground hover:text-destructive hover:bg-destructive/10 h-8 w-8 flex-shrink-0 opacity-0 transition-all group-hover:opacity-100"
+                onClick={() => {
+                  if (
+                    confirm(
+                      `Are you sure you want to delete the role "${role.title}"? This will also remove it from the canvas.`,
+                    )
+                  ) {
+                    setDeletingRoleId(role.id);
+                    deleteRole.mutate({ id: role.id });
+                  }
+                }}
+                disabled={deletingRoleId === role.id}
+                aria-label={`Delete ${role.title}`}
               >
-                {role.metric.name}
-              </Badge>
+                {deletingRoleId === role.id ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Trash2 className="h-4 w-4" />
+                )}
+              </Button>
             )}
           </div>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="text-muted-foreground hover:text-destructive hover:bg-destructive/10 h-8 w-8 flex-shrink-0 opacity-0 transition-all group-hover:opacity-100"
-            onClick={() => {
-              if (
-                confirm(
-                  `Are you sure you want to delete the role "${role.title}"? This will also remove it from the canvas.`,
-                )
-              ) {
-                setDeletingRoleId(role.id);
-                deleteRole.mutate({ id: role.id });
-              }
-            }}
-            disabled={deletingRoleId === role.id}
-            aria-label={`Delete ${role.title}`}
-          >
-            {deletingRoleId === role.id ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <Trash2 className="h-4 w-4" />
-            )}
-          </Button>
-        </div>
-      ))}
+        );
+      })}
     </div>
   );
 }
@@ -198,6 +240,18 @@ export function TeamSidebar({
 }: TeamSidebarProps) {
   const { data: members, isLoading: membersLoading } =
     api.organization.getCurrentOrgMembers.useQuery();
+
+  const { data: teamRoles } = api.role.getByTeam.useQuery({ teamId });
+
+  const roleCountByUser = (teamRoles ?? []).reduce(
+    (acc, role) => {
+      if (role.assignedUserId) {
+        acc[role.assignedUserId] = (acc[role.assignedUserId] ?? 0) + 1;
+      }
+      return acc;
+    },
+    {} as Record<string, number>,
+  );
 
   return (
     <Sidebar
@@ -248,16 +302,18 @@ export function TeamSidebar({
 
         {/* Organization Members */}
         <SidebarGroup>
-          <SidebarGroupLabel className="text-muted-foreground px-4 text-xs font-semibold tracking-wider uppercase">
+          <div className="px-4">
             <div className="flex items-center justify-between">
-              <span>Team Members</span>
+              <SidebarGroupLabel className="text-muted-foreground px-0 text-xs font-semibold tracking-wider uppercase">
+                Team Members
+              </SidebarGroupLabel>
               {members && (
                 <Badge variant="secondary" className="text-xs font-semibold">
                   {members.length}
                 </Badge>
               )}
             </div>
-          </SidebarGroupLabel>
+          </div>
           <SidebarGroupContent>
             <div className="space-y-2 px-4 py-2">
               {membersLoading ? (
@@ -275,7 +331,7 @@ export function TeamSidebar({
                   <MemberCard
                     key={member.membership.id}
                     user={member.user}
-                    userId={member.user.id}
+                    roleCount={roleCountByUser[member.user.id] ?? 0}
                   />
                 ))
               )}

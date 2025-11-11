@@ -1,84 +1,253 @@
 import { TRPCError } from "@trpc/server";
+import type { Directory, DirectoryUserWithGroups } from "@workos-inc/node";
 
+import { env } from "@/env";
 import { type db } from "@/server/db";
 import { workos } from "@/server/workos";
 
-// Derive proper DB type from the db instance
 type DB = typeof db;
 
-/**
- * Verify that a user belongs to a specific organization
- * @throws TRPCError with code FORBIDDEN if user doesn't have access
- */
-export async function verifyOrganizationAccess(
+const CACHE_TTL = 5 * 60 * 1000;
+
+let directoryUsersCache: {
+  data: DirectoryUserWithGroups[];
+  timestamp: number;
+} | null = null;
+
+let directoryCache: {
+  data: Directory;
+  timestamp: number;
+} | null = null;
+
+let directoryPromise: Promise<Directory> | null = null;
+
+export type WorkspaceContext =
+  | {
+      type: "personal";
+      organizationId: string;
+      assignableUserIds: string[];
+    }
+  | {
+      type: "organization";
+      organizationId: string;
+      assignableUserIds: string[];
+    }
+  | {
+      type: "directory";
+      organizationId: string;
+      assignableUserIds: string[];
+      directoryId: string;
+    };
+
+async function fetchDirectoryUsers(): Promise<DirectoryUserWithGroups[]> {
+  if (!env.WORKOS_DIR_ID) {
+    throw new Error("WORKOS_DIR_ID not configured");
+  }
+
+  const allUsers: DirectoryUserWithGroups[] = [];
+  let after: string | undefined;
+  let hasMore = true;
+
+  while (hasMore) {
+    const response = await workos.directorySync.listUsers({
+      directory: env.WORKOS_DIR_ID,
+      limit: 100,
+      after,
+    });
+    allUsers.push(...response.data);
+    after = response.listMetadata?.after;
+    hasMore = !!after;
+  }
+
+  return allUsers;
+}
+
+async function getDirectoryUsers(): Promise<DirectoryUserWithGroups[]> {
+  if (
+    directoryUsersCache &&
+    Date.now() - directoryUsersCache.timestamp < CACHE_TTL
+  ) {
+    return directoryUsersCache.data;
+  }
+
+  const users = await fetchDirectoryUsers();
+  directoryUsersCache = { data: users, timestamp: Date.now() };
+  return users;
+}
+
+async function getDirectory(): Promise<Directory> {
+  if (!env.WORKOS_DIR_ID) {
+    throw new TRPCError({
+      code: "INTERNAL_SERVER_ERROR",
+      message: "WORKOS_DIR_ID not configured",
+    });
+  }
+
+  if (directoryCache && Date.now() - directoryCache.timestamp < CACHE_TTL) {
+    return directoryCache.data;
+  }
+
+  if (directoryPromise) {
+    return directoryPromise;
+  }
+
+  directoryPromise = (async () => {
+    try {
+      const directory = await workos.directorySync.getDirectory(
+        env.WORKOS_DIR_ID!,
+      );
+      directoryCache = { data: directory, timestamp: Date.now() };
+      directoryPromise = null;
+      return directory;
+    } catch (error) {
+      directoryPromise = null;
+      throw new TRPCError({
+        code: "INTERNAL_SERVER_ERROR",
+        message: "Failed to fetch directory",
+        cause: error,
+      });
+    }
+  })();
+
+  return directoryPromise;
+}
+
+async function checkDirectoryMembership(
   userId: string,
-  organizationId: string,
-  resourceName = "resource",
+): Promise<{ isMember: boolean; directoryUser?: DirectoryUserWithGroups }> {
+  try {
+    const directoryUsers = await getDirectoryUsers();
+
+    if (userId.startsWith("directory_user_")) {
+      const directoryUser = directoryUsers.find((u) => u.id === userId);
+      return { isMember: !!directoryUser, directoryUser };
+    }
+
+    const workosUser = await workos.userManagement.getUser(userId);
+    const userEmail = workosUser.email.toLowerCase();
+    const directoryUser = directoryUsers.find(
+      (u) => u.email?.toLowerCase() === userEmail,
+    );
+
+    return { isMember: !!directoryUser, directoryUser };
+  } catch (error) {
+    console.error("[AUTH] Directory membership check failed:", error);
+    return { isMember: false };
+  }
+}
+
+async function checkOrganizationMembership(userId: string): Promise<{
+  isMember: boolean;
+  organizationId?: string;
+  memberIds?: string[];
+}> {
+  try {
+    const memberships = await workos.userManagement.listOrganizationMemberships(
+      { userId, limit: 1 },
+    );
+
+    if (!memberships.data.length) {
+      return { isMember: false };
+    }
+
+    const organizationId = memberships.data[0]!.organizationId;
+    const allMemberships =
+      await workos.userManagement.listOrganizationMemberships({
+        organizationId,
+      });
+
+    const memberIds = allMemberships.data.map((m) => m.userId);
+
+    return { isMember: true, organizationId, memberIds };
+  } catch (error) {
+    console.error("[AUTH] Organization membership check failed:", error);
+    return { isMember: false };
+  }
+}
+
+export async function getWorkspaceContext(
+  userId: string,
+): Promise<WorkspaceContext> {
+  const directoryCheck = await checkDirectoryMembership(userId);
+
+  if (directoryCheck.isMember) {
+    try {
+      const directory = await getDirectory();
+
+      if (!directory.organizationId) {
+        console.error("[AUTH] Directory missing organizationId");
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Service configuration error",
+        });
+      }
+
+      const directoryUsers = await getDirectoryUsers();
+      const assignableUserIds = directoryUsers.map((u) => u.id);
+
+      return {
+        type: "directory",
+        organizationId: directory.organizationId,
+        assignableUserIds,
+        directoryId: env.WORKOS_DIR_ID!,
+      };
+    } catch (error) {
+      console.error("[AUTH] Failed to load directory context:", error);
+      throw new TRPCError({
+        code: "INTERNAL_SERVER_ERROR",
+        message: "Failed to load workspace",
+      });
+    }
+  }
+
+  const orgCheck = await checkOrganizationMembership(userId);
+
+  if (orgCheck.isMember && orgCheck.organizationId) {
+    return {
+      type: "organization",
+      organizationId: orgCheck.organizationId,
+      assignableUserIds: orgCheck.memberIds ?? [userId],
+    };
+  }
+
+  return {
+    type: "personal",
+    organizationId: `user:${userId}`,
+    assignableUserIds: [userId],
+  };
+}
+
+export async function verifyResourceAccess(
+  db: DB,
+  userId: string,
+  resourceOrganizationId: string,
+  resourceType: string,
 ): Promise<void> {
-  const memberships = await workos.userManagement.listOrganizationMemberships({
-    userId,
-    organizationId,
-  });
+  const workspace = await getWorkspaceContext(userId);
 
-  if (!memberships.data.length) {
+  if (workspace.organizationId !== resourceOrganizationId) {
     throw new TRPCError({
       code: "FORBIDDEN",
-      message: `You do not have access to this ${resourceName}`,
+      message: `Access denied to ${resourceType}`,
     });
   }
 }
 
-/**
- * Get the user's first organization ID
- * @throws TRPCError with code FORBIDDEN if user doesn't belong to any organization
- */
-export async function getUserOrganizationId(userId: string): Promise<string> {
-  const memberships = await workos.userManagement.listOrganizationMemberships({
-    userId,
-    limit: 1,
-  });
-
-  if (!memberships.data[0]) {
-    throw new TRPCError({
-      code: "FORBIDDEN",
-      message: "Must belong to an organization",
-    });
-  }
-
-  return memberships.data[0].organizationId;
-}
-
-/**
- * Fetch a team and verify user has access to it
- * @throws TRPCError with code NOT_FOUND if team doesn't exist
- * @throws TRPCError with code FORBIDDEN if user doesn't have access
- */
 export async function getTeamAndVerifyAccess(
   db: DB,
   teamId: string,
   userId: string,
 ) {
-  const team = await db.team.findUnique({
-    where: { id: teamId },
-  });
+  const team = await db.team.findUnique({ where: { id: teamId } });
 
   if (!team) {
-    throw new TRPCError({
-      code: "NOT_FOUND",
-      message: "Team not found",
-    });
+    throw new TRPCError({ code: "NOT_FOUND", message: "Team not found" });
   }
 
-  await verifyOrganizationAccess(userId, team.organizationId, "team");
-
+  await verifyResourceAccess(db, userId, team.organizationId, "team");
   return team;
 }
 
-/**
- * Fetch a role with its team and verify user has access
- * @throws TRPCError with code NOT_FOUND if role doesn't exist
- * @throws TRPCError with code FORBIDDEN if user doesn't have access
- */
 export async function getRoleAndVerifyAccess(
   db: DB,
   roleId: string,
@@ -90,13 +259,23 @@ export async function getRoleAndVerifyAccess(
   });
 
   if (!role) {
-    throw new TRPCError({
-      code: "NOT_FOUND",
-      message: "Role not found",
-    });
+    throw new TRPCError({ code: "NOT_FOUND", message: "Role not found" });
   }
 
-  await verifyOrganizationAccess(userId, role.team.organizationId, "role");
-
+  await verifyResourceAccess(db, userId, role.team.organizationId, "role");
   return role;
+}
+
+export async function getDirectoryData() {
+  try {
+    const directory = await getDirectory();
+    const users = await getDirectoryUsers();
+    return { directory, users };
+  } catch (error) {
+    console.error("[AUTH] Failed to fetch directory data:", error);
+    throw new TRPCError({
+      code: "INTERNAL_SERVER_ERROR",
+      message: "Failed to load directory",
+    });
+  }
 }

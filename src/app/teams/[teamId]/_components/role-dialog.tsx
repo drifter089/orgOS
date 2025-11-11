@@ -132,43 +132,119 @@ export function RoleDialog({
   const utils = api.useUtils();
 
   const createRole = api.role.create.useMutation({
-    onSuccess: (newRole) => {
-      // Use nodeId from the role (passed through API)
-      const nodeId =
-        (newRole.nodeId as string | undefined) ?? `role-node-${nanoid(8)}`;
+    onMutate: async (variables) => {
+      setOpen(false);
+      form.reset();
 
-      // Add node to canvas
-      const newNode = {
+      await utils.role.getByTeam.cancel({ teamId });
+
+      const previousRoles = utils.role.getByTeam.getData({ teamId });
+      const previousNodes = [...nodes];
+
+      const tempRoleId = `temp-role-${nanoid(8)}`;
+      const nodeId = variables.nodeId;
+
+      const selectedMetric = metrics.find((m) => m.id === variables.metricId);
+
+      const optimisticRole = {
+        id: tempRoleId,
+        title: variables.title,
+        purpose: variables.purpose,
+        teamId: variables.teamId,
+        metricId: variables.metricId,
+        nodeId: variables.nodeId,
+        assignedUserId: variables.assignedUserId ?? null,
+        color: variables.color ?? "#3b82f6",
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        metric: selectedMetric ?? {
+          id: variables.metricId,
+          name: "Loading...",
+          description: null,
+          type: "number" as const,
+          targetValue: null,
+          currentValue: null,
+          unit: null,
+          mockDataPrompt: null,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        },
+        isPending: true,
+      };
+
+      const optimisticNode = {
         id: nodeId,
         type: "role-node" as const,
         position: { x: 400, y: 300 },
         data: {
-          roleId: newRole.id,
-          title: newRole.title,
-          purpose: newRole.purpose,
-          metricId: newRole.metric.id,
-          metricName: newRole.metric.name,
-          metricValue: newRole.metric.currentValue ?? undefined,
-          metricUnit: newRole.metric.unit ?? undefined,
-          assignedUserId: newRole.assignedUserId,
-          assignedUserName: newRole.assignedUserId
-            ? (members.find((m) => m.user.id === newRole.assignedUserId)?.user
-                .firstName ?? `User ${newRole.assignedUserId.substring(0, 8)}`)
+          roleId: tempRoleId,
+          title: variables.title,
+          purpose: variables.purpose,
+          metricId: variables.metricId,
+          metricName: selectedMetric?.name ?? "Loading...",
+          metricValue: selectedMetric?.currentValue ?? undefined,
+          metricUnit: selectedMetric?.unit ?? undefined,
+          assignedUserId: variables.assignedUserId ?? null,
+          assignedUserName: variables.assignedUserId
+            ? (members.find((m) => m.user.id === variables.assignedUserId)?.user
+                .firstName ??
+              `User ${variables.assignedUserId?.substring(0, 8)}`)
             : undefined,
-          color: newRole.color,
+          color: variables.color ?? "#3b82f6",
+          isPending: true,
         },
       };
 
-      setNodes([...nodes, newNode]);
+      setNodes([...nodes, optimisticNode]);
       markDirty();
 
-      // Refresh team data
-      void utils.team.getById.invalidate({ id: teamId });
+      utils.role.getByTeam.setData({ teamId }, (old) => {
+        const roleWithPending = optimisticRole as typeof old extends
+          | (infer T)[]
+          | undefined
+          ? T
+          : never;
+        if (!old) return [roleWithPending];
+        return [...old, roleWithPending];
+      });
 
-      setOpen(false);
-      form.reset();
+      return { previousRoles, previousNodes, tempRoleId, nodeId };
     },
-    onError: (error) => {
+    onSuccess: (newRole, variables, context) => {
+      if (!context) return;
+
+      const updatedNodes = nodes.map((node) => {
+        if (node.id === context.nodeId) {
+          return {
+            ...node,
+            data: {
+              ...node.data,
+              roleId: newRole.id,
+              metricName: newRole.metric.name,
+              metricValue: newRole.metric.currentValue ?? undefined,
+              metricUnit: newRole.metric.unit ?? undefined,
+              isPending: undefined,
+            },
+          };
+        }
+        return node;
+      });
+      setNodes(updatedNodes);
+
+      utils.role.getByTeam.setData({ teamId }, (old) => {
+        if (!old) return [newRole];
+        return old.map((role) =>
+          role.id === context.tempRoleId ? newRole : role,
+        );
+      });
+    },
+    onError: (error, variables, context) => {
+      if (context?.previousRoles) {
+        utils.role.getByTeam.setData({ teamId }, context.previousRoles);
+      }
+      if (context?.previousNodes) {
+        setNodes(context.previousNodes);
+      }
       console.error("Failed to create role:", error);
     },
   });
@@ -204,8 +280,12 @@ export function RoleDialog({
       setNodes(updatedNodes);
       markDirty();
 
-      // Refresh team data
-      void utils.team.getById.invalidate({ id: teamId });
+      utils.role.getByTeam.setData({ teamId }, (old) => {
+        if (!old) return [updatedRole];
+        return old.map((role) =>
+          role.id === updatedRole.id ? updatedRole : role,
+        );
+      });
 
       setOpen(false);
     },
@@ -220,10 +300,8 @@ export function RoleDialog({
         id: roleData.roleId,
         title: data.title,
         purpose: data.purpose,
-        metricId: data.metricId,
         assignedUserId:
           data.assignedUserId === "__none__" ? null : data.assignedUserId,
-        color: data.color,
       });
     } else {
       const nodeId = `role-node-${nanoid(8)}`;

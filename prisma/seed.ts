@@ -2,6 +2,10 @@ import { PrismaClient } from "@prisma/client";
 
 const prisma = new PrismaClient();
 
+// Placeholder organization ID for seed data
+// In production, metrics are scoped to actual WorkOS organization IDs
+const SEED_ORG_ID = "seed-org-01234567";
+
 const sampleMetrics = [
   {
     name: "Customer Satisfaction",
@@ -97,7 +101,10 @@ async function main() {
   console.info("Creating sample metrics...");
   for (const metric of sampleMetrics) {
     await prisma.metric.create({
-      data: metric,
+      data: {
+        ...metric,
+        organizationId: SEED_ORG_ID,
+      },
     });
   }
 

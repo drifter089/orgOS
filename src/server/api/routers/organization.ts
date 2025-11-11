@@ -1,179 +1,211 @@
-import { WorkOS } from "@workos-inc/node";
 import { z } from "zod";
 
-import { createTRPCRouter, protectedProcedure } from "@/server/api/trpc";
-
-// Initialize WorkOS client
-const workos = new WorkOS(process.env.WORKOS_API_KEY);
+import { createTRPCRouter, workspaceProcedure } from "@/server/api/trpc";
+import { getDirectoryData } from "@/server/api/utils/authorization";
+import { workos } from "@/server/workos";
 
 export const organizationRouter = createTRPCRouter({
-  /**
-   * Get the current user's organization data
-   * Returns the first organization the user belongs to
-   */
-  getCurrent: protectedProcedure.query(async ({ ctx }) => {
-    try {
-      // Get all organization memberships for the current user
+  getCurrent: workspaceProcedure.query(async ({ ctx }) => {
+    if (ctx.workspace.type === "directory") {
+      const { directory, users } = await getDirectoryData();
+
+      const workosUser = await workos.userManagement.getUser(ctx.user.id);
+      const userEmail = workosUser.email.toLowerCase();
+      const directoryUser = users.find(
+        (u) => u.email?.toLowerCase() === userEmail,
+      );
+
+      return {
+        organization: {
+          id: directory.organizationId,
+          name: directory.name,
+          object: "organization" as const,
+          createdAt: directory.createdAt,
+          updatedAt: directory.updatedAt,
+        },
+        membership: {
+          id: directoryUser?.id ?? ctx.user.id,
+          userId: ctx.user.id,
+          organizationId: directory.organizationId,
+          role: { slug: directoryUser?.role?.slug ?? "member" },
+          status: directoryUser?.state ?? "active",
+        },
+        directoryUser,
+      };
+    }
+
+    if (ctx.workspace.type === "organization") {
       const memberships =
         await workos.userManagement.listOrganizationMemberships({
           userId: ctx.user.id,
-          limit: 1, // Get the first organization
+          organizationId: ctx.workspace.organizationId,
         });
 
-      if (!memberships.data || memberships.data.length === 0) {
-        return null;
-      }
+      if (!memberships.data[0]) return null;
 
-      const membership = memberships.data[0];
-      if (!membership) {
-        return null;
-      }
-
-      // Get full organization details using organizations API
       const organization = await workos.organizations.getOrganization(
-        membership.organizationId,
+        ctx.workspace.organizationId,
       );
 
       return {
         organization,
-        membership,
+        membership: memberships.data[0],
       };
-    } catch (error) {
-      console.error("Error fetching organization:", error);
-      throw new Error("Failed to fetch organization data");
     }
+
+    return {
+      organization: {
+        id: ctx.workspace.organizationId,
+        name: "Personal Workspace",
+        object: "organization" as const,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      },
+      membership: {
+        id: ctx.user.id,
+        userId: ctx.user.id,
+        organizationId: ctx.workspace.organizationId,
+        role: { slug: "owner" },
+        status: "active",
+      },
+    };
   }),
 
-  /**
-   * Get all organizations the current user belongs to
-   */
-  getAll: protectedProcedure.query(async ({ ctx }) => {
-    try {
-      const memberships =
-        await workos.userManagement.listOrganizationMemberships({
-          userId: ctx.user.id,
-        });
+  getCurrentOrgMembers: workspaceProcedure.query(async ({ ctx }) => {
+    if (ctx.workspace.type === "directory") {
+      const { directory, users } = await getDirectoryData();
 
-      if (!memberships.data || memberships.data.length === 0) {
-        return [];
-      }
-
-      // Fetch full organization details for each membership
-      const organizationsWithMemberships = await Promise.all(
-        memberships.data.map(async (membership) => {
-          const organization = await workos.organizations.getOrganization(
-            membership.organizationId,
-          );
-          return {
-            organization,
-            membership,
-          };
-        }),
-      );
-
-      return organizationsWithMemberships;
-    } catch (error) {
-      console.error("Error fetching organizations:", error);
-      throw new Error("Failed to fetch organizations");
+      return users.map((directoryUser) => ({
+        membership: {
+          id: directoryUser.id,
+          userId: directoryUser.id,
+          organizationId: directory.organizationId,
+          role: { slug: directoryUser.role?.slug ?? "member" },
+          status: directoryUser.state,
+          createdAt: directoryUser.createdAt,
+          updatedAt: directoryUser.updatedAt,
+        },
+        user: {
+          id: directoryUser.id,
+          email: directoryUser.email,
+          firstName: directoryUser.firstName,
+          lastName: directoryUser.lastName,
+          emailVerified: directoryUser.state === "active",
+          profilePictureUrl:
+            (directoryUser as unknown as Record<string, unknown>).avatarUrl ??
+            null,
+          jobTitle: directoryUser.jobTitle,
+          groups: directoryUser.groups,
+          customAttributes: directoryUser.customAttributes,
+        },
+        directoryUser,
+      }));
     }
-  }),
 
-  /**
-   * Get all members in a specific organization
-   */
-  getMembers: protectedProcedure
-    .input(
-      z.object({
-        organizationId: z.string(),
-      }),
-    )
-    .query(async ({ ctx, input }) => {
-      try {
-        // First verify that the current user is a member of this organization
-        const userMemberships =
-          await workos.userManagement.listOrganizationMemberships({
-            userId: ctx.user.id,
-            organizationId: input.organizationId,
-          });
-
-        if (!userMemberships.data || userMemberships.data.length === 0) {
-          throw new Error(
-            "You do not have permission to view members of this organization",
-          );
-        }
-
-        // Get all members of the organization
-        const allMemberships =
-          await workos.userManagement.listOrganizationMemberships({
-            organizationId: input.organizationId,
-          });
-
-        // Fetch user details for each membership
-        const membersWithDetails = await Promise.all(
-          allMemberships.data.map(async (membership) => {
-            const user = await workos.userManagement.getUser(membership.userId);
-            return {
-              membership,
-              user,
-            };
-          }),
-        );
-
-        return membersWithDetails;
-      } catch (error) {
-        console.error("Error fetching organization members:", error);
-        if (error instanceof Error) {
-          throw new Error(error.message);
-        }
-        throw new Error("Failed to fetch organization members");
-      }
-    }),
-
-  /**
-   * Get members in the current user's organization
-   * Automatically uses the first organization the user belongs to
-   */
-  getCurrentOrgMembers: protectedProcedure.query(async ({ ctx }) => {
-    try {
-      // Get the user's first organization
+    if (ctx.workspace.type === "organization") {
       const memberships =
         await workos.userManagement.listOrganizationMemberships({
-          userId: ctx.user.id,
-          limit: 1,
+          organizationId: ctx.workspace.organizationId,
         });
 
-      if (!memberships.data || memberships.data.length === 0) {
-        return [];
-      }
-
-      const firstMembership = memberships.data[0];
-      if (!firstMembership) {
-        return [];
-      }
-
-      const organizationId = firstMembership.organizationId;
-
-      // Get all members of that organization
-      const allMemberships =
-        await workos.userManagement.listOrganizationMemberships({
-          organizationId,
-        });
-
-      // Fetch user details for each membership
       const membersWithDetails = await Promise.all(
-        allMemberships.data.map(async (membership) => {
+        memberships.data.map(async (membership) => {
           const user = await workos.userManagement.getUser(membership.userId);
-          return {
-            membership,
-            user,
-          };
+          return { membership, user };
         }),
       );
 
       return membersWithDetails;
-    } catch (error) {
-      console.error("Error fetching current organization members:", error);
-      throw new Error("Failed to fetch organization members");
     }
+
+    const currentUser = await workos.userManagement.getUser(ctx.user.id);
+
+    return [
+      {
+        membership: {
+          id: ctx.user.id,
+          userId: ctx.user.id,
+          organizationId: ctx.workspace.organizationId,
+          role: { slug: "owner" },
+          status: "active",
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        },
+        user: currentUser,
+      },
+    ];
   }),
+
+  getOrganization: workspaceProcedure
+    .input(z.object({ id: z.string() }))
+    .query(async ({ ctx, input }) => {
+      if (input.id !== ctx.workspace.organizationId) {
+        return null;
+      }
+
+      if (ctx.workspace.type === "directory") {
+        const { directory } = await getDirectoryData();
+        return {
+          id: directory.organizationId,
+          name: directory.name,
+          object: "organization" as const,
+          createdAt: directory.createdAt,
+          updatedAt: directory.updatedAt,
+        };
+      }
+
+      if (ctx.workspace.type === "organization") {
+        return workos.organizations.getOrganization(input.id);
+      }
+
+      return {
+        id: ctx.workspace.organizationId,
+        name: "Personal Workspace",
+        object: "organization" as const,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+    }),
+
+  getOrganizationMembers: workspaceProcedure
+    .input(z.object({ organizationId: z.string() }))
+    .query(async ({ ctx, input }) => {
+      if (input.organizationId !== ctx.workspace.organizationId) {
+        return [];
+      }
+
+      if (ctx.workspace.type === "directory") {
+        const { directory, users } = await getDirectoryData();
+
+        return users.map((directoryUser) => ({
+          id: directoryUser.id,
+          userId: directoryUser.id,
+          organizationId: directory.organizationId,
+          role: { slug: directoryUser.role?.slug ?? "member" },
+          status: directoryUser.state,
+          createdAt: directoryUser.createdAt,
+          updatedAt: directoryUser.updatedAt,
+        }));
+      }
+
+      if (ctx.workspace.type === "organization") {
+        const memberships =
+          await workos.userManagement.listOrganizationMemberships({
+            organizationId: input.organizationId,
+          });
+        return memberships.data;
+      }
+
+      return [
+        {
+          id: ctx.user.id,
+          userId: ctx.user.id,
+          organizationId: ctx.workspace.organizationId,
+          role: { slug: "owner" },
+          status: "active",
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        },
+      ];
+    }),
 });
