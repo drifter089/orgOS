@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 import {
+  BarChart,
   Book,
   ClipboardList,
   Code,
@@ -72,6 +73,16 @@ const docsRoutes = [
         title: "Team Management System",
         href: "/docs/planning/team-management-system",
         icon: ClipboardList,
+      },
+    ],
+  },
+  {
+    title: "Research",
+    items: [
+      {
+        title: "Market Research",
+        href: "/docs/market-research",
+        icon: BarChart,
       },
     ],
   },
