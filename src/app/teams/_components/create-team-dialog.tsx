@@ -53,6 +53,9 @@ export function CreateTeamDialog() {
 
   const createTeam = api.team.create.useMutation({
     onMutate: async (newTeam) => {
+      setOpen(false);
+      form.reset();
+
       await utils.team.getAll.cancel();
 
       const previousTeams = utils.team.getAll.getData();
@@ -69,6 +72,7 @@ export function CreateTeamDialog() {
         reactFlowEdges: [],
         viewport: null,
         _count: { roles: 0 },
+        isPending: true,
       };
 
       utils.team.getAll.setData(undefined, (old) => {
@@ -79,8 +83,6 @@ export function CreateTeamDialog() {
       return { previousTeams };
     },
     onSuccess: (data) => {
-      setOpen(false);
-      form.reset();
       void utils.team.getAll.invalidate();
       router.push(`/teams/${data.id}`);
     },

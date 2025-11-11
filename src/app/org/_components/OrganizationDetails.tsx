@@ -93,16 +93,18 @@ export async function OrganizationDetails() {
         <div className="space-y-2">
           <h4 className="text-sm font-semibold">Membership Information</h4>
           <div className="grid gap-2 text-sm">
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Joined</span>
-              <span className="font-medium">
-                {new Date(membership.createdAt).toLocaleDateString("en-US", {
-                  year: "numeric",
-                  month: "short",
-                  day: "numeric",
-                })}
-              </span>
-            </div>
+            {"createdAt" in membership && (
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Joined</span>
+                <span className="font-medium">
+                  {new Date(membership.createdAt).toLocaleDateString("en-US", {
+                    year: "numeric",
+                    month: "short",
+                    day: "numeric",
+                  })}
+                </span>
+              </div>
+            )}
             <div className="flex justify-between">
               <span className="text-muted-foreground">Your Role</span>
               <span className="font-medium capitalize">

@@ -62,33 +62,72 @@ export function TeamsList() {
 
   return (
     <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-3">
-      {teams.map((team) => (
-        <Link key={team.id} href={`/teams/${team.id}`}>
-          <Card className="h-full cursor-pointer transition-all duration-300 hover:scale-[1.03] hover:shadow-xl">
-            <CardHeader className="space-y-3">
-              <CardTitle className="line-clamp-1 text-xl">
-                {team.name}
-              </CardTitle>
-              <CardDescription className="line-clamp-2 text-base">
-                {team.description ?? "No description"}
-              </CardDescription>
-              <div className="text-muted-foreground flex items-center justify-between border-t pt-4 text-sm">
-                <span className="font-medium">
-                  {team._count.roles} role
-                  {team._count.roles !== 1 ? "s" : ""}
-                </span>
-                <span className="text-xs">
-                  Updated{" "}
-                  {new Date(team.updatedAt).toLocaleDateString("en-US", {
-                    month: "short",
-                    day: "numeric",
-                  })}
-                </span>
-              </div>
-            </CardHeader>
-          </Card>
-        </Link>
-      ))}
+      {teams.map((team) => {
+        const isPending = "isPending" in team && team.isPending;
+
+        if (isPending) {
+          return (
+            <Card
+              key={team.id}
+              className="h-full cursor-not-allowed opacity-60 transition-all duration-300"
+            >
+              <CardHeader className="space-y-3">
+                <div className="flex items-center gap-2">
+                  <CardTitle className="line-clamp-1 text-xl">
+                    {team.name}
+                  </CardTitle>
+                  <div className="flex items-center gap-1">
+                    <div className="bg-primary h-1.5 w-1.5 animate-pulse rounded-full" />
+                    <div
+                      className="bg-primary h-1.5 w-1.5 animate-pulse rounded-full"
+                      style={{ animationDelay: "0.2s" }}
+                    />
+                    <div
+                      className="bg-primary h-1.5 w-1.5 animate-pulse rounded-full"
+                      style={{ animationDelay: "0.4s" }}
+                    />
+                  </div>
+                </div>
+                <CardDescription className="line-clamp-2 text-base">
+                  {team.description ?? "No description"}
+                </CardDescription>
+                <div className="text-muted-foreground flex items-center justify-between border-t pt-4 text-sm">
+                  <span className="font-medium">Creating...</span>
+                  <span className="text-xs italic">Saving</span>
+                </div>
+              </CardHeader>
+            </Card>
+          );
+        }
+
+        return (
+          <Link key={team.id} href={`/teams/${team.id}`}>
+            <Card className="h-full cursor-pointer transition-all duration-300 hover:scale-[1.03] hover:shadow-xl">
+              <CardHeader className="space-y-3">
+                <CardTitle className="line-clamp-1 text-xl">
+                  {team.name}
+                </CardTitle>
+                <CardDescription className="line-clamp-2 text-base">
+                  {team.description ?? "No description"}
+                </CardDescription>
+                <div className="text-muted-foreground flex items-center justify-between border-t pt-4 text-sm">
+                  <span className="font-medium">
+                    {team._count.roles} role
+                    {team._count.roles !== 1 ? "s" : ""}
+                  </span>
+                  <span className="text-xs">
+                    Updated{" "}
+                    {new Date(team.updatedAt).toLocaleDateString("en-US", {
+                      month: "short",
+                      day: "numeric",
+                    })}
+                  </span>
+                </div>
+              </CardHeader>
+            </Card>
+          </Link>
+        );
+      })}
     </div>
   );
 }

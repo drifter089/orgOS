@@ -19,7 +19,7 @@ import { Separator } from "@/components/ui/separator";
 import { UserRolesDialog } from "./UserRolesDialog";
 
 interface Member {
-  user: User;
+  user: User | Record<string, unknown>;
   membership: {
     id: string;
     status: string;
@@ -37,12 +37,15 @@ export function MembersListClient({ members }: MembersListClientProps) {
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
 
-  const handleMemberClick = (user: User) => {
-    setSelectedUser(user);
+  const handleMemberClick = (user: User | Record<string, unknown>) => {
+    setSelectedUser(user as User);
     setIsDialogOpen(true);
   };
 
-  const handleKeyDown = (e: React.KeyboardEvent, user: User) => {
+  const handleKeyDown = (
+    e: React.KeyboardEvent,
+    user: User | Record<string, unknown>,
+  ) => {
     if (e.key === "Enter" || e.key === " ") {
       e.preventDefault();
       handleMemberClick(user);
@@ -86,15 +89,20 @@ export function MembersListClient({ members }: MembersListClientProps) {
           <div className="space-y-4">
             {members.map(({ user, membership }) => {
               // Get initials for avatar with safe fallbacks
+              const userObj = user as Record<string, unknown>;
+              const firstName = userObj.firstName as string | null | undefined;
+              const lastName = userObj.lastName as string | null | undefined;
+              const email = userObj.email as string | null | undefined;
+
               const initials =
-                user.firstName && user.lastName
-                  ? `${user.firstName[0]}${user.lastName[0]}`.toUpperCase()
-                  : (user.email?.[0]?.toUpperCase() ?? "U");
+                firstName && lastName
+                  ? `${firstName[0]}${lastName[0]}`.toUpperCase()
+                  : (email?.[0]?.toUpperCase() ?? "U");
 
               const userName =
-                user.firstName && user.lastName
-                  ? `${user.firstName} ${user.lastName}`
-                  : (user.email ?? "Member");
+                firstName && lastName
+                  ? `${firstName} ${lastName}`
+                  : (email ?? "Member");
 
               return (
                 <div
@@ -126,7 +134,7 @@ export function MembersListClient({ members }: MembersListClientProps) {
                       </div>
                       <div className="text-muted-foreground flex items-center gap-1.5 text-sm">
                         <Mail className="h-3.5 w-3.5" />
-                        <span>{user.email ?? "No email"}</span>
+                        <span>{email ?? "No email"}</span>
                       </div>
                     </div>
                   </div>

@@ -35,19 +35,22 @@ function MemberCard({
   userId,
   roleCount,
 }: {
-  user: User;
+  user: User | Record<string, unknown>;
   userId: string;
   roleCount: number;
 }) {
+  const userObj = user as Record<string, unknown>;
+  const firstName = userObj.firstName as string | null | undefined;
+  const lastName = userObj.lastName as string | null | undefined;
+  const email = userObj.email as string | null | undefined;
+
   const initials =
-    user.firstName && user.lastName
-      ? `${user.firstName[0]}${user.lastName[0]}`.toUpperCase()
-      : (user.email?.[0]?.toUpperCase() ?? "U");
+    firstName && lastName
+      ? `${firstName[0]}${lastName[0]}`.toUpperCase()
+      : (email?.[0]?.toUpperCase() ?? "U");
 
   const userName =
-    user.firstName && user.lastName
-      ? `${user.firstName} ${user.lastName}`
-      : (user.email ?? "Member");
+    firstName && lastName ? `${firstName} ${lastName}` : (email ?? "Member");
 
   return (
     <div className="bg-card hover:bg-accent/50 flex items-center justify-between gap-3 rounded-lg border p-3 transition-colors">
@@ -63,7 +66,7 @@ function MemberCard({
           </p>
           <div className="text-muted-foreground mt-0.5 flex items-center gap-1.5 text-xs">
             <Mail className="h-3 w-3 flex-shrink-0" />
-            <span className="truncate">{user.email ?? "No email"}</span>
+            <span className="truncate">{email ?? "No email"}</span>
           </div>
         </div>
       </div>
