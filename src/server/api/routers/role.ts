@@ -90,13 +90,22 @@ export const roleRouter = createTRPCRouter({
         });
       }
 
+      const data: {
+        title?: string;
+        purpose?: string;
+        assignedUserId?: string | null;
+      } = {
+        title: input.title,
+        purpose: input.purpose,
+      };
+
+      if (Object.prototype.hasOwnProperty.call(input, "assignedUserId")) {
+        data.assignedUserId = input.assignedUserId;
+      }
+
       return ctx.db.role.update({
         where: { id: input.id },
-        data: {
-          title: input.title,
-          purpose: input.purpose,
-          assignedUserId: input.assignedUserId ?? null,
-        },
+        data,
         include: { metric: true, team: true },
       });
     }),

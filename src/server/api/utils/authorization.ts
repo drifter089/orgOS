@@ -19,6 +19,8 @@ let directoryCache: {
   timestamp: number;
 } | null = null;
 
+let directoryPromise: Promise<Directory> | null = null;
+
 export type WorkspaceContext =
   | {
       type: "personal";
@@ -75,16 +77,39 @@ async function getDirectoryUsers(): Promise<DirectoryUserWithGroups[]> {
 
 async function getDirectory(): Promise<Directory> {
   if (!env.WORKOS_DIR_ID) {
-    throw new Error("WORKOS_DIR_ID not configured");
+    throw new TRPCError({
+      code: "INTERNAL_SERVER_ERROR",
+      message: "WORKOS_DIR_ID not configured",
+    });
   }
 
   if (directoryCache && Date.now() - directoryCache.timestamp < CACHE_TTL) {
     return directoryCache.data;
   }
 
-  const directory = await workos.directorySync.getDirectory(env.WORKOS_DIR_ID);
-  directoryCache = { data: directory, timestamp: Date.now() };
-  return directory;
+  if (directoryPromise) {
+    return directoryPromise;
+  }
+
+  directoryPromise = (async () => {
+    try {
+      const directory = await workos.directorySync.getDirectory(
+        env.WORKOS_DIR_ID!,
+      );
+      directoryCache = { data: directory, timestamp: Date.now() };
+      directoryPromise = null;
+      return directory;
+    } catch (error) {
+      directoryPromise = null;
+      throw new TRPCError({
+        code: "INTERNAL_SERVER_ERROR",
+        message: "Failed to fetch directory",
+        cause: error,
+      });
+    }
+  })();
+
+  return directoryPromise;
 }
 
 async function checkDirectoryMembership(
@@ -160,18 +185,11 @@ export async function getWorkspaceContext(
       const directoryUsers = await getDirectoryUsers();
       const assignableUserIds = directoryUsers.map((u) => u.id);
 
-      if (!env.WORKOS_DIR_ID) {
-        throw new TRPCError({
-          code: "INTERNAL_SERVER_ERROR",
-          message: "Service configuration error",
-        });
-      }
-
       return {
         type: "directory",
         organizationId: directory.organizationId,
         assignableUserIds,
-        directoryId: env.WORKOS_DIR_ID,
+        directoryId: env.WORKOS_DIR_ID!,
       };
     } catch (error) {
       console.error("[AUTH] Failed to load directory context:", error);

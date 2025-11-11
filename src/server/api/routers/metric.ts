@@ -32,6 +32,7 @@ function generateMockValue(type: string, targetValue?: number | null): number {
 export const metricRouter = createTRPCRouter({
   getAll: workspaceProcedure.query(async ({ ctx }) => {
     return ctx.db.metric.findMany({
+      where: { organizationId: ctx.workspace.organizationId },
       orderBy: { name: "asc" },
     });
   }),
@@ -55,6 +56,7 @@ export const metricRouter = createTRPCRouter({
       }
 
       return ctx.db.metric.findMany({
+        where: { organizationId: ctx.workspace.organizationId },
         orderBy: { name: "asc" },
       });
     }),
@@ -71,7 +73,10 @@ export const metricRouter = createTRPCRouter({
     )
     .mutation(async ({ ctx, input }) => {
       return ctx.db.metric.create({
-        data: input,
+        data: {
+          ...input,
+          organizationId: ctx.workspace.organizationId,
+        },
       });
     }),
 

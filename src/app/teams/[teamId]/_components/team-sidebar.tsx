@@ -151,7 +151,7 @@ function RolesList({ teamId }: { teamId: string }) {
           <div
             key={role.id}
             className={cn(
-              "group bg-card hover:bg-accent/50 relative flex items-start gap-3 rounded-lg border p-3 transition-colors",
+              "group bg-card hover:bg-accent/50 relative flex items-start gap-3 overflow-hidden rounded-lg border p-3 transition-colors",
               isPending && "opacity-60",
             )}
           >
@@ -188,9 +188,9 @@ function RolesList({ teamId }: { teamId: string }) {
               {role.metric && (
                 <Badge
                   variant="outline"
-                  className="border-primary/20 mt-2 text-xs font-medium"
+                  className="border-primary/20 mt-2 max-w-full text-xs font-medium"
                 >
-                  {role.metric.name}
+                  <span className="truncate">{role.metric.name}</span>
                 </Badge>
               )}
               {isPending && (
