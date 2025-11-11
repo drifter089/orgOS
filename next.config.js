@@ -28,8 +28,8 @@ const config = {
               "style-src 'self' 'unsafe-inline'",
               "img-src 'self' data: https:",
               "font-src 'self' data:",
-              "connect-src 'self' https://api.workos.com https://*.workos.com",
-              "frame-src 'self' https://authkit.workos.com https://*.workos.com",
+              "connect-src 'self' https://api.workos.com https://*.workos.com https://api.nango.dev",
+              "frame-src 'self' https://authkit.workos.com https://*.workos.com https://connect.nango.dev",
             ]
               .join("; ")
               .replace(/\s{2,}/g, " ")
