@@ -38,6 +38,10 @@ export type WorkspaceContext =
     };
 
 async function fetchDirectoryUsers(): Promise<DirectoryUserWithGroups[]> {
+  if (!env.WORKOS_DIR_ID) {
+    throw new Error("WORKOS_DIR_ID not configured");
+  }
+
   const allUsers: DirectoryUserWithGroups[] = [];
   let after: string | undefined;
   let hasMore = true;
@@ -70,6 +74,10 @@ async function getDirectoryUsers(): Promise<DirectoryUserWithGroups[]> {
 }
 
 async function getDirectory(): Promise<Directory> {
+  if (!env.WORKOS_DIR_ID) {
+    throw new Error("WORKOS_DIR_ID not configured");
+  }
+
   if (directoryCache && Date.now() - directoryCache.timestamp < CACHE_TTL) {
     return directoryCache.data;
   }
@@ -151,6 +159,13 @@ export async function getWorkspaceContext(
 
       const directoryUsers = await getDirectoryUsers();
       const assignableUserIds = directoryUsers.map((u) => u.id);
+
+      if (!env.WORKOS_DIR_ID) {
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Service configuration error",
+        });
+      }
 
       return {
         type: "directory",

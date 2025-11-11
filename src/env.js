@@ -11,7 +11,7 @@ export const env = createEnv({
     NODE_ENV: z
       .enum(["development", "test", "production"])
       .default("development"),
-    WORKOS_DIR_ID: z.string(),
+    WORKOS_DIR_ID: z.string().optional(),
   },
 
   /**
