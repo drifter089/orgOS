@@ -65,7 +65,7 @@ model Role {
     // Role properties (user-defined)
     title          String
     purpose        String   @db.Text
-    metricId       String   // References Metric (one-to-one from Role perspective)
+    metricId       String?  // Optional metric reference
 
     // Optional assignment
     assignedUserId String?  // WorkOS user ID
@@ -75,7 +75,7 @@ model Role {
     color          String   @default("#3b82f6") // Hex color
 
     team           Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
-    metric         Metric   @relation(fields: [metricId], references: [id])
+    metric         Metric?  @relation(fields: [metricId], references: [id])
 
     createdAt      DateTime @default(now())
     updatedAt      DateTime @updatedAt

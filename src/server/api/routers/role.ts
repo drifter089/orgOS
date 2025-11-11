@@ -32,7 +32,7 @@ export const roleRouter = createTRPCRouter({
         teamId: z.string(),
         title: z.string().min(1).max(100),
         purpose: z.string().min(1),
-        metricId: z.string(),
+        metricId: z.string().optional(),
         nodeId: z.string(),
         assignedUserId: z.string().nullable().optional(),
         color: z
@@ -59,7 +59,7 @@ export const roleRouter = createTRPCRouter({
           title: input.title,
           purpose: input.purpose,
           teamId: input.teamId,
-          metricId: input.metricId,
+          metricId: input.metricId ?? null,
           nodeId: input.nodeId,
           color: input.color ?? "#3b82f6",
           assignedUserId: input.assignedUserId ?? null,
