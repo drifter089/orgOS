@@ -1,18 +1,32 @@
+import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 
-import { createTRPCRouter, protectedProcedure } from "@/server/api/trpc";
+import { createTRPCRouter, workspaceProcedure } from "@/server/api/trpc";
 import {
   getRoleAndVerifyAccess,
   getTeamAndVerifyAccess,
-  getUserOrganizationId,
-  verifyUserInDirectory,
 } from "@/server/api/utils/authorization";
 
 export const roleRouter = createTRPCRouter({
-  /**
-   * Create new role
-   */
-  create: protectedProcedure
+  getById: workspaceProcedure
+    .input(z.object({ id: z.string() }))
+    .query(async ({ ctx, input }) => {
+      return getRoleAndVerifyAccess(ctx.db, input.id, ctx.user.id);
+    }),
+
+  getByTeam: workspaceProcedure
+    .input(z.object({ teamId: z.string() }))
+    .query(async ({ ctx, input }) => {
+      await getTeamAndVerifyAccess(ctx.db, input.teamId, ctx.user.id);
+
+      return ctx.db.role.findMany({
+        where: { teamId: input.teamId },
+        include: { metric: true },
+        orderBy: { createdAt: "asc" },
+      });
+    }),
+
+  create: workspaceProcedure
     .input(
       z.object({
         teamId: z.string(),
@@ -28,159 +42,117 @@ export const roleRouter = createTRPCRouter({
       }),
     )
     .mutation(async ({ ctx, input }) => {
-      // Verify access to team
-      const team = await getTeamAndVerifyAccess(
-        ctx.db,
-        input.teamId,
-        ctx.user.id,
-      );
+      await getTeamAndVerifyAccess(ctx.db, input.teamId, ctx.user.id);
 
-      // If assignedUserId is provided, verify the user is in the directory
-      if (input.assignedUserId !== undefined && input.assignedUserId !== null) {
-        await verifyUserInDirectory(input.assignedUserId, team.organizationId);
+      if (
+        input.assignedUserId &&
+        !ctx.workspace.assignableUserIds.includes(input.assignedUserId)
+      ) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "User cannot be assigned to this role",
+        });
       }
 
-      // Create role
       return ctx.db.role.create({
-        data: input,
+        data: {
+          title: input.title,
+          purpose: input.purpose,
+          teamId: input.teamId,
+          metricId: input.metricId,
+          nodeId: input.nodeId,
+          color: input.color ?? "#3b82f6",
+          assignedUserId: input.assignedUserId ?? null,
+        },
         include: { metric: true },
       });
     }),
 
-  /**
-   * Update role
-   */
-  update: protectedProcedure
+  update: workspaceProcedure
     .input(
       z.object({
         id: z.string(),
         title: z.string().min(1).max(100).optional(),
-        purpose: z.string().min(1).optional(),
-        metricId: z.string().optional(),
-        assignedUserId: z.string().nullable().optional(),
-        color: z
-          .string()
-          .regex(/^#[0-9A-F]{6}$/i)
-          .optional(),
+        purpose: z.string().optional(),
+        assignedUserId: z.string().optional().nullable(),
       }),
     )
     .mutation(async ({ ctx, input }) => {
-      // Verify access to role
-      const role = await getRoleAndVerifyAccess(ctx.db, input.id, ctx.user.id);
+      await getRoleAndVerifyAccess(ctx.db, input.id, ctx.user.id);
 
-      // If assignedUserId is being updated, verify the user is in the directory
-      if (input.assignedUserId !== undefined && input.assignedUserId !== null) {
-        await verifyUserInDirectory(
-          input.assignedUserId,
-          role.team.organizationId,
-        );
+      if (
+        input.assignedUserId &&
+        !ctx.workspace.assignableUserIds.includes(input.assignedUserId)
+      ) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "User cannot be assigned to this role",
+        });
       }
 
-      // Update role
-      const { id, ...data } = input;
       return ctx.db.role.update({
-        where: { id },
-        data,
-        include: { metric: true },
+        where: { id: input.id },
+        data: {
+          title: input.title,
+          purpose: input.purpose,
+          assignedUserId: input.assignedUserId ?? null,
+        },
+        include: { metric: true, team: true },
       });
     }),
 
-  /**
-   * Delete role
-   */
-  delete: protectedProcedure
+  delete: workspaceProcedure
     .input(z.object({ id: z.string() }))
     .mutation(async ({ ctx, input }) => {
-      // Verify access to role
       await getRoleAndVerifyAccess(ctx.db, input.id, ctx.user.id);
-
-      // Delete role
-      await ctx.db.role.delete({
-        where: { id: input.id },
-      });
-
+      await ctx.db.role.delete({ where: { id: input.id } });
       return { success: true };
     }),
 
-  /**
-   * Assign user to role
-   */
-  assignUser: protectedProcedure
-    .input(
-      z.object({
-        roleId: z.string(),
-        userId: z.string(),
-      }),
-    )
+  assign: workspaceProcedure
+    .input(z.object({ id: z.string(), userId: z.string() }))
     .mutation(async ({ ctx, input }) => {
-      // Verify role exists and current user has access
-      const role = await getRoleAndVerifyAccess(
-        ctx.db,
-        input.roleId,
-        ctx.user.id,
-      );
+      await getRoleAndVerifyAccess(ctx.db, input.id, ctx.user.id);
 
-      // Verify assigned user belongs to the directory
-      await verifyUserInDirectory(input.userId, role.team.organizationId);
+      if (!ctx.workspace.assignableUserIds.includes(input.userId)) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "User cannot be assigned to this role",
+        });
+      }
 
-      // Update role assignment
       return ctx.db.role.update({
-        where: { id: input.roleId },
+        where: { id: input.id },
         data: { assignedUserId: input.userId },
-        include: { metric: true },
+        include: { metric: true, team: true },
       });
     }),
 
-  /**
-   * Get all roles for a team
-   */
-  getByTeam: protectedProcedure
-    .input(z.object({ teamId: z.string() }))
-    .query(async ({ ctx, input }) => {
-      // Verify access to team
-      await getTeamAndVerifyAccess(ctx.db, input.teamId, ctx.user.id);
+  unassign: workspaceProcedure
+    .input(z.object({ id: z.string() }))
+    .mutation(async ({ ctx, input }) => {
+      await getRoleAndVerifyAccess(ctx.db, input.id, ctx.user.id);
 
-      // Return roles for the team
-      return ctx.db.role.findMany({
-        where: { teamId: input.teamId },
-        include: { metric: true },
-        orderBy: { createdAt: "asc" },
+      return ctx.db.role.update({
+        where: { id: input.id },
+        data: { assignedUserId: null },
+        include: { metric: true, team: true },
       });
     }),
 
-  /**
-   * Get all roles assigned to a specific user in the current organization
-   */
-  getByUser: protectedProcedure
+  getByUser: workspaceProcedure
     .input(z.object({ userId: z.string() }))
     .query(async ({ ctx, input }) => {
-      // Get current user's organization ID from directory
-      const organizationId = await getUserOrganizationId(ctx.user.id);
-
-      // Verify the target user is in the directory
-      await verifyUserInDirectory(input.userId, organizationId);
-
-      // Get all roles assigned to this user in teams within the organization
-      const roles = await ctx.db.role.findMany({
-        where: {
-          assignedUserId: input.userId,
-          team: {
-            organizationId,
-          },
-        },
+      const teams = await ctx.db.team.findMany({
+        where: { organizationId: ctx.workspace.organizationId },
         include: {
-          metric: true,
-          team: {
-            select: {
-              id: true,
-              name: true,
-              description: true,
-            },
+          roles: {
+            where: { assignedUserId: input.userId },
+            include: { metric: true, team: true },
           },
         },
-        orderBy: [{ team: { name: "asc" } }, { createdAt: "asc" }],
       });
 
-      return roles;
+      return teams.flatMap((team) => team.roles);
     }),
 });

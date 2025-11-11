@@ -1,60 +1,65 @@
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 
-import { createTRPCRouter, protectedProcedure } from "@/server/api/trpc";
+import { createTRPCRouter, workspaceProcedure } from "@/server/api/trpc";
 
-/**
- * Generate mock metric value based on type and target
- * TODO: Replace with AI generation (Claude via OpenRouter) for more realistic data
- */
 function generateMockValue(type: string, targetValue?: number | null): number {
   const target = targetValue ?? 100;
 
   switch (type) {
     case "percentage":
-      // Generate value 5-15% below target for percentages
       return Math.max(0, Math.min(100, target - Math.random() * 10 - 5));
-
     case "duration":
-      // Generate value 10-30% below target for durations (faster is better)
       return Math.max(
         1,
         target - Math.random() * (target * 0.2) - target * 0.1,
       );
-
     case "rate":
-      // Generate value 20-40% below target for error rates (lower is better)
       return Math.max(
         0,
         target - Math.random() * (target * 0.2) - target * 0.2,
       );
-
     case "number":
-      // Generate value 5-15% below target for numbers
       return Math.max(
         0,
         target - Math.random() * (target * 0.1) - target * 0.05,
       );
-
     default:
       return target * 0.9;
   }
 }
 
 export const metricRouter = createTRPCRouter({
-  /**
-   * Get all metrics
-   */
-  getAll: protectedProcedure.query(async ({ ctx }) => {
+  getAll: workspaceProcedure.query(async ({ ctx }) => {
     return ctx.db.metric.findMany({
       orderBy: { name: "asc" },
     });
   }),
 
-  /**
-   * Create new metric
-   */
-  create: protectedProcedure
+  getByTeam: workspaceProcedure
+    .input(z.object({ teamId: z.string() }))
+    .query(async ({ ctx, input }) => {
+      const team = await ctx.db.team.findUnique({
+        where: { id: input.teamId },
+      });
+
+      if (!team) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Team not found" });
+      }
+
+      if (team.organizationId !== ctx.workspace.organizationId) {
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "Access denied to team metrics",
+        });
+      }
+
+      return ctx.db.metric.findMany({
+        orderBy: { name: "asc" },
+      });
+    }),
+
+  create: workspaceProcedure
     .input(
       z.object({
         name: z.string().min(1).max(100),
@@ -70,10 +75,7 @@ export const metricRouter = createTRPCRouter({
       });
     }),
 
-  /**
-   * Update metric
-   */
-  update: protectedProcedure
+  update: workspaceProcedure
     .input(
       z.object({
         id: z.string(),
@@ -92,11 +94,7 @@ export const metricRouter = createTRPCRouter({
       });
     }),
 
-  /**
-   * Generate mock data for a metric
-   * Uses simple algorithm for now, can be enhanced with AI generation later
-   */
-  generateMockData: protectedProcedure
+  generateMockData: workspaceProcedure
     .input(z.object({ id: z.string() }))
     .mutation(async ({ ctx, input }) => {
       const metric = await ctx.db.metric.findUnique({
@@ -110,29 +108,21 @@ export const metricRouter = createTRPCRouter({
         });
       }
 
-      // Generate mock value
       const mockValue = generateMockValue(metric.type, metric.targetValue);
-
-      // Store the prompt used for generation (for future AI implementation)
       const prompt = `Generate a realistic ${metric.type} value for the metric "${metric.name}". ${metric.description || ""}. Target: ${metric.targetValue || "none"}. Unit: ${metric.unit || "none"}`;
 
-      // Update metric with generated value
       return ctx.db.metric.update({
         where: { id: input.id },
         data: {
-          currentValue: Math.round(mockValue * 100) / 100, // Round to 2 decimal places
+          currentValue: Math.round(mockValue * 100) / 100,
           mockDataPrompt: prompt,
         },
       });
     }),
 
-  /**
-   * Delete metric (only if not used by any roles)
-   */
-  delete: protectedProcedure
+  delete: workspaceProcedure
     .input(z.object({ id: z.string() }))
     .mutation(async ({ ctx, input }) => {
-      // Check if metric is used by any roles
       const rolesUsingMetric = await ctx.db.role.count({
         where: { metricId: input.id },
       });
@@ -144,7 +134,6 @@ export const metricRouter = createTRPCRouter({
         });
       }
 
-      // Delete metric
       await ctx.db.metric.delete({
         where: { id: input.id },
       });
