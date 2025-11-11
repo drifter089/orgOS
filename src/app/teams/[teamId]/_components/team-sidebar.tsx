@@ -18,6 +18,7 @@ import {
   SidebarSeparator,
 } from "@/components/ui/sidebar";
 import { Skeleton } from "@/components/ui/skeleton";
+import { cn } from "@/lib/utils";
 import { api } from "@/trpc/react";
 
 import { useTeamStore } from "../store/team-store";
@@ -32,11 +33,9 @@ interface TeamSidebarProps extends ComponentProps<typeof Sidebar> {
 
 function MemberCard({
   user,
-  userId,
   roleCount,
 }: {
   user: User | Record<string, unknown>;
-  userId: string;
   roleCount: number;
 }) {
   const userObj = user as Record<string, unknown>;
@@ -143,62 +142,91 @@ function RolesList({ teamId }: { teamId: string }) {
 
   return (
     <div className="space-y-2.5">
-      {roles.map((role) => (
-        <div
-          key={role.id}
-          className="group bg-card hover:bg-accent/50 relative flex items-start gap-3 rounded-lg border p-3 transition-colors"
-        >
-          <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-2">
-              <div
-                className="border-background h-3 w-3 flex-shrink-0 rounded-full border-2 shadow-sm"
-                style={{
-                  backgroundColor: role.color,
-                  boxShadow: `0 0 0 1px ${role.color}40`,
-                }}
-                aria-label={`Role color: ${role.color}`}
-              />
-              <h4 className="truncate text-sm leading-tight font-semibold">
-                {role.title}
-              </h4>
+      {roles.map((role) => {
+        const isPending = Boolean(
+          "isPending" in role && (role as { isPending?: boolean }).isPending,
+        );
+
+        return (
+          <div
+            key={role.id}
+            className={cn(
+              "group bg-card hover:bg-accent/50 relative flex items-start gap-3 rounded-lg border p-3 transition-colors",
+              isPending && "opacity-60",
+            )}
+          >
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-2">
+                <div
+                  className="border-background h-3 w-3 flex-shrink-0 rounded-full border-2 shadow-sm"
+                  style={{
+                    backgroundColor: role.color,
+                    boxShadow: `0 0 0 1px ${role.color}40`,
+                  }}
+                  aria-label={`Role color: ${role.color}`}
+                />
+                <h4 className="truncate text-sm leading-tight font-semibold">
+                  {role.title}
+                </h4>
+                {isPending && (
+                  <div className="flex items-center gap-1">
+                    <div className="bg-primary h-1.5 w-1.5 animate-pulse rounded-full" />
+                    <div
+                      className="bg-primary h-1.5 w-1.5 animate-pulse rounded-full"
+                      style={{ animationDelay: "0.2s" }}
+                    />
+                    <div
+                      className="bg-primary h-1.5 w-1.5 animate-pulse rounded-full"
+                      style={{ animationDelay: "0.4s" }}
+                    />
+                  </div>
+                )}
+              </div>
+              <p className="text-muted-foreground mt-1.5 line-clamp-2 text-xs leading-relaxed">
+                {role.purpose}
+              </p>
+              {role.metric && (
+                <Badge
+                  variant="outline"
+                  className="border-primary/20 mt-2 text-xs font-medium"
+                >
+                  {role.metric.name}
+                </Badge>
+              )}
+              {isPending && (
+                <p className="text-muted-foreground mt-1 text-xs italic">
+                  Saving...
+                </p>
+              )}
             </div>
-            <p className="text-muted-foreground mt-1.5 line-clamp-2 text-xs leading-relaxed">
-              {role.purpose}
-            </p>
-            {role.metric && (
-              <Badge
-                variant="outline"
-                className="border-primary/20 mt-2 text-xs font-medium"
+            {!isPending && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="text-muted-foreground hover:text-destructive hover:bg-destructive/10 h-8 w-8 flex-shrink-0 opacity-0 transition-all group-hover:opacity-100"
+                onClick={() => {
+                  if (
+                    confirm(
+                      `Are you sure you want to delete the role "${role.title}"? This will also remove it from the canvas.`,
+                    )
+                  ) {
+                    setDeletingRoleId(role.id);
+                    deleteRole.mutate({ id: role.id });
+                  }
+                }}
+                disabled={deletingRoleId === role.id}
+                aria-label={`Delete ${role.title}`}
               >
-                {role.metric.name}
-              </Badge>
+                {deletingRoleId === role.id ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Trash2 className="h-4 w-4" />
+                )}
+              </Button>
             )}
           </div>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="text-muted-foreground hover:text-destructive hover:bg-destructive/10 h-8 w-8 flex-shrink-0 opacity-0 transition-all group-hover:opacity-100"
-            onClick={() => {
-              if (
-                confirm(
-                  `Are you sure you want to delete the role "${role.title}"? This will also remove it from the canvas.`,
-                )
-              ) {
-                setDeletingRoleId(role.id);
-                deleteRole.mutate({ id: role.id });
-              }
-            }}
-            disabled={deletingRoleId === role.id}
-            aria-label={`Delete ${role.title}`}
-          >
-            {deletingRoleId === role.id ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <Trash2 className="h-4 w-4" />
-            )}
-          </Button>
-        </div>
-      ))}
+        );
+      })}
     </div>
   );
 }
@@ -303,7 +331,6 @@ export function TeamSidebar({
                   <MemberCard
                     key={member.membership.id}
                     user={member.user}
-                    userId={member.user.id}
                     roleCount={roleCountByUser[member.user.id] ?? 0}
                   />
                 ))

@@ -25,6 +25,7 @@ export type RoleNodeData = {
   assignedUserId?: string | null;
   assignedUserName?: string;
   color?: string;
+  isPending?: boolean;
 };
 
 export type RoleNode = Node<RoleNodeData, "role-node">;
@@ -36,12 +37,15 @@ function RoleNodeComponent({ data, selected }: NodeProps<RoleNode>) {
       ? data.purpose.substring(0, 50) + "..."
       : data.purpose;
 
+  const isPending = data.isPending ?? false;
+
   return (
     <div
       className={cn(
         "bg-card rounded-lg border-2 transition-all duration-200 hover:shadow-lg",
         "max-w-[280px] min-w-[280px]",
         selected && "ring-primary ring-2 ring-offset-2",
+        isPending && "cursor-not-allowed opacity-60",
       )}
       style={{
         borderColor: color,
@@ -66,6 +70,19 @@ function RoleNodeComponent({ data, selected }: NodeProps<RoleNode>) {
       >
         <User className="h-5 w-5" style={{ color }} />
         <h3 className="truncate text-sm font-semibold">{data.title}</h3>
+        {isPending && (
+          <div className="ml-auto flex items-center gap-1">
+            <div className="bg-primary h-1.5 w-1.5 animate-pulse rounded-full" />
+            <div
+              className="bg-primary h-1.5 w-1.5 animate-pulse rounded-full"
+              style={{ animationDelay: "0.2s" }}
+            />
+            <div
+              className="bg-primary h-1.5 w-1.5 animate-pulse rounded-full"
+              style={{ animationDelay: "0.4s" }}
+            />
+          </div>
+        )}
       </div>
 
       {/* Body */}
