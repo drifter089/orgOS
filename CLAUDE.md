@@ -41,11 +41,16 @@ pnpm format:check     # Check formatting with Prettier
 pnpm format:write     # Format code with Prettier
 
 # Database
-pnpm db:generate      # Generate Prisma client and run migrations
-pnpm db:migrate       # Deploy migrations to database
-pnpm db:push          # Push schema changes without migrations
+pnpm db:generate      # Generate Prisma client (TypeScript types)
+pnpm db:migrate       # Deploy migrations to database (production-safe)
+pnpm db:push          # Push schema changes without migrations (dev only, can lose data!)
 pnpm db:seed          # Seed database with sample metrics
 pnpm db:studio        # Open Prisma Studio GUI
+
+# Database Development Workflow
+pnpm prisma migrate dev              # Create and apply migration (use this when changing schema)
+pnpm prisma migrate dev --create-only # Create migration without applying
+pnpm prisma migrate status            # Check migration status
 
 # Testing
 pnpm exec playwright test                 # Run all Playwright tests
@@ -209,7 +214,6 @@ Import sorting: Uses @trivago/prettier-plugin-sort-imports with inline type impo
 ## Database
 
 - PostgreSQL database configured in prisma/schema.prisma
-- Use `pnpm db:generate` after schema changes to update client
 - The db client is a singleton exported from src/server/db.ts
 - In development, Prisma logs all queries, errors, and warnings
 
@@ -222,6 +226,119 @@ Import sorting: Uses @trivago/prettier-plugin-sort-imports with inline type impo
 - **Post**: Simple demo model for tRPC examples
 
 See prisma/schema.prisma for complete relationships and indexes.
+
+### Database Migration Workflow
+
+**IMPORTANT:** This project uses Prisma Migrate for production-safe database migrations. Never use `db:push` in production.
+
+#### Initial Setup (First-Time Only)
+
+If your database already has tables (from `db:push`), you need to baseline migrations:
+
+```bash
+# 1. Create migration files without applying them
+pnpm prisma migrate dev --create-only --name init
+
+# 2. Mark the migration as already applied (since tables exist)
+pnpm prisma migrate resolve --applied "YYYYMMDDHHMMSS_init"
+
+# 3. Commit the prisma/migrations folder
+git add prisma/migrations
+git commit -m "chore: add initial database migrations"
+```
+
+#### Making Schema Changes (Development Workflow)
+
+When you need to update the database schema:
+
+```bash
+# 1. Edit prisma/schema.prisma
+
+# 2. Create and apply migration (this will prompt for migration name)
+pnpm prisma migrate dev
+
+# This command does 3 things automatically:
+#   - Creates migration SQL files in prisma/migrations/
+#   - Applies the migration to your development database
+#   - Regenerates Prisma Client
+
+# 3. Commit migration files to git
+git add prisma/migrations prisma/schema.prisma
+git commit -m "feat: add new field to Team model"
+```
+
+**Migration Best Practices:**
+
+- ✅ Use descriptive migration names: `add_user_role`, `make_metric_optional`
+- ✅ Test migrations on a staging database before production
+- ✅ Always commit migration files to version control
+- ✅ Review generated SQL before applying to production
+- ❌ Never edit migration files after they've been committed
+- ❌ Never use `db:push` in production (it can cause data loss)
+
+#### Production Deployment
+
+**Option 1: Manual Deployment (Recommended)**
+
+```bash
+# Deploy migrations before starting the app
+pnpm db:migrate  # Runs: prisma migrate deploy
+pnpm build
+pnpm start
+```
+
+**Option 2: Automated in Build Script**
+
+Update your production build command to:
+
+```bash
+pnpm db:migrate && pnpm build
+```
+
+Or in your deployment platform (Vercel, Railway, etc.), set:
+
+- **Build Command:** `pnpm db:migrate && pnpm build`
+- **Start Command:** `pnpm start`
+
+**How `prisma migrate deploy` Works:**
+
+- ✅ Applies pending migrations in order
+- ✅ Records migration history in `_prisma_migrations` table
+- ✅ Skips already-applied migrations (safe for zero-downtime)
+- ✅ Never prompts for input (CI/CD safe)
+- ✅ Rolls back transaction if any migration fails
+- ❌ Does NOT generate Prisma Client (done at build time)
+
+#### Emergency: Fixing Migration Issues
+
+**Scenario 1: Migration failed in production**
+
+```bash
+# Check migration status
+pnpm prisma migrate status
+
+# If migration is marked as failed, resolve it
+pnpm prisma migrate resolve --rolled-back "YYYYMMDDHHMMSS_migration_name"
+
+# Fix the issue in code/schema, create new migration
+pnpm prisma migrate dev --name fix_previous_migration
+```
+
+**Scenario 2: Need to edit schema without migration (development only)**
+
+```bash
+# Push schema changes directly (bypasses migrations)
+pnpm db:push
+
+# WARNING: Only use in development! Can cause data loss!
+```
+
+#### Viewing Database
+
+```bash
+# Open Prisma Studio (visual database browser)
+pnpm db:studio
+```
 
 ## Working with Components
 
