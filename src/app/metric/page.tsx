@@ -15,6 +15,15 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { api } from "@/trpc/react";
 
 export default function MetricPage() {
@@ -22,9 +31,31 @@ export default function MetricPage() {
   const [isLoading, setIsLoading] = useState(false);
   const pollingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
+  const [selectedConnection, setSelectedConnection] = useState<string>("");
+  const [endpoint, setEndpoint] = useState<string>("");
+  const [method, setMethod] = useState<
+    "GET" | "POST" | "PUT" | "PATCH" | "DELETE"
+  >("GET");
+  const [fetchedData, setFetchedData] = useState<unknown>(null);
+  const [dataError, setDataError] = useState<string>("");
+  const [isFetching, setIsFetching] = useState(false);
+
   const { data: integrations, refetch: refetchIntegrations } =
     api.integration.list.useQuery();
   const { data: stats } = api.integration.stats.useQuery();
+
+  const fetchDataMutation = api.integration.fetchData.useMutation({
+    onSuccess: (data) => {
+      setFetchedData(data.data);
+      setDataError("");
+      setIsFetching(false);
+    },
+    onError: (error) => {
+      setDataError(error.message);
+      setFetchedData(null);
+      setIsFetching(false);
+    },
+  });
 
   // Revoke mutation
   const revokeMutation = api.integration.revoke.useMutation({
@@ -136,6 +167,21 @@ export default function MetricPage() {
     }
   };
 
+  const handleFetchData = () => {
+    if (!selectedConnection || !endpoint) {
+      setDataError("Please select an integration and enter an endpoint");
+      return;
+    }
+
+    setIsFetching(true);
+    setDataError("");
+    fetchDataMutation.mutate({
+      connectionId: selectedConnection,
+      endpoint,
+      method,
+    });
+  };
+
   return (
     <div className="container mx-auto max-w-4xl space-y-6 p-8">
       {/* Header Card */}
@@ -188,6 +234,97 @@ export default function MetricPage() {
                 <p className="text-2xl font-bold text-red-600">{stats.error}</p>
               </div>
             </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Data Explorer */}
+      {integrations && integrations.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Data Explorer</CardTitle>
+            <CardDescription>
+              Test API endpoints from your connected integrations
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="integration">Integration</Label>
+                <Select
+                  value={selectedConnection}
+                  onValueChange={setSelectedConnection}
+                >
+                  <SelectTrigger id="integration">
+                    <SelectValue placeholder="Select an integration" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {integrations.map((integration) => (
+                      <SelectItem
+                        key={integration.id}
+                        value={integration.connectionId}
+                      >
+                        {integration.integrationId}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="method">HTTP Method</Label>
+                <Select
+                  value={method}
+                  onValueChange={(value) => setMethod(value as typeof method)}
+                >
+                  <SelectTrigger id="method">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="GET">GET</SelectItem>
+                    <SelectItem value="POST">POST</SelectItem>
+                    <SelectItem value="PUT">PUT</SelectItem>
+                    <SelectItem value="PATCH">PATCH</SelectItem>
+                    <SelectItem value="DELETE">DELETE</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="endpoint">API Endpoint</Label>
+              <Input
+                id="endpoint"
+                placeholder="/user or /repos or /me"
+                value={endpoint}
+                onChange={(e) => setEndpoint(e.target.value)}
+              />
+              <p className="text-muted-foreground text-xs">
+                Enter the API path (e.g., /user for GitHub, /me for PostHog)
+              </p>
+            </div>
+
+            <Button
+              onClick={handleFetchData}
+              disabled={isFetching || !selectedConnection || !endpoint}
+            >
+              {isFetching ? "Fetching..." : "Fetch Data"}
+            </Button>
+
+            {dataError && (
+              <Alert variant="destructive">
+                <AlertDescription>{dataError}</AlertDescription>
+              </Alert>
+            )}
+
+            {fetchedData && (
+              <div className="space-y-2">
+                <Label>Response Data</Label>
+                <pre className="bg-muted max-h-96 overflow-auto rounded-lg border p-4 text-xs">
+                  {JSON.stringify(fetchedData, null, 2)}
+                </pre>
+              </div>
+            )}
           </CardContent>
         </Card>
       )}
