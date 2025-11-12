@@ -54,17 +54,14 @@ export default function MetricPage() {
       const data = (await response.json()) as { sessionToken: string };
       setStatus("Opening Nango Connect UI...");
 
-      // Step 2: Initialize Nango and open connect UI
-      const nango = new Nango();
-      const connect = nango.openConnectUI({
+      const nango = new Nango({ connectSessionToken: data.sessionToken });
+      nango.openConnectUI({
         onEvent: (event) => {
           if (event.type === "connect") {
             setStatus(
               `✓ Connected! Integration: ${event.payload.providerConfigKey} - Webhook will save to database`,
             );
             setIsLoading(false);
-            // Webhook will handle saving to database
-            // Refetch after a short delay to allow webhook to process
             setTimeout(() => {
               void refetchIntegrations();
             }, 2000);
@@ -74,8 +71,6 @@ export default function MetricPage() {
           }
         },
       });
-
-      connect.setSessionToken(data.sessionToken);
     } catch (error) {
       console.error("Connection error:", error);
       setStatus(
