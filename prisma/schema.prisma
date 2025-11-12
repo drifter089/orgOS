@@ -94,10 +94,17 @@ model Metric {
     // KPI properties
     type           String   // "percentage", "number", "duration", "rate"
     targetValue    Float?   // Target threshold
-    currentValue   Float?   // Current value (mock data)
+    currentValue   Float?   // Current value (synced from Nango or mock data)
     unit           String?  // "ms", "%", "requests", etc.
 
-    // Mock data generation
+    // Nango sync configuration
+    nangoProvider  String?  // Provider: 'posthog', 'google-sheets', 'slack', etc.
+    nangoSync      String?  // Sync name: 'active-users', 'conversion-rate', etc.
+    nangoModel     String?  // Model name: 'PostHogPerson', 'SlackMessage', etc.
+    nangoJsonPath  String?  // JSON path to extract value from synced record
+    lastSyncedAt   DateTime? // When Nango last updated this metric
+
+    // Mock data generation (for metrics not connected to integrations)
     mockDataPrompt String?  @db.Text // AI prompt for generating mock data
 
     roles          Role[]   // One metric can be used by many roles
@@ -107,6 +114,7 @@ model Metric {
 
     @@index([organizationId])
     @@index([name])
+    @@index([nangoProvider, nangoSync])
 }
 
 // Nango Integration Connections

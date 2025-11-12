@@ -216,4 +216,197 @@ export const integrationRouter = createTRPCRouter({
 
     return stats;
   }),
+
+  // ===== NEW: Nango Sync Procedures =====
+
+  // List available syncs for a provider
+  listAvailableSyncs: protectedProcedure
+    .input(z.object({ integrationId: z.string() }))
+    .query(async ({ input }) => {
+      // Map of provider to available syncs (from nango.yaml)
+      const syncMap: Record<string, string[]> = {
+        posthog: ["active-users", "total-events", "conversion-rate"],
+        "google-sheets": ["sheet-rows", "sheet-metadata"],
+        slack: ["channel-messages", "active-users", "channels"],
+      };
+
+      return syncMap[input.integrationId] || [];
+    }),
+
+  // Get synced records from Nango's cache
+  getSyncedRecords: protectedProcedure
+    .input(
+      z.object({
+        connectionId: z.string(),
+        integrationId: z.string(),
+        model: z.string(),
+        limit: z.number().min(1).max(1000).default(100),
+        cursor: z.string().optional(),
+        sortBy: z.string().optional(),
+        order: z.enum(["asc", "desc"]).optional(),
+      }),
+    )
+    .query(async ({ ctx, input }) => {
+      const workspace = await getWorkspaceContext(ctx.user.id);
+
+      // Verify integration access
+      const integration = await ctx.db.integration.findUnique({
+        where: { connectionId: input.connectionId },
+      });
+
+      if (!integration) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Integration not found",
+        });
+      }
+
+      if (integration.organizationId !== workspace.organizationId) {
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "Access denied",
+        });
+      }
+
+      // Query Nango's cache for synced records
+      const nango = new Nango({ secretKey: env.NANGO_SECRET_KEY_DEV });
+
+      try {
+        const result = await nango.listRecords({
+          providerConfigKey: input.integrationId,
+          connectionId: input.connectionId,
+          model: input.model,
+          limit: input.limit,
+          cursor: input.cursor,
+        });
+
+        return {
+          records: result.records,
+          nextCursor: result.next_cursor,
+          totalCount: result.records.length,
+        };
+      } catch (error) {
+        console.error("[Get Synced Records]", error);
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message:
+            error instanceof Error
+              ? error.message
+              : "Failed to fetch synced records",
+        });
+      }
+    }),
+
+  // Trigger a sync manually
+  triggerSync: protectedProcedure
+    .input(
+      z.object({
+        connectionId: z.string(),
+        integrationId: z.string(),
+        syncName: z.string(),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const workspace = await getWorkspaceContext(ctx.user.id);
+
+      // Verify integration access
+      const integration = await ctx.db.integration.findUnique({
+        where: { connectionId: input.connectionId },
+      });
+
+      if (!integration) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Integration not found",
+        });
+      }
+
+      if (integration.organizationId !== workspace.organizationId) {
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "Access denied",
+        });
+      }
+
+      // Trigger sync via Nango API
+      const nango = new Nango({ secretKey: env.NANGO_SECRET_KEY_DEV });
+
+      try {
+        await nango.triggerSync(
+          input.integrationId,
+          [input.syncName],
+          input.connectionId
+        );
+
+        return {
+          success: true,
+          message: `Triggered ${input.syncName} sync for ${input.integrationId}`,
+        };
+      } catch (error) {
+        console.error("[Trigger Sync]", error);
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message:
+            error instanceof Error ? error.message : "Failed to trigger sync",
+        });
+      }
+    }),
+
+  // Get sync status and metadata
+  getSyncStatus: protectedProcedure
+    .input(
+      z.object({
+        connectionId: z.string(),
+        integrationId: z.string(),
+      }),
+    )
+    .query(async ({ ctx, input }) => {
+      const workspace = await getWorkspaceContext(ctx.user.id);
+
+      // Verify integration access
+      const integration = await ctx.db.integration.findUnique({
+        where: { connectionId: input.connectionId },
+      });
+
+      if (!integration) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Integration not found",
+        });
+      }
+
+      if (integration.organizationId !== workspace.organizationId) {
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "Access denied",
+        });
+      }
+
+      // Get connection and sync status from Nango
+      const nango = new Nango({ secretKey: env.NANGO_SECRET_KEY_DEV });
+
+      try {
+        const connection = await nango.getConnection(
+          input.integrationId,
+          input.connectionId
+        );
+
+        return {
+          connectionId: connection.id,
+          provider: connection.provider_config_key,
+          createdAt: connection.created_at,
+          metadata: connection.metadata,
+          connectionConfig: connection.connection_config,
+        };
+      } catch (error) {
+        console.error("[Get Sync Status]", error);
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message:
+            error instanceof Error
+              ? error.message
+              : "Failed to get sync status",
+        });
+      }
+    }),
 });

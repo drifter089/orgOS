@@ -317,14 +317,14 @@ export default function MetricPage() {
               </Alert>
             )}
 
-            {fetchedData && (
+            {fetchedData !== null && fetchedData !== undefined ? (
               <div className="space-y-2">
                 <Label>Response Data</Label>
                 <pre className="bg-muted max-h-96 overflow-auto rounded-lg border p-4 text-xs">
                   {JSON.stringify(fetchedData, null, 2)}
                 </pre>
               </div>
-            )}
+            ) : null}
           </CardContent>
         </Card>
       )}
@@ -367,6 +367,9 @@ export default function MetricPage() {
                         {integration.status}
                       </Badge>
                     </div>
+                    <p className="text-muted-foreground font-mono text-xs">
+                      Connection ID: {integration.connectionId}
+                    </p>
                     <p className="text-muted-foreground text-sm">
                       Connected{" "}
                       {new Date(integration.createdAt).toLocaleDateString()}

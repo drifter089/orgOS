@@ -55,3 +55,7 @@ yarn-error.log*
 /playwright/.cache/
 /playwright/.auth/
 /tests/.auth/
+
+# Nango
+/nango-integrations/.nango/
+/nango-integrations/.env

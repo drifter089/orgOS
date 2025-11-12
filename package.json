@@ -23,6 +23,9 @@
     "sync:docs:check": "node scripts/sync-docs.js --check",
     "sync:docs:fix": "node scripts/sync-docs.js --fix",
     "ai-sync:docs": "node scripts/ai-sync-docs.js",
+    "nango:dev": "cd nango-integrations && nango dev",
+    "nango:deploy": "cd nango-integrations && nango deploy",
+    "nango:generate": "cd nango-integrations && nango generate",
     "typecheck": "tsc --noEmit",
     "prepare": "husky"
   },
@@ -120,6 +123,7 @@
     "husky": "^9.1.7",
     "iron-session": "^8.0.4",
     "lint-staged": "^16.2.6",
+    "nango": "^0.69.12",
     "playwright": "^1.56.1",
     "postcss": "^8.5.3",
     "prettier": "^3.5.3",
