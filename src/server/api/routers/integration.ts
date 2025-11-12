@@ -74,7 +74,6 @@ export const integrationRouter = createTRPCRouter({
         where: { connectionId: input.connectionId },
         data: {
           status: "revoked",
-          updatedAt: new Date(),
         },
       });
 
@@ -115,7 +114,6 @@ export const integrationRouter = createTRPCRouter({
           lastSyncAt: input.error ? undefined : new Date(),
           status: input.error ? "error" : "active",
           errorMessage: input.error ?? null,
-          updatedAt: new Date(),
         },
       });
 

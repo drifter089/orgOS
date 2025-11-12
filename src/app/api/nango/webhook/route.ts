@@ -101,7 +101,6 @@ async function handleConnectionCreation(payload: NangoWebhookPayload) {
         displayName: endUser.displayName,
       },
       connectedBy: endUser.endUserId,
-      updatedAt: new Date(),
     },
     create: {
       connectionId,
@@ -132,7 +131,6 @@ async function handleConnectionDeletion(payload: NangoWebhookPayload) {
     where: { connectionId },
     data: {
       status: "revoked",
-      updatedAt: new Date(),
     },
   });
 }
