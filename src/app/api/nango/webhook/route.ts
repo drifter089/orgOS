@@ -92,27 +92,18 @@ async function handleConnectionCreation(payload: NangoWebhookPayload) {
     );
   }
 
-  const existingConnection = await db.integration.findUnique({
+  await db.integration.upsert({
     where: { connectionId },
-  });
-
-  if (existingConnection) {
-    await db.integration.update({
-      where: { connectionId },
-      data: {
-        status: "active",
-        metadata: {
-          email: endUser.email,
-          displayName: endUser.displayName,
-        },
-        updatedAt: new Date(),
+    update: {
+      status: "active",
+      metadata: {
+        email: endUser.email,
+        displayName: endUser.displayName,
       },
-    });
-    return;
-  }
-
-  await db.integration.create({
-    data: {
+      connectedBy: endUser.endUserId,
+      updatedAt: new Date(),
+    },
+    create: {
       connectionId,
       integrationId: providerConfigKey,
       organizationId,
