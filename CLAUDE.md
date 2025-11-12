@@ -2,6 +2,22 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## IMPORTANT: Documentation Policy
+
+**DO NOT create random .md documentation files when implementing features.**
+
+When working on features or implementing code:
+
+- ❌ **DO NOT** create files like: `IMPLEMENTATION_SUMMARY.md`, `WEBHOOK_FLOW.md`, `NANGO_SETUP.md`, `ARCHITECTURE.md`, etc.
+- ❌ **DO NOT** create tutorial files, setup guides, or explanation documents in the root directory
+- ✅ **DO** provide explanations and summaries in chat messages
+- ✅ **DO** add comments in code where necessary
+- ✅ **DO** update existing documentation (CLAUDE.md, README.md) if absolutely required
+
+**Exception**: Only create documentation files if the user explicitly requests it (e.g., "create a setup guide" or "write documentation for this feature").
+
+The codebase should remain clean. All explanations can be provided through chat messages.
+
 ## Project Overview
 
 This is a T3 Stack application built with Next.js 15, tRPC, Prisma, and WorkOS AuthKit for authentication. The project uses pnpm as the package manager and includes a comprehensive documentation system with MDX support.

@@ -12,6 +12,8 @@ export const env = createEnv({
       .enum(["development", "test", "production"])
       .default("development"),
     WORKOS_DIR_ID: z.string().optional(),
+    NANGO_SECRET_KEY_DEV: z.string().min(1),
+    NANGO_WEBHOOK_SECRET: z.string().optional(), // Optional webhook signature validation
   },
 
   /**
@@ -31,6 +33,8 @@ export const env = createEnv({
     DATABASE_URL: process.env.DATABASE_URL,
     NODE_ENV: process.env.NODE_ENV,
     WORKOS_DIR_ID: process.env.WORKOS_DIR_ID,
+    NANGO_SECRET_KEY_DEV: process.env.NANGO_SECRET_KEY_DEV,
+    NANGO_WEBHOOK_SECRET: process.env.NANGO_WEBHOOK_SECRET,
     // NEXT_PUBLIC_CLIENTVAR: process.env.NEXT_PUBLIC_CLIENTVAR,
   },
   /**

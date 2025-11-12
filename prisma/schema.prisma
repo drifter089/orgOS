@@ -108,3 +108,36 @@ model Metric {
     @@index([organizationId])
     @@index([name])
 }
+
+// Nango Integration Connections
+
+model Integration {
+    id             String   @id @default(cuid())
+
+    // Nango connection identifiers
+    connectionId   String   @unique // UUID from Nango (required for API calls)
+    integrationId  String   // Provider name: 'github', 'google', 'slack', etc.
+
+    // Ownership (organization-level connections)
+    organizationId String   // WorkOS organization ID
+    connectedBy    String   // WorkOS user ID who authorized the connection
+
+    // Connection state
+    status         String   @default("active") // "active", "revoked", "error", "expired"
+
+    // Provider-specific data
+    metadata       Json?    // Scopes, token expiry, provider user info, etc.
+
+    // Audit trail
+    lastSyncAt     DateTime? // Last successful API call
+    errorMessage   String?   // Last error if status = "error"
+
+    createdAt      DateTime @default(now())
+    updatedAt      DateTime @updatedAt
+
+    @@index([organizationId])
+    @@index([connectionId])
+    @@index([connectedBy])
+    @@index([integrationId])
+    @@index([status])
+}
