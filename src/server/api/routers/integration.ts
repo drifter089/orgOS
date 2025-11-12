@@ -1,12 +1,10 @@
+import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 
 import { createTRPCRouter, protectedProcedure } from "@/server/api/trpc";
 import { getWorkspaceContext } from "@/server/api/utils/authorization";
 
 export const integrationRouter = createTRPCRouter({
-  /**
-   * List all integrations for the user's organization
-   */
   list: protectedProcedure.query(async ({ ctx }) => {
     const workspace = await getWorkspaceContext(ctx.user.id);
 
@@ -33,12 +31,17 @@ export const integrationRouter = createTRPCRouter({
       });
 
       if (!integration) {
-        throw new Error("Integration not found");
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Integration not found",
+        });
       }
 
-      // Verify user has access to this integration
       if (integration.organizationId !== workspace.organizationId) {
-        throw new Error("Access denied");
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "Access denied",
+        });
       }
 
       return integration;
@@ -54,12 +57,17 @@ export const integrationRouter = createTRPCRouter({
       });
 
       if (!integration) {
-        throw new Error("Integration not found");
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Integration not found",
+        });
       }
 
-      // Verify user has access to this integration
       if (integration.organizationId !== workspace.organizationId) {
-        throw new Error("Access denied");
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "Access denied",
+        });
       }
 
       await ctx.db.integration.update({
@@ -88,12 +96,17 @@ export const integrationRouter = createTRPCRouter({
       });
 
       if (!integration) {
-        throw new Error("Integration not found");
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Integration not found",
+        });
       }
 
-      // Verify user has access to this integration
       if (integration.organizationId !== workspace.organizationId) {
-        throw new Error("Access denied");
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "Access denied",
+        });
       }
 
       await ctx.db.integration.update({

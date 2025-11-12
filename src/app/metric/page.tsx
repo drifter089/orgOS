@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import Nango from "@nangohq/frontend";
 import { CheckCircle2, Trash2, XCircle } from "lucide-react";
@@ -20,8 +20,8 @@ import { api } from "@/trpc/react";
 export default function MetricPage() {
   const [status, setStatus] = useState<string>("");
   const [isLoading, setIsLoading] = useState(false);
+  const pollingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Fetch integrations and stats
   const { data: integrations, refetch: refetchIntegrations } =
     api.integration.list.useQuery();
   const { data: stats } = api.integration.stats.useQuery();
@@ -36,6 +36,59 @@ export default function MetricPage() {
       setStatus(`Error revoking integration: ${error.message}`);
     },
   });
+
+  useEffect(() => {
+    return () => {
+      if (pollingTimeoutRef.current) {
+        clearTimeout(pollingTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  const pollForIntegration = async (
+    connectionId: string,
+    maxAttempts = 10,
+    interval = 1000,
+  ) => {
+    let attempts = 0;
+
+    const poll = async (): Promise<void> => {
+      try {
+        attempts++;
+        const result = await refetchIntegrations();
+
+        if (
+          result.data?.some(
+            (integration) => integration.connectionId === connectionId,
+          )
+        ) {
+          setStatus("✓ Integration connected successfully!");
+          setIsLoading(false);
+          return;
+        }
+
+        if (attempts >= maxAttempts) {
+          setStatus(
+            "Integration webhook may be delayed. Please refresh the page to see your connection.",
+          );
+          setIsLoading(false);
+          return;
+        }
+
+        pollingTimeoutRef.current = setTimeout(() => {
+          void poll();
+        }, interval);
+      } catch (error) {
+        console.error("Error polling for integration:", error);
+        setStatus(
+          "Integration saved, but there was an error loading the list. Please refresh the page.",
+        );
+        setIsLoading(false);
+      }
+    };
+
+    await poll();
+  };
 
   const handleConnect = async () => {
     try {
@@ -59,12 +112,9 @@ export default function MetricPage() {
         onEvent: (event) => {
           if (event.type === "connect") {
             setStatus(
-              `✓ Connected! Integration: ${event.payload.providerConfigKey} - Webhook will save to database`,
+              `✓ Connected! Integration: ${event.payload.providerConfigKey} - Waiting for webhook...`,
             );
-            setIsLoading(false);
-            setTimeout(() => {
-              void refetchIntegrations();
-            }, 2000);
+            void pollForIntegration(event.payload.connectionId);
           } else if (event.type === "close") {
             setStatus("Connection flow closed");
             setIsLoading(false);
