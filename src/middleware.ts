@@ -5,6 +5,7 @@ export default authkitMiddleware({
     enabled: true,
     unauthenticatedPaths: [
       "/", // Public home page
+      "/api/nango/webhook", // Nango webhook endpoint (must be public for Nango servers)
     ],
   },
 });

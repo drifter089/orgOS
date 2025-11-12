@@ -3,8 +3,10 @@
 import { useState } from "react";
 
 import Nango from "@nangohq/frontend";
+import { CheckCircle2, Trash2, XCircle } from "lucide-react";
 
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -13,10 +15,27 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { api } from "@/trpc/react";
 
 export default function MetricPage() {
   const [status, setStatus] = useState<string>("");
   const [isLoading, setIsLoading] = useState(false);
+
+  // Fetch integrations and stats
+  const { data: integrations, refetch: refetchIntegrations } =
+    api.integration.list.useQuery();
+  const { data: stats } = api.integration.stats.useQuery();
+
+  // Revoke mutation
+  const revokeMutation = api.integration.revoke.useMutation({
+    onSuccess: () => {
+      void refetchIntegrations();
+      setStatus("Integration revoked successfully");
+    },
+    onError: (error) => {
+      setStatus(`Error revoking integration: ${error.message}`);
+    },
+  });
 
   const handleConnect = async () => {
     try {
@@ -41,9 +60,14 @@ export default function MetricPage() {
         onEvent: (event) => {
           if (event.type === "connect") {
             setStatus(
-              `✓ Connected! Integration: ${event.payload.integrationId}, Connection ID: ${event.payload.connectionId}`,
+              `✓ Connected! Integration: ${event.payload.providerConfigKey} - Webhook will save to database`,
             );
             setIsLoading(false);
+            // Webhook will handle saving to database
+            // Refetch after a short delay to allow webhook to process
+            setTimeout(() => {
+              void refetchIntegrations();
+            }, 2000);
           } else if (event.type === "close") {
             setStatus("Connection flow closed");
             setIsLoading(false);
@@ -61,18 +85,25 @@ export default function MetricPage() {
     }
   };
 
+  const handleRevoke = async (connectionId: string) => {
+    if (confirm("Are you sure you want to revoke this integration?")) {
+      revokeMutation.mutate({ connectionId });
+    }
+  };
+
   return (
-    <div className="container mx-auto max-w-2xl p-8">
+    <div className="container mx-auto max-w-4xl space-y-6 p-8">
+      {/* Header Card */}
       <Card>
         <CardHeader>
           <CardTitle>Connect 3rd Party Services</CardTitle>
           <CardDescription>
-            Test Nango integration by connecting to external APIs
+            Manage your organization&apos;s integrations with external APIs
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <Button onClick={handleConnect} disabled={isLoading} size="lg">
-            {isLoading ? "Connecting..." : "Connect Integration"}
+            {isLoading ? "Connecting..." : "Connect New Integration"}
           </Button>
 
           {status && (
@@ -80,15 +111,117 @@ export default function MetricPage() {
               <AlertDescription>{status}</AlertDescription>
             </Alert>
           )}
+        </CardContent>
+      </Card>
 
-          <div className="text-muted-foreground space-y-2 text-sm">
-            <p>Before testing:</p>
-            <ol className="list-inside list-decimal space-y-1">
-              <li>Configure an integration in your Nango dashboard</li>
-              <li>Set up OAuth credentials with the provider</li>
-              <li>Test the connection in Nango&apos;s Connections tab</li>
-            </ol>
-          </div>
+      {/* Stats Card */}
+      {stats && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Integration Statistics</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+              <div className="space-y-1">
+                <p className="text-muted-foreground text-sm">Total</p>
+                <p className="text-2xl font-bold">{stats.total}</p>
+              </div>
+              <div className="space-y-1">
+                <p className="text-muted-foreground text-sm">Active</p>
+                <p className="text-2xl font-bold text-green-600">
+                  {stats.active}
+                </p>
+              </div>
+              <div className="space-y-1">
+                <p className="text-muted-foreground text-sm">Revoked</p>
+                <p className="text-2xl font-bold text-gray-500">
+                  {stats.revoked}
+                </p>
+              </div>
+              <div className="space-y-1">
+                <p className="text-muted-foreground text-sm">Errors</p>
+                <p className="text-2xl font-bold text-red-600">{stats.error}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Connected Integrations */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Connected Integrations</CardTitle>
+          <CardDescription>
+            {integrations?.length
+              ? `${integrations.length} active integration${integrations.length > 1 ? "s" : ""}`
+              : "No integrations connected yet"}
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {integrations && integrations.length > 0 ? (
+            <div className="space-y-3">
+              {integrations.map((integration) => (
+                <div
+                  key={integration.id}
+                  className="flex items-center justify-between rounded-lg border p-4"
+                >
+                  <div className="flex-1 space-y-1">
+                    <div className="flex items-center gap-2">
+                      <h3 className="font-semibold capitalize">
+                        {integration.integrationId}
+                      </h3>
+                      <Badge
+                        variant={
+                          integration.status === "active"
+                            ? "default"
+                            : "secondary"
+                        }
+                      >
+                        {integration.status === "active" ? (
+                          <CheckCircle2 className="mr-1 h-3 w-3" />
+                        ) : (
+                          <XCircle className="mr-1 h-3 w-3" />
+                        )}
+                        {integration.status}
+                      </Badge>
+                    </div>
+                    <p className="text-muted-foreground text-sm">
+                      Connected{" "}
+                      {new Date(integration.createdAt).toLocaleDateString()}
+                    </p>
+                    {integration.lastSyncAt && (
+                      <p className="text-muted-foreground text-xs">
+                        Last sync:{" "}
+                        {new Date(integration.lastSyncAt).toLocaleString()}
+                      </p>
+                    )}
+                    {integration.errorMessage && (
+                      <p className="text-xs text-red-600">
+                        Error: {integration.errorMessage}
+                      </p>
+                    )}
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => handleRevoke(integration.connectionId)}
+                    disabled={revokeMutation.isPending}
+                  >
+                    <Trash2 className="h-4 w-4 text-red-600" />
+                  </Button>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="text-muted-foreground space-y-2 text-sm">
+              <p>Before connecting:</p>
+              <ol className="list-inside list-decimal space-y-1">
+                <li>Configure an integration in your Nango dashboard</li>
+                <li>Set up OAuth credentials with the provider</li>
+                <li>Test the connection in Nango&apos;s Connections tab</li>
+              </ol>
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>
