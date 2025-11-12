@@ -1,11 +1,11 @@
 import { createOpenRouter } from "@openrouter/ai-sdk-provider";
-import { streamText } from "ai";
+import { type CoreMessage, streamText } from "ai";
 
 import { env } from "@/env";
 
 export async function POST(req: Request) {
   try {
-    const { messages } = (await req.json()) as { messages: unknown };
+    const { messages } = (await req.json()) as { messages: CoreMessage[] };
 
     const openrouter = createOpenRouter({
       apiKey: env.OPENROUTER_API_KEY,
