@@ -146,7 +146,7 @@ export async function updateCustomIntegration(
     where: { id: integrationId },
   });
 
-  if (!integration || integration.type !== "custom") {
+  if (integration?.type !== "custom") {
     throw new Error("Integration not found or is not a custom integration");
   }
 

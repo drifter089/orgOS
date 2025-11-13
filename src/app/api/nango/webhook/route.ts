@@ -3,6 +3,8 @@ import { Nango } from "@nangohq/node";
 
 import { db } from "@/server/db";
 import { env } from "@/env";
+import { extractMetricValue } from "@/server/nango/nango-extractors";
+import { createMetricSnapshot } from "@/server/nango/snapshot-creator";
 
 /**
  * Unified Nango Webhook Handler
@@ -18,25 +20,6 @@ import { env } from "@/env";
  * - sync.success: Sync completed successfully
  * - sync.error: Sync failed
  * - records.created/updated/deleted: Data changes
- *
- * Auth payload:
- * {
- *   "type": "auth",
- *   "operation": "creation" | "update" | "deletion",
- *   "connectionId": "<UUID>",
- *   "providerConfigKey": "<INTEGRATION-ID>",
- *   "success": true | false,
- *   "endUser": { "endUserId": "<ID>", "tags": { "organizationId": "<ORG-ID>" } }
- * }
- *
- * Sync payload:
- * {
- *   "type": "sync.success" | "sync.error" | "records.*",
- *   "connectionId": "<UUID>",
- *   "providerConfigKey": "<INTEGRATION-ID>",
- *   "syncName": "<SYNC-NAME>",
- *   "model": "<MODEL-NAME>"
- * }
  */
 
 interface NangoWebhookPayload {
@@ -57,14 +40,14 @@ interface NangoWebhookPayload {
     };
   };
   error?: string;
-  records?: any[];
+  records?: unknown[];
 }
 
 export async function POST(request: NextRequest) {
   try {
     const payload = (await request.json()) as NangoWebhookPayload;
 
-    console.log(`[Nango Webhook] Received: ${payload.type}`);
+    console.info(`[Nango Webhook] Received: ${payload.type}`);
 
     // Route to appropriate handler based on event type
     if (payload.type === "auth") {
@@ -76,7 +59,7 @@ export async function POST(request: NextRequest) {
       return await handleSyncEvent(payload);
     }
 
-    console.log(`[Nango Webhook] Unknown event type: ${payload.type}`);
+    console.info(`[Nango Webhook] Unknown event type: ${payload.type}`);
     return NextResponse.json({ message: "Event type not handled" }, { status: 200 });
   } catch (error) {
     console.error("[Nango Webhook] Error:", error);
@@ -137,6 +120,7 @@ async function handleConnectionCreation(payload: NangoWebhookPayload) {
       organizationId,
       connectedBy: endUser.endUserId,
       status: "active",
+      type: "nango",
       metadata: {
         email: endUser.email,
         displayName: endUser.displayName,
@@ -148,39 +132,31 @@ async function handleConnectionCreation(payload: NangoWebhookPayload) {
 async function handleConnectionDeletion(payload: NangoWebhookPayload) {
   const { connectionId } = payload;
 
-  console.log(`[Nango Webhook] Connection deletion for: ${connectionId}`);
+  console.info(`[Nango Webhook] Connection deletion for: ${connectionId}`);
 
   const integration = await db.integration.findUnique({
     where: { connectionId },
   });
 
   if (!integration) {
-    console.log(`[Nango Webhook] Integration not found for connectionId: ${connectionId}`);
+    console.info(`[Nango Webhook] Integration not found for connectionId: ${connectionId}`);
     return;
   }
 
-  // OPTION 1: Soft delete (keep for audit trail)
-  // await db.integration.update({
-  //   where: { connectionId },
-  //   data: {
-  //     status: "revoked",
-  //   },
-  // });
-
-  // OPTION 2: Hard delete (remove from database completely)
+  // Hard delete (removes from database completely)
   await db.integration.delete({
     where: { connectionId },
   });
 
-  console.log(`[Nango Webhook] Successfully deleted integration from database: ${connectionId}`);
+  console.info(`[Nango Webhook] Successfully deleted integration: ${connectionId}`);
 }
 
 // ===== SYNC EVENT HANDLERS =====
 
 async function handleSyncEvent(payload: NangoWebhookPayload) {
-  const { type, connectionId, providerConfigKey, syncName } = payload;
+  const { type, providerConfigKey, syncName } = payload;
 
-  console.log(`[Nango Sync] ${type} - ${providerConfigKey}:${syncName}`);
+  console.info(`[Nango Sync] ${type} - ${providerConfigKey}:${syncName ?? "unknown"}`);
 
   switch (type) {
     case "sync.success":
@@ -201,135 +177,169 @@ async function handleSyncEvent(payload: NangoWebhookPayload) {
       break;
 
     default:
-      console.log(`[Nango Sync] Unhandled event: ${type}`);
+      console.info(`[Nango Sync] Unhandled event: ${type}`);
   }
 
   return NextResponse.json({ received: true });
 }
 
+/**
+ * Handle successful sync completion
+ *
+ * This is where we:
+ * 1. Find all metrics using this integration
+ * 2. Extract current values from Nango cache
+ * 3. Update metric current values
+ * 4. CREATE TIME-SERIES SNAPSHOTS
+ */
 async function handleSyncSuccess(payload: NangoWebhookPayload) {
-  const { connectionId, providerConfigKey, syncName, model } = payload;
+  const { connectionId, providerConfigKey, syncName } = payload;
 
-  // Find all metrics configured to use this sync
-  const metrics = await db.metric.findMany({
-    where: {
-      nangoProvider: providerConfigKey,
-      nangoSync: syncName,
-    },
+  console.info(`[Nango Sync Success] ${providerConfigKey}:${syncName ?? "unknown"}`);
+
+  // Find integration
+  const integration = await db.integration.findUnique({
+    where: { connectionId },
   });
 
-  if (metrics.length === 0) {
-    console.log(`[Nango Sync] No metrics configured for ${providerConfigKey}:${syncName}`);
+  if (!integration) {
+    console.info(`[Nango Sync] No integration found for ${connectionId}`);
     return;
   }
 
-  console.log(`[Nango Sync] Updating ${metrics.length} metrics from Nango cache`);
+  // Find all IntegrationMetrics linked to this integration
+  const integrationMetrics = await db.integrationMetric.findMany({
+    where: {
+      integrationId: integration.id,
+      status: "active",
+    },
+    include: {
+      metric: true,
+      integration: true,
+    },
+  });
+
+  if (integrationMetrics.length === 0) {
+    console.info(`[Nango Sync] No active metrics for integration ${integration.id}`);
+    return;
+  }
+
+  console.info(`[Nango Sync] Updating ${integrationMetrics.length} metrics`);
 
   const nango = new Nango({ secretKey: env.NANGO_SECRET_KEY_DEV });
 
   // Update each metric with latest data from Nango
-  for (const metric of metrics) {
+  for (const integrationMetric of integrationMetrics) {
     try {
-      const records = await nango.listRecords({
-        providerConfigKey,
+      // Extract current value using nango-extractors
+      const result = await extractMetricValue(
+        nango,
+        integrationMetric as never,
         connectionId,
-        model: metric.nangoModel || model || "",
-        limit: 100,
-      });
+        providerConfigKey,
+      );
 
-      if (records.records.length === 0) {
-        console.log(`[Nango Sync] No records found for metric ${metric.name}`);
-        continue;
-      }
-
-      const latestValue = extractMetricValue(records.records, metric, syncName || "");
-
+      // Update metric current value
       await db.metric.update({
-        where: { id: metric.id },
+        where: { id: integrationMetric.metricId },
         data: {
-          currentValue: latestValue,
-          lastSyncedAt: new Date(),
+          currentValue: result.value,
         },
       });
 
-      console.log(`[Nango Sync] Updated metric "${metric.name}" to ${latestValue} ${metric.unit || ""}`);
+      // CREATE TIME-SERIES SNAPSHOT
+      await createMetricSnapshot(
+        db,
+        integrationMetric.metricId,
+        result.value,
+        "nango_sync",
+        {
+          syncName,
+          providerConfigKey,
+          connectionId,
+          isStale: result.isStale,
+          recordCount: result.recordCount,
+          lastModified: result.lastModified,
+          integrationMetricId: integrationMetric.id,
+        },
+      );
+
+      // Update integration metric status
+      await db.integrationMetric.update({
+        where: { id: integrationMetric.id },
+        data: {
+          status: result.isStale ? "stale" : "active",
+          errorMessage: result.error ?? null,
+          lastValidatedAt: new Date(),
+          lastSyncedAt: result.lastModified
+            ? new Date(result.lastModified)
+            : new Date(),
+        },
+      });
+
+      console.info(
+        `[Nango Sync] ✓ Updated "${integrationMetric.metric.name}" to ${result.value} ${integrationMetric.metric.unit ?? ""}`,
+      );
     } catch (error) {
-      console.error(`[Nango Sync] Error updating metric ${metric.name}:`, error);
+      console.error(
+        `[Nango Sync] ✗ Error updating metric ${integrationMetric.metric.name}:`,
+        error,
+      );
+
+      // Mark metric as error
+      await db.integrationMetric.update({
+        where: { id: integrationMetric.id },
+        data: {
+          status: "error",
+          errorMessage: error instanceof Error ? error.message : "Unknown error",
+          lastValidatedAt: new Date(),
+        },
+      });
     }
   }
+
+  console.info(
+    `[Nango Sync] Completed update for ${integrationMetrics.length} metrics`,
+  );
 }
 
 async function handleSyncError(payload: NangoWebhookPayload) {
   const { connectionId, providerConfigKey, syncName, error } = payload;
-  console.error(`[Nango Sync] Error - ${providerConfigKey}:${syncName}:`, error);
+
+  console.error(
+    `[Nango Sync Error] ${providerConfigKey}:${syncName ?? "unknown"} - ${error ?? "Unknown error"}`,
+  );
+
+  // Update integration status
+  const integration = await db.integration.findUnique({
+    where: { connectionId },
+  });
+
+  if (integration) {
+    await db.integration.update({
+      where: { id: integration.id },
+      data: {
+        status: "error",
+        errorMessage: error ?? "Sync failed",
+      },
+    });
+  }
 }
 
 async function handleRecordsChanged(payload: NangoWebhookPayload) {
   const { providerConfigKey, syncName, records } = payload;
-  console.log(`[Nango Sync] Records changed - ${providerConfigKey}:${syncName}: ${records?.length || 0} records`);
+  console.info(
+    `[Nango Sync] Records changed - ${providerConfigKey}:${syncName ?? "unknown"}: ${records?.length ?? 0} records`,
+  );
+  // Trigger metric updates
   await handleSyncSuccess(payload);
 }
 
 async function handleRecordsDeleted(payload: NangoWebhookPayload) {
   const { providerConfigKey, syncName, records } = payload;
-  console.log(`[Nango Sync] Records deleted - ${providerConfigKey}:${syncName}: ${records?.length || 0} records`);
+  console.info(
+    `[Nango Sync] Records deleted - ${providerConfigKey}:${syncName ?? "unknown"}: ${records?.length ?? 0} records`,
+  );
+  // Trigger metric updates to reflect deletions
   await handleSyncSuccess(payload);
-}
-
-// ===== UTILITY FUNCTIONS =====
-
-function extractMetricValue(records: any[], metric: any, syncName: string): number {
-  // If metric has custom JSON path, use that
-  if (metric.nangoJsonPath) {
-    const value = extractByJsonPath(records[0], metric.nangoJsonPath);
-    return toNumber(value);
-  }
-
-  // Otherwise, use default extraction based on sync type
-  switch (syncName) {
-    case "posthog-persons":
-    case "posthog-events":
-    case "slack-users":
-    case "slack-channels":
-    case "slack-messages":
-      return records.length;
-
-    case "posthog-conversion":
-      return toNumber(records[0]?.conversion_rate || 0);
-
-    default:
-      return records.length;
-  }
-}
-
-function extractByJsonPath(obj: any, path: string): any {
-  const keys = path.split(".");
-  let current = obj;
-
-  for (const key of keys) {
-    const arrayMatch = /^(\w+)\[(\d+)\]$/.exec(key);
-    if (arrayMatch?.[1] && arrayMatch[2]) {
-      const arrayKey = arrayMatch[1];
-      const index = arrayMatch[2];
-      current = current?.[arrayKey]?.[parseInt(index, 10)];
-    } else {
-      current = current?.[key];
-    }
-
-    if (current === undefined) {
-      return undefined;
-    }
-  }
-
-  return current;
-}
-
-function toNumber(value: any): number {
-  if (typeof value === "number") return value;
-  if (typeof value === "string") {
-    const parsed = parseFloat(value);
-    return isNaN(parsed) ? 0 : parsed;
-  }
-  if (typeof value === "boolean") return value ? 1 : 0;
-  return 0;
 }

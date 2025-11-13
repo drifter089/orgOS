@@ -204,11 +204,9 @@ export default function MetricPage() {
     setMetricConfig({});
   };
 
-  function getSourceTypeFromTemplate(templateId: string): "event" | "sheet" | "channel" | "person" {
-    if (templateId.includes("event") || templateId.includes("conversion")) return "event";
-    if (templateId.includes("sheet") || templateId.includes("row") || templateId.includes("column")) return "sheet";
-    if (templateId.includes("channel")) return "channel";
-    if (templateId.includes("person")) return "person";
+  function getSourceTypeFromTemplate(templateId: string): "event" | "sheet" {
+    if (templateId.includes("event")) return "event";
+    if (templateId.includes("sheet")) return "sheet";
     return "event";
   }
 
@@ -652,57 +650,9 @@ export default function MetricPage() {
                             />
                           </div>
 
-                          {/* Conditional config fields */}
-                          {selectedTemplate === "conversion_rate" && (
-                            <div className="space-y-2">
-                              <Label htmlFor="endEvent" className="text-sm font-medium">
-                                End Event <span className="text-destructive">*</span>
-                              </Label>
-                              <Input
-                                id="endEvent"
-                                placeholder="e.g., purchase_completed"
-                                value={metricConfig.endEvent || ""}
-                                onChange={(e) =>
-                                  setMetricConfig({ ...metricConfig, endEvent: e.target.value })
-                                }
-                                className="h-10"
-                              />
-                            </div>
-                          )}
-
-                          {selectedTemplate === "sheet_value" && (
-                            <div className="space-y-2">
-                              <Label htmlFor="cellReference" className="text-sm font-medium">
-                                Cell Reference <span className="text-destructive">*</span>
-                              </Label>
-                              <Input
-                                id="cellReference"
-                                placeholder="e.g., B2"
-                                value={metricConfig.cellReference || ""}
-                                onChange={(e) =>
-                                  setMetricConfig({ ...metricConfig, cellReference: e.target.value })
-                                }
-                                className="h-10"
-                              />
-                            </div>
-                          )}
-
-                          {selectedTemplate === "sum_column" && (
-                            <div className="space-y-2">
-                              <Label htmlFor="columnLetter" className="text-sm font-medium">
-                                Column Letter <span className="text-destructive">*</span>
-                              </Label>
-                              <Input
-                                id="columnLetter"
-                                placeholder="e.g., B"
-                                value={metricConfig.columnLetter || ""}
-                                onChange={(e) =>
-                                  setMetricConfig({ ...metricConfig, columnLetter: e.target.value })
-                                }
-                                className="h-10"
-                              />
-                            </div>
-                          )}
+                          {/* No additional config needed for simplified templates */}
+                          {/* event_count: Just needs project + event (selected above) */}
+                          {/* sheet_row_count: Just needs sheet (selected above) */}
                         </div>
 
                         {/* Create Button */}
@@ -747,6 +697,48 @@ export default function MetricPage() {
           </CardContent>
         </Card>
       ) : null}
+
+      {/* Custom Integrations - Coming Soon */}
+      <Card className="mt-8 border-dashed">
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle className="flex items-center gap-2">
+                Custom Integrations
+                <Badge variant="secondary">Coming Soon</Badge>
+              </CardTitle>
+              <CardDescription className="mt-2">
+                Track metrics from custom data sources like Instagram, custom APIs, webhooks, and more
+              </CardDescription>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <div className="grid gap-4 md:grid-cols-3">
+            <div className="rounded-lg border p-4 bg-muted/30">
+              <div className="text-sm font-medium mb-1">Instagram Analytics</div>
+              <div className="text-xs text-muted-foreground">
+                Track followers, engagement, post metrics via Instagram URL
+              </div>
+            </div>
+            <div className="rounded-lg border p-4 bg-muted/30">
+              <div className="text-sm font-medium mb-1">Custom API</div>
+              <div className="text-xs text-muted-foreground">
+                Connect any REST API with custom authentication and data extraction
+              </div>
+            </div>
+            <div className="rounded-lg border p-4 bg-muted/30">
+              <div className="text-sm font-medium mb-1">Webhook Receiver</div>
+              <div className="text-xs text-muted-foreground">
+                Receive real-time metric updates via webhook endpoints
+              </div>
+            </div>
+          </div>
+          <div className="mt-4 text-sm text-muted-foreground">
+            Infrastructure is ready. Custom integration UI will be available in the next release.
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }

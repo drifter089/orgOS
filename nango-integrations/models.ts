@@ -5,53 +5,12 @@
 // ---------------------------
 
 // ------ Models
-export interface PostHogPerson {
-  id: string;
-  distinct_ids: string[];
-  properties: {  email?: string | undefined;
-  name?: string | undefined;};
-  created_at: string;
-  is_identified: boolean;
-};
-
 export interface PostHogEvent {
   id: string;
   event: string;
   distinct_id: string;
   properties: any;
   timestamp: string;
-};
-
-export interface PostHogConversionData {
-  id: string;
-  conversion_rate: number;
-  total_users: number;
-  converted_users: number;
-  funnel_steps: string[];
-  timestamp: string;
-};
-
-export interface SlackUser {
-  id: string;
-  name: string;
-  real_name: string;
-  display_name: string;
-  email?: string | undefined;
-  is_active: boolean;
-  is_bot: boolean;
-  is_admin: boolean;
-  is_owner: boolean;
-  updated: number;
-  profile: any;
-};
-
-export interface SlackChannel {
-  id: string;
-  name: string;
-  is_channel: boolean;
-  is_private: boolean;
-  is_archived: boolean;
-  num_members: number;
 };
 
 export interface GoogleSheetMetadata {
@@ -516,34 +475,9 @@ export const NangoFlows = [
     "providerConfigKey": "posthog",
     "syncs": [
       {
-        "name": "posthog-persons",
-        "type": "sync",
-        "description": "Sync active users and their properties from PostHog (requires project_id in connection_config)",
-        "sync_type": "incremental",
-        "usedModels": [
-          "PostHogPerson"
-        ],
-        "runs": "every 15 minutes",
-        "version": "",
-        "track_deletes": false,
-        "auto_start": true,
-        "input": null,
-        "output": [
-          "PostHogPerson"
-        ],
-        "scopes": [],
-        "endpoints": [
-          {
-            "method": "GET",
-            "path": "/api/persons"
-          }
-        ],
-        "webhookSubscriptions": []
-      },
-      {
         "name": "posthog-events",
         "type": "sync",
-        "description": "Sync all tracked events from PostHog (requires project_id in connection_config)",
+        "description": "Sync all tracked events from all PostHog projects",
         "sync_type": "incremental",
         "usedModels": [
           "PostHogEvent"
@@ -561,92 +495,6 @@ export const NangoFlows = [
           {
             "method": "GET",
             "path": "/api/events"
-          }
-        ],
-        "webhookSubscriptions": []
-      },
-      {
-        "name": "posthog-conversion",
-        "type": "sync",
-        "description": "Calculate conversion funnel metrics based on configured steps",
-        "sync_type": "full",
-        "usedModels": [
-          "PostHogConversionData"
-        ],
-        "runs": "every 30 minutes",
-        "version": "",
-        "track_deletes": false,
-        "auto_start": false,
-        "input": null,
-        "output": [
-          "PostHogConversionData"
-        ],
-        "scopes": [],
-        "endpoints": [
-          {
-            "method": "GET",
-            "path": "/api/insights/"
-          }
-        ],
-        "webhookSubscriptions": []
-      }
-    ],
-    "actions": [],
-    "onEventScripts": {
-      "post-connection-creation": [],
-      "pre-connection-deletion": [],
-      "validate-connection": []
-    }
-  },
-  {
-    "providerConfigKey": "slack",
-    "syncs": [
-      {
-        "name": "slack-users",
-        "type": "sync",
-        "description": "Sync all users in the Slack workspace",
-        "sync_type": "full",
-        "usedModels": [
-          "SlackUser"
-        ],
-        "runs": "every hour",
-        "version": "",
-        "track_deletes": false,
-        "auto_start": true,
-        "input": null,
-        "output": [
-          "SlackUser"
-        ],
-        "scopes": [],
-        "endpoints": [
-          {
-            "method": "GET",
-            "path": "/users.list"
-          }
-        ],
-        "webhookSubscriptions": []
-      },
-      {
-        "name": "slack-channels",
-        "type": "sync",
-        "description": "Sync list of channels in the workspace",
-        "sync_type": "full",
-        "usedModels": [
-          "SlackChannel"
-        ],
-        "runs": "every 2 hours",
-        "version": "",
-        "track_deletes": false,
-        "auto_start": true,
-        "input": null,
-        "output": [
-          "SlackChannel"
-        ],
-        "scopes": [],
-        "endpoints": [
-          {
-            "method": "GET",
-            "path": "/conversations.list"
           }
         ],
         "webhookSubscriptions": []

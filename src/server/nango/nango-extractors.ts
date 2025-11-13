@@ -11,7 +11,7 @@
  * - Google Sheets
  */
 
-import { Nango } from "@nangohq/node";
+import { type Nango } from "@nangohq/node";
 import { getTemplate } from "./metric-templates";
 
 export interface IntegrationMetricData {
@@ -185,7 +185,7 @@ export async function extractMetricValue(
     let filteredRecords = result.records;
 
     if (integrationMetric.sourceType === "event") {
-      const projectId = (integrationMetric.sourceConfig as any)?.projectId;
+      const projectId = (integrationMetric.sourceConfig)?.projectId;
       filteredRecords = result.records.filter((r: any) => {
         const matchesEvent = r.event === integrationMetric.sourceId;
         if (!projectId) return matchesEvent;
@@ -199,7 +199,7 @@ export async function extractMetricValue(
     }
 
     // Get template and extract value using its logic
-    const templateId = (integrationMetric.sourceConfig as any)?.templateId;
+    const templateId = (integrationMetric.sourceConfig)?.templateId;
     if (!templateId) {
       throw new Error("Metric source config missing templateId");
     }

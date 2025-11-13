@@ -20,9 +20,7 @@ export interface MetricTemplate {
   extractValue: (records: any[], config?: any) => number;
 }
 
-export interface MetricTemplateConfig {
-  [key: string]: MetricTemplate[];
-}
+export type MetricTemplateConfig = Record<string, MetricTemplate[]>;
 
 /**
  * Available metric templates for each integration provider
