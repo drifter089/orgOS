@@ -148,20 +148,31 @@ async function handleConnectionCreation(payload: NangoWebhookPayload) {
 async function handleConnectionDeletion(payload: NangoWebhookPayload) {
   const { connectionId } = payload;
 
+  console.log(`[Nango Webhook] Connection deletion for: ${connectionId}`);
+
   const integration = await db.integration.findUnique({
     where: { connectionId },
   });
 
   if (!integration) {
+    console.log(`[Nango Webhook] Integration not found for connectionId: ${connectionId}`);
     return;
   }
 
-  await db.integration.update({
+  // OPTION 1: Soft delete (keep for audit trail)
+  // await db.integration.update({
+  //   where: { connectionId },
+  //   data: {
+  //     status: "revoked",
+  //   },
+  // });
+
+  // OPTION 2: Hard delete (remove from database completely)
+  await db.integration.delete({
     where: { connectionId },
-    data: {
-      status: "revoked",
-    },
   });
+
+  console.log(`[Nango Webhook] Successfully deleted integration from database: ${connectionId}`);
 }
 
 // ===== SYNC EVENT HANDLERS =====
@@ -281,7 +292,6 @@ function extractMetricValue(records: any[], metric: any, syncName: string): numb
     case "slack-users":
     case "slack-channels":
     case "slack-messages":
-    case "sheets-rows":
       return records.length;
 
     case "posthog-conversion":

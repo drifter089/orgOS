@@ -5,6 +5,10 @@
  * - Validating metric sources still exist (staleness detection)
  * - Extracting current metric values from Nango cache
  * - Detecting deleted/changed data using _nango_metadata
+ *
+ * SIMPLIFIED to only support:
+ * - PostHog Events
+ * - Google Sheets
  */
 
 import { Nango } from "@nangohq/node";
@@ -127,26 +131,6 @@ export async function validateMetricSource(
       return { valid: true };
     }
 
-    // For count-based metrics (users, channels), just check if any records exist
-    if (
-      integrationMetric.sourceType === "user" ||
-      integrationMetric.sourceType === "channel" ||
-      integrationMetric.sourceType === "person"
-    ) {
-      const activeRecords = result.records.filter(
-        (r: any) => !r._nango_metadata?.deleted_at,
-      );
-
-      if (activeRecords.length === 0) {
-        return {
-          valid: false,
-          error: `No ${integrationMetric.sourceType} data found. Sync may have failed or no data exists.`,
-        };
-      }
-
-      return { valid: true };
-    }
-
     return { valid: true };
   } catch (error) {
     console.error("[Validate Metric Source] Error:", error);
@@ -193,7 +177,7 @@ export async function extractMetricValue(
       providerConfigKey,
       connectionId,
       model: integrationMetric.nangoModel,
-      limit: 1000, // TODO: Handle pagination for large datasets
+      limit: 10000, // Increased limit for full data
       includeDeleted: false, // Only get active records for value calculation
     });
 
@@ -212,13 +196,6 @@ export async function extractMetricValue(
       filteredRecords = result.records.filter(
         (r: any) => r.sheetId === integrationMetric.sourceId,
       );
-    } else if (integrationMetric.sourceType === "person") {
-      const projectId = (integrationMetric.sourceConfig as any)?.projectId;
-      if (projectId) {
-        filteredRecords = result.records.filter(
-          (r: any) => r.properties?._project_id === projectId,
-        );
-      }
     }
 
     // Get template and extract value using its logic
@@ -276,7 +253,7 @@ export async function getAvailableSources(
   nango: Nango,
   connectionId: string,
   providerConfigKey: string,
-  sourceType: "event" | "sheet" | "channel" | "person",
+  sourceType: "event" | "sheet",
   nangoModel: string,
   projectId?: string, // Optional: for PostHog to filter by project
 ): Promise<Array<{ id: string; name: string; metadata?: any }>> {
@@ -285,7 +262,7 @@ export async function getAvailableSources(
       providerConfigKey,
       connectionId,
       model: nangoModel,
-      limit: 10000, // Increased limit to get more events from all projects
+      limit: 10000, // Increased limit to get all available sources
       includeDeleted: false, // Only show active sources
     });
 
@@ -350,14 +327,7 @@ export async function getAvailableSources(
       );
     }
 
-    // For other types, just return count
-    return [
-      {
-        id: `all_${sourceType}`,
-        name: `All ${sourceType}s`,
-        metadata: { count: result.records.length },
-      },
-    ];
+    return [];
   } catch (error) {
     console.error("[Get Available Sources] Error:", error);
     return [];

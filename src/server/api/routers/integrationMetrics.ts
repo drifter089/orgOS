@@ -24,13 +24,13 @@ export const integrationMetricsRouter = createTRPCRouter({
       return getTemplatesForIntegration(input.integrationId);
     }),
 
-  // Get selectable sources (events, sheets, channels) for metric creation
+  // Get selectable sources (events, sheets) for metric creation
   getSelectableSources: protectedProcedure
     .input(
       z.object({
         connectionId: z.string(),
         integrationId: z.string(),
-        sourceType: z.enum(["event", "sheet", "channel", "person"]),
+        sourceType: z.enum(["event", "sheet"]),
         nangoModel: z.string(),
         projectId: z.string().optional(), // For PostHog: project_id to filter events
       }),

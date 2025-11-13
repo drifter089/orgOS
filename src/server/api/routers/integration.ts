@@ -252,20 +252,7 @@ export const integrationRouter = createTRPCRouter({
     return stats;
   }),
 
-  // ===== NEW: Nango Sync Procedures =====
-
-  // List available syncs for a provider
-  listAvailableSyncs: protectedProcedure
-    .input(z.object({ integrationId: z.string() }))
-    .query(async ({ input }) => {
-      // Map of provider to available syncs (from nango.yaml)
-      const syncMap: Record<string, string[]> = {
-        posthog: ["posthog-persons", "posthog-events", "posthog-conversion"],
-        slack: ["slack-users", "slack-channels"],
-      };
-
-      return syncMap[input.integrationId] || [];
-    }),
+  // ===== Nango Sync Procedures =====
 
   // Get synced records from Nango's cache
   getSyncedRecords: protectedProcedure

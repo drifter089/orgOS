@@ -97,34 +97,35 @@ model Metric {
     currentValue   Float?   // Current value (synced from Nango or mock data)
     unit           String?  // "ms", "%", "requests", etc.
 
-    // Nango sync configuration
-    nangoProvider  String?  // Provider: 'posthog', 'google-sheets', 'slack', etc.
-    nangoSync      String?  // Sync name: 'active-users', 'conversion-rate', etc.
-    nangoModel     String?  // Model name: 'PostHogPerson', 'SlackMessage', etc.
-    nangoJsonPath  String?  // JSON path to extract value from synced record
-    lastSyncedAt   DateTime? // When Nango last updated this metric
+    // Data source
+    source         String   @default("manual") // "nango", "custom", "manual"
 
     // Mock data generation (for metrics not connected to integrations)
     mockDataPrompt String?  @db.Text // AI prompt for generating mock data
 
-    roles          Role[]   // One metric can be used by many roles
+    roles              Role[]   // One metric can be used by many roles
+    integrationMetrics IntegrationMetric[] // Links to integration sources
+    snapshots          MetricSnapshot[] // Time-series history
 
     createdAt      DateTime @default(now())
     updatedAt      DateTime @updatedAt
 
     @@index([organizationId])
     @@index([name])
-    @@index([nangoProvider, nangoSync])
+    @@index([source])
 }
 
-// Nango Integration Connections
+// Integration Connections (Nango & Custom)
 
 model Integration {
     id             String   @id @default(cuid())
 
-    // Nango connection identifiers
+    // Integration type
+    type           String   @default("nango") // "nango", "custom"
+
+    // Nango connection identifiers (for type="nango")
     connectionId   String   @unique // UUID from Nango (required for API calls)
-    integrationId  String   // Provider name: 'github', 'google', 'slack', etc.
+    integrationId  String   // Provider name: 'posthog', 'google-sheet', 'custom', etc.
 
     // Ownership (organization-level connections)
     organizationId String   // WorkOS organization ID
@@ -136,9 +137,14 @@ model Integration {
     // Provider-specific data
     metadata       Json?    // Scopes, token expiry, provider user info, etc.
 
+    // Custom integration configuration (for type="custom")
+    customConfig   Json?    // URL, auth method, polling interval, etc.
+
     // Audit trail
     lastSyncAt     DateTime? // Last successful API call
     errorMessage   String?   // Last error if status = "error"
+
+    integrationMetrics IntegrationMetric[] // Metrics created from this integration
 
     createdAt      DateTime @default(now())
     updatedAt      DateTime @updatedAt
@@ -148,4 +154,57 @@ model Integration {
     @@index([connectedBy])
     @@index([integrationId])
     @@index([status])
+    @@index([type])
+}
+
+// Junction table linking Integrations to Metrics with configuration
+model IntegrationMetric {
+    id              String   @id @default(cuid())
+
+    // Link to integration and metric
+    integrationId   String
+    metricId        String
+
+    // Source configuration (what to track)
+    sourceType      String   // "event", "sheet"
+    sourceId        String   // Event name, Sheet ID
+    sourceConfig    Json?    // Project ID, filters, etc.
+
+    // Staleness detection
+    status          String   @default("active") // "active", "stale", "deleted", "error"
+    lastValidatedAt DateTime? // Last time we verified source still exists
+    errorMessage    String?  // Why it's stale/errored
+
+    // Sync metadata
+    nangoModel      String   // "PostHogEvent", "GoogleSheetRow"
+    lastSyncedAt    DateTime? // When Nango last synced this data
+
+    integration     Integration @relation(fields: [integrationId], references: [id], onDelete: Cascade)
+    metric          Metric      @relation(fields: [metricId], references: [id], onDelete: Cascade)
+
+    createdAt       DateTime @default(now())
+    updatedAt       DateTime @updatedAt
+
+    @@index([integrationId])
+    @@index([metricId])
+    @@index([status])
+}
+
+// Time-series snapshots for metrics
+model MetricSnapshot {
+    id         String   @id @default(cuid())
+    metricId   String
+    value      Float
+    timestamp  DateTime @default(now())
+
+    // Metadata about the snapshot
+    sourceType String?  // "nango_sync", "manual", "custom"
+    metadata   Json?    // Sync details, record counts, etc.
+
+    metric     Metric   @relation(fields: [metricId], references: [id], onDelete: Cascade)
+
+    createdAt  DateTime @default(now())
+
+    @@index([metricId, timestamp])
+    @@index([timestamp])
 }

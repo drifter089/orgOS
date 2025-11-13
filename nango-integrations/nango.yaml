@@ -1,51 +1,13 @@
 # Nango Integration Configuration
-# Model definitions and sync configurations
+# Simplified model definitions and sync configurations
 
 models:
-  PostHogPerson:
-    id: string
-    distinct_ids: string[]
-    properties:
-      email?: string
-      name?: string
-    created_at: string
-    is_identified: boolean
-
   PostHogEvent:
     id: string
     event: string
     distinct_id: string
     properties: any
     timestamp: string
-
-  PostHogConversionData:
-    id: string
-    conversion_rate: number
-    total_users: number
-    converted_users: number
-    funnel_steps: string[]
-    timestamp: string
-
-  SlackUser:
-    id: string
-    name: string
-    real_name: string
-    display_name: string
-    email?: string
-    is_active: boolean
-    is_bot: boolean
-    is_admin: boolean
-    is_owner: boolean
-    updated: number
-    profile: any
-
-  SlackChannel:
-    id: string
-    name: string
-    is_channel: boolean
-    is_private: boolean
-    is_archived: boolean
-    num_members: number
 
   GoogleSheetMetadata:
     id: string
@@ -63,46 +25,12 @@ models:
 integrations:
   posthog:
     syncs:
-      posthog-persons:
-        runs: every 15 minutes
-        description: "Sync active users and their properties from PostHog (requires project_id in connection_config)"
-        endpoint: GET /api/persons
-        output: PostHogPerson
-        sync_type: incremental
-        auto_start: true
-
       posthog-events:
         runs: every hour
-        description: "Sync all tracked events from PostHog (requires project_id in connection_config)"
+        description: "Sync all tracked events from all PostHog projects"
         endpoint: GET /api/events
         output: PostHogEvent
         sync_type: incremental
-        auto_start: true
-
-      posthog-conversion:
-        runs: every 30 minutes
-        description: "Calculate conversion funnel metrics based on configured steps"
-        endpoint: GET /api/insights/
-        output: PostHogConversionData
-        sync_type: full
-        auto_start: false
-
-  slack:
-    syncs:
-      slack-users:
-        runs: every hour
-        description: "Sync all users in the Slack workspace"
-        endpoint: GET /users.list
-        output: SlackUser
-        sync_type: full
-        auto_start: true
-
-      slack-channels:
-        runs: every 2 hours
-        description: "Sync list of channels in the workspace"
-        endpoint: GET /conversations.list
-        output: SlackChannel
-        sync_type: full
         auto_start: true
 
   google-sheet:
