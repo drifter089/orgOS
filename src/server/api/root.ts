@@ -1,4 +1,6 @@
+import { customIntegrationRouter } from "@/server/api/routers/customIntegration";
 import { integrationRouter } from "@/server/api/routers/integration";
+import { integrationMetricsRouter } from "@/server/api/routers/integrationMetrics";
 import { metricRouter } from "@/server/api/routers/metric";
 import { organizationRouter } from "@/server/api/routers/organization";
 import { roleRouter } from "@/server/api/routers/role";
@@ -18,6 +20,8 @@ export const appRouter = createTRPCRouter({
   role: roleRouter,
   metric: metricRouter,
   integration: integrationRouter,
+  integrationMetrics: integrationMetricsRouter,
+  customIntegration: customIntegrationRouter,
 });
 
 // export type definition of API

@@ -1,0 +1,52 @@
+# Nango Integration Configuration
+# Simplified model definitions and sync configurations
+
+models:
+  PostHogEvent:
+    id: string
+    event: string
+    distinct_id: string
+    properties: any
+    timestamp: string
+
+  GoogleSheetMetadata:
+    id: string
+    sheetId: string
+    sheetName: string
+    url: string
+    lastModified: string
+
+  GoogleSheetRow:
+    id: string
+    sheetId: string
+    rowIndex: number
+    values: any
+
+integrations:
+  posthog:
+    syncs:
+      posthog-events:
+        runs: every hour
+        description: "Sync all tracked events from all PostHog projects"
+        endpoint: GET /api/events
+        output: PostHogEvent
+        sync_type: incremental
+        auto_start: true
+
+  google-sheet:
+    syncs:
+      sheets-metadata:
+        runs: every hour
+        description: "Sync list of all Google Sheets in user's Drive"
+        endpoint: GET /drive/v3/files
+        output: GoogleSheetMetadata
+        sync_type: full
+        auto_start: true
+
+      sheets-rows:
+        runs: every 30 minutes
+        description: "Sync row data from selected sheets (triggered after metric creation)"
+        endpoint: GET /v4/spreadsheets
+        output: GoogleSheetRow
+        sync_type: incremental
+        auto_start: false
