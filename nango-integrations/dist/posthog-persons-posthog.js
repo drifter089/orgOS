@@ -25,46 +25,60 @@ __export(posthog_persons_exports, {
 module.exports = __toCommonJS(posthog_persons_exports);
 async function fetchPostHogPersons(nango) {
   try {
-    const lastSyncState = await nango.getMetadata();
-    const lastCreatedAt = lastSyncState?.["lastCreatedAt"];
-    await nango.log(`Starting persons sync. Last created_at: ${lastCreatedAt || "none"}`);
-    const params = {
-      order: "created_at",
-      limit: 100
-    };
-    if (lastCreatedAt) {
-      params.created_at__gte = lastCreatedAt;
-    }
-    const personsGenerator = nango.paginate({
-      endpoint: "/api/persons/",
-      params,
-      paginate: {
-        type: "cursor",
-        cursor_path_in_response: "next",
-        cursor_name_in_request: "offset",
-        limit: 100,
-        response_path: "results"
-      }
+    await nango.log("Starting persons sync for all PostHog projects");
+    const projectsResponse = await nango.get({
+      endpoint: "/api/projects/"
     });
-    const persons = [];
-    for await (const batch of personsGenerator) {
-      persons.push(...batch);
-    }
-    await nango.log(`Fetched ${persons.length} persons from PostHog`);
-    if (persons.length === 0) {
-      await nango.log("No new persons to sync");
+    const projectsData = projectsResponse.data;
+    const projects = projectsData.results || [];
+    await nango.log(`Found ${projects.length} accessible projects`);
+    if (projects.length === 0) {
+      await nango.log("No projects found");
       return;
     }
-    await nango.batchSave(persons, "PostHogPerson");
-    const latestCreatedAt = persons[persons.length - 1]?.created_at;
-    if (latestCreatedAt) {
-      await nango.setMetadata({ lastCreatedAt: latestCreatedAt });
-      await nango.log(`Updated cursor to created_at: ${latestCreatedAt}`);
+    let totalPersons = 0;
+    for (const project of projects) {
+      const projectId = project.id;
+      const projectName = project.name || `Project ${projectId}`;
+      await nango.log(`Fetching persons from project: ${projectName} (ID: ${projectId})`);
+      try {
+        const response = await nango.get({
+          endpoint: `/api/projects/${projectId}/persons/`,
+          params: {
+            limit: 100
+          }
+        });
+        const data = response.data;
+        const persons = data.results || [];
+        if (persons.length === 0) {
+          await nango.log(`No persons found in project ${projectName}`);
+          continue;
+        }
+        const transformedPersons = persons.map((person) => ({
+          id: `${projectId}-${person.id?.toString() || person.distinct_id || `person-${Date.now()}`}`,
+          distinct_ids: person.distinct_ids || [],
+          properties: {
+            ...person.properties,
+            _project_id: projectId.toString(),
+            _project_name: projectName
+          },
+          created_at: person.created_at || (/* @__PURE__ */ new Date()).toISOString(),
+          is_identified: person.is_identified || false
+        }));
+        await nango.batchSave(transformedPersons, "PostHogPerson");
+        totalPersons += transformedPersons.length;
+        await nango.log(`Synced ${transformedPersons.length} persons from ${projectName}`);
+      } catch (projectError) {
+        const errorMessage = projectError instanceof Error ? projectError.message : String(projectError);
+        await nango.log(`Error fetching persons from ${projectName}: ${errorMessage}`, { level: "error" });
+      }
     }
-    await nango.log(`Successfully synced ${persons.length} persons`);
+    await nango.log(`Successfully synced ${totalPersons} total persons from ${projects.length} projects`);
   } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    await nango.log(`Error in persons sync: ${errorMessage}`, { level: "error" });
     throw new nango.ActionError({
-      message: `Failed to sync PostHog persons: ${error instanceof Error ? error.message : "Unknown error"}`
+      message: `Failed to sync PostHog persons: ${errorMessage}`
     });
   }
 }

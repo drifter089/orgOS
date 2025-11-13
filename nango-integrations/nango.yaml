@@ -26,28 +26,6 @@ models:
     funnel_steps: string[]
     timestamp: string
 
-  SheetRow:
-    id: string
-    spreadsheet_id: string
-    sheet_name: string
-    row_number: number
-    values: any[]
-    last_updated: string
-
-  SheetMetadata:
-    id: string
-    spreadsheet_id: string
-    title: string
-    sheets: any[]
-
-  SlackMessage:
-    id: string
-    channel: string
-    user: string
-    text: string
-    ts: string
-    thread_ts?: string
-
   SlackUser:
     id: string
     name: string
@@ -69,21 +47,34 @@ models:
     is_archived: boolean
     num_members: number
 
+  GoogleSheetMetadata:
+    id: string
+    sheetId: string
+    sheetName: string
+    url: string
+    lastModified: string
+
+  GoogleSheetRow:
+    id: string
+    sheetId: string
+    rowIndex: number
+    values: any
+
 integrations:
   posthog:
     syncs:
       posthog-persons:
         runs: every 15 minutes
-        description: "Sync active users and their properties from PostHog"
-        endpoint: GET /api/persons/
+        description: "Sync active users and their properties from PostHog (requires project_id in connection_config)"
+        endpoint: GET /api/persons
         output: PostHogPerson
         sync_type: incremental
         auto_start: true
 
       posthog-events:
         runs: every hour
-        description: "Sync all tracked events from PostHog"
-        endpoint: GET /api/event/
+        description: "Sync all tracked events from PostHog (requires project_id in connection_config)"
+        endpoint: GET /api/events
         output: PostHogEvent
         sync_type: incremental
         auto_start: true
@@ -98,14 +89,6 @@ integrations:
 
   slack:
     syncs:
-      slack-messages:
-        runs: every 30 minutes
-        description: "Sync messages from configured Slack channels"
-        endpoint: GET /conversations.history
-        output: SlackMessage
-        sync_type: incremental
-        auto_start: false
-
       slack-users:
         runs: every hour
         description: "Sync all users in the Slack workspace"
@@ -121,3 +104,21 @@ integrations:
         output: SlackChannel
         sync_type: full
         auto_start: true
+
+  google-sheet:
+    syncs:
+      sheets-metadata:
+        runs: every hour
+        description: "Sync list of all Google Sheets in user's Drive"
+        endpoint: GET /drive/v3/files
+        output: GoogleSheetMetadata
+        sync_type: full
+        auto_start: true
+
+      sheets-rows:
+        runs: every 30 minutes
+        description: "Sync row data from selected sheets (triggered after metric creation)"
+        endpoint: GET /v4/spreadsheets
+        output: GoogleSheetRow
+        sync_type: incremental
+        auto_start: false

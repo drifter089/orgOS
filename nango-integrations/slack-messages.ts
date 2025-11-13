@@ -26,7 +26,7 @@ export default async function fetchChannelMessages(nango: NangoSync) {
 
         // Get last sync timestamp for incremental updates
         const lastSyncState = await nango.getMetadata();
-        const channelTimestamps: Record<string, string> = (lastSyncState?.lastTimestamp as Record<string, string>) || {};
+        const channelTimestamps: Record<string, string> = (lastSyncState?.['lastTimestamp'] as Record<string, string>) || {};
 
         const allMessages: any[] = [];
 

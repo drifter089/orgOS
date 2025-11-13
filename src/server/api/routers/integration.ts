@@ -20,7 +20,31 @@ export const integrationRouter = createTRPCRouter({
       },
     });
 
+    console.log(`[Integration List] Found ${integrations.length} active integrations for org ${workspace.organizationId}`);
+
     return integrations;
+  }),
+
+  // Debug: List all integrations (including revoked)
+  listAll: protectedProcedure.query(async ({ ctx }) => {
+    const workspace = await getWorkspaceContext(ctx.user.id);
+
+    const integrations = await ctx.db.integration.findMany({
+      where: {
+        organizationId: workspace.organizationId,
+      },
+      orderBy: {
+        createdAt: "desc",
+      },
+    });
+
+    return integrations.map(i => ({
+      id: i.id,
+      integrationId: i.integrationId,
+      connectionId: i.connectionId,
+      status: i.status,
+      createdAt: i.createdAt,
+    }));
   }),
 
   get: protectedProcedure
@@ -143,11 +167,22 @@ export const integrationRouter = createTRPCRouter({
         });
       }
 
-      await ctx.db.integration.update({
+      // Delete the connection from Nango first (if it still exists)
+      const nango = new Nango({ secretKey: env.NANGO_SECRET_KEY_DEV });
+
+      try {
+        await nango.deleteConnection(
+          integration.integrationId,
+          input.connectionId
+        );
+      } catch (error) {
+        console.log("[Revoke] Connection may already be deleted from Nango:", error);
+        // Continue anyway to clean up our database
+      }
+
+      // Delete from our database
+      await ctx.db.integration.delete({
         where: { connectionId: input.connectionId },
-        data: {
-          status: "revoked",
-        },
       });
 
       return { success: true };
@@ -225,9 +260,8 @@ export const integrationRouter = createTRPCRouter({
     .query(async ({ input }) => {
       // Map of provider to available syncs (from nango.yaml)
       const syncMap: Record<string, string[]> = {
-        posthog: ["active-users", "total-events", "conversion-rate"],
-        "google-sheets": ["sheet-rows", "sheet-metadata"],
-        slack: ["channel-messages", "active-users", "channels"],
+        posthog: ["posthog-persons", "posthog-events", "posthog-conversion"],
+        slack: ["slack-users", "slack-channels"],
       };
 
       return syncMap[input.integrationId] || [];
@@ -278,12 +312,20 @@ export const integrationRouter = createTRPCRouter({
           model: input.model,
           limit: input.limit,
           cursor: input.cursor,
+          // Include deleted records and all metadata
+          includeDeleted: true,
         });
 
         return {
-          records: result.records,
+          records: result.records, // Each record includes _nango_metadata
           nextCursor: result.next_cursor,
           totalCount: result.records.length,
+          // Return full metadata about the sync
+          metadata: {
+            hasMore: !!result.next_cursor,
+            model: input.model,
+            integrationId: input.integrationId,
+          },
         };
       } catch (error) {
         console.error("[Get Synced Records]", error);
@@ -409,4 +451,178 @@ export const integrationRouter = createTRPCRouter({
         });
       }
     }),
+
+  // Get available PostHog projects
+  getPostHogProjects: protectedProcedure
+    .input(z.object({ connectionId: z.string() }))
+    .query(async ({ ctx, input }) => {
+      const workspace = await getWorkspaceContext(ctx.user.id);
+
+      const integration = await ctx.db.integration.findUnique({
+        where: { connectionId: input.connectionId },
+      });
+
+      if (!integration) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Integration not found",
+        });
+      }
+
+      if (integration.organizationId !== workspace.organizationId) {
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "Access denied",
+        });
+      }
+
+      const nango = new Nango({ secretKey: env.NANGO_SECRET_KEY_DEV });
+
+      try {
+        // Use Nango proxy to fetch projects from PostHog
+        const response = await nango.proxy({
+          connectionId: input.connectionId,
+          providerConfigKey: integration.integrationId,
+          endpoint: "/api/projects/",
+          method: "GET",
+        });
+
+        const projects = response.data as { results: Array<{ id: number; name: string }> };
+
+        return {
+          projects: projects.results.map(p => ({
+            id: p.id.toString(),
+            name: p.name,
+          })),
+        };
+      } catch (error) {
+        console.error("[Get PostHog Projects]", error);
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Failed to fetch PostHog projects",
+        });
+      }
+    }),
+
+  // Save PostHog project ID to connection config
+  savePostHogProject: protectedProcedure
+    .input(
+      z.object({
+        connectionId: z.string(),
+        projectId: z.string(),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const workspace = await getWorkspaceContext(ctx.user.id);
+
+      const integration = await ctx.db.integration.findUnique({
+        where: { connectionId: input.connectionId },
+      });
+
+      if (!integration) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Integration not found",
+        });
+      }
+
+      if (integration.organizationId !== workspace.organizationId) {
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "Access denied",
+        });
+      }
+
+      const nango = new Nango({ secretKey: env.NANGO_SECRET_KEY_DEV });
+
+      try {
+        // Update connection metadata with project_id
+        // Store project_id directly in sync metadata so the sync script can access it
+        await nango.setMetadata(
+          integration.integrationId,
+          input.connectionId,
+          {
+            project_id: input.projectId,
+          }
+        );
+
+        // Also store in Integration model for UI display
+        await ctx.db.integration.update({
+          where: { connectionId: input.connectionId },
+          data: {
+            metadata: {
+              ...(integration.metadata as object || {}),
+              connection_config: {
+                project_id: input.projectId,
+              },
+            },
+          },
+        });
+
+        return { success: true };
+      } catch (error) {
+        console.error("[Save PostHog Project]", error);
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Failed to save project ID",
+        });
+      }
+    }),
+
+  // Check if sync has any data
+  checkSyncData: protectedProcedure
+    .input(
+      z.object({
+        connectionId: z.string(),
+        integrationId: z.string(),
+        model: z.string(),
+      }),
+    )
+    .query(async ({ ctx, input }) => {
+      const workspace = await getWorkspaceContext(ctx.user.id);
+
+      // Verify integration access
+      const integration = await ctx.db.integration.findUnique({
+        where: { connectionId: input.connectionId },
+      });
+
+      if (!integration) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Integration not found",
+        });
+      }
+
+      if (integration.organizationId !== workspace.organizationId) {
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "Access denied",
+        });
+      }
+
+      const nango = new Nango({ secretKey: env.NANGO_SECRET_KEY_DEV });
+
+      try {
+        const result = await nango.listRecords({
+          providerConfigKey: input.integrationId,
+          connectionId: input.connectionId,
+          model: input.model,
+          limit: 1, // Just check if ANY data exists
+        });
+
+        return {
+          hasData: result.records.length > 0,
+          recordCount: result.records.length,
+          sampleRecord: result.records[0],
+        };
+      } catch (error) {
+        console.error("[Check Sync Data]", error);
+        return {
+          hasData: false,
+          recordCount: 0,
+          error: error instanceof Error ? error.message : "Unknown error",
+        };
+      }
+    }),
+
 });

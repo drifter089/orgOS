@@ -25,44 +25,64 @@ __export(sheets_rows_exports, {
 module.exports = __toCommonJS(sheets_rows_exports);
 async function fetchSheetRows(nango) {
   try {
-    const connection = await nango.getConnection();
-    const config = connection.connection_config;
-    const spreadsheetId = config?.spreadsheet_id;
-    if (!spreadsheetId) {
-      throw new nango.ActionError({
-        message: "spreadsheet_id not configured for this connection. Please set connection_config.spreadsheet_id"
-      });
-    }
-    const range = config?.range || "Sheet1!A1:Z1000";
-    const sheetName = range.split("!")[0] || "Sheet1";
-    await nango.log(`Fetching rows from spreadsheet ${spreadsheetId}, range: ${range}`);
-    const response = await nango.get({
-      endpoint: `/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent(range)}`,
-      params: {
-        valueRenderOption: "UNFORMATTED_VALUE",
-        dateTimeRenderOption: "SERIAL_NUMBER",
-        majorDimension: "ROWS"
-      }
-    });
-    const values = response.data.values || [];
-    await nango.log(`Fetched ${values.length} rows from Google Sheets`);
-    if (values.length === 0) {
-      await nango.log("No rows found in the specified range");
+    const metadata = await nango.getMetadata();
+    const sheetIds = metadata?.sheet_ids || [];
+    if (sheetIds.length === 0) {
+      await nango.log("No sheets configured for sync. Add sheet_ids to connection metadata.");
       return;
     }
-    const rows = values.map((rowValues, index) => ({
-      id: `${spreadsheetId}-${sheetName}-row-${index}`,
-      spreadsheet_id: spreadsheetId,
-      sheet_name: sheetName,
-      row_number: index + 1,
-      values: rowValues,
-      last_updated: (/* @__PURE__ */ new Date()).toISOString()
-    }));
-    await nango.batchSave(rows, "SheetRow");
-    await nango.log(`Successfully synced ${rows.length} rows from spreadsheet ${spreadsheetId}`);
+    await nango.log(`Starting sync for ${sheetIds.length} sheet(s)`);
+    for (const sheetId of sheetIds) {
+      await syncSheetData(nango, sheetId);
+    }
+    await nango.log("All sheets synced successfully");
   } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    await nango.log(`Error in sheets rows sync: ${errorMessage}`, { level: "error" });
     throw new nango.ActionError({
-      message: `Failed to sync Google Sheets rows: ${error instanceof Error ? error.message : "Unknown error"}`
+      message: `Failed to sync sheet rows: ${errorMessage}`
     });
+  }
+}
+async function syncSheetData(nango, sheetId) {
+  try {
+    await nango.log(`Fetching data for sheet: ${sheetId}`);
+    const response = await nango.get({
+      endpoint: `/v4/spreadsheets/${sheetId}`,
+      params: {
+        includeGridData: "true",
+        ranges: "A1:ZZ1000"
+        // Fetch first 1000 rows, columns A-ZZ
+      }
+    });
+    const data = response.data;
+    const sheets = data.sheets || [];
+    if (sheets.length === 0) {
+      await nango.log(`No data found in sheet ${sheetId}`);
+      return;
+    }
+    const firstSheet = sheets[0];
+    const gridData = firstSheet?.data?.[0];
+    const rowData = gridData?.rowData || [];
+    await nango.log(`Found ${rowData.length} rows in sheet ${sheetId}`);
+    const rows = rowData.map((row, index) => {
+      const values = (row.values || []).map((cell) => {
+        return cell.effectiveValue?.stringValue || cell.effectiveValue?.numberValue?.toString() || cell.effectiveValue?.boolValue?.toString() || "";
+      });
+      return {
+        id: `${sheetId}-row-${index}`,
+        sheetId,
+        rowIndex: index + 1,
+        // 1-indexed for user readability
+        values
+      };
+    });
+    if (rows.length > 0) {
+      await nango.batchSave(rows, "GoogleSheetRow");
+      await nango.log(`Synced ${rows.length} rows from sheet ${sheetId}`);
+    }
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    await nango.log(`Error syncing sheet ${sheetId}: ${errorMessage}`, { level: "error" });
   }
 }

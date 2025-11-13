@@ -1,75 +1,87 @@
 /**
- * PostHog Total Events Sync
+ * PostHog Events Sync
  *
- * Syncs all tracked events from PostHog with incremental updates.
- * Runs every hour to capture event data.
+ * Syncs recent events from ALL PostHog projects.
+ * No project_id required - fetches from all accessible projects.
  */
 
 import type { NangoSync } from './models';
 
 export default async function fetchTotalEvents(nango: NangoSync) {
     try {
-        // Get last sync timestamp for incremental updates
-        const lastSyncState = await nango.getMetadata();
-        const lastTimestamp = lastSyncState?.lastTimestamp as string | undefined;
+        await nango.log('Starting events sync for all PostHog projects');
 
-        await nango.log(`Starting event sync. Last timestamp: ${lastTimestamp || 'none'}`);
-
-        // Build params object
-        const params: any = {
-            orderBy: ['timestamp'],
-            limit: 500
-        };
-
-        if (lastTimestamp) {
-            params.after = lastTimestamp;
-        }
-
-        // Fetch events from PostHog with pagination
-        const eventsGenerator = nango.paginate({
-            endpoint: '/api/event/',
-            params,
-            paginate: {
-                type: 'offset',
-                offset_name_in_request: 'offset',
-                limit: 500,
-                response_path: 'results'
-            }
+        // First, get all accessible projects
+        const projectsResponse = await nango.get({
+            endpoint: '/api/projects/',
         });
 
-        // Collect all events from the async generator
-        const events: any[] = [];
-        for await (const batch of eventsGenerator) {
-            events.push(...batch);
-        }
+        const projectsData = projectsResponse.data as { results: any[] };
+        const projects = projectsData.results || [];
 
-        await nango.log(`Fetched ${events.length} events from PostHog`);
+        await nango.log(`Found ${projects.length} accessible projects`);
 
-        if (events.length === 0) {
-            await nango.log('No new events to sync');
+        if (projects.length === 0) {
+            await nango.log('No projects found');
             return;
         }
 
-        // Transform events to ensure proper ID field
-        const transformedEvents = events.map((event: any) => ({
-            ...event,
-            id: event.id || `${event.distinct_id}-${event.timestamp}` // Ensure unique ID
-        }));
+        let totalEvents = 0;
 
-        // Save to Nango's cache
-        await nango.batchSave(transformedEvents, 'PostHogEvent');
+        // Fetch events from each project
+        for (const project of projects) {
+            const projectId = project.id;
+            const projectName = project.name || `Project ${projectId}`;
 
-        // Update timestamp cursor for next incremental sync
-        const latestTimestamp = events[events.length - 1]?.timestamp;
-        if (latestTimestamp) {
-            await nango.setMetadata({ lastTimestamp: latestTimestamp });
-            await nango.log(`Updated cursor to timestamp: ${latestTimestamp}`);
+            await nango.log(`Fetching events from project: ${projectName} (ID: ${projectId})`);
+
+            try {
+                const response = await nango.get({
+                    endpoint: `/api/projects/${projectId}/events/`,
+                    params: {
+                        limit: 100
+                    }
+                });
+
+                const data = response.data as { results: any[] };
+                const events = data.results || [];
+
+                if (events.length === 0) {
+                    await nango.log(`No events found in project ${projectName}`);
+                    continue;
+                }
+
+                // Transform and save events with project_id included
+                const transformedEvents = events.map((event: any) => ({
+                    id: `${projectId}-${event.id?.toString() || `${event.distinct_id}-${event.timestamp}`}`,
+                    event: event.event || '',
+                    distinct_id: event.distinct_id || '',
+                    properties: {
+                        ...event.properties,
+                        _project_id: projectId.toString(),
+                        _project_name: projectName,
+                    },
+                    timestamp: event.timestamp || new Date().toISOString()
+                }));
+
+                await nango.batchSave(transformedEvents, 'PostHogEvent');
+                totalEvents += transformedEvents.length;
+                await nango.log(`Synced ${transformedEvents.length} events from ${projectName}`);
+
+            } catch (projectError) {
+                const errorMessage = projectError instanceof Error ? projectError.message : String(projectError);
+                await nango.log(`Error fetching events from ${projectName}: ${errorMessage}`, { level: 'error' });
+                // Continue with other projects
+            }
         }
 
-        await nango.log(`Successfully synced ${events.length} events`);
+        await nango.log(`Successfully synced ${totalEvents} total events from ${projects.length} projects`);
+
     } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        await nango.log(`Error in events sync: ${errorMessage}`, { level: 'error' });
         throw new nango.ActionError({
-            message: `Failed to sync PostHog events: ${error instanceof Error ? error.message : 'Unknown error'}`
+            message: `Failed to sync PostHog events: ${errorMessage}`
         });
     }
 }

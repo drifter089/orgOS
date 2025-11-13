@@ -31,31 +31,6 @@ export interface PostHogConversionData {
   timestamp: string;
 };
 
-export interface SheetRow {
-  id: string;
-  spreadsheet_id: string;
-  sheet_name: string;
-  row_number: number;
-  values: any[];
-  last_updated: string;
-};
-
-export interface SheetMetadata {
-  id: string;
-  spreadsheet_id: string;
-  title: string;
-  sheets: any[];
-};
-
-export interface SlackMessage {
-  id: string;
-  channel: string;
-  user: string;
-  text: string;
-  ts: string;
-  thread_ts?: string | undefined;
-};
-
 export interface SlackUser {
   id: string;
   name: string;
@@ -77,6 +52,21 @@ export interface SlackChannel {
   is_private: boolean;
   is_archived: boolean;
   num_members: number;
+};
+
+export interface GoogleSheetMetadata {
+  id: string;
+  sheetId: string;
+  sheetName: string;
+  url: string;
+  lastModified: string;
+};
+
+export interface GoogleSheetRow {
+  id: string;
+  sheetId: string;
+  rowIndex: number;
+  values: any;
 };
 // ------ /Models
 
@@ -528,7 +518,7 @@ export const NangoFlows = [
       {
         "name": "posthog-persons",
         "type": "sync",
-        "description": "Sync active users and their properties from PostHog",
+        "description": "Sync active users and their properties from PostHog (requires project_id in connection_config)",
         "sync_type": "incremental",
         "usedModels": [
           "PostHogPerson"
@@ -545,7 +535,7 @@ export const NangoFlows = [
         "endpoints": [
           {
             "method": "GET",
-            "path": "/api/persons/"
+            "path": "/api/persons"
           }
         ],
         "webhookSubscriptions": []
@@ -553,7 +543,7 @@ export const NangoFlows = [
       {
         "name": "posthog-events",
         "type": "sync",
-        "description": "Sync all tracked events from PostHog",
+        "description": "Sync all tracked events from PostHog (requires project_id in connection_config)",
         "sync_type": "incremental",
         "usedModels": [
           "PostHogEvent"
@@ -570,7 +560,7 @@ export const NangoFlows = [
         "endpoints": [
           {
             "method": "GET",
-            "path": "/api/event/"
+            "path": "/api/events"
           }
         ],
         "webhookSubscriptions": []
@@ -611,31 +601,6 @@ export const NangoFlows = [
   {
     "providerConfigKey": "slack",
     "syncs": [
-      {
-        "name": "slack-messages",
-        "type": "sync",
-        "description": "Sync messages from configured Slack channels",
-        "sync_type": "incremental",
-        "usedModels": [
-          "SlackMessage"
-        ],
-        "runs": "every 30 minutes",
-        "version": "",
-        "track_deletes": false,
-        "auto_start": false,
-        "input": null,
-        "output": [
-          "SlackMessage"
-        ],
-        "scopes": [],
-        "endpoints": [
-          {
-            "method": "GET",
-            "path": "/conversations.history"
-          }
-        ],
-        "webhookSubscriptions": []
-      },
       {
         "name": "slack-users",
         "type": "sync",
@@ -682,6 +647,67 @@ export const NangoFlows = [
           {
             "method": "GET",
             "path": "/conversations.list"
+          }
+        ],
+        "webhookSubscriptions": []
+      }
+    ],
+    "actions": [],
+    "onEventScripts": {
+      "post-connection-creation": [],
+      "pre-connection-deletion": [],
+      "validate-connection": []
+    }
+  },
+  {
+    "providerConfigKey": "google-sheet",
+    "syncs": [
+      {
+        "name": "sheets-metadata",
+        "type": "sync",
+        "description": "Sync list of all Google Sheets in user's Drive",
+        "sync_type": "full",
+        "usedModels": [
+          "GoogleSheetMetadata"
+        ],
+        "runs": "every hour",
+        "version": "",
+        "track_deletes": false,
+        "auto_start": true,
+        "input": null,
+        "output": [
+          "GoogleSheetMetadata"
+        ],
+        "scopes": [],
+        "endpoints": [
+          {
+            "method": "GET",
+            "path": "/drive/v3/files"
+          }
+        ],
+        "webhookSubscriptions": []
+      },
+      {
+        "name": "sheets-rows",
+        "type": "sync",
+        "description": "Sync row data from selected sheets (triggered after metric creation)",
+        "sync_type": "incremental",
+        "usedModels": [
+          "GoogleSheetRow"
+        ],
+        "runs": "every 30 minutes",
+        "version": "",
+        "track_deletes": false,
+        "auto_start": false,
+        "input": null,
+        "output": [
+          "GoogleSheetRow"
+        ],
+        "scopes": [],
+        "endpoints": [
+          {
+            "method": "GET",
+            "path": "/v4/spreadsheets"
           }
         ],
         "webhookSubscriptions": []

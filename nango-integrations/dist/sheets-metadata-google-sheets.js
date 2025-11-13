@@ -20,44 +20,42 @@ var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: tru
 // sheets-metadata.ts
 var sheets_metadata_exports = {};
 __export(sheets_metadata_exports, {
-  default: () => fetchSheetMetadata
+  default: () => fetchSheetsMetadata
 });
 module.exports = __toCommonJS(sheets_metadata_exports);
-async function fetchSheetMetadata(nango) {
+async function fetchSheetsMetadata(nango) {
   try {
-    const connection = await nango.getConnection();
-    const config = connection.connection_config;
-    const spreadsheetId = config?.spreadsheet_id;
-    if (!spreadsheetId) {
-      throw new nango.ActionError({
-        message: "spreadsheet_id not configured for this connection. Please set connection_config.spreadsheet_id"
-      });
-    }
-    await nango.log(`Fetching metadata for spreadsheet ${spreadsheetId}`);
+    await nango.log("Starting Google Sheets metadata sync");
     const response = await nango.get({
-      endpoint: `/v4/spreadsheets/${spreadsheetId}`,
+      endpoint: "/drive/v3/files",
       params: {
-        fields: "spreadsheetId,properties,sheets.properties"
+        q: "mimeType='application/vnd.google-apps.spreadsheet'",
+        fields: "files(id,name,webViewLink,modifiedTime)",
+        pageSize: 100
       }
     });
-    const spreadsheet = response.data;
-    const metadata = {
-      id: spreadsheetId,
-      spreadsheet_id: spreadsheetId,
-      title: spreadsheet.properties?.title || "Untitled",
-      sheets: spreadsheet.sheets?.map((sheet) => ({
-        id: sheet.properties?.sheetId,
-        title: sheet.properties?.title,
-        index: sheet.properties?.index,
-        rowCount: sheet.properties?.gridProperties?.rowCount,
-        columnCount: sheet.properties?.gridProperties?.columnCount
-      })) || []
-    };
-    await nango.batchSave([metadata], "SheetMetadata");
-    await nango.log(`Successfully synced metadata for spreadsheet ${spreadsheetId}`);
+    const data = response.data;
+    const files = data.files || [];
+    await nango.log(`Found ${files.length} Google Sheets`);
+    if (files.length === 0) {
+      await nango.log("No sheets found in Drive");
+      return;
+    }
+    const sheets = files.map((file) => ({
+      id: file.id,
+      // Use sheet ID as the unique identifier
+      sheetId: file.id,
+      sheetName: file.name || "Untitled",
+      url: file.webViewLink || "",
+      lastModified: file.modifiedTime || (/* @__PURE__ */ new Date()).toISOString()
+    }));
+    await nango.batchSave(sheets, "GoogleSheetMetadata");
+    await nango.log(`Successfully synced ${sheets.length} sheet metadata`);
   } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    await nango.log(`Error in sheets metadata sync: ${errorMessage}`, { level: "error" });
     throw new nango.ActionError({
-      message: `Failed to sync Google Sheets metadata: ${error instanceof Error ? error.message : "Unknown error"}`
+      message: `Failed to sync Google Sheets metadata: ${errorMessage}`
     });
   }
 }

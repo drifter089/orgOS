@@ -1,9 +1,8 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 
 import Nango from "@nangohq/frontend";
-import { CheckCircle2, Trash2, XCircle } from "lucide-react";
 
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
@@ -15,8 +14,14 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Progress } from "@/components/ui/progress";
 import {
   Select,
   SelectContent,
@@ -24,116 +29,117 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Separator } from "@/components/ui/separator";
+import { cn } from "@/lib/utils";
 import { api } from "@/trpc/react";
 
 export default function MetricPage() {
   const [status, setStatus] = useState<string>("");
-  const [isLoading, setIsLoading] = useState(false);
-  const pollingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const [isConnecting, setIsConnecting] = useState(false);
 
-  const [selectedConnection, setSelectedConnection] = useState<string>("");
-  const [endpoint, setEndpoint] = useState<string>("");
-  const [method, setMethod] = useState<
-    "GET" | "POST" | "PUT" | "PATCH" | "DELETE"
-  >("GET");
-  const [fetchedData, setFetchedData] = useState<unknown>(null);
-  const [dataError, setDataError] = useState<string>("");
-  const [isFetching, setIsFetching] = useState(false);
+  // Metric creation state per integration
+  const [creatingMetricFor, setCreatingMetricFor] = useState<string | null>(null);
+  const [selectedTemplate, setSelectedTemplate] = useState<string>("");
+  const [selectedProject, setSelectedProject] = useState<string>("");
+  const [selectedSource, setSelectedSource] = useState<string>("");
+  const [metricName, setMetricName] = useState<string>("");
+  const [targetValue, setTargetValue] = useState<string>("");
+  const [metricConfig, setMetricConfig] = useState<any>({});
 
+  // Queries
   const { data: integrations, refetch: refetchIntegrations } =
-    api.integration.list.useQuery();
-  const { data: stats } = api.integration.stats.useQuery();
+    api.integration.list.useQuery(undefined, {
+      refetchInterval: 10000,
+    });
 
-  const fetchDataMutation = api.integration.fetchData.useMutation({
-    onSuccess: (data) => {
-      setFetchedData(data.data);
-      setDataError("");
-      setIsFetching(false);
-    },
-    onError: (error) => {
-      setDataError(error.message);
-      setFetchedData(null);
-      setIsFetching(false);
-    },
+  const { data: stats } = api.integration.stats.useQuery(undefined, {
+    refetchInterval: 10000,
   });
 
-  // Revoke mutation
+  // Metric queries for active integration
+  const { data: availableTemplates } =
+    api.integrationMetrics.getAvailableTemplates.useQuery(
+      {
+        integrationId:
+          integrations?.find((i) => i.id === creatingMetricFor)
+            ?.integrationId ?? "",
+      },
+      { enabled: !!creatingMetricFor },
+    );
+
+  const { data: posthogProjects } =
+    api.integrationMetrics.getPostHogProjects.useQuery(
+      {
+        connectionId:
+          integrations?.find((i) => i.id === creatingMetricFor)
+            ?.connectionId ?? "",
+      },
+      {
+        enabled:
+          !!creatingMetricFor &&
+          integrations?.find((i) => i.id === creatingMetricFor)
+            ?.integrationId === "posthog",
+      },
+    );
+
+  const { data: availableSources } =
+    api.integrationMetrics.getSelectableSources.useQuery(
+      {
+        connectionId:
+          integrations?.find((i) => i.id === creatingMetricFor)
+            ?.connectionId ?? "",
+        integrationId:
+          integrations?.find((i) => i.id === creatingMetricFor)
+            ?.integrationId ?? "",
+        sourceType: getSourceTypeFromTemplate(selectedTemplate),
+        nangoModel: getNangoModelFromTemplate(selectedTemplate),
+        projectId: selectedProject || undefined,
+      },
+      {
+        enabled:
+          !!creatingMetricFor &&
+          !!selectedTemplate &&
+          (integrations?.find((i) => i.id === creatingMetricFor)
+            ?.integrationId !== "posthog" ||
+            !!selectedProject),
+      },
+    );
+
+  const { data: metricsForIntegration } =
+    api.integrationMetrics.listByIntegration.useQuery(
+      {
+        connectionId:
+          integrations?.find((i) => i.id === creatingMetricFor)
+            ?.connectionId ?? "",
+      },
+      { enabled: !!creatingMetricFor },
+    );
+
+  // Mutations
   const revokeMutation = api.integration.revoke.useMutation({
     onSuccess: () => {
       void refetchIntegrations();
       setStatus("Integration revoked successfully");
     },
+  });
+
+  const createMetricMutation = api.integrationMetrics.create.useMutation({
+    onSuccess: () => {
+      setStatus("Metric created successfully!");
+      resetMetricForm();
+    },
     onError: (error) => {
-      setStatus(`Error revoking integration: ${error.message}`);
+      setStatus(`Error: ${error.message}`);
     },
   });
 
-  useEffect(() => {
-    return () => {
-      if (pollingTimeoutRef.current) {
-        clearTimeout(pollingTimeoutRef.current);
-      }
-    };
-  }, []);
-
-  const pollForIntegration = async (
-    connectionId: string,
-    maxAttempts = 10,
-    interval = 1000,
-  ) => {
-    let attempts = 0;
-
-    const poll = async (): Promise<void> => {
-      try {
-        attempts++;
-        const result = await refetchIntegrations();
-
-        if (
-          result.data?.some(
-            (integration) => integration.connectionId === connectionId,
-          )
-        ) {
-          setStatus("✓ Integration connected successfully!");
-          setIsLoading(false);
-          return;
-        }
-
-        if (attempts >= maxAttempts) {
-          setStatus(
-            "Integration webhook may be delayed. Please refresh the page to see your connection.",
-          );
-          setIsLoading(false);
-          return;
-        }
-
-        pollingTimeoutRef.current = setTimeout(() => {
-          void poll();
-        }, interval);
-      } catch (error) {
-        console.error("Error polling for integration:", error);
-        setStatus(
-          "Integration saved, but there was an error loading the list. Please refresh the page.",
-        );
-        setIsLoading(false);
-      }
-    };
-
-    await poll();
-  };
-
   const handleConnect = async () => {
     try {
-      setIsLoading(true);
+      setIsConnecting(true);
       setStatus("Fetching session token...");
 
-      // Step 1: Get session token from backend
-      const response = await fetch("/api/nango/session", {
-        method: "POST",
-      });
-
-      if (!response.ok) {
-        throw new Error("Failed to get session token");
-      }
+      const response = await fetch("/api/nango/session", { method: "POST" });
+      if (!response.ok) throw new Error("Failed to get session token");
 
       const data = (await response.json()) as { sessionToken: string };
       setStatus("Opening Nango Connect UI...");
@@ -142,273 +148,605 @@ export default function MetricPage() {
       nango.openConnectUI({
         onEvent: (event) => {
           if (event.type === "connect") {
-            setStatus(
-              `✓ Connected! Integration: ${event.payload.providerConfigKey} - Waiting for webhook...`,
-            );
-            void pollForIntegration(event.payload.connectionId);
+            setStatus("Connected! Refreshing...");
+            setTimeout(() => void refetchIntegrations(), 2000);
           } else if (event.type === "close") {
-            setStatus("Connection flow closed");
-            setIsLoading(false);
+            setStatus("");
+            setIsConnecting(false);
           }
         },
       });
     } catch (error) {
-      console.error("Connection error:", error);
-      setStatus(
-        `Error: ${error instanceof Error ? error.message : "Unknown error"}`,
-      );
-      setIsLoading(false);
+      setStatus(`Error: ${error instanceof Error ? error.message : "Unknown"}`);
+      setIsConnecting(false);
     }
   };
 
-  const handleRevoke = async (connectionId: string) => {
-    if (confirm("Are you sure you want to revoke this integration?")) {
-      revokeMutation.mutate({ connectionId });
-    }
-  };
-
-  const handleFetchData = () => {
-    if (!selectedConnection || !endpoint) {
-      setDataError("Please select an integration and enter an endpoint");
+  const handleCreateMetric = () => {
+    if (!creatingMetricFor || !selectedTemplate || !selectedSource || !metricName) {
+      setStatus("Please fill in all required fields");
       return;
     }
 
-    setIsFetching(true);
-    setDataError("");
-    fetchDataMutation.mutate({
-      connectionId: selectedConnection,
-      endpoint,
-      method,
+    const integration = integrations?.find((i) => i.id === creatingMetricFor);
+    if (!integration) return;
+
+    const config: any = {
+      templateId: selectedTemplate,
+      ...metricConfig,
+    };
+
+    if (integration.integrationId === "posthog") {
+      if (!selectedProject) {
+        setStatus("Please select a PostHog project");
+        return;
+      }
+      config.projectId = selectedProject;
+    }
+
+    createMetricMutation.mutate({
+      connectionId: integration.connectionId,
+      integrationId: integration.integrationId,
+      templateId: selectedTemplate,
+      sourceId: selectedSource,
+      config,
+      metricName,
+      targetValue: targetValue ? parseFloat(targetValue) : undefined,
     });
   };
 
+  const resetMetricForm = () => {
+    setSelectedTemplate("");
+    setSelectedProject("");
+    setSelectedSource("");
+    setMetricName("");
+    setTargetValue("");
+    setMetricConfig({});
+  };
+
+  function getSourceTypeFromTemplate(templateId: string): "event" | "sheet" | "channel" | "person" {
+    if (templateId.includes("event") || templateId.includes("conversion")) return "event";
+    if (templateId.includes("sheet") || templateId.includes("row") || templateId.includes("column")) return "sheet";
+    if (templateId.includes("channel")) return "channel";
+    if (templateId.includes("person")) return "person";
+    return "event";
+  }
+
+  function getNangoModelFromTemplate(templateId: string): string {
+    const template = availableTemplates?.find((t: any) => t.id === templateId);
+    return template?.nangoModel || "";
+  }
+
+  // Calculate form progress for current integration
+  const getFormProgress = () => {
+    const integration = integrations?.find((i) => i.id === creatingMetricFor);
+    const isPosthog = integration?.integrationId === "posthog";
+
+    let steps = 0;
+    let completed = 0;
+
+    // Step 1: Template
+    steps++;
+    if (selectedTemplate) completed++;
+
+    // Step 2: PostHog Project (conditional)
+    if (isPosthog) {
+      steps++;
+      if (selectedProject) completed++;
+    }
+
+    // Step 3: Source
+    steps++;
+    if (selectedSource) completed++;
+
+    // Step 4: Config
+    steps++;
+    if (metricName) completed++;
+
+    return { steps, completed, percentage: (completed / steps) * 100 };
+  };
+
+  const formProgress = getFormProgress();
+
   return (
-    <div className="container mx-auto max-w-4xl space-y-6 p-8">
-      {/* Header Card */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Connect 3rd Party Services</CardTitle>
-          <CardDescription>
-            Manage your organization&apos;s integrations with external APIs
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <Button onClick={handleConnect} disabled={isLoading} size="lg">
-            {isLoading ? "Connecting..." : "Connect New Integration"}
-          </Button>
+    <div className="container mx-auto max-w-7xl space-y-8 p-6 sm:p-8">
+      {/* Header Section */}
+      <div className="space-y-3">
+        <h1 className="text-4xl font-bold tracking-tight">Integrations & Metrics</h1>
+        <p className="text-base text-muted-foreground max-w-3xl">
+          Connect third-party services and create metrics from your data sources to track your key performance indicators
+        </p>
+      </div>
 
-          {status && (
-            <Alert>
-              <AlertDescription>{status}</AlertDescription>
-            </Alert>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Stats Card */}
+      {/* Stats Grid */}
       {stats && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Integration Statistics</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-              <div className="space-y-1">
-                <p className="text-muted-foreground text-sm">Total</p>
-                <p className="text-2xl font-bold">{stats.total}</p>
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {/* Total Integrations */}
+          <Card className="transition-all hover:scale-[1.02]">
+            <CardHeader className="pb-3">
+              <CardDescription className="text-xs font-medium uppercase tracking-wide">
+                Total Integrations
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="flex items-baseline gap-2">
+                <div className="text-3xl font-bold">{stats.total}</div>
+                <Badge variant="outline" className="text-xs">
+                  Connected
+                </Badge>
               </div>
-              <div className="space-y-1">
-                <p className="text-muted-foreground text-sm">Active</p>
-                <p className="text-2xl font-bold text-green-600">
+            </CardContent>
+          </Card>
+
+          {/* Active */}
+          <Card className="transition-all hover:scale-[1.02]">
+            <CardHeader className="pb-3">
+              <CardDescription className="text-xs font-medium uppercase tracking-wide">
+                Active
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="flex items-baseline gap-2">
+                <div className="text-3xl font-bold text-green-600 dark:text-green-500">
                   {stats.active}
-                </p>
+                </div>
+                <Badge variant="default" className="bg-green-600 hover:bg-green-600 dark:bg-green-500/20 dark:text-green-400 dark:border-green-500/30 text-xs">
+                  Syncing
+                </Badge>
               </div>
-              <div className="space-y-1">
-                <p className="text-muted-foreground text-sm">Revoked</p>
-                <p className="text-2xl font-bold text-gray-500">
+            </CardContent>
+          </Card>
+
+          {/* Error */}
+          <Card className="transition-all hover:scale-[1.02]">
+            <CardHeader className="pb-3">
+              <CardDescription className="text-xs font-medium uppercase tracking-wide">
+                Error
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="flex items-baseline gap-2">
+                <div className="text-3xl font-bold text-red-600 dark:text-red-500">
+                  {stats.error}
+                </div>
+                <Badge variant="destructive" className="text-xs">
+                  Needs Attention
+                </Badge>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Revoked */}
+          <Card className="transition-all hover:scale-[1.02]">
+            <CardHeader className="pb-3">
+              <CardDescription className="text-xs font-medium uppercase tracking-wide">
+                Revoked
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="flex items-baseline gap-2">
+                <div className="text-3xl font-bold text-muted-foreground">
                   {stats.revoked}
-                </p>
+                </div>
+                <Badge variant="secondary" className="text-xs">
+                  Disconnected
+                </Badge>
               </div>
-              <div className="space-y-1">
-                <p className="text-muted-foreground text-sm">Errors</p>
-                <p className="text-2xl font-bold text-red-600">{stats.error}</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        </div>
       )}
 
-      {/* Data Explorer */}
-      {integrations && integrations.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Data Explorer</CardTitle>
-            <CardDescription>
-              Test API endpoints from your connected integrations
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid gap-4 md:grid-cols-2">
-              <div className="space-y-2">
-                <Label htmlFor="integration">Integration</Label>
-                <Select
-                  value={selectedConnection}
-                  onValueChange={setSelectedConnection}
-                >
-                  <SelectTrigger id="integration">
-                    <SelectValue placeholder="Select an integration" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {integrations.map((integration) => (
-                      <SelectItem
-                        key={integration.id}
-                        value={integration.connectionId}
-                      >
-                        {integration.integrationId}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="method">HTTP Method</Label>
-                <Select
-                  value={method}
-                  onValueChange={(value) => setMethod(value as typeof method)}
-                >
-                  <SelectTrigger id="method">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="GET">GET</SelectItem>
-                    <SelectItem value="POST">POST</SelectItem>
-                    <SelectItem value="PUT">PUT</SelectItem>
-                    <SelectItem value="PATCH">PATCH</SelectItem>
-                    <SelectItem value="DELETE">DELETE</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="endpoint">API Endpoint</Label>
-              <Input
-                id="endpoint"
-                placeholder="/user or /repos or /me"
-                value={endpoint}
-                onChange={(e) => setEndpoint(e.target.value)}
-              />
-              <p className="text-muted-foreground text-xs">
-                Enter the API path (e.g., /user for GitHub, /me for PostHog)
-              </p>
-            </div>
-
-            <Button
-              onClick={handleFetchData}
-              disabled={isFetching || !selectedConnection || !endpoint}
-            >
-              {isFetching ? "Fetching..." : "Fetch Data"}
-            </Button>
-
-            {dataError && (
-              <Alert variant="destructive">
-                <AlertDescription>{dataError}</AlertDescription>
-              </Alert>
-            )}
-
-            {fetchedData !== null && fetchedData !== undefined ? (
-              <div className="space-y-2">
-                <Label>Response Data</Label>
-                <pre className="bg-muted max-h-96 overflow-auto rounded-lg border p-4 text-xs">
-                  {JSON.stringify(fetchedData, null, 2)}
-                </pre>
-              </div>
-            ) : null}
-          </CardContent>
-        </Card>
+      {/* Status Alert */}
+      {status && (
+        <Alert className={cn(
+          "transition-all duration-300",
+          status.startsWith("Error")
+            ? "border-destructive/50 bg-destructive/10 text-destructive"
+            : status.includes("success") || status.includes("Connected")
+              ? "border-green-600/50 bg-green-600/10 text-green-700 dark:text-green-400"
+              : "border-primary/50 bg-primary/10"
+        )}>
+          <AlertDescription className="font-medium">{status}</AlertDescription>
+        </Alert>
       )}
 
-      {/* Connected Integrations */}
-      <Card>
+      {/* Connect New Integration Card */}
+      <Card className="border-dashed border-2 hover:border-primary/50 transition-all duration-300">
         <CardHeader>
-          <CardTitle>Connected Integrations</CardTitle>
-          <CardDescription>
-            {integrations?.length
-              ? `${integrations.length} active integration${integrations.length > 1 ? "s" : ""}`
-              : "No integrations connected yet"}
+          <CardTitle className="text-xl">Connect New Integration</CardTitle>
+          <CardDescription className="text-base">
+            Add PostHog, Slack, Google Sheets, or other services to start tracking metrics
           </CardDescription>
         </CardHeader>
         <CardContent>
-          {integrations && integrations.length > 0 ? (
-            <div className="space-y-3">
-              {integrations.map((integration) => (
-                <div
-                  key={integration.id}
-                  className="flex items-center justify-between rounded-lg border p-4"
-                >
-                  <div className="flex-1 space-y-1">
-                    <div className="flex items-center gap-2">
-                      <h3 className="font-semibold capitalize">
-                        {integration.integrationId}
-                      </h3>
-                      <Badge
-                        variant={
-                          integration.status === "active"
-                            ? "default"
-                            : "secondary"
-                        }
-                      >
-                        {integration.status === "active" ? (
-                          <CheckCircle2 className="mr-1 h-3 w-3" />
-                        ) : (
-                          <XCircle className="mr-1 h-3 w-3" />
-                        )}
-                        {integration.status}
-                      </Badge>
-                    </div>
-                    <p className="text-muted-foreground font-mono text-xs">
-                      Connection ID: {integration.connectionId}
-                    </p>
-                    <p className="text-muted-foreground text-sm">
-                      Connected{" "}
-                      {new Date(integration.createdAt).toLocaleDateString()}
-                    </p>
-                    {integration.lastSyncAt && (
-                      <p className="text-muted-foreground text-xs">
-                        Last sync:{" "}
-                        {new Date(integration.lastSyncAt).toLocaleString()}
-                      </p>
-                    )}
-                    {integration.errorMessage && (
-                      <p className="text-xs text-red-600">
-                        Error: {integration.errorMessage}
-                      </p>
-                    )}
-                  </div>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => handleRevoke(integration.connectionId)}
-                    disabled={revokeMutation.isPending}
-                  >
-                    <Trash2 className="h-4 w-4 text-red-600" />
-                  </Button>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="text-muted-foreground space-y-2 text-sm">
-              <p>Before connecting:</p>
-              <ol className="list-inside list-decimal space-y-1">
-                <li>Configure an integration in your Nango dashboard</li>
-                <li>Set up OAuth credentials with the provider</li>
-                <li>Test the connection in Nango&apos;s Connections tab</li>
-              </ol>
-            </div>
-          )}
+          <Button
+            onClick={handleConnect}
+            disabled={isConnecting}
+            size="lg"
+            className="gap-2"
+          >
+            {isConnecting ? (
+              <>
+                <span className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                Connecting...
+              </>
+            ) : (
+              <>
+                <span className="text-lg">+</span>
+                Connect Integration
+              </>
+            )}
+          </Button>
         </CardContent>
       </Card>
+
+      {/* Integration Cards */}
+      <div className="space-y-4">
+        {integrations?.map((integration) => (
+          <Card key={integration.id} className="overflow-hidden transition-all duration-300 hover:shadow-lg">
+            {/* Integration Header */}
+            <CardHeader className="bg-accent/30 dark:bg-accent/10">
+              <div className="flex items-start justify-between gap-4">
+                <div className="flex-1 space-y-2">
+                  <div className="flex items-center gap-3 flex-wrap">
+                    <CardTitle className="text-2xl capitalize">
+                      {integration.integrationId}
+                    </CardTitle>
+                    <Badge
+                      variant={
+                        integration.status === "active"
+                          ? "default"
+                          : integration.status === "error"
+                            ? "destructive"
+                            : "secondary"
+                      }
+                      className="text-xs px-3 py-1"
+                    >
+                      {integration.status}
+                    </Badge>
+                  </div>
+                  <CardDescription className="text-xs font-mono">
+                    Connection ID: {integration.connectionId}
+                  </CardDescription>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => revokeMutation.mutate({ connectionId: integration.connectionId })}
+                  className="shrink-0"
+                >
+                  Revoke Access
+                </Button>
+              </div>
+            </CardHeader>
+
+            <CardContent className="space-y-6 pt-6">
+              {/* Existing Metrics List */}
+              {creatingMetricFor === integration.id && metricsForIntegration && metricsForIntegration.length > 0 && (
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2">
+                    <h4 className="text-sm font-semibold">Configured Metrics</h4>
+                    <Badge variant="secondary" className="text-xs">
+                      {metricsForIntegration.length}
+                    </Badge>
+                  </div>
+                  <div className="grid gap-3">
+                    {metricsForIntegration.map((metric: any) => (
+                      <div
+                        key={metric.id}
+                        className="group flex items-center justify-between rounded-lg border border-border/60 bg-card p-4 transition-all hover:border-border hover:shadow-sm"
+                      >
+                        <div className="space-y-1">
+                          <p className="font-semibold text-sm">{metric.name}</p>
+                          <p className="text-xs text-muted-foreground">
+                            Source: {metric.integrationMetric.sourceId}
+                          </p>
+                        </div>
+                        <Badge variant="outline" className="text-sm px-3 py-1.5 font-mono">
+                          {metric.currentValue ?? "—"}
+                        </Badge>
+                      </div>
+                    ))}
+                  </div>
+                  <Separator className="my-4" />
+                </div>
+              )}
+
+              {/* Add Metric Section */}
+              <Collapsible
+                open={creatingMetricFor === integration.id}
+                onOpenChange={(open) => {
+                  if (open) {
+                    setCreatingMetricFor(integration.id);
+                  } else {
+                    setCreatingMetricFor(null);
+                    resetMetricForm();
+                  }
+                }}
+              >
+                <CollapsibleTrigger asChild>
+                  <Button
+                    variant={creatingMetricFor === integration.id ? "secondary" : "outline"}
+                    className="w-full group"
+                  >
+                    <span className="text-base group-hover:scale-110 transition-transform">
+                      {creatingMetricFor === integration.id ? "−" : "+"}
+                    </span>
+                    {creatingMetricFor === integration.id ? "Cancel Metric Creation" : "Add New Metric"}
+                  </Button>
+                </CollapsibleTrigger>
+
+                <CollapsibleContent className="mt-6 space-y-6 animate-in slide-in-from-top-2 duration-300">
+                  {/* Progress Indicator */}
+                  {creatingMetricFor === integration.id && (
+                    <div className="space-y-3 rounded-lg border border-primary/20 bg-primary/5 p-4">
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="font-medium">Configuration Progress</span>
+                        <span className="text-xs text-muted-foreground">
+                          Step {formProgress.completed} of {formProgress.steps}
+                        </span>
+                      </div>
+                      <Progress value={formProgress.percentage} className="h-2" />
+                    </div>
+                  )}
+
+                  {/* Step 1: Select Template */}
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2">
+                      <div className={cn(
+                        "flex h-7 w-7 items-center justify-center rounded-full text-xs font-bold transition-colors",
+                        selectedTemplate
+                          ? "bg-primary text-primary-foreground"
+                          : "bg-muted text-muted-foreground"
+                      )}>
+                        1
+                      </div>
+                      <Label className="text-base font-semibold">Select Metric Type</Label>
+                    </div>
+                    <Select
+                      value={selectedTemplate}
+                      onValueChange={(value) => {
+                        setSelectedTemplate(value);
+                        setSelectedSource("");
+                      }}
+                    >
+                      <SelectTrigger className="h-11">
+                        <SelectValue placeholder="Choose the type of metric you want to track..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {availableTemplates?.map((template: any) => (
+                          <SelectItem key={template.id} value={template.id} className="py-3">
+                            <div className="flex flex-col gap-1">
+                              <span className="font-medium">{template.name}</span>
+                              <span className="text-xs text-muted-foreground">{template.description}</span>
+                            </div>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {/* Step 2: Select PostHog Project (conditional) */}
+                  {selectedTemplate && integration.integrationId === "posthog" && (
+                    <>
+                      <Separator />
+                      <div className="space-y-3">
+                        <div className="flex items-center gap-2">
+                          <div className={cn(
+                            "flex h-7 w-7 items-center justify-center rounded-full text-xs font-bold transition-colors",
+                            selectedProject
+                              ? "bg-primary text-primary-foreground"
+                              : "bg-muted text-muted-foreground"
+                          )}>
+                            2
+                          </div>
+                          <Label className="text-base font-semibold">Select PostHog Project</Label>
+                        </div>
+                        <Select
+                          value={selectedProject}
+                          onValueChange={(value) => {
+                            setSelectedProject(value);
+                            setSelectedSource("");
+                          }}
+                        >
+                          <SelectTrigger className="h-11">
+                            <SelectValue placeholder="Choose your PostHog project..." />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {posthogProjects?.projects.map((project: any) => (
+                              <SelectItem key={project.id} value={project.id} className="py-3">
+                                {project.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </>
+                  )}
+
+                  {/* Step 3: Select Source */}
+                  {selectedTemplate &&
+                    (integration.integrationId !== "posthog" || selectedProject) && (
+                      <>
+                        <Separator />
+                        <div className="space-y-3">
+                          <div className="flex items-center gap-2">
+                            <div className={cn(
+                              "flex h-7 w-7 items-center justify-center rounded-full text-xs font-bold transition-colors",
+                              selectedSource
+                                ? "bg-primary text-primary-foreground"
+                                : "bg-muted text-muted-foreground"
+                            )}>
+                              {integration.integrationId === "posthog" ? "3" : "2"}
+                            </div>
+                            <Label className="text-base font-semibold">Select Data Source</Label>
+                          </div>
+                          <Select value={selectedSource} onValueChange={setSelectedSource}>
+                            <SelectTrigger className="h-11">
+                              <SelectValue placeholder="Choose the specific data source..." />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {availableSources?.map((source: any) => (
+                                <SelectItem key={source.id} value={source.id} className="py-3">
+                                  <div className="flex items-center justify-between gap-2">
+                                    <span>{source.name}</span>
+                                    {source.metadata?.count && (
+                                      <Badge variant="secondary" className="text-xs">
+                                        {source.metadata.count}
+                                      </Badge>
+                                    )}
+                                  </div>
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </>
+                    )}
+
+                  {/* Step 4: Configure Metric */}
+                  {selectedSource && (
+                    <>
+                      <Separator />
+                      <div className="space-y-4">
+                        <div className="flex items-center gap-2">
+                          <div className={cn(
+                            "flex h-7 w-7 items-center justify-center rounded-full text-xs font-bold transition-colors",
+                            metricName
+                              ? "bg-primary text-primary-foreground"
+                              : "bg-muted text-muted-foreground"
+                          )}>
+                            {integration.integrationId === "posthog" ? "4" : "3"}
+                          </div>
+                          <Label className="text-base font-semibold">Configure Metric Details</Label>
+                        </div>
+
+                        <div className="space-y-4 rounded-lg border border-border/60 bg-accent/20 p-4">
+                          {/* Metric Name */}
+                          <div className="space-y-2">
+                            <Label htmlFor="metricName" className="text-sm font-medium">
+                              Metric Name <span className="text-destructive">*</span>
+                            </Label>
+                            <Input
+                              id="metricName"
+                              placeholder="e.g., Weekly Sign-Up Count"
+                              value={metricName}
+                              onChange={(e) => setMetricName(e.target.value)}
+                              className="h-10"
+                            />
+                          </div>
+
+                          {/* Target Value */}
+                          <div className="space-y-2">
+                            <Label htmlFor="targetValue" className="text-sm font-medium">
+                              Target Value <span className="text-xs text-muted-foreground">(optional)</span>
+                            </Label>
+                            <Input
+                              id="targetValue"
+                              type="number"
+                              placeholder="e.g., 1000"
+                              value={targetValue}
+                              onChange={(e) => setTargetValue(e.target.value)}
+                              className="h-10"
+                            />
+                          </div>
+
+                          {/* Conditional config fields */}
+                          {selectedTemplate === "conversion_rate" && (
+                            <div className="space-y-2">
+                              <Label htmlFor="endEvent" className="text-sm font-medium">
+                                End Event <span className="text-destructive">*</span>
+                              </Label>
+                              <Input
+                                id="endEvent"
+                                placeholder="e.g., purchase_completed"
+                                value={metricConfig.endEvent || ""}
+                                onChange={(e) =>
+                                  setMetricConfig({ ...metricConfig, endEvent: e.target.value })
+                                }
+                                className="h-10"
+                              />
+                            </div>
+                          )}
+
+                          {selectedTemplate === "sheet_value" && (
+                            <div className="space-y-2">
+                              <Label htmlFor="cellReference" className="text-sm font-medium">
+                                Cell Reference <span className="text-destructive">*</span>
+                              </Label>
+                              <Input
+                                id="cellReference"
+                                placeholder="e.g., B2"
+                                value={metricConfig.cellReference || ""}
+                                onChange={(e) =>
+                                  setMetricConfig({ ...metricConfig, cellReference: e.target.value })
+                                }
+                                className="h-10"
+                              />
+                            </div>
+                          )}
+
+                          {selectedTemplate === "sum_column" && (
+                            <div className="space-y-2">
+                              <Label htmlFor="columnLetter" className="text-sm font-medium">
+                                Column Letter <span className="text-destructive">*</span>
+                              </Label>
+                              <Input
+                                id="columnLetter"
+                                placeholder="e.g., B"
+                                value={metricConfig.columnLetter || ""}
+                                onChange={(e) =>
+                                  setMetricConfig({ ...metricConfig, columnLetter: e.target.value })
+                                }
+                                className="h-10"
+                              />
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Create Button */}
+                        <Button
+                          onClick={handleCreateMetric}
+                          disabled={createMetricMutation.isPending}
+                          size="lg"
+                          className="w-full"
+                        >
+                          {createMetricMutation.isPending ? (
+                            <>
+                              <span className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                              Creating Metric...
+                            </>
+                          ) : (
+                            "Create Metric"
+                          )}
+                        </Button>
+                      </div>
+                    </>
+                  )}
+                </CollapsibleContent>
+              </Collapsible>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+
+      {/* Empty State */}
+      {!integrations || integrations.length === 0 ? (
+        <Card className="border-dashed border-2">
+          <CardContent className="py-12 text-center space-y-3">
+            <div className="mx-auto w-12 h-12 rounded-full bg-muted flex items-center justify-center text-2xl text-muted-foreground">
+              ?
+            </div>
+            <div className="space-y-1">
+              <p className="text-base font-medium">No integrations connected yet</p>
+              <p className="text-sm text-muted-foreground">
+                Click "Connect Integration" above to get started with your first integration
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      ) : null}
     </div>
   );
 }
