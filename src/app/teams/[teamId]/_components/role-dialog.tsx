@@ -169,11 +169,18 @@ export function RoleDialog({
                 organizationId: "",
                 type: "number" as const,
                 targetValue: null,
-                currentValue: null,
                 unit: null,
-                mockDataPrompt: null,
+                sourceType: "self_reported" as const,
+                integrationId: null,
+                sourceUrl: null,
+                sourceConfig: null,
                 createdAt: new Date(),
                 updatedAt: new Date(),
+                integration: null,
+                _count: {
+                  dataPoints: 0,
+                  roles: 0,
+                },
               }
             : null,
         isPending: true,
@@ -189,7 +196,8 @@ export function RoleDialog({
           purpose: variables.purpose,
           metricId: variables.metricId ?? undefined,
           metricName: selectedMetric?.name ?? undefined,
-          metricValue: selectedMetric?.currentValue ?? undefined,
+          // TODO: Fetch latest data point value
+          metricValue: undefined,
           metricUnit: selectedMetric?.unit ?? undefined,
           assignedUserId: variables.assignedUserId ?? null,
           assignedUserName: variables.assignedUserId
@@ -228,7 +236,8 @@ export function RoleDialog({
               ...node.data,
               roleId: newRole.id,
               metricName: newRole.metric?.name ?? undefined,
-              metricValue: newRole.metric?.currentValue ?? undefined,
+              // TODO: Fetch latest data point value
+              metricValue: undefined,
               metricUnit: newRole.metric?.unit ?? undefined,
               isPending: undefined,
             },
@@ -269,7 +278,8 @@ export function RoleDialog({
               purpose: updatedRole.purpose,
               metricId: updatedRole.metric?.id ?? undefined,
               metricName: updatedRole.metric?.name ?? undefined,
-              metricValue: updatedRole.metric?.currentValue ?? undefined,
+              // TODO: Fetch latest data point value
+              metricValue: undefined,
               metricUnit: updatedRole.metric?.unit ?? undefined,
               assignedUserId: updatedRole.assignedUserId,
               assignedUserName: updatedRole.assignedUserId
@@ -414,7 +424,7 @@ export function RoleDialog({
                           <div className="flex items-center justify-between gap-4">
                             <span>{metric.name}</span>
                             <span className="text-muted-foreground text-xs">
-                              {metric.currentValue?.toFixed(1)} {metric.unit}
+                              {metric.sourceType}
                             </span>
                           </div>
                         </SelectItem>

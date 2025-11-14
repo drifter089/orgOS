@@ -5,6 +5,7 @@ import { type StoredEdge, type StoredNode } from "../types/canvas";
 
 /**
  * Role data shape from API (team.getById with roles included)
+ * Note: currentValue is no longer stored in Metric model - it's now in MetricDataPoint time-series
  */
 type RoleWithMetric = {
   id: string;
@@ -15,7 +16,6 @@ type RoleWithMetric = {
   metric: {
     id: string;
     name: string;
-    currentValue: number | null;
     unit: string | null;
   } | null;
 };
@@ -73,7 +73,8 @@ export function enrichNodesWithRoleData(
         purpose: role?.purpose ?? "",
         metricId: role?.metric?.id,
         metricName: role?.metric?.name,
-        metricValue: role?.metric?.currentValue ?? undefined,
+        // TODO: Fetch latest data point value from MetricDataPoint time-series
+        metricValue: undefined,
         metricUnit: role?.metric?.unit ?? undefined,
         assignedUserId: role?.assignedUserId ?? null,
         assignedUserName: role?.assignedUserId
