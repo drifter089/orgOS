@@ -11,7 +11,6 @@ import {
 import "@xyflow/react/dist/style.css";
 import { Loader2, Save } from "lucide-react";
 
-import { Badge } from "@/components/ui/badge";
 import { ZoomSlider } from "@/components/zoom-slider";
 import { cn } from "@/lib/utils";
 
@@ -54,24 +53,28 @@ export function TeamCanvas() {
 
   return (
     <div className="relative h-full w-full">
-      {/* Save Status Indicator - Positioned below the sidebar trigger */}
-      <div className="absolute top-16 right-4 z-10 flex items-center gap-2">
-        {isSaving ? (
-          <Badge variant="secondary" className="gap-2">
-            <Loader2 className="h-3 w-3 animate-spin" />
-            Saving...
-          </Badge>
-        ) : isDirty ? (
-          <Badge variant="outline" className="gap-2">
-            <div className="h-2 w-2 rounded-full bg-yellow-500" />
-            Unsaved changes
-          </Badge>
-        ) : lastSaved ? (
-          <Badge variant="secondary" className="gap-2">
-            <Save className="h-3 w-3" />
-            Saved
-          </Badge>
-        ) : null}
+      {/* Save Status Indicator - Positioned in top-right with visual grouping */}
+      <div className="absolute top-4 right-4 z-20">
+        <div className="supports-backdrop-filter:bg-background/60 bg-background/95 ring-border/50 rounded-md border px-3 py-2 shadow-md ring-1 backdrop-blur-sm">
+          {isSaving ? (
+            <div className="flex items-center gap-2 text-sm">
+              <Loader2 className="text-primary h-3.5 w-3.5 animate-spin" />
+              <span className="font-medium">Saving...</span>
+            </div>
+          ) : isDirty ? (
+            <div className="flex items-center gap-2 text-sm">
+              <div className="h-2 w-2 animate-pulse rounded-full bg-yellow-500" />
+              <span className="text-muted-foreground font-medium">
+                Unsaved changes
+              </span>
+            </div>
+          ) : lastSaved ? (
+            <div className="flex items-center gap-2 text-sm">
+              <Save className="h-3.5 w-3.5 text-emerald-500" />
+              <span className="text-muted-foreground font-medium">Saved</span>
+            </div>
+          ) : null}
+        </div>
       </div>
 
       {/* React Flow Canvas */}
@@ -95,7 +98,7 @@ export function TeamCanvas() {
         }}
       >
         <Background variant={BackgroundVariant.Dots} gap={16} size={1} />
-        <ZoomSlider position="bottom-left" className="bg-card" />
+        <ZoomSlider position="bottom-left" />
       </ReactFlow>
 
       {/* Edit Role Dialog */}

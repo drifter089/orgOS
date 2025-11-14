@@ -3,7 +3,7 @@
 import { useState } from "react";
 
 import type { User } from "@workos-inc/node";
-import { Mail, Shield, UserCheck } from "lucide-react";
+import { ChevronRight, Clock, Mail, Shield, UserCheck } from "lucide-react";
 
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -15,6 +15,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
+import { cn } from "@/lib/utils";
 
 import { UserRolesDialog } from "./UserRolesDialog";
 
@@ -69,16 +70,15 @@ export function MembersListClient({ members }: MembersListClientProps) {
     <>
       <Card>
         <CardHeader>
-          <div className="flex items-center justify-between">
-            <div>
-              <CardTitle>Organization Members</CardTitle>
-              <CardDescription className="mt-1.5">
-                {members.length} {members.length === 1 ? "member" : "members"}{" "}
-                in this organization
+          <div className="flex items-start justify-between gap-4">
+            <div className="space-y-1">
+              <CardTitle className="text-2xl">Organization Members</CardTitle>
+              <CardDescription className="text-base">
+                Manage your team members and their roles
               </CardDescription>
             </div>
-            <Badge variant="secondary" className="text-sm">
-              {members.length} Total
+            <Badge variant="secondary" className="shrink-0 px-3 py-1 text-lg">
+              {members.length}
             </Badge>
           </div>
         </CardHeader>
@@ -86,7 +86,7 @@ export function MembersListClient({ members }: MembersListClientProps) {
         <Separator />
 
         <CardContent className="pt-6">
-          <div className="space-y-4">
+          <div className="space-y-3">
             {members.map(({ user, membership }) => {
               // Get initials for avatar with safe fallbacks
               const userObj = user as Record<string, unknown>;
@@ -104,6 +104,10 @@ export function MembersListClient({ members }: MembersListClientProps) {
                   ? `${firstName} ${lastName}`
                   : (email ?? "Member");
 
+              const isAdmin =
+                membership.role.slug === "admin" ||
+                membership.role.slug === "owner";
+
               return (
                 <div
                   key={membership.id}
@@ -112,12 +116,25 @@ export function MembersListClient({ members }: MembersListClientProps) {
                   onClick={() => handleMemberClick(user)}
                   onKeyDown={(e) => handleKeyDown(e, user)}
                   aria-label={`View details for ${userName}`}
-                  className="hover:bg-muted/50 group flex cursor-pointer items-center justify-between rounded-lg border p-4 transition-colors"
+                  className={cn(
+                    "group relative flex cursor-pointer items-center justify-between rounded-lg border p-4 transition-all duration-200",
+                    isAdmin
+                      ? "border-primary/30 bg-primary/5 hover:border-primary/50 hover:bg-primary/10 hover:shadow-md"
+                      : "border-border bg-card hover:border-primary/30 hover:bg-accent/50 hover:shadow-md",
+                    "focus-visible:ring-ring focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none",
+                  )}
                 >
+                  {/* Admin indicator badge */}
+                  {isAdmin && (
+                    <div className="bg-primary absolute -top-2 -right-2 flex h-6 w-6 items-center justify-center rounded-full">
+                      <Shield className="text-primary-foreground h-3.5 w-3.5" />
+                    </div>
+                  )}
+
                   <div className="flex items-center gap-4">
-                    {/* Avatar */}
-                    <Avatar className="h-12 w-12">
-                      <AvatarFallback className="bg-primary/10 text-primary">
+                    {/* Avatar with transition */}
+                    <Avatar className="group-hover:ring-primary/20 h-12 w-12 ring-2 ring-transparent transition-all group-hover:scale-105">
+                      <AvatarFallback className="bg-primary/10 text-primary group-hover:bg-primary/20 transition-colors">
                         {initials}
                       </AvatarFallback>
                     </Avatar>
@@ -129,7 +146,7 @@ export function MembersListClient({ members }: MembersListClientProps) {
                           {userName}
                         </p>
                         {membership.status === "active" && (
-                          <UserCheck className="h-4 w-4 text-emerald-600 dark:text-emerald-500" />
+                          <UserCheck className="h-4 w-4 text-emerald-600/90 dark:text-emerald-400/90" />
                         )}
                       </div>
                       <div className="text-muted-foreground flex items-center gap-1.5 text-sm">
@@ -142,30 +159,25 @@ export function MembersListClient({ members }: MembersListClientProps) {
                   {/* Role & Status */}
                   <div className="flex items-center gap-2">
                     <Badge
-                      variant={
-                        membership.role.slug === "admin"
-                          ? "default"
-                          : "secondary"
-                      }
+                      variant={isAdmin ? "default" : "secondary"}
                       className="flex items-center gap-1"
                     >
-                      {membership.role.slug === "admin" && (
-                        <Shield className="h-3 w-3" />
-                      )}
+                      {isAdmin && <Shield className="h-3 w-3" />}
                       {membership.role.slug}
                     </Badge>
                     <Badge
-                      variant="outline"
-                      className={
+                      variant={
                         membership.status === "active"
-                          ? "border-emerald-600 text-emerald-600 dark:border-emerald-500 dark:text-emerald-500"
+                          ? "success"
                           : membership.status === "pending"
-                            ? "border-amber-600 text-amber-600 dark:border-amber-500 dark:text-amber-500"
-                            : "border-border text-muted-foreground"
+                            ? "warning"
+                            : "outline"
                       }
+                      className="capitalize"
                     >
                       {membership.status}
                     </Badge>
+                    <ChevronRight className="text-muted-foreground group-hover:text-primary h-5 w-5 transition-all group-hover:translate-x-1" />
                   </div>
                 </div>
               );
@@ -175,39 +187,68 @@ export function MembersListClient({ members }: MembersListClientProps) {
           {/* Summary Stats */}
           <Separator className="my-6" />
 
-          <div className="grid grid-cols-1 gap-4 text-center sm:grid-cols-3">
-            <div className="bg-muted/50 space-y-1 rounded-lg p-4">
-              <p className="text-primary text-2xl font-bold">
-                {members.filter((m) => m.membership.status === "active").length}
-              </p>
-              <p className="text-muted-foreground text-sm font-medium">
-                Active Members
-              </p>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+            {/* Active Members - Primary emphasis */}
+            <div className="border-border from-primary/10 to-primary/5 relative overflow-hidden rounded-lg border bg-gradient-to-br p-6 transition-all hover:shadow-md">
+              <div className="flex items-center justify-between">
+                <div className="space-y-1">
+                  <p className="text-muted-foreground text-sm font-medium">
+                    Active Members
+                  </p>
+                  <p className="text-primary text-3xl font-bold">
+                    {
+                      members.filter((m) => m.membership.status === "active")
+                        .length
+                    }
+                  </p>
+                </div>
+                <div className="bg-primary/10 rounded-full p-3">
+                  <UserCheck className="text-primary h-6 w-6" />
+                </div>
+              </div>
             </div>
-            <div className="bg-muted/50 space-y-1 rounded-lg p-4">
-              <p className="text-2xl font-bold text-amber-600 dark:text-amber-500">
-                {
-                  members.filter((m) => m.membership.status === "pending")
-                    .length
-                }
-              </p>
-              <p className="text-muted-foreground text-sm font-medium">
-                Pending Invites
-              </p>
+
+            {/* Pending - Secondary emphasis */}
+            <div className="border-border relative overflow-hidden rounded-lg border bg-gradient-to-br from-orange-500/10 to-orange-500/5 p-6 transition-all hover:shadow-md">
+              <div className="flex items-center justify-between">
+                <div className="space-y-1">
+                  <p className="text-muted-foreground text-sm font-medium">
+                    Pending Invites
+                  </p>
+                  <p className="text-3xl font-bold text-orange-600 dark:text-orange-400">
+                    {
+                      members.filter((m) => m.membership.status === "pending")
+                        .length
+                    }
+                  </p>
+                </div>
+                <div className="rounded-full bg-orange-500/10 p-3">
+                  <Clock className="h-6 w-6 text-orange-600 dark:text-orange-400" />
+                </div>
+              </div>
             </div>
-            <div className="bg-muted/50 space-y-1 rounded-lg p-4">
-              <p className="text-2xl font-bold text-emerald-600 dark:text-emerald-500">
-                {
-                  members.filter(
-                    (m) =>
-                      m.membership.role.slug === "admin" ||
-                      m.membership.role.slug === "owner",
-                  ).length
-                }
-              </p>
-              <p className="text-muted-foreground text-sm font-medium">
-                Administrators
-              </p>
+
+            {/* Admins - Tertiary emphasis */}
+            <div className="border-border bg-card relative overflow-hidden rounded-lg border p-6 transition-all hover:shadow-md">
+              <div className="flex items-center justify-between">
+                <div className="space-y-1">
+                  <p className="text-muted-foreground text-sm font-medium">
+                    Administrators
+                  </p>
+                  <p className="text-3xl font-bold">
+                    {
+                      members.filter(
+                        (m) =>
+                          m.membership.role.slug === "admin" ||
+                          m.membership.role.slug === "owner",
+                      ).length
+                    }
+                  </p>
+                </div>
+                <div className="bg-muted rounded-full p-3">
+                  <Shield className="text-muted-foreground h-6 w-6" />
+                </div>
+              </div>
             </div>
           </div>
         </CardContent>

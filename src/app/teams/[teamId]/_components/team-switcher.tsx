@@ -38,12 +38,15 @@ export function TeamSwitcher({
           variant="outline"
           role="combobox"
           className={cn(
-            "bg-background/95 supports-backdrop-filter:bg-background/60 flex items-center gap-2 backdrop-blur",
+            "supports-backdrop-filter:bg-background/60 bg-background/95 flex items-center gap-2 backdrop-blur",
+            "ring-border/50 hover:ring-border shadow-md ring-1 transition-shadow hover:shadow-lg",
             className,
           )}
         >
           <Users className="h-4 w-4" />
-          <span className="max-w-[150px] truncate">{currentTeamName}</span>
+          <span className="max-w-[150px] truncate font-medium">
+            {currentTeamName}
+          </span>
           <ChevronsUpDown className="ml-auto h-4 w-4 shrink-0 opacity-50" />
         </Button>
       </DropdownMenuTrigger>

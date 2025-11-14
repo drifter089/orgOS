@@ -2,12 +2,24 @@
 
 import Link from "next/link";
 
+import { Clock, Loader2, Users } from "lucide-react";
+
+import { Badge } from "@/components/ui/badge";
 import {
   Card,
   CardDescription,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import {
+  Empty,
+  EmptyContent,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "@/components/ui/empty";
+import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { api } from "@/trpc/react";
 
@@ -16,15 +28,20 @@ import { CreateTeamDialog } from "./create-team-dialog";
 function TeamCardSkeleton() {
   return (
     <Card className="h-full">
-      <CardHeader className="space-y-3">
-        <Skeleton className="h-6 w-3/4" />
+      <CardHeader className="space-y-4">
         <div className="space-y-2">
-          <Skeleton className="h-4 w-full" />
-          <Skeleton className="h-4 w-2/3" />
+          <Skeleton className="h-6 w-3/4" />
+          <div className="min-h-[2.5rem] space-y-2">
+            <Skeleton className="h-4 w-full" />
+            <Skeleton className="h-4 w-2/3" />
+          </div>
         </div>
-        <div className="flex items-center justify-between border-t pt-4">
-          <Skeleton className="h-4 w-16" />
-          <Skeleton className="h-3 w-20" />
+
+        <Separator />
+
+        <div className="flex items-center justify-between">
+          <Skeleton className="h-5 w-20 rounded-md" />
+          <Skeleton className="h-4 w-24" />
         </div>
       </CardHeader>
     </Card>
@@ -36,7 +53,7 @@ export function TeamsList() {
 
   if (isLoading) {
     return (
-      <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
         {[1, 2, 3, 4, 5, 6].map((i) => (
           <TeamCardSkeleton key={i} />
         ))}
@@ -46,22 +63,26 @@ export function TeamsList() {
 
   if (!teams || teams.length === 0) {
     return (
-      <Card className="border-dashed">
-        <CardHeader className="py-16 text-center">
-          <CardTitle className="text-2xl">No teams yet</CardTitle>
-          <CardDescription className="text-base">
-            Create your first team to start building role structures
-          </CardDescription>
-          <div className="pt-6">
-            <CreateTeamDialog />
-          </div>
-        </CardHeader>
-      </Card>
+      <Empty className="border">
+        <EmptyHeader>
+          <EmptyMedia variant="icon">
+            <Users className="text-muted-foreground" />
+          </EmptyMedia>
+          <EmptyTitle>No teams yet</EmptyTitle>
+          <EmptyDescription>
+            Create your first team to start building role structures and
+            workflows
+          </EmptyDescription>
+        </EmptyHeader>
+        <EmptyContent>
+          <CreateTeamDialog />
+        </EmptyContent>
+      </Empty>
     );
   }
 
   return (
-    <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-3">
+    <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
       {teams.map((team) => {
         const isPending = "isPending" in team && team.isPending;
 
@@ -69,31 +90,31 @@ export function TeamsList() {
           return (
             <Card
               key={team.id}
-              className="h-full cursor-not-allowed opacity-60 transition-all duration-300"
+              className="ring-primary/20 h-full cursor-not-allowed opacity-70 ring-2"
             >
-              <CardHeader className="space-y-3">
-                <div className="flex items-center gap-2">
-                  <CardTitle className="line-clamp-1 text-xl">
-                    {team.name}
-                  </CardTitle>
-                  <div className="flex items-center gap-1">
-                    <div className="bg-primary h-1.5 w-1.5 animate-pulse rounded-full" />
-                    <div
-                      className="bg-primary h-1.5 w-1.5 animate-pulse rounded-full"
-                      style={{ animationDelay: "0.2s" }}
-                    />
-                    <div
-                      className="bg-primary h-1.5 w-1.5 animate-pulse rounded-full"
-                      style={{ animationDelay: "0.4s" }}
-                    />
+              <CardHeader className="space-y-4">
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between gap-2">
+                    <CardTitle className="line-clamp-1 text-xl">
+                      {team.name}
+                    </CardTitle>
+                    <Badge variant="outline" className="shrink-0 gap-1.5">
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                      Creating
+                    </Badge>
                   </div>
+                  <CardDescription className="line-clamp-2 min-h-[2.5rem]">
+                    {team.description ?? "No description"}
+                  </CardDescription>
                 </div>
-                <CardDescription className="line-clamp-2 text-base">
-                  {team.description ?? "No description"}
-                </CardDescription>
-                <div className="text-muted-foreground flex items-center justify-between border-t pt-4 text-sm">
-                  <span className="font-medium">Creating...</span>
-                  <span className="text-xs italic">Saving</span>
+
+                <Separator />
+
+                <div className="text-muted-foreground flex items-center justify-between text-sm">
+                  <span className="flex items-center gap-1.5">
+                    <Users className="h-3 w-3" />0 roles
+                  </span>
+                  <span className="text-xs">Just now</span>
                 </div>
               </CardHeader>
             </Card>
@@ -102,26 +123,32 @@ export function TeamsList() {
 
         return (
           <Link key={team.id} href={`/teams/${team.id}`}>
-            <Card className="h-full cursor-pointer transition-all duration-300 hover:scale-[1.03] hover:shadow-xl">
-              <CardHeader className="space-y-3">
-                <CardTitle className="line-clamp-1 text-xl">
-                  {team.name}
-                </CardTitle>
-                <CardDescription className="line-clamp-2 text-base">
-                  {team.description ?? "No description"}
-                </CardDescription>
-                <div className="text-muted-foreground flex items-center justify-between border-t pt-4 text-sm">
-                  <span className="font-medium">
-                    {team._count.roles} role
-                    {team._count.roles !== 1 ? "s" : ""}
-                  </span>
-                  <span className="text-xs">
-                    Updated{" "}
+            <Card className="group hover:border-primary/20 h-full cursor-pointer transition-all hover:shadow-lg">
+              <CardHeader className="space-y-4">
+                <div className="space-y-2">
+                  <CardTitle className="group-hover:text-primary line-clamp-1 text-xl transition-colors">
+                    {team.name}
+                  </CardTitle>
+                  <CardDescription className="line-clamp-2 min-h-[2.5rem]">
+                    {team.description ?? "No description"}
+                  </CardDescription>
+                </div>
+
+                <Separator />
+
+                <div className="flex items-center justify-between text-sm">
+                  <Badge variant="secondary" className="gap-1.5">
+                    <Users className="h-3 w-3" />
+                    {team._count.roles}{" "}
+                    {team._count.roles !== 1 ? "roles" : "role"}
+                  </Badge>
+                  <div className="text-muted-foreground flex items-center gap-1.5 text-xs">
+                    <Clock className="h-3 w-3" />
                     {new Date(team.updatedAt).toLocaleDateString("en-US", {
                       month: "short",
                       day: "numeric",
                     })}
-                  </span>
+                  </div>
                 </div>
               </CardHeader>
             </Card>
