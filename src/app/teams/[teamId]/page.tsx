@@ -49,11 +49,11 @@ export default async function TeamPage({
         {/* Main Canvas Area with Inset for proper spacing */}
         <SidebarInset className="flex-1 overflow-hidden">
           <div className="relative h-full w-full">
-            {/* Team Switcher - Top-left floating control */}
+            {/* Team Switcher - Bottom-left floating control, offset from zoom slider */}
             <TeamSwitcher
               currentTeamId={team.id}
               currentTeamName={team.name}
-              className="absolute top-4 left-4 z-20"
+              className="absolute bottom-4 left-64 z-20"
             />
 
             {/* Sidebar Trigger - Bottom-right floating control */}
