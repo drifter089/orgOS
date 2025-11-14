@@ -84,7 +84,7 @@ jobs:
         run: pnpm db:generate
 
       - name: Run database migrations
-        run: pnpm db:push
+        run: pnpm db:migrate
         env:
           DATABASE_URL: postgresql://postgres:postgres@localhost:5432/test_db
 
@@ -108,9 +108,12 @@ jobs:
 
 - Runs on every PR and push to main/develop
 - Spins up PostgreSQL database for testing
+- Applies migrations with `pnpm db:migrate` (production-safe)
 - Installs dependencies and Playwright browsers
 - Runs all E2E tests
 - Uploads test reports as artifacts
+
+> **Note**: We use `pnpm db:migrate` (not `db:push`) to ensure migrations are tested in CI exactly as they'll run in production.
 
 ---
 
@@ -255,10 +258,12 @@ WORKOS_COOKIE_PASSWORD=<cookie-password>
 
 **Build Configuration:**
 
+Update your Vercel project settings to include database migrations:
+
 ```json
 // vercel.json
 {
-  "buildCommand": "pnpm build",
+  "buildCommand": "pnpm db:migrate && pnpm build",
   "devCommand": "pnpm dev",
   "installCommand": "pnpm install",
   "framework": "nextjs",
@@ -266,16 +271,24 @@ WORKOS_COOKIE_PASSWORD=<cookie-password>
 }
 ```
 
+Or configure via Vercel Dashboard:
+
+- **Build Command:** `pnpm db:migrate && pnpm build`
+- **Install Command:** `pnpm install`
+- **Output Directory:** `.next`
+
+> **Important**: The build command runs `pnpm db:migrate` before building to ensure all pending migrations are applied. This is production-safe and zero-downtime.
+
 ### Railway Deployment (Alternative)
 
 **Setup:**
 
 1. Connect GitHub repository
-2. Add environment variables
+2. Add environment variables (same as Vercel)
 3. Configure build settings:
 
 ```
-Build Command: pnpm build
+Build Command: pnpm db:migrate && pnpm build
 Start Command: pnpm start
 ```
 
@@ -283,6 +296,275 @@ Start Command: pnpm start
 
 - Push to main branch
 - Merging pull requests
+
+> **Note**: Railway will run migrations before each deployment, ensuring database schema stays in sync with application code.
+
+---
+
+## Database Migration Strategy
+
+### Production Deployment Flow
+
+When deploying schema changes to production, follow this workflow:
+
+```mermaid
+graph LR
+    A[Edit Schema] --> B[prisma migrate dev]
+    B --> C[Test Locally]
+    C --> D[Commit Migration]
+    D --> E[Push to GitHub]
+    E --> F[CI Tests Pass]
+    F --> G[Deploy to Production]
+    G --> H[db:migrate runs]
+    H --> I[Build Application]
+    I --> J[Start Server]
+```
+
+### Migration Lifecycle
+
+```bash
+# Developer Workflow (Local)
+1. Edit prisma/schema.prisma
+2. pnpm prisma migrate dev --name descriptive_name
+3. Test migration locally
+4. Review generated SQL in prisma/migrations/
+5. git add prisma/migrations prisma/schema.prisma
+6. git commit -m "feat: add new field"
+7. git push
+
+# CI/CD Workflow (Automated)
+8. GitHub Actions runs tests with pnpm db:migrate
+9. Vercel/Railway detects new commit
+10. Build process runs: pnpm db:migrate && pnpm build
+11. Migrations applied to production database
+12. Application builds with updated schema
+13. New version deployed
+```
+
+### Zero-Downtime Guarantees
+
+The `pnpm db:migrate` command provides several safety guarantees:
+
+| Feature             | Behavior                                | Benefit                    |
+| ------------------- | --------------------------------------- | -------------------------- |
+| **Idempotent**      | Skips already-applied migrations        | Safe to run multiple times |
+| **Transactional**   | Wraps each migration in a transaction   | Rolls back on failure      |
+| **Ordered**         | Applies migrations chronologically      | Predictable state          |
+| **Non-interactive** | Never prompts for input                 | CI/CD friendly             |
+| **Tracked**         | Records history in `_prisma_migrations` | Audit trail                |
+
+### Handling Migration Conflicts
+
+If multiple developers create migrations simultaneously:
+
+```bash
+# Developer A creates migration_001
+# Developer B creates migration_002
+# Both push to GitHub
+
+# When Developer A pulls:
+git pull
+pnpm prisma migrate dev  # Applies B's migration locally
+
+# When deploying to production:
+pnpm db:migrate  # Applies both migrations in order
+```
+
+Prisma automatically handles migration ordering based on timestamps.
+
+### Rollback Strategy
+
+Prisma Migrate doesn't support automatic rollbacks. To revert changes:
+
+**Option 1: Forward-only Migration**
+
+```bash
+# Create a new migration that undoes the change
+pnpm prisma migrate dev --name revert_previous_change
+
+# Edit the generated SQL to reverse the operation
+# Example: If you added a column, drop it
+ALTER TABLE "User" DROP COLUMN "email";
+
+# Apply and deploy
+git add . && git commit -m "revert: remove email field"
+```
+
+**Option 2: Database Restore (Emergency)**
+
+```bash
+# Restore from backup (production database snapshot)
+# Update application code to match restored schema
+# Mark failed migrations as rolled back
+pnpm prisma migrate resolve --rolled-back "XXXXXX_failed_migration"
+```
+
+### Testing Migrations
+
+**Local Testing:**
+
+```bash
+# Test migration locally
+pnpm prisma migrate dev --name test_migration
+
+# Verify schema is correct
+pnpm db:studio
+
+# Test with application
+pnpm dev
+
+# If issues found, reset and fix
+pnpm prisma migrate reset
+```
+
+**Staging Testing:**
+
+```bash
+# Deploy to staging first
+git push origin main:staging
+
+# Staging build runs:
+pnpm db:migrate && pnpm build
+
+# Verify in staging environment
+# Check logs for migration errors
+# Test application functionality
+
+# If successful, promote to production
+git push origin main
+```
+
+### Migration Best Practices for CI/CD
+
+1. **Always Test in CI Before Production**
+   - GitHub Actions applies migrations with `pnpm db:migrate`
+   - Same command used in production
+   - Catches migration issues early
+
+2. **Use Staging Environment**
+   - Test migrations on production-like data
+   - Verify performance with realistic data volumes
+   - Check for edge cases
+
+3. **Review Generated SQL**
+   - Always review migration SQL before merging
+   - Look for destructive operations (DROP, TRUNCATE)
+   - Ensure indexes are created for large tables
+
+4. **Coordinate Breaking Changes**
+   - Plan schema changes that require code changes
+   - Deploy in phases: (1) Make column optional, (2) Update code, (3) Make required
+   - Use feature flags for gradual rollouts
+
+5. **Monitor Migration Duration**
+   - Long-running migrations can timeout in CI/CD
+   - Consider data migrations separately
+   - Use `CONCURRENTLY` for index creation in Postgres
+
+### Example Migration Scenarios
+
+**Scenario: Adding a New Model**
+
+```bash
+# Edit schema.prisma - add new model
+model Organization {
+  id        String   @id @default(cuid())
+  name      String
+  createdAt DateTime @default(now())
+}
+
+# Create migration
+pnpm prisma migrate dev --name add_organization_model
+
+# Commit and deploy
+git add . && git commit -m "feat: add Organization model"
+```
+
+**Scenario: Adding a Required Field**
+
+```bash
+# Step 1: Add field as optional
+model User {
+  id    String  @id
+  email String?  # Optional first
+}
+
+pnpm prisma migrate dev --name add_email_optional
+
+# Step 2: Backfill data in production
+# Step 3: Make field required
+model User {
+  id    String @id
+  email String  # Now required
+}
+
+pnpm prisma migrate dev --name make_email_required
+```
+
+**Scenario: Renaming a Field**
+
+```bash
+# Prisma treats rename as drop + add (data loss!)
+# Instead, create new field and migrate data:
+
+# Step 1: Add new field
+model User {
+  id       String @id
+  oldName  String
+  newName  String?
+}
+
+pnpm prisma migrate dev --name add_new_name_field
+
+# Step 2: Deploy and run data migration
+# Copy oldName to newName in application code
+
+# Step 3: Remove old field
+model User {
+  id      String @id
+  newName String
+}
+
+pnpm prisma migrate dev --name remove_old_name_field
+```
+
+### Troubleshooting CI/CD Migration Issues
+
+**Issue: Migration timeout in CI**
+
+```yaml
+# Increase timeout in GitHub Actions
+jobs:
+  deploy:
+    timeout-minutes: 30 # Default is 60
+```
+
+**Issue: Migration works locally but fails in CI**
+
+```bash
+# Check DATABASE_URL format
+# Ensure connection pooling is configured
+DATABASE_URL="postgresql://user:pass@host:5432/db?schema=public&connect_timeout=30"
+```
+
+**Issue: Migration applied in CI but not in production**
+
+```bash
+# Check if build command includes migration
+# Vercel: pnpm db:migrate && pnpm build
+# Railway: pnpm db:migrate && pnpm build
+
+# Verify environment variables are set correctly
+```
+
+**Issue: Concurrent deployments causing migration conflicts**
+
+```yaml
+# Add concurrency control in GitHub Actions
+concurrency:
+  group: production-deploy
+  cancel-in-progress: false # Don't cancel running deployments
+```
 
 ---
 
@@ -501,6 +783,19 @@ pnpm build
 ```bash
 # Add to CI workflow before build
 pnpm db:generate
+```
+
+**Issue: Migrations not applied in CI**
+
+```yaml
+# Ensure migration step is before tests
+- name: Apply database migrations
+  run: pnpm db:migrate
+  env:
+    DATABASE_URL: ${{ secrets.DATABASE_URL }}
+
+- name: Run tests
+  run: pnpm test:e2e
 ```
 
 ### Deployment Failures
