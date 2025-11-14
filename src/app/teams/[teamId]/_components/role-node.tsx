@@ -53,6 +53,8 @@ function RoleNodeComponent({ data, selected }: NodeProps<RoleNode>) {
       await utils.role.getByTeam.cancel({ teamId });
 
       const previousRoles = utils.role.getByTeam.getData({ teamId });
+      const previousNodes = nodes;
+      const previousEdges = edges;
 
       utils.role.getByTeam.setData({ teamId }, (old) => {
         if (!old) return [];
@@ -77,15 +79,23 @@ function RoleNodeComponent({ data, selected }: NodeProps<RoleNode>) {
         markDirty();
       }
 
-      return { previousRoles };
+      return { previousRoles, previousNodes, previousEdges };
     },
-    onError: (error) => {
+    onError: (error, _variables, context) => {
       toast.error("Failed to delete role", {
         description: error.message ?? "An unexpected error occurred",
       });
+      if (context?.previousRoles !== undefined) {
+        utils.role.getByTeam.setData({ teamId }, context.previousRoles);
+      }
+      if (context?.previousNodes && context?.previousEdges) {
+        setNodes(context.previousNodes);
+        setEdges(context.previousEdges);
+      }
       setIsDeleting(false);
     },
     onSettled: () => {
+      void utils.role.getByTeam.invalidate({ teamId });
       setIsDeleting(false);
     },
   });
