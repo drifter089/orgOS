@@ -18,9 +18,14 @@ import { useAutoSave } from "../hooks/use-auto-save";
 import { useTeamStore } from "../store/team-store";
 import { RoleDialog } from "./role-dialog";
 import { type RoleNodeData, RoleNodeMemo } from "./role-node";
+import { TeamEdge } from "./team-edge";
 
 const nodeTypes = {
   "role-node": RoleNodeMemo,
+};
+
+const edgeTypes = {
+  "team-edge": TeamEdge,
 };
 
 export function TeamCanvas() {
@@ -86,14 +91,16 @@ export function TeamCanvas() {
         onConnect={onConnect}
         onNodeDoubleClick={handleNodeDoubleClick}
         nodeTypes={nodeTypes}
+        edgeTypes={edgeTypes}
         fitView
+        defaultViewport={{ x: 0, y: 0, zoom: 0.7 }}
         className={cn(
           "bg-background",
           "transition-opacity duration-200",
           isSaving && "opacity-90",
         )}
         defaultEdgeOptions={{
-          type: "smoothstep",
+          type: "team-edge",
           animated: true,
         }}
       >

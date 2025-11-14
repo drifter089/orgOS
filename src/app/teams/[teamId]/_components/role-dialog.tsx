@@ -6,6 +6,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { Plus } from "lucide-react";
 import { nanoid } from "nanoid";
 import { useForm } from "react-hook-form";
+import { toast } from "sonner";
 import { z } from "zod";
 
 import { Button } from "@/components/ui/button";
@@ -252,7 +253,9 @@ export function RoleDialog({
       if (context?.previousNodes) {
         setNodes(context.previousNodes);
       }
-      console.error("Failed to create role:", error);
+      toast.error("Failed to create role", {
+        description: error.message ?? "An unexpected error occurred",
+      });
     },
   });
 
@@ -297,7 +300,9 @@ export function RoleDialog({
       setOpen(false);
     },
     onError: (error) => {
-      console.error("Failed to update role:", error);
+      toast.error("Failed to update role", {
+        description: error.message ?? "An unexpected error occurred",
+      });
     },
   });
 

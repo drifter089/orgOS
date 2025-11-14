@@ -96,7 +96,7 @@ export function createTeamStore(
       const nextEdges = addEdge(
         {
           ...connection,
-          type: "smoothstep",
+          type: "team-edge",
           animated: true,
         },
         get().edges,

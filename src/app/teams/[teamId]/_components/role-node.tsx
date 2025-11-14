@@ -1,11 +1,13 @@
 "use client";
 
-import { memo } from "react";
+import { memo, useCallback, useState } from "react";
 
 import { Handle, type Node, type NodeProps, Position } from "@xyflow/react";
-import { TrendingUp, User } from "lucide-react";
+import { Loader2, Trash2, TrendingUp, User } from "lucide-react";
+import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import {
   Tooltip,
   TooltipContent,
@@ -13,6 +15,9 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
+import { api } from "@/trpc/react";
+
+import { useTeamStore } from "../store/team-store";
 
 export type RoleNodeData = {
   roleId: string;
@@ -31,6 +36,70 @@ export type RoleNodeData = {
 export type RoleNode = Node<RoleNodeData, "role-node">;
 
 function RoleNodeComponent({ data, selected }: NodeProps<RoleNode>) {
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  const teamId = useTeamStore((state) => state.teamId);
+  const nodes = useTeamStore((state) => state.nodes);
+  const edges = useTeamStore((state) => state.edges);
+  const setNodes = useTeamStore((state) => state.setNodes);
+  const setEdges = useTeamStore((state) => state.setEdges);
+  const markDirty = useTeamStore((state) => state.markDirty);
+
+  const utils = api.useUtils();
+
+  const deleteRole = api.role.delete.useMutation({
+    onMutate: async (variables) => {
+      setIsDeleting(true);
+      await utils.role.getByTeam.cancel({ teamId });
+
+      const previousRoles = utils.role.getByTeam.getData({ teamId });
+
+      utils.role.getByTeam.setData({ teamId }, (old) => {
+        if (!old) return [];
+        return old.filter((role) => role.id !== variables.id);
+      });
+
+      // Find the node ID for this role
+      const nodeToRemove = nodes.find(
+        (node) => node.data.roleId === data.roleId,
+      );
+      if (nodeToRemove) {
+        // Remove the node and its connected edges
+        const updatedNodes = nodes.filter(
+          (node) => node.id !== nodeToRemove.id,
+        );
+        const updatedEdges = edges.filter(
+          (edge) =>
+            edge.source !== nodeToRemove.id && edge.target !== nodeToRemove.id,
+        );
+        setNodes(updatedNodes);
+        setEdges(updatedEdges);
+        markDirty();
+      }
+
+      return { previousRoles };
+    },
+    onError: (error) => {
+      toast.error("Failed to delete role", {
+        description: error.message ?? "An unexpected error occurred",
+      });
+      setIsDeleting(false);
+    },
+    onSettled: () => {
+      setIsDeleting(false);
+    },
+  });
+
+  const handleDelete = useCallback(() => {
+    if (
+      confirm(
+        `Are you sure you want to delete the role "${data.title}"? This will also remove it from the canvas.`,
+      )
+    ) {
+      deleteRole.mutate({ id: data.roleId });
+    }
+  }, [data.roleId, data.title, deleteRole]);
+
   const color = data.color ?? "#3b82f6";
   const truncatedPurpose =
     data.purpose.length > 50
@@ -42,10 +111,11 @@ function RoleNodeComponent({ data, selected }: NodeProps<RoleNode>) {
   return (
     <div
       className={cn(
-        "bg-card rounded-lg border-2 transition-all duration-200 hover:shadow-lg",
+        "bg-card group relative rounded-lg border transition-all duration-200 hover:shadow-lg",
         "max-w-[280px] min-w-[280px]",
         selected && "ring-primary ring-2 ring-offset-2",
         isPending && "cursor-not-allowed opacity-60",
+        isDeleting && "opacity-50",
       )}
       style={{
         borderColor: color,
@@ -60,6 +130,30 @@ function RoleNodeComponent({ data, selected }: NodeProps<RoleNode>) {
           "transition-transform hover:!scale-125",
         )}
       />
+
+      {/* Delete Button - Positioned in top-right corner */}
+      {!isPending && (
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={(e) => {
+            e.stopPropagation();
+            handleDelete();
+          }}
+          disabled={isDeleting}
+          className={cn(
+            "nodrag absolute top-1 right-1 z-10 h-6 w-6 opacity-0 transition-opacity group-hover:opacity-100",
+            "hover:bg-destructive/10 hover:text-destructive",
+          )}
+          title="Delete role"
+        >
+          {isDeleting ? (
+            <Loader2 className="h-3 w-3 animate-spin" />
+          ) : (
+            <Trash2 className="h-3 w-3" />
+          )}
+        </Button>
+      )}
 
       {/* Header */}
       <div
