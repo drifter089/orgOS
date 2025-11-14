@@ -4,6 +4,7 @@ import { AuthKitProvider } from "@workos-inc/authkit-nextjs/components";
 import { type Metadata } from "next";
 
 import { NavBar } from "@/components/navbar/NavBar.server";
+import { Toaster } from "@/components/ui/sonner";
 import { ThemeProvider } from "@/providers/ThemeProvider";
 import { TransitionProvider } from "@/providers/TransitionProvider";
 import "@/styles/globals.css";
@@ -65,6 +66,7 @@ export default function RootLayout({
             >
               <NavBar />
               <TransitionProvider>{children}</TransitionProvider>
+              <Toaster />
             </ThemeProvider>
           </TRPCReactProvider>
         </AuthKitProvider>

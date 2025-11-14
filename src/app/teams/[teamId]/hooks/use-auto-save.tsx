@@ -2,6 +2,8 @@
 
 import { useEffect, useRef } from "react";
 
+import { toast } from "sonner";
+
 import { api } from "@/trpc/react";
 
 import { useTeamStore } from "../store/team-store";
@@ -49,8 +51,9 @@ export function useAutoSave() {
       }
     },
     onError: (error) => {
-      console.error("Failed to save team:", error);
-      // TODO: Show error toast
+      toast.error("Failed to save team", {
+        description: error.message ?? "Changes could not be saved",
+      });
     },
     onSettled: () => {
       setSaving(false);
