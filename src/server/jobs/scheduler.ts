@@ -18,10 +18,15 @@ export function initializeCronJobs() {
 
   console.info("[Cron] Initializing cron jobs...");
 
-  // Daily metric sync job - runs at midnight UTC
-  // Cron expression: "0 0 * * *" = At 00:00 (midnight) every day
+  // Determine cron schedule based on environment
+  const isDev = process.env.NODE_ENV === "development";
+  const cronExpression = isDev
+    ? "*/5 * * * *" // Every 5 minutes in development
+    : "0 0 * * *"; // Midnight UTC in production
+
+  // Metric sync job
   cron.schedule(
-    "0 0 * * *",
+    cronExpression,
     () => {
       void runMetricSyncJob();
     },
@@ -31,13 +36,15 @@ export function initializeCronJobs() {
     },
   );
 
-  console.info("[Cron] Scheduled daily metric sync job at midnight UTC");
-
-  // Optional: Run a test sync immediately on startup in development
-  if (process.env.NODE_ENV === "development") {
+  if (isDev) {
     console.info(
-      "[Cron] Development mode: Skipping initial sync. Use manual refresh buttons to test.",
+      "[Cron] Development mode: Scheduled metric sync every 5 minutes for testing",
     );
+    console.info(
+      "[Cron] Next sync in ~5 minutes. Use manual refresh buttons for immediate testing.",
+    );
+  } else {
+    console.info("[Cron] Production mode: Scheduled daily metric sync at midnight UTC");
   }
 
   console.info("[Cron] All cron jobs initialized successfully");

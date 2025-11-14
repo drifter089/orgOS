@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
-import { Building2, Code2, Palette, Plug, Users, Workflow } from "lucide-react";
+import { Building2, Code2, Palette, Plug, Users, Workflow, BarChart3 } from "lucide-react";
 
 import {
   NavigationMenu,
@@ -53,7 +53,8 @@ export function NavMenu() {
             className={cn(
               isActivePath("/org") ||
                 isActivePath("/teams") ||
-                isActivePath("/integrations")
+                isActivePath("/integrations") ||
+                isActivePath("/metrics")
                 ? "bg-accent/50 font-semibold"
                 : "",
             )}
@@ -85,6 +86,14 @@ export function NavMenu() {
                 active={isActivePath("/integrations")}
               >
                 Connect and manage 3rd party service integrations
+              </ListItem>
+              <ListItem
+                href="/metrics"
+                title="Metrics"
+                icon={<BarChart3 className="text-primary size-5" />}
+                active={isActivePath("/metrics")}
+              >
+                Create and track KPI metrics from integrations and scrapers
               </ListItem>
             </ul>
           </NavigationMenuContent>
