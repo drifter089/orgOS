@@ -34,8 +34,7 @@ export function TeamSwitcher({
   const cachedTeams = utils.team.getAll.getData();
 
   const { data: teams, isLoading } = api.team.getAll.useQuery(undefined, {
-    enabled: !cachedTeams,
-    initialData: cachedTeams,
+    placeholderData: cachedTeams,
   });
 
   return (
