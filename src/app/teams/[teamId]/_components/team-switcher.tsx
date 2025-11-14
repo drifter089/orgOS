@@ -29,7 +29,14 @@ export function TeamSwitcher({
   className,
 }: TeamSwitcherProps) {
   const router = useTransitionRouter();
-  const { data: teams, isLoading } = api.team.getAll.useQuery();
+  const utils = api.useUtils();
+
+  const cachedTeams = utils.team.getAll.getData();
+
+  const { data: teams, isLoading } = api.team.getAll.useQuery(undefined, {
+    enabled: !cachedTeams,
+    initialData: cachedTeams,
+  });
 
   return (
     <DropdownMenu>
