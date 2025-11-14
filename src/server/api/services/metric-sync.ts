@@ -131,7 +131,6 @@ async function syncIntegrationMetric(
 
 /**
  * Sync data from scraping sources (Google Sheets, Instagram, YouTube, etc.)
- * Placeholder: Actual scraping logic will be implemented later
  */
 async function syncScrapingMetric(metric: {
   id: string;
@@ -139,22 +138,29 @@ async function syncScrapingMetric(metric: {
   sourceUrl: string | null;
   sourceConfig: unknown;
 }): Promise<number> {
-  // TODO: Implement scraping logic based on sourceUrl and sourceConfig
-  // For now, throw an error indicating scraping is not yet implemented
+  const { scrapeValue } = await import("./scrapers/registry");
 
-  const config = metric.sourceConfig as {
-    scraperType?: string;
-  } | null;
+  // Validate source configuration
+  if (!metric.sourceConfig) {
+    throw new Error(`No source configuration for scraping metric: ${metric.name}`);
+  }
 
-  throw new Error(
-    `Scraping not yet implemented for ${config?.scraperType ?? "unknown"} sources. Metric: ${metric.name}`,
-  );
+  // Use scraper registry to fetch value
+  const result = await scrapeValue(metric.sourceConfig);
 
-  // Future implementation will:
-  // 1. Determine scraper type from sourceConfig (google_sheets, instagram, youtube, etc.)
-  // 2. Call appropriate scraper function
-  // 3. Extract numeric value from scraped data
-  // 4. Return the value
+  if (!result.success) {
+    throw new Error(
+      `Failed to scrape metric "${metric.name}": ${result.error ?? "Unknown error"}`,
+    );
+  }
+
+  if (result.value === undefined) {
+    throw new Error(
+      `Scraper returned no value for metric "${metric.name}"`,
+    );
+  }
+
+  return result.value;
 }
 
 /**
