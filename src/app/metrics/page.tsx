@@ -251,7 +251,7 @@ function ScraperMetricsTab({ onSuccess }: { onSuccess: () => void }) {
   const [sheetName, setSheetName] = useState("");
   const [cellReference, setCellReference] = useState("");
   const [range, setRange] = useState("");
-  const [aggregation, setAggregation] = useState<"sum" | "average" | "min" | "max" | "count" | "">("");
+  const [aggregation, setAggregation] = useState<"sum" | "average" | "min" | "max" | "count" | "none">("none");
 
   const createMetricMutation = api.metric.create.useMutation({
     onSuccess: () => {
@@ -265,7 +265,7 @@ function ScraperMetricsTab({ onSuccess }: { onSuccess: () => void }) {
       setSheetName("");
       setCellReference("");
       setRange("");
-      setAggregation("");
+      setAggregation("none");
       onSuccess();
     },
   });
@@ -296,7 +296,7 @@ function ScraperMetricsTab({ onSuccess }: { onSuccess: () => void }) {
         sheetName: sheetName || undefined,
         cellReference: cellReference || undefined,
         range: range || undefined,
-        aggregation: aggregation || undefined,
+        aggregation: aggregation !== "none" ? aggregation : undefined,
       },
     });
   };
@@ -425,7 +425,7 @@ function ScraperMetricsTab({ onSuccess }: { onSuccess: () => void }) {
                 <SelectValue placeholder="None" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">None</SelectItem>
+                <SelectItem value="none">None</SelectItem>
                 <SelectItem value="sum">Sum</SelectItem>
                 <SelectItem value="average">Average</SelectItem>
                 <SelectItem value="min">Minimum</SelectItem>
