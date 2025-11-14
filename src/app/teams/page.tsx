@@ -9,21 +9,21 @@ export default async function TeamsPage() {
 
   return (
     <HydrateClient>
-      <div className="container mx-auto px-4 py-12 sm:px-6 lg:px-8">
-        {/* Header */}
-        <div className="mb-12 flex flex-col gap-6 sm:flex-row sm:items-center sm:justify-between">
-          <div className="space-y-2">
-            <h1 className="text-4xl font-bold tracking-tight">Teams</h1>
-            <p className="text-muted-foreground text-lg">
+      <div className="container mx-auto px-4 py-8 sm:px-6 sm:py-12 lg:px-8">
+        <div className="mb-8 flex flex-col gap-4 sm:mb-12 sm:flex-row sm:items-start sm:justify-between sm:gap-6">
+          <div className="space-y-1">
+            <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">
+              Teams
+            </h1>
+            <p className="text-muted-foreground text-base sm:text-lg">
               Manage your team role structures and workflows
             </p>
           </div>
-          <div className="flex-shrink-0">
+          <div className="shrink-0">
             <CreateTeamDialog />
           </div>
         </div>
 
-        {/* Teams Grid - Client Component for Real-time Updates */}
         <TeamsList />
       </div>
     </HydrateClient>

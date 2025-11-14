@@ -52,8 +52,8 @@ function MemberCard({
     firstName && lastName ? `${firstName} ${lastName}` : (email ?? "Member");
 
   return (
-    <div className="bg-card hover:bg-accent/50 flex items-center justify-between gap-3 rounded-lg border p-3 transition-colors">
-      <div className="flex items-center gap-3 overflow-hidden">
+    <div className="bg-card hover:bg-accent/50 flex items-center justify-between gap-3 rounded-lg border p-3 shadow-sm transition-colors hover:shadow">
+      <div className="flex min-w-0 flex-1 items-center gap-3 overflow-hidden">
         <Avatar className="h-9 w-9 flex-shrink-0">
           <AvatarFallback className="bg-primary/10 text-primary text-xs font-medium">
             {initials}
@@ -150,7 +150,7 @@ function RolesList({ teamId }: { teamId: string }) {
           <div
             key={role.id}
             className={cn(
-              "group bg-card hover:bg-accent/50 relative flex items-start gap-3 overflow-hidden rounded-lg border p-3 transition-colors",
+              "group bg-card hover:bg-accent/50 relative flex items-start gap-3 overflow-hidden rounded-lg border p-3 shadow-sm transition-all hover:shadow",
               isPending && "opacity-60",
             )}
           >
@@ -264,7 +264,7 @@ export function TeamSidebar({
       }
       {...props}
     >
-      <SidebarHeader className="border-b px-6 py-4">
+      <SidebarHeader className="flex-shrink-0 border-b px-6 py-4">
         <div className="space-y-3">
           <div>
             <h2 className="text-xl font-bold tracking-tight">{teamName}</h2>
@@ -277,7 +277,7 @@ export function TeamSidebar({
           <CreateRoleDialog teamId={teamId} />
         </div>
       </SidebarHeader>
-      <SidebarContent className="px-2">
+      <SidebarContent className="[&::-webkit-scrollbar-thumb]:bg-border/40 hover:[&::-webkit-scrollbar-thumb]:bg-border/60 overflow-x-hidden overflow-y-auto px-2 [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-track]:bg-transparent">
         {/* Team Info */}
         <SidebarGroup>
           <SidebarGroupLabel className="text-muted-foreground px-4 text-xs font-semibold tracking-wider uppercase">

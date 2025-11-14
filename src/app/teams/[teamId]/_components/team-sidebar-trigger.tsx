@@ -33,25 +33,27 @@ export function TeamSidebarTrigger({
             size="default"
             onClick={toggleSidebar}
             className={cn(
-              "gap-2 shadow-sm backdrop-blur-sm",
-              "transition-all duration-200 hover:shadow-md",
+              "supports-backdrop-filter:bg-background/60 bg-background/95 gap-2 shadow-md backdrop-blur-sm",
+              "ring-border/50 hover:ring-border ring-1 transition-all duration-200 hover:shadow-lg",
               className,
             )}
           >
-            {/* Icon changes based on sidebar state */}
-            {open ? (
-              <ChevronRight className="h-4 w-4" />
-            ) : (
-              <ChevronLeft className="h-4 w-4" />
-            )}
+            {/* Icon changes based on sidebar state with smooth transition */}
+            <div className="transition-transform duration-200">
+              {open ? (
+                <ChevronRight className="h-4 w-4" />
+              ) : (
+                <ChevronLeft className="h-4 w-4" />
+              )}
+            </div>
 
             {/* Team info with role count badge */}
             <div className="flex items-center gap-2">
               <Users className="h-4 w-4" />
-              <span className="hidden sm:inline">Team Info</span>
+              <span className="hidden font-medium sm:inline">Team Info</span>
               <Badge
                 variant="secondary"
-                className="h-5 min-w-[1.25rem] px-1.5 text-xs"
+                className="h-5 min-w-[1.25rem] px-1.5 text-xs font-semibold"
               >
                 {roleCount}
               </Badge>

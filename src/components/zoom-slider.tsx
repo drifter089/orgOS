@@ -26,7 +26,8 @@ export function ZoomSlider({ className, ...props }: ZoomSliderProps) {
   return (
     <Panel
       className={cn(
-        "bg-primary-foreground text-foreground flex gap-1 rounded-md p-1",
+        "supports-backdrop-filter:bg-background/60 bg-background/95",
+        "ring-border/50 flex gap-1 rounded-md border p-1.5 shadow-md ring-1 backdrop-blur-sm",
         className,
       )}
       {...props}
@@ -35,6 +36,8 @@ export function ZoomSlider({ className, ...props }: ZoomSliderProps) {
         variant="ghost"
         size="icon"
         onClick={() => zoomOut({ duration: 300 })}
+        className="h-8 w-8"
+        aria-label="Zoom out"
       >
         <Minus className="h-4 w-4" />
       </Button>
@@ -50,11 +53,14 @@ export function ZoomSlider({ className, ...props }: ZoomSliderProps) {
             void zoomTo(value);
           }
         }}
+        aria-label="Zoom level"
       />
       <Button
         variant="ghost"
         size="icon"
         onClick={() => zoomIn({ duration: 300 })}
+        className="h-8 w-8"
+        aria-label="Zoom in"
       >
         <Plus className="h-4 w-4" />
       </Button>
@@ -62,6 +68,7 @@ export function ZoomSlider({ className, ...props }: ZoomSliderProps) {
         className="min-w-20 tabular-nums"
         variant="ghost"
         onClick={() => zoomTo(1, { duration: 300 })}
+        aria-label="Reset zoom to 100%"
       >
         {(100 * zoom).toFixed(0)}%
       </Button>
@@ -69,6 +76,8 @@ export function ZoomSlider({ className, ...props }: ZoomSliderProps) {
         variant="ghost"
         size="icon"
         onClick={() => fitView({ duration: 300 })}
+        className="h-8 w-8"
+        aria-label="Fit view to content"
       >
         <Maximize className="h-4 w-4" />
       </Button>

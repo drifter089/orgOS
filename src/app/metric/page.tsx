@@ -317,7 +317,7 @@ export default function MetricPage() {
               </Alert>
             )}
 
-            {fetchedData && (
+            {fetchedData !== null && (
               <div className="space-y-2">
                 <Label>Response Data</Label>
                 <pre className="bg-muted max-h-96 overflow-auto rounded-lg border p-4 text-xs">
