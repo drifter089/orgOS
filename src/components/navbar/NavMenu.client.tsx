@@ -53,7 +53,7 @@ export function NavMenu() {
             className={cn(
               isActivePath("/org") ||
                 isActivePath("/teams") ||
-                isActivePath("/metric")
+                isActivePath("/integrations")
                 ? "bg-accent/50 font-semibold"
                 : "",
             )}
@@ -79,10 +79,10 @@ export function NavMenu() {
                 Browse and manage teams within your organization
               </ListItem>
               <ListItem
-                href="/metric"
+                href="/integrations"
                 title="Integrations"
                 icon={<Plug className="text-primary size-5" />}
-                active={isActivePath("/metric")}
+                active={isActivePath("/integrations")}
               >
                 Connect and manage 3rd party service integrations
               </ListItem>
