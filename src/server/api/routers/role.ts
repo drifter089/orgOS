@@ -11,13 +11,23 @@ export const roleRouter = createTRPCRouter({
   getById: workspaceProcedure
     .input(z.object({ id: z.string() }))
     .query(async ({ ctx, input }) => {
-      return getRoleAndVerifyAccess(ctx.db, input.id, ctx.user.id);
+      return getRoleAndVerifyAccess(
+        ctx.db,
+        input.id,
+        ctx.user.id,
+        ctx.workspace,
+      );
     }),
 
   getByTeam: workspaceProcedure
     .input(z.object({ teamId: z.string() }))
     .query(async ({ ctx, input }) => {
-      await getTeamAndVerifyAccess(ctx.db, input.teamId, ctx.user.id);
+      await getTeamAndVerifyAccess(
+        ctx.db,
+        input.teamId,
+        ctx.user.id,
+        ctx.workspace,
+      );
 
       return ctx.db.role.findMany({
         where: { teamId: input.teamId },
@@ -42,7 +52,12 @@ export const roleRouter = createTRPCRouter({
       }),
     )
     .mutation(async ({ ctx, input }) => {
-      await getTeamAndVerifyAccess(ctx.db, input.teamId, ctx.user.id);
+      await getTeamAndVerifyAccess(
+        ctx.db,
+        input.teamId,
+        ctx.user.id,
+        ctx.workspace,
+      );
 
       if (
         input.assignedUserId &&
@@ -78,7 +93,12 @@ export const roleRouter = createTRPCRouter({
       }),
     )
     .mutation(async ({ ctx, input }) => {
-      await getRoleAndVerifyAccess(ctx.db, input.id, ctx.user.id);
+      await getRoleAndVerifyAccess(
+        ctx.db,
+        input.id,
+        ctx.user.id,
+        ctx.workspace,
+      );
 
       if (
         input.assignedUserId &&
@@ -113,7 +133,12 @@ export const roleRouter = createTRPCRouter({
   delete: workspaceProcedure
     .input(z.object({ id: z.string() }))
     .mutation(async ({ ctx, input }) => {
-      await getRoleAndVerifyAccess(ctx.db, input.id, ctx.user.id);
+      await getRoleAndVerifyAccess(
+        ctx.db,
+        input.id,
+        ctx.user.id,
+        ctx.workspace,
+      );
       await ctx.db.role.delete({ where: { id: input.id } });
       return { success: true };
     }),
@@ -121,7 +146,12 @@ export const roleRouter = createTRPCRouter({
   assign: workspaceProcedure
     .input(z.object({ id: z.string(), userId: z.string() }))
     .mutation(async ({ ctx, input }) => {
-      await getRoleAndVerifyAccess(ctx.db, input.id, ctx.user.id);
+      await getRoleAndVerifyAccess(
+        ctx.db,
+        input.id,
+        ctx.user.id,
+        ctx.workspace,
+      );
 
       if (!ctx.workspace.assignableUserIds.includes(input.userId)) {
         throw new TRPCError({
@@ -140,7 +170,12 @@ export const roleRouter = createTRPCRouter({
   unassign: workspaceProcedure
     .input(z.object({ id: z.string() }))
     .mutation(async ({ ctx, input }) => {
-      await getRoleAndVerifyAccess(ctx.db, input.id, ctx.user.id);
+      await getRoleAndVerifyAccess(
+        ctx.db,
+        input.id,
+        ctx.user.id,
+        ctx.workspace,
+      );
 
       return ctx.db.role.update({
         where: { id: input.id },

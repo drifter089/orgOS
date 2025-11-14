@@ -40,9 +40,14 @@ export default function MetricPage() {
   const [dataError, setDataError] = useState<string>("");
   const [isFetching, setIsFetching] = useState(false);
 
-  const { data: integrations, refetch: refetchIntegrations } =
-    api.integration.list.useQuery();
-  const { data: stats } = api.integration.stats.useQuery();
+  const {
+    data,
+    refetch: refetchIntegrations,
+    isLoading: isLoadingData,
+  } = api.integration.listWithStats.useQuery();
+
+  const integrations = data?.active;
+  const stats = data?.stats;
 
   const fetchDataMutation = api.integration.fetchData.useMutation({
     onSuccess: (data) => {
@@ -89,7 +94,7 @@ export default function MetricPage() {
         const result = await refetchIntegrations();
 
         if (
-          result.data?.some(
+          result.data?.active.some(
             (integration) => integration.connectionId === connectionId,
           )
         ) {
@@ -206,12 +211,21 @@ export default function MetricPage() {
       </Card>
 
       {/* Stats Card */}
-      {stats && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Integration Statistics</CardTitle>
-          </CardHeader>
-          <CardContent>
+      <Card>
+        <CardHeader>
+          <CardTitle>Integration Statistics</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {isLoadingData ? (
+            <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+              {[1, 2, 3, 4].map((i) => (
+                <div key={i} className="space-y-1">
+                  <div className="bg-muted h-4 w-16 animate-pulse rounded" />
+                  <div className="bg-muted h-8 w-12 animate-pulse rounded" />
+                </div>
+              ))}
+            </div>
+          ) : stats ? (
             <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
               <div className="space-y-1">
                 <p className="text-muted-foreground text-sm">Total</p>
@@ -234,12 +248,12 @@ export default function MetricPage() {
                 <p className="text-2xl font-bold text-red-600">{stats.error}</p>
               </div>
             </div>
-          </CardContent>
-        </Card>
-      )}
+          ) : null}
+        </CardContent>
+      </Card>
 
       {/* Data Explorer */}
-      {integrations && integrations.length > 0 && (
+      {!isLoadingData && integrations && integrations.length > 0 && (
         <Card>
           <CardHeader>
             <CardTitle>Data Explorer</CardTitle>
@@ -334,13 +348,30 @@ export default function MetricPage() {
         <CardHeader>
           <CardTitle>Connected Integrations</CardTitle>
           <CardDescription>
-            {integrations?.length
-              ? `${integrations.length} active integration${integrations.length > 1 ? "s" : ""}`
-              : "No integrations connected yet"}
+            {isLoadingData
+              ? "Loading integrations..."
+              : integrations?.length
+                ? `${integrations.length} active integration${integrations.length > 1 ? "s" : ""}`
+                : "No integrations connected yet"}
           </CardDescription>
         </CardHeader>
         <CardContent>
-          {integrations && integrations.length > 0 ? (
+          {isLoadingData ? (
+            <div className="space-y-3">
+              {[1, 2, 3].map((i) => (
+                <div
+                  key={i}
+                  className="flex items-center justify-between rounded-lg border p-4"
+                >
+                  <div className="flex-1 space-y-2">
+                    <div className="bg-muted h-6 w-32 animate-pulse rounded" />
+                    <div className="bg-muted h-4 w-48 animate-pulse rounded" />
+                  </div>
+                  <div className="bg-muted h-8 w-8 animate-pulse rounded" />
+                </div>
+              ))}
+            </div>
+          ) : integrations && integrations.length > 0 ? (
             <div className="space-y-3">
               {integrations.map((integration) => (
                 <div

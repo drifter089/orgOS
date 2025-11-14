@@ -3,53 +3,53 @@ import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 
 import { env } from "@/env";
-import { createTRPCRouter, protectedProcedure } from "@/server/api/trpc";
-import { getWorkspaceContext } from "@/server/api/utils/authorization";
+import { createTRPCRouter, workspaceProcedure } from "@/server/api/trpc";
+import { getIntegrationAndVerifyAccess } from "@/server/api/utils/authorization";
 
 export const integrationRouter = createTRPCRouter({
-  list: protectedProcedure.query(async ({ ctx }) => {
-    const workspace = await getWorkspaceContext(ctx.user.id);
-
+  listWithStats: workspaceProcedure.query(async ({ ctx }) => {
     const integrations = await ctx.db.integration.findMany({
-      where: {
-        organizationId: workspace.organizationId,
-        status: "active",
-      },
-      orderBy: {
-        createdAt: "desc",
-      },
+      where: { organizationId: ctx.workspace.organizationId },
+      orderBy: { createdAt: "desc" },
     });
 
-    return integrations;
+    const active = integrations.filter((i) => i.status === "active");
+    const revoked = integrations.filter((i) => i.status === "revoked");
+    const error = integrations.filter((i) => i.status === "error");
+
+    // Count by provider
+    const byProvider: Record<string, number> = {};
+    integrations.forEach((integration) => {
+      byProvider[integration.integrationId] =
+        (byProvider[integration.integrationId] ?? 0) + 1;
+    });
+
+    return {
+      active,
+      stats: {
+        total: integrations.length,
+        active: active.length,
+        revoked: revoked.length,
+        error: error.length,
+        byProvider,
+      },
+    };
   }),
 
-  get: protectedProcedure
+  get: workspaceProcedure
     .input(z.object({ connectionId: z.string() }))
     .query(async ({ ctx, input }) => {
-      const workspace = await getWorkspaceContext(ctx.user.id);
-
-      const integration = await ctx.db.integration.findUnique({
-        where: { connectionId: input.connectionId },
-      });
-
-      if (!integration) {
-        throw new TRPCError({
-          code: "NOT_FOUND",
-          message: "Integration not found",
-        });
-      }
-
-      if (integration.organizationId !== workspace.organizationId) {
-        throw new TRPCError({
-          code: "FORBIDDEN",
-          message: "Access denied",
-        });
-      }
+      const integration = await getIntegrationAndVerifyAccess(
+        ctx.db,
+        input.connectionId,
+        ctx.user.id,
+        ctx.workspace,
+      );
 
       return integration;
     }),
 
-  fetchData: protectedProcedure
+  fetchData: workspaceProcedure
     .input(
       z.object({
         connectionId: z.string(),
@@ -60,25 +60,12 @@ export const integrationRouter = createTRPCRouter({
       }),
     )
     .mutation(async ({ ctx, input }) => {
-      const workspace = await getWorkspaceContext(ctx.user.id);
-
-      const integration = await ctx.db.integration.findUnique({
-        where: { connectionId: input.connectionId },
-      });
-
-      if (!integration) {
-        throw new TRPCError({
-          code: "NOT_FOUND",
-          message: "Integration not found",
-        });
-      }
-
-      if (integration.organizationId !== workspace.organizationId) {
-        throw new TRPCError({
-          code: "FORBIDDEN",
-          message: "Access denied",
-        });
-      }
+      const integration = await getIntegrationAndVerifyAccess(
+        ctx.db,
+        input.connectionId,
+        ctx.user.id,
+        ctx.workspace,
+      );
 
       if (integration.status !== "active") {
         throw new TRPCError({
@@ -120,28 +107,15 @@ export const integrationRouter = createTRPCRouter({
       }
     }),
 
-  revoke: protectedProcedure
+  revoke: workspaceProcedure
     .input(z.object({ connectionId: z.string() }))
     .mutation(async ({ ctx, input }) => {
-      const workspace = await getWorkspaceContext(ctx.user.id);
-
-      const integration = await ctx.db.integration.findUnique({
-        where: { connectionId: input.connectionId },
-      });
-
-      if (!integration) {
-        throw new TRPCError({
-          code: "NOT_FOUND",
-          message: "Integration not found",
-        });
-      }
-
-      if (integration.organizationId !== workspace.organizationId) {
-        throw new TRPCError({
-          code: "FORBIDDEN",
-          message: "Access denied",
-        });
-      }
+      await getIntegrationAndVerifyAccess(
+        ctx.db,
+        input.connectionId,
+        ctx.user.id,
+        ctx.workspace,
+      );
 
       await ctx.db.integration.update({
         where: { connectionId: input.connectionId },
@@ -153,7 +127,7 @@ export const integrationRouter = createTRPCRouter({
       return { success: true };
     }),
 
-  updateLastSync: protectedProcedure
+  updateLastSync: workspaceProcedure
     .input(
       z.object({
         connectionId: z.string(),
@@ -161,25 +135,12 @@ export const integrationRouter = createTRPCRouter({
       }),
     )
     .mutation(async ({ ctx, input }) => {
-      const workspace = await getWorkspaceContext(ctx.user.id);
-
-      const integration = await ctx.db.integration.findUnique({
-        where: { connectionId: input.connectionId },
-      });
-
-      if (!integration) {
-        throw new TRPCError({
-          code: "NOT_FOUND",
-          message: "Integration not found",
-        });
-      }
-
-      if (integration.organizationId !== workspace.organizationId) {
-        throw new TRPCError({
-          code: "FORBIDDEN",
-          message: "Access denied",
-        });
-      }
+      await getIntegrationAndVerifyAccess(
+        ctx.db,
+        input.connectionId,
+        ctx.user.id,
+        ctx.workspace,
+      );
 
       await ctx.db.integration.update({
         where: { connectionId: input.connectionId },
@@ -192,28 +153,4 @@ export const integrationRouter = createTRPCRouter({
 
       return { success: true };
     }),
-
-  stats: protectedProcedure.query(async ({ ctx }) => {
-    const workspace = await getWorkspaceContext(ctx.user.id);
-
-    const integrations = await ctx.db.integration.findMany({
-      where: { organizationId: workspace.organizationId },
-    });
-
-    const stats = {
-      total: integrations.length,
-      active: integrations.filter((i) => i.status === "active").length,
-      revoked: integrations.filter((i) => i.status === "revoked").length,
-      error: integrations.filter((i) => i.status === "error").length,
-      byProvider: {} as Record<string, number>,
-    };
-
-    // Count by provider
-    integrations.forEach((integration) => {
-      stats.byProvider[integration.integrationId] =
-        (stats.byProvider[integration.integrationId] ?? 0) + 1;
-    });
-
-    return stats;
-  }),
 });

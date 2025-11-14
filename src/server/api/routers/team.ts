@@ -15,7 +15,12 @@ export const teamRouter = createTRPCRouter({
   getById: workspaceProcedure
     .input(z.object({ id: z.string() }))
     .query(async ({ ctx, input }) => {
-      await getTeamAndVerifyAccess(ctx.db, input.id, ctx.user.id);
+      await getTeamAndVerifyAccess(
+        ctx.db,
+        input.id,
+        ctx.user.id,
+        ctx.workspace,
+      );
 
       return ctx.db.team.findUnique({
         where: { id: input.id },
@@ -56,7 +61,12 @@ export const teamRouter = createTRPCRouter({
       }),
     )
     .mutation(async ({ ctx, input }) => {
-      await getTeamAndVerifyAccess(ctx.db, input.id, ctx.user.id);
+      await getTeamAndVerifyAccess(
+        ctx.db,
+        input.id,
+        ctx.user.id,
+        ctx.workspace,
+      );
 
       const { id, ...data } = input;
       return ctx.db.team.update({
@@ -69,7 +79,12 @@ export const teamRouter = createTRPCRouter({
   delete: workspaceProcedure
     .input(z.object({ id: z.string() }))
     .mutation(async ({ ctx, input }) => {
-      await getTeamAndVerifyAccess(ctx.db, input.id, ctx.user.id);
+      await getTeamAndVerifyAccess(
+        ctx.db,
+        input.id,
+        ctx.user.id,
+        ctx.workspace,
+      );
 
       await ctx.db.team.delete({ where: { id: input.id } });
       return { success: true };
