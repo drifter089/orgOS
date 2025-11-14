@@ -24,6 +24,7 @@ jobs:
         WORKOS_CLIENT_ID: ${{ secrets.WORKOS_CLIENT_ID }}
         WORKOS_COOKIE_PASSWORD: ${{ secrets.WORKOS_COOKIE_PASSWORD }}
         NEXT_PUBLIC_WORKOS_REDIRECT_URI: ${{ secrets.NEXT_PUBLIC_WORKOS_REDIRECT_URI }}
+        NANGO_SECRET_KEY_DEV: ${{ secrets.NANGO_SECRET_KEY_DEV }}
         TEST_USER_EMAIL: ${{ secrets.TEST_USER_EMAIL }}
         TEST_USER_PASSWORD: ${{ secrets.TEST_USER_PASSWORD }}
       run: pnpm exec playwright test --project=chromium

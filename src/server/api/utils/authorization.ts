@@ -222,8 +222,9 @@ export async function verifyResourceAccess(
   userId: string,
   resourceOrganizationId: string,
   resourceType: string,
+  workspaceContext?: WorkspaceContext,
 ): Promise<void> {
-  const workspace = await getWorkspaceContext(userId);
+  const workspace = workspaceContext ?? (await getWorkspaceContext(userId));
 
   if (workspace.organizationId !== resourceOrganizationId) {
     throw new TRPCError({
@@ -237,6 +238,7 @@ export async function getTeamAndVerifyAccess(
   db: DB,
   teamId: string,
   userId: string,
+  workspaceContext?: WorkspaceContext,
 ) {
   const team = await db.team.findUnique({ where: { id: teamId } });
 
@@ -244,7 +246,13 @@ export async function getTeamAndVerifyAccess(
     throw new TRPCError({ code: "NOT_FOUND", message: "Team not found" });
   }
 
-  await verifyResourceAccess(db, userId, team.organizationId, "team");
+  await verifyResourceAccess(
+    db,
+    userId,
+    team.organizationId,
+    "team",
+    workspaceContext,
+  );
   return team;
 }
 
@@ -252,6 +260,7 @@ export async function getRoleAndVerifyAccess(
   db: DB,
   roleId: string,
   userId: string,
+  workspaceContext?: WorkspaceContext,
 ) {
   const role = await db.role.findUnique({
     where: { id: roleId },
@@ -262,8 +271,41 @@ export async function getRoleAndVerifyAccess(
     throw new TRPCError({ code: "NOT_FOUND", message: "Role not found" });
   }
 
-  await verifyResourceAccess(db, userId, role.team.organizationId, "role");
+  await verifyResourceAccess(
+    db,
+    userId,
+    role.team.organizationId,
+    "role",
+    workspaceContext,
+  );
   return role;
+}
+
+export async function getIntegrationAndVerifyAccess(
+  db: DB,
+  connectionId: string,
+  userId: string,
+  workspaceContext?: WorkspaceContext,
+) {
+  const integration = await db.integration.findUnique({
+    where: { connectionId },
+  });
+
+  if (!integration) {
+    throw new TRPCError({
+      code: "NOT_FOUND",
+      message: "Integration not found",
+    });
+  }
+
+  await verifyResourceAccess(
+    db,
+    userId,
+    integration.organizationId,
+    "integration",
+    workspaceContext,
+  );
+  return integration;
 }
 
 export async function getDirectoryData() {
