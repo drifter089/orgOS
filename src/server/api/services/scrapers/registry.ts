@@ -4,9 +4,8 @@
  * Central registry for all available scrapers. This provides a plugin-style
  * architecture where new scrapers can be registered and discovered automatically.
  */
-
-import type { BaseScraperConfig, Scraper, ScraperConfig } from "./types";
 import { googleSheetsScraper } from "./google-sheets";
+import type { BaseScraperConfig, Scraper, ScraperConfig } from "./types";
 
 /**
  * Registry of all available scrapers
@@ -28,7 +27,7 @@ class ScraperRegistry {
    */
   register(scraper: Scraper): void {
     if (this.scrapers.has(scraper.type)) {
-      console.warn(
+      console.error(
         `[ScraperRegistry] Overwriting existing scraper: ${scraper.type}`,
       );
     }
@@ -84,21 +83,19 @@ class ScraperRegistry {
 
     const scraper = this.get(scraperType);
     if (!scraper) {
-      console.warn(
-        `[ScraperRegistry] Unknown scraper type: ${scraperType}`,
-      );
+      console.error(`[ScraperRegistry] Unknown scraper type: ${scraperType}`);
       return null;
     }
 
     if (!scraper.validate(config)) {
-      console.warn(
+      console.error(
         `[ScraperRegistry] Invalid config for scraper: ${scraperType}`,
       );
       return null;
     }
 
     return {
-      scraper: scraper as Scraper<BaseScraperConfig>,
+      scraper: scraper,
       config: config as ScraperConfig,
     };
   }
@@ -131,8 +128,7 @@ export async function scrapeValue(
     console.error("[ScraperRegistry] Error during scrape:", error);
     return {
       success: false,
-      error:
-        error instanceof Error ? error.message : "Unknown scraping error",
+      error: error instanceof Error ? error.message : "Unknown scraping error",
     };
   }
 }

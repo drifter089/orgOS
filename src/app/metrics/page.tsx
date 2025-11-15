@@ -1,8 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import { RefreshCw, Plus, TrendingUp, Trash2 } from "lucide-react";
 
+import { Plus, RefreshCw, Trash2, TrendingUp } from "lucide-react";
+
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -20,17 +22,19 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
-import { Badge } from "@/components/ui/badge";
-import { Separator } from "@/components/ui/separator";
 import { api } from "@/trpc/react";
 
 export default function MetricsPage() {
-  const [activeTab, setActiveTab] = useState<"integration" | "scraper" | "self">("scraper");
+  const [activeTab, setActiveTab] = useState<
+    "integration" | "scraper" | "self"
+  >("scraper");
 
   // Fetch all metrics
-  const { data: metrics, refetch: refetchMetrics } = api.metric.getAll.useQuery();
+  const { data: metrics, refetch: refetchMetrics } =
+    api.metric.getAll.useQuery();
 
   // Fetch integrations for Integration Metrics tab
   const { data: integrationData } = api.integration.listWithStats.useQuery();
@@ -78,7 +82,8 @@ export default function MetricsPage() {
         <div>
           <h1 className="text-3xl font-bold">Metrics</h1>
           <p className="text-muted-foreground mt-1">
-            Create and manage KPI metrics from integrations, scrapers, or manual entry
+            Create and manage KPI metrics from integrations, scrapers, or manual
+            entry
           </p>
         </div>
         <Button
@@ -86,7 +91,9 @@ export default function MetricsPage() {
           disabled={refreshAllMutation.isPending}
           size="lg"
         >
-          <RefreshCw className={`mr-2 h-4 w-4 ${refreshAllMutation.isPending ? "animate-spin" : ""}`} />
+          <RefreshCw
+            className={`mr-2 h-4 w-4 ${refreshAllMutation.isPending ? "animate-spin" : ""}`}
+          />
           Sync All Metrics
         </Button>
       </div>
@@ -97,7 +104,8 @@ export default function MetricsPage() {
           <CardHeader>
             <CardTitle>Your Metrics</CardTitle>
             <CardDescription>
-              {metrics.length} metric{metrics.length !== 1 ? "s" : ""} configured
+              {metrics.length} metric{metrics.length !== 1 ? "s" : ""}{" "}
+              configured
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -109,7 +117,7 @@ export default function MetricsPage() {
                 >
                   <div className="flex-1 space-y-1">
                     <div className="flex items-center gap-2">
-                      <TrendingUp className="h-4 w-4 text-primary" />
+                      <TrendingUp className="text-primary h-4 w-4" />
                       <h3 className="font-semibold">{metric.name}</h3>
                       <Badge variant="outline" className="capitalize">
                         {metric.sourceType.replace("_", " ")}
@@ -126,7 +134,11 @@ export default function MetricsPage() {
                       </span>
                       {metric.targetValue !== null && (
                         <span className="text-muted-foreground">
-                          Target: <strong>{metric.targetValue}{metric.unit}</strong>
+                          Target:{" "}
+                          <strong>
+                            {metric.targetValue}
+                            {metric.unit}
+                          </strong>
                         </span>
                       )}
                       <span className="text-muted-foreground">
@@ -141,7 +153,9 @@ export default function MetricsPage() {
                       onClick={() => handleRefreshMetric(metric.id)}
                       disabled={refreshMetricMutation.isPending}
                     >
-                      <RefreshCw className={`h-3 w-3 ${refreshMetricMutation.isPending ? "animate-spin" : ""}`} />
+                      <RefreshCw
+                        className={`h-3 w-3 ${refreshMetricMutation.isPending ? "animate-spin" : ""}`}
+                      />
                     </Button>
                     <Button
                       variant="ghost"
@@ -173,7 +187,10 @@ export default function MetricsPage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as typeof activeTab)}>
+          <Tabs
+            value={activeTab}
+            onValueChange={(v) => setActiveTab(v as typeof activeTab)}
+          >
             <TabsList className="grid w-full grid-cols-3">
               <TabsTrigger value="integration">Integration</TabsTrigger>
               <TabsTrigger value="scraper">Scraper</TabsTrigger>
@@ -181,7 +198,10 @@ export default function MetricsPage() {
             </TabsList>
 
             <TabsContent value="integration" className="space-y-4">
-              <IntegrationMetricsTab integrations={integrations} onSuccess={() => void refetchMetrics()} />
+              <IntegrationMetricsTab
+                integrations={integrations}
+                onSuccess={() => void refetchMetrics()}
+              />
             </TabsContent>
 
             <TabsContent value="scraper" className="space-y-4">
@@ -201,7 +221,7 @@ export default function MetricsPage() {
 // Integration Metrics Tab Component
 function IntegrationMetricsTab({
   integrations,
-  onSuccess,
+  onSuccess: _onSuccess,
 }: {
   integrations: { id: string; integrationId: string; connectionId: string }[];
   onSuccess: () => void;
@@ -210,14 +230,19 @@ function IntegrationMetricsTab({
     <div className="space-y-4 pt-4">
       <div className="rounded-lg border border-dashed p-6 text-center">
         <p className="text-muted-foreground mb-4">
-          Integration-based metrics will pull data automatically from your connected services.
+          Integration-based metrics will pull data automatically from your
+          connected services.
         </p>
         <div className="space-y-2">
           <p className="text-sm font-medium">Available Integrations:</p>
           {integrations.length > 0 ? (
-            <div className="flex flex-wrap gap-2 justify-center">
+            <div className="flex flex-wrap justify-center gap-2">
               {integrations.map((integration) => (
-                <Badge key={integration.id} variant="secondary" className="capitalize">
+                <Badge
+                  key={integration.id}
+                  variant="secondary"
+                  className="capitalize"
+                >
                   {integration.integrationId}
                 </Badge>
               ))}
@@ -244,14 +269,18 @@ function IntegrationMetricsTab({
 function ScraperMetricsTab({ onSuccess }: { onSuccess: () => void }) {
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
-  const [type, setType] = useState<"percentage" | "number" | "duration" | "rate">("number");
+  const [type, setType] = useState<
+    "percentage" | "number" | "duration" | "rate"
+  >("number");
   const [targetValue, setTargetValue] = useState("");
   const [unit, setUnit] = useState("");
   const [sourceUrl, setSourceUrl] = useState("");
   const [sheetName, setSheetName] = useState("");
   const [cellReference, setCellReference] = useState("");
   const [range, setRange] = useState("");
-  const [aggregation, setAggregation] = useState<"sum" | "average" | "min" | "max" | "count" | "none">("none");
+  const [aggregation, setAggregation] = useState<
+    "sum" | "average" | "min" | "max" | "count" | "none"
+  >("none");
 
   const createMetricMutation = api.metric.create.useMutation({
     onSuccess: () => {
@@ -274,7 +303,7 @@ function ScraperMetricsTab({ onSuccess }: { onSuccess: () => void }) {
     e.preventDefault();
 
     // Parse sheet ID from URL
-    const match = sourceUrl.match(/\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/);
+    const match = /\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/.exec(sourceUrl);
     const sheetId = match?.[1];
 
     if (!sheetId) {
@@ -420,7 +449,10 @@ function ScraperMetricsTab({ onSuccess }: { onSuccess: () => void }) {
 
           <div className="space-y-2">
             <Label htmlFor="aggregation">Aggregation (for ranges)</Label>
-            <Select value={aggregation} onValueChange={(v) => setAggregation(v as typeof aggregation)}>
+            <Select
+              value={aggregation}
+              onValueChange={(v) => setAggregation(v as typeof aggregation)}
+            >
               <SelectTrigger id="aggregation">
                 <SelectValue placeholder="None" />
               </SelectTrigger>
@@ -442,11 +474,15 @@ function ScraperMetricsTab({ onSuccess }: { onSuccess: () => void }) {
         disabled={createMetricMutation.isPending}
         className="w-full"
       >
-        {createMetricMutation.isPending ? "Creating..." : "Create Scraper Metric"}
+        {createMetricMutation.isPending
+          ? "Creating..."
+          : "Create Scraper Metric"}
       </Button>
 
       {createMetricMutation.error && (
-        <p className="text-sm text-red-600">{createMetricMutation.error.message}</p>
+        <p className="text-sm text-red-600">
+          {createMetricMutation.error.message}
+        </p>
       )}
     </form>
   );
@@ -456,7 +492,9 @@ function ScraperMetricsTab({ onSuccess }: { onSuccess: () => void }) {
 function SelfReportedMetricsTab({ onSuccess }: { onSuccess: () => void }) {
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
-  const [type, setType] = useState<"percentage" | "number" | "duration" | "rate">("number");
+  const [type, setType] = useState<
+    "percentage" | "number" | "duration" | "rate"
+  >("number");
   const [targetValue, setTargetValue] = useState("");
   const [unit, setUnit] = useState("");
 
@@ -551,8 +589,9 @@ function SelfReportedMetricsTab({ onSuccess }: { onSuccess: () => void }) {
 
       <div className="rounded-lg border border-dashed p-4">
         <p className="text-muted-foreground text-sm">
-          💡 Self-reported metrics require manual data entry. You'll be able to report values
-          from your team dashboard or via the metrics list above.
+          💡 Self-reported metrics require manual data entry. You&apos;ll be
+          able to report values from your team dashboard or via the metrics list
+          above.
         </p>
       </div>
 
@@ -561,11 +600,15 @@ function SelfReportedMetricsTab({ onSuccess }: { onSuccess: () => void }) {
         disabled={createMetricMutation.isPending}
         className="w-full"
       >
-        {createMetricMutation.isPending ? "Creating..." : "Create Self-Reported Metric"}
+        {createMetricMutation.isPending
+          ? "Creating..."
+          : "Create Self-Reported Metric"}
       </Button>
 
       {createMetricMutation.error && (
-        <p className="text-sm text-red-600">{createMetricMutation.error.message}</p>
+        <p className="text-sm text-red-600">
+          {createMetricMutation.error.message}
+        </p>
       )}
     </form>
   );

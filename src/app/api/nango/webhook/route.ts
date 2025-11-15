@@ -47,7 +47,19 @@ export async function POST(request: NextRequest) {
   try {
     const payload = (await request.json()) as NangoWebhookPayload;
 
+    console.info("[Nango Webhook]", {
+      type: payload.type,
+      operation: payload.operation,
+      connectionId: payload.connectionId,
+      providerConfigKey: payload.providerConfigKey,
+      success: payload.success,
+    });
+
     if (payload.type !== "auth") {
+      console.info(
+        "[Nango Webhook] Ignoring non-auth webhook type:",
+        payload.type,
+      );
       return NextResponse.json(
         { message: "Webhook type not supported" },
         { status: 200 },
@@ -56,17 +68,23 @@ export async function POST(request: NextRequest) {
 
     if (payload.operation === "creation" && payload.success) {
       await handleConnectionCreation(payload);
+      console.info("[Nango Webhook] Connection created:", payload.connectionId);
       return NextResponse.json({ message: "Connection created" });
     }
 
     if (payload.operation === "deletion") {
       await handleConnectionDeletion(payload);
+      console.info("[Nango Webhook] Connection deleted:", payload.connectionId);
       return NextResponse.json({ message: "Connection deleted" });
     }
 
+    console.info(
+      "[Nango Webhook] No action taken for operation:",
+      payload.operation,
+    );
     return NextResponse.json({ message: "Webhook processed" });
   } catch (error) {
-    console.error("Nango webhook error:", error);
+    console.error("[Nango Webhook] Error processing webhook:", error);
     return NextResponse.json(
       {
         error: "Failed to process webhook",
@@ -124,8 +142,14 @@ async function handleConnectionDeletion(payload: NangoWebhookPayload) {
   });
 
   if (!integration) {
+    console.error(
+      "[Nango Webhook] Connection not found in database:",
+      connectionId,
+    );
     return;
   }
+
+  console.info("[Nango Webhook] Marking integration as revoked:", connectionId);
 
   await db.integration.update({
     where: { connectionId },

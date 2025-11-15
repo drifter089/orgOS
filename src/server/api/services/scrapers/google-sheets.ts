@@ -4,8 +4,8 @@
  * Fetches values from public Google Sheets URLs without authentication.
  * Supports single cell values and range aggregation.
  */
-
 import { google } from "googleapis";
+
 import type {
   GoogleSheetsConfig,
   ScrapeResult,
@@ -40,8 +40,8 @@ export class GoogleSheetsScraper implements Scraper<GoogleSheetsConfig> {
    */
   parseUrl(url: string): Partial<GoogleSheetsConfig> | null {
     try {
-      const match = url.match(/\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/);
-      if (!match || !match[1]) return null;
+      const match = /\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/.exec(url);
+      if (!match?.[1]) return null;
 
       return {
         scraperType: "google-sheets",
@@ -72,7 +72,9 @@ export class GoogleSheetsScraper implements Scraper<GoogleSheetsConfig> {
       });
 
       const sheetNames =
-        metadata.data.sheets?.map((sheet) => sheet.properties?.title ?? "").filter(Boolean) ?? [];
+        metadata.data.sheets
+          ?.map((sheet) => sheet.properties?.title ?? "")
+          .filter(Boolean) ?? [];
 
       // Fetch preview data from each sheet (first 10 rows)
       const data = await Promise.all(
