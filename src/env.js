@@ -14,6 +14,8 @@ export const env = createEnv({
     WORKOS_DIR_ID: z.string().optional(),
     NANGO_SECRET_KEY_DEV: z.string().min(1),
     NANGO_WEBHOOK_SECRET: z.string().optional(), // Optional webhook signature validation
+    GOOGLE_SHEETS_API_KEY: z.string().optional(), // Optional: for public Google Sheets scraping
+    ENABLE_CRON_JOBS: z.string().optional(), // Optional: enable/disable cron jobs
   },
 
   /**
@@ -35,6 +37,8 @@ export const env = createEnv({
     WORKOS_DIR_ID: process.env.WORKOS_DIR_ID,
     NANGO_SECRET_KEY_DEV: process.env.NANGO_SECRET_KEY_DEV,
     NANGO_WEBHOOK_SECRET: process.env.NANGO_WEBHOOK_SECRET,
+    GOOGLE_SHEETS_API_KEY: process.env.GOOGLE_SHEETS_API_KEY,
+    ENABLE_CRON_JOBS: process.env.ENABLE_CRON_JOBS,
     // NEXT_PUBLIC_CLIENTVAR: process.env.NEXT_PUBLIC_CLIENTVAR,
   },
   /**

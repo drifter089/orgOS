@@ -116,12 +116,6 @@ export function UserRolesDialog({
                         </p>
                       )}
                       <div className="flex items-center gap-3 text-xs">
-                        {role.metric.currentValue !== null && (
-                          <span>
-                            <strong>Current:</strong> {role.metric.currentValue}
-                            {role.metric.unit}
-                          </span>
-                        )}
                         {role.metric.targetValue !== null && (
                           <span>
                             <strong>Target:</strong> {role.metric.targetValue}

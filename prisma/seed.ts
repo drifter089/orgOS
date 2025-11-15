@@ -13,102 +13,124 @@ const sampleMetrics = [
       "Measure of how satisfied customers are with products and services",
     type: "percentage",
     targetValue: 85,
-    currentValue: 82.5,
+    initialValue: 82.5,
     unit: "%",
+    sourceType: "self_reported",
   },
   {
     name: "Response Time",
     description: "Average time to respond to customer inquiries",
     type: "duration",
     targetValue: 200,
-    currentValue: 157,
+    initialValue: 157,
     unit: "ms",
+    sourceType: "self_reported",
   },
   {
     name: "Task Completion Rate",
     description: "Percentage of tasks completed on time",
     type: "percentage",
     targetValue: 90,
-    currentValue: 87.3,
+    initialValue: 87.3,
     unit: "%",
+    sourceType: "self_reported",
   },
   {
     name: "Code Quality Score",
     description: "Quality metric based on code reviews and tests",
     type: "number",
     targetValue: 8.5,
-    currentValue: 8.2,
+    initialValue: 8.2,
     unit: "score",
+    sourceType: "self_reported",
   },
   {
     name: "User Engagement",
     description: "Active daily user engagement metric",
     type: "percentage",
     targetValue: 75,
-    currentValue: 68.4,
+    initialValue: 68.4,
     unit: "%",
+    sourceType: "self_reported",
   },
   {
     name: "Bug Resolution Time",
     description: "Average time to resolve reported bugs",
     type: "duration",
     targetValue: 24,
-    currentValue: 18.5,
+    initialValue: 18.5,
     unit: "hours",
+    sourceType: "self_reported",
   },
   {
     name: "Feature Adoption Rate",
     description: "Rate of new feature adoption by users",
     type: "percentage",
     targetValue: 60,
-    currentValue: 54.2,
+    initialValue: 54.2,
     unit: "%",
+    sourceType: "self_reported",
   },
   {
     name: "Team Velocity",
     description: "Sprint velocity measured in story points",
     type: "number",
     targetValue: 50,
-    currentValue: 47,
+    initialValue: 47,
     unit: "points",
+    sourceType: "self_reported",
   },
   {
     name: "System Uptime",
     description: "System availability percentage",
     type: "percentage",
     targetValue: 99.9,
-    currentValue: 99.5,
+    initialValue: 99.5,
     unit: "%",
+    sourceType: "self_reported",
   },
   {
     name: "API Error Rate",
     description: "Percentage of API requests that result in errors",
     type: "rate",
     targetValue: 0.5,
-    currentValue: 0.3,
+    initialValue: 0.3,
     unit: "%",
+    sourceType: "self_reported",
   },
 ];
 
 async function main() {
   console.info("🌱 Starting database seed...");
 
-  // Clear existing metrics (optional)
+  // Clear existing metrics and their data points (cascade delete)
   console.info("Clearing existing metrics...");
   await prisma.metric.deleteMany();
 
-  // Seed metrics
-  console.info("Creating sample metrics...");
-  for (const metric of sampleMetrics) {
-    await prisma.metric.create({
+  // Seed metrics with initial data points
+  console.info("Creating sample metrics with time-series data...");
+  for (const metricData of sampleMetrics) {
+    const { initialValue, ...metricFields } = metricData;
+
+    // Create metric
+    const metric = await prisma.metric.create({
       data: {
-        ...metric,
+        ...metricFields,
         organizationId: SEED_ORG_ID,
+      },
+    });
+
+    // Create initial data point
+    await prisma.metricDataPoint.create({
+      data: {
+        metricId: metric.id,
+        value: initialValue,
+        timestamp: new Date(),
       },
     });
   }
 
-  console.info("✅ Seeded", sampleMetrics.length, "metrics");
+  console.info("✅ Seeded", sampleMetrics.length, "metrics with initial data points");
   console.info("🌱 Database seed completed successfully!");
 }
 

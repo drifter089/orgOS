@@ -94,19 +94,27 @@ model Metric {
     // KPI properties
     type           String   // "percentage", "number", "duration", "rate"
     targetValue    Float?   // Target threshold
-    currentValue   Float?   // Current value (mock data)
     unit           String?  // "ms", "%", "requests", etc.
 
-    // Mock data generation
-    mockDataPrompt String?  @db.Text // AI prompt for generating mock data
+    // Data source configuration
+    sourceType     String   @default("self_reported") // "integration", "scraping", "self_reported"
+    integrationId  String?  // FK to Integration model (for integration-based metrics)
+    sourceUrl      String?  // URL for scraping targets (Google Sheets, Instagram, YouTube)
+    sourceConfig   Json?    // Source-specific configuration (selectors, auth, etc.)
 
-    roles          Role[]   // One metric can be used by many roles
+    // Relations
+    roles          Role[]           // One metric can be used by many roles
+    integration    Integration?     @relation(fields: [integrationId], references: [id])
+    dataPoints     MetricDataPoint[] // Time-series data
+    syncLogs       MetricSyncLog[]   // Sync history
 
     createdAt      DateTime @default(now())
     updatedAt      DateTime @updatedAt
 
     @@index([organizationId])
     @@index([name])
+    @@index([integrationId])
+    @@index([sourceType])
 }
 
 // Nango Integration Connections
@@ -132,6 +140,9 @@ model Integration {
     lastSyncAt     DateTime? // Last successful API call
     errorMessage   String?   // Last error if status = "error"
 
+    // Relations
+    metrics        Metric[] // Metrics using this integration as data source
+
     createdAt      DateTime @default(now())
     updatedAt      DateTime @updatedAt
 
@@ -139,5 +150,38 @@ model Integration {
     @@index([connectionId])
     @@index([connectedBy])
     @@index([integrationId])
+    @@index([status])
+}
+
+// Metric Time-Series Data
+
+model MetricDataPoint {
+    id        String   @id @default(cuid())
+    metricId  String   // FK to Metric
+    value     Float    // The recorded value
+    timestamp DateTime @default(now()) // When this value was recorded
+
+    metric    Metric   @relation(fields: [metricId], references: [id], onDelete: Cascade)
+
+    createdAt DateTime @default(now())
+
+    @@index([metricId, timestamp(sort: Desc)]) // Fast queries for latest values
+    @@index([metricId])
+}
+
+// Metric Sync Audit Trail
+
+model MetricSyncLog {
+    id                String   @id @default(cuid())
+    metricId          String   // FK to Metric
+    status            String   // "success", "error", "skipped"
+    syncedAt          DateTime @default(now()) // When the sync was attempted
+    errorMessage      String?  @db.Text // Error details if status = "error"
+    dataPointsCreated Int      @default(0) // Number of data points created in this sync
+
+    metric            Metric   @relation(fields: [metricId], references: [id], onDelete: Cascade)
+
+    @@index([metricId, syncedAt(sort: Desc)]) // Fast queries for recent sync history
+    @@index([metricId])
     @@index([status])
 }
