@@ -31,8 +31,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { api } from "@/trpc/react";
+
+import { IntegrationTester } from "./_components/integration-tester";
 
 type MetricType = "percentage" | "number" | "duration" | "rate";
 
@@ -210,10 +213,6 @@ export default function MetricPage() {
             Track and manage your organization&apos;s key performance indicators
           </p>
         </div>
-        <Button onClick={() => setIsCreateDialogOpen(true)} size="lg">
-          <Plus className="mr-2 h-4 w-4" />
-          Create Metric
-        </Button>
       </div>
 
       {status && (
@@ -222,117 +221,137 @@ export default function MetricPage() {
         </Alert>
       )}
 
-      {/* Metrics Grid */}
-      {isLoading ? (
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {[1, 2, 3, 4, 5, 6].map((i) => (
-            <Card key={i}>
-              <CardHeader>
-                <div className="bg-muted h-6 w-32 animate-pulse rounded" />
-                <div className="bg-muted h-4 w-48 animate-pulse rounded" />
-              </CardHeader>
-              <CardContent>
-                <div className="bg-muted h-12 w-24 animate-pulse rounded" />
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      ) : metrics && metrics.length > 0 ? (
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {metrics.map((metric) => (
-            <Card key={metric.id} className="relative">
-              <CardHeader>
-                <div className="flex items-start justify-between">
-                  <div className="flex-1">
-                    <CardTitle className="text-lg">{metric.name}</CardTitle>
-                    <CardDescription className="mt-1">
-                      {metric.description ?? "No description"}
-                    </CardDescription>
-                  </div>
-                  <Badge variant="outline" className="ml-2">
-                    {metric.type}
-                  </Badge>
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="space-y-2">
-                  <div className="flex items-baseline justify-between">
-                    <span className="text-muted-foreground text-sm">
-                      Current
-                    </span>
-                    <span
-                      className={`text-2xl font-bold ${getMetricColor(metric.currentValue, metric.targetValue, metric.type)}`}
-                    >
-                      {formatValue(
-                        metric.currentValue,
-                        metric.type,
-                        metric.unit,
-                      )}
-                    </span>
-                  </div>
-                  {metric.targetValue !== null && (
-                    <div className="flex items-baseline justify-between">
-                      <span className="text-muted-foreground text-sm">
-                        Target
-                      </span>
-                      <span className="text-lg">
-                        {formatValue(
-                          metric.targetValue,
-                          metric.type,
-                          metric.unit,
-                        )}
-                      </span>
-                    </div>
-                  )}
-                </div>
+      <Tabs defaultValue="metrics" className="w-full">
+        <TabsList className="grid w-full max-w-md grid-cols-2">
+          <TabsTrigger value="metrics">Metrics</TabsTrigger>
+          <TabsTrigger value="testing">Integration Testing</TabsTrigger>
+        </TabsList>
 
-                <div className="flex gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="flex-1"
-                    onClick={() => handleGenerateMockData(metric.id)}
-                    disabled={generateMockDataMutation.isPending}
-                  >
-                    <TrendingUp className="mr-1 h-3 w-3" />
-                    Generate Data
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => handleEdit(metric)}
-                  >
-                    <Pencil className="h-4 w-4" />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => handleDelete(metric.id, metric.name)}
-                    disabled={deleteMutation.isPending}
-                  >
-                    <Trash2 className="h-4 w-4 text-red-600" />
+        <TabsContent value="metrics" className="space-y-6">
+          <div className="flex justify-end">
+            <Button onClick={() => setIsCreateDialogOpen(true)} size="lg">
+              <Plus className="mr-2 h-4 w-4" />
+              Create Metric
+            </Button>
+          </div>
+
+          {/* Metrics Grid */}
+          {isLoading ? (
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              {[1, 2, 3, 4, 5, 6].map((i) => (
+                <Card key={i}>
+                  <CardHeader>
+                    <div className="bg-muted h-6 w-32 animate-pulse rounded" />
+                    <div className="bg-muted h-4 w-48 animate-pulse rounded" />
+                  </CardHeader>
+                  <CardContent>
+                    <div className="bg-muted h-12 w-24 animate-pulse rounded" />
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          ) : metrics && metrics.length > 0 ? (
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              {metrics.map((metric) => (
+                <Card key={metric.id} className="relative">
+                  <CardHeader>
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1">
+                        <CardTitle className="text-lg">{metric.name}</CardTitle>
+                        <CardDescription className="mt-1">
+                          {metric.description ?? "No description"}
+                        </CardDescription>
+                      </div>
+                      <Badge variant="outline" className="ml-2">
+                        {metric.type}
+                      </Badge>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="space-y-2">
+                      <div className="flex items-baseline justify-between">
+                        <span className="text-muted-foreground text-sm">
+                          Current
+                        </span>
+                        <span
+                          className={`text-2xl font-bold ${getMetricColor(metric.currentValue, metric.targetValue, metric.type)}`}
+                        >
+                          {formatValue(
+                            metric.currentValue,
+                            metric.type,
+                            metric.unit,
+                          )}
+                        </span>
+                      </div>
+                      {metric.targetValue !== null && (
+                        <div className="flex items-baseline justify-between">
+                          <span className="text-muted-foreground text-sm">
+                            Target
+                          </span>
+                          <span className="text-lg">
+                            {formatValue(
+                              metric.targetValue,
+                              metric.type,
+                              metric.unit,
+                            )}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="flex gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="flex-1"
+                        onClick={() => handleGenerateMockData(metric.id)}
+                        disabled={generateMockDataMutation.isPending}
+                      >
+                        <TrendingUp className="mr-1 h-3 w-3" />
+                        Generate Data
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleEdit(metric)}
+                      >
+                        <Pencil className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleDelete(metric.id, metric.name)}
+                        disabled={deleteMutation.isPending}
+                      >
+                        <Trash2 className="h-4 w-4 text-red-600" />
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          ) : (
+            <Card>
+              <CardContent className="text-muted-foreground flex min-h-[200px] items-center justify-center text-center">
+                <div className="space-y-3">
+                  <p className="text-lg">No metrics yet</p>
+                  <p className="text-sm">
+                    Create your first metric to start tracking KPIs
+                  </p>
+                  <Button onClick={() => setIsCreateDialogOpen(true)}>
+                    <Plus className="mr-2 h-4 w-4" />
+                    Create Metric
                   </Button>
                 </div>
               </CardContent>
             </Card>
-          ))}
-        </div>
-      ) : (
-        <Card>
-          <CardContent className="text-muted-foreground flex min-h-[200px] items-center justify-center text-center">
-            <div className="space-y-3">
-              <p className="text-lg">No metrics yet</p>
-              <p className="text-sm">
-                Create your first metric to start tracking KPIs
-              </p>
-              <Button onClick={() => setIsCreateDialogOpen(true)}>
-                <Plus className="mr-2 h-4 w-4" />
-                Create Metric
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-      )}
+          )}
+        </TabsContent>
+
+        <TabsContent value="testing" className="space-y-6">
+          <IntegrationTester />
+        </TabsContent>
+      </Tabs>
 
       {/* Create Dialog */}
       <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
