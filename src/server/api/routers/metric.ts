@@ -1,7 +1,12 @@
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 
+import { getServiceConfig, getSupportedServices } from "@/server/api/services";
+import { fetchGitHubData } from "@/server/api/services/github";
+import { fetchGoogleSheetsData } from "@/server/api/services/google-sheets";
+import { fetchPostHogData } from "@/server/api/services/posthog";
 import { createTRPCRouter, workspaceProcedure } from "@/server/api/trpc";
+import { getIntegrationAndVerifyAccess } from "@/server/api/utils/authorization";
 
 function generateMockValue(type: string, targetValue?: number | null): number {
   const target = targetValue ?? 100;
@@ -144,5 +149,116 @@ export const metricRouter = createTRPCRouter({
       });
 
       return { success: true };
+    }),
+
+  // Integration endpoint testing procedures
+  listSupportedServices: workspaceProcedure.query(() => {
+    const services = getSupportedServices();
+    return services.map((serviceId) => {
+      const config = getServiceConfig(serviceId);
+      return {
+        id: serviceId,
+        name: config?.name ?? serviceId,
+        endpointCount: config?.endpoints.length ?? 0,
+      };
+    });
+  }),
+
+  getServiceEndpoints: workspaceProcedure
+    .input(z.object({ integrationId: z.string() }))
+    .query(({ input }) => {
+      const config = getServiceConfig(input.integrationId);
+
+      if (!config) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: `Service configuration not found for ${input.integrationId}`,
+        });
+      }
+
+      return {
+        name: config.name,
+        integrationId: config.integrationId,
+        endpoints: config.endpoints,
+        exampleParams:
+          "exampleParams" in config ? config.exampleParams : undefined,
+      };
+    }),
+
+  testIntegrationEndpoint: workspaceProcedure
+    .input(
+      z.object({
+        connectionId: z.string(),
+        integrationId: z.string(),
+        endpoint: z.string(),
+        method: z
+          .enum(["GET", "POST", "PUT", "PATCH", "DELETE"])
+          .default("GET"),
+        params: z.record(z.string()).optional(),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      // Verify user has access to this integration
+      const integration = await getIntegrationAndVerifyAccess(
+        ctx.db,
+        input.connectionId,
+        ctx.user.id,
+        ctx.workspace,
+      );
+
+      if (integration.status !== "active") {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: `Integration is ${integration.status}. Please reconnect.`,
+        });
+      }
+
+      // Route to appropriate service based on integration ID
+      try {
+        let result;
+        switch (input.integrationId) {
+          case "github":
+            result = await fetchGitHubData(
+              input.connectionId,
+              input.endpoint,
+              input.method,
+            );
+            break;
+          case "google-sheet": // Match Nango integration ID
+            result = await fetchGoogleSheetsData(
+              input.connectionId,
+              input.endpoint,
+              input.params,
+              input.method,
+            );
+            break;
+          case "posthog":
+            result = await fetchPostHogData(
+              input.connectionId,
+              input.endpoint,
+              input.params,
+              input.method,
+            );
+            break;
+          default:
+            throw new TRPCError({
+              code: "BAD_REQUEST",
+              message: `Unsupported integration type: ${input.integrationId}`,
+            });
+        }
+
+        return result;
+      } catch (error) {
+        if (error instanceof TRPCError) {
+          throw error;
+        }
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message:
+            error instanceof Error
+              ? error.message
+              : "Failed to test integration endpoint",
+        });
+      }
     }),
 });

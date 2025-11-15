@@ -3,7 +3,15 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
-import { Building2, Code2, Palette, Plug, Users, Workflow } from "lucide-react";
+import {
+  Building2,
+  Code2,
+  Palette,
+  Plug,
+  TrendingUp,
+  Users,
+  Workflow,
+} from "lucide-react";
 
 import {
   NavigationMenu,
@@ -53,6 +61,7 @@ export function NavMenu() {
             className={cn(
               isActivePath("/org") ||
                 isActivePath("/teams") ||
+                isActivePath("/integration") ||
                 isActivePath("/metric")
                 ? "bg-accent/50 font-semibold"
                 : "",
@@ -79,12 +88,20 @@ export function NavMenu() {
                 Browse and manage teams within your organization
               </ListItem>
               <ListItem
-                href="/metric"
+                href="/integration"
                 title="Integrations"
                 icon={<Plug className="text-primary size-5" />}
-                active={isActivePath("/metric")}
+                active={isActivePath("/integration")}
               >
                 Connect and manage 3rd party service integrations
+              </ListItem>
+              <ListItem
+                href="/metric"
+                title="Metrics"
+                icon={<TrendingUp className="text-primary size-5" />}
+                active={isActivePath("/metric")}
+              >
+                Track and manage key performance indicators
               </ListItem>
             </ul>
           </NavigationMenuContent>
