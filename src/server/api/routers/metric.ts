@@ -5,6 +5,7 @@ import { getServiceConfig, getSupportedServices } from "@/server/api/services";
 import { fetchGitHubData } from "@/server/api/services/github";
 import { fetchGoogleSheetsData } from "@/server/api/services/google-sheets";
 import { fetchPostHogData } from "@/server/api/services/posthog";
+import { fetchYouTubeData } from "@/server/api/services/youtube";
 import { createTRPCRouter, workspaceProcedure } from "@/server/api/trpc";
 import { getIntegrationAndVerifyAccess } from "@/server/api/utils/authorization";
 
@@ -234,6 +235,15 @@ export const metricRouter = createTRPCRouter({
             break;
           case "posthog":
             result = await fetchPostHogData(
+              input.connectionId,
+              input.endpoint,
+              input.params,
+              input.method,
+            );
+            break;
+          case "youtube":
+            // Auto-routes to Data or Analytics API based on endpoint
+            result = await fetchYouTubeData(
               input.connectionId,
               input.endpoint,
               input.params,
