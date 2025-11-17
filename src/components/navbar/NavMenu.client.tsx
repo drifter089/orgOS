@@ -7,6 +7,7 @@ import {
   Building2,
   Code2,
   FlaskConical,
+  LayoutDashboard,
   Palette,
   Plug,
   TrendingUp,
@@ -62,6 +63,7 @@ export function NavMenu() {
             className={cn(
               isActivePath("/org") ||
                 isActivePath("/teams") ||
+                isActivePath("/dashboard") ||
                 isActivePath("/integration") ||
                 isActivePath("/metric") ||
                 isActivePath("/api-test")
@@ -88,6 +90,14 @@ export function NavMenu() {
                 active={isActivePath("/teams")}
               >
                 Browse and manage teams within your organization
+              </ListItem>
+              <ListItem
+                href="/dashboard"
+                title="Dashboard"
+                icon={<LayoutDashboard className="text-primary size-5" />}
+                active={isActivePath("/dashboard")}
+              >
+                Visualize and monitor your key metrics in one place
               </ListItem>
               <ListItem
                 href="/integration"
