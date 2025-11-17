@@ -1,3 +1,4 @@
+import { dashboardRouter } from "@/server/api/routers/dashboard";
 import { integrationRouter } from "@/server/api/routers/integration";
 import { metricRouter } from "@/server/api/routers/metric";
 import { organizationRouter } from "@/server/api/routers/organization";
@@ -18,6 +19,7 @@ export const appRouter = createTRPCRouter({
   role: roleRouter,
   metric: metricRouter,
   integration: integrationRouter,
+  dashboard: dashboardRouter,
 });
 
 // export type definition of API
