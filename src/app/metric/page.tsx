@@ -2,18 +2,12 @@
 
 import { useState } from "react";
 
-import { Pencil, Plus, Trash2, TrendingUp } from "lucide-react";
+import { Plus } from "lucide-react";
 
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import {
   Dialog,
   DialogContent,
@@ -31,10 +25,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { api } from "@/trpc/react";
 
-import { IntegrationTester } from "./_components/integration-tester";
+import { IntegrationMetricCard } from "./_components/integration-metric-card";
+import { GitHubMetricCreator } from "./github/github-metric-creator";
+import { SheetsMetricCreator } from "./google-sheets/sheets-metric-creator";
+import { PostHogMetricCreator } from "./posthog/posthog-metric-creator";
+import { YouTubeMetricCreator } from "./youtube/youtube-metric-creator";
 
 type MetricType = "percentage" | "number" | "duration" | "rate";
 
@@ -55,18 +54,25 @@ const initialFormData: MetricFormData = {
 };
 
 export default function MetricPage() {
-  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+  const [isCreateManualDialogOpen, setIsCreateManualDialogOpen] =
+    useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [editingMetricId, setEditingMetricId] = useState<string | null>(null);
   const [formData, setFormData] = useState<MetricFormData>(initialFormData);
   const [status, setStatus] = useState<string>("");
+  const [selectedTab, setSelectedTab] = useState<string>("all");
+  const [refreshingMetricId, setRefreshingMetricId] = useState<string | null>(
+    null,
+  );
 
   const { data: metrics, isLoading, refetch } = api.metric.getAll.useQuery();
+  const { data: integrationsData } = api.integration.listWithStats.useQuery();
+  const activeIntegrations = integrationsData?.active ?? [];
 
   const createMutation = api.metric.create.useMutation({
     onSuccess: () => {
       void refetch();
-      setIsCreateDialogOpen(false);
+      setIsCreateManualDialogOpen(false);
       setFormData(initialFormData);
       setStatus("Metric created successfully!");
     },
@@ -98,17 +104,19 @@ export default function MetricPage() {
     },
   });
 
-  const generateMockDataMutation = api.metric.generateMockData.useMutation({
+  const refreshMutation = api.metric.refreshMetricValue.useMutation({
     onSuccess: () => {
       void refetch();
-      setStatus("Mock data generated!");
+      setRefreshingMetricId(null);
+      setStatus("Metric refreshed successfully!");
     },
     onError: (error) => {
-      setStatus(`Error generating mock data: ${error.message}`);
+      setRefreshingMetricId(null);
+      setStatus(`Error refreshing metric: ${error.message}`);
     },
   });
 
-  const handleCreate = () => {
+  const handleCreateManual = () => {
     const targetValue = formData.targetValue
       ? parseFloat(formData.targetValue)
       : undefined;
@@ -156,54 +164,18 @@ export default function MetricPage() {
     }
   };
 
-  const handleGenerateMockData = (id: string) => {
-    generateMockDataMutation.mutate({ id });
+  const handleRefresh = (id: string) => {
+    setRefreshingMetricId(id);
+    refreshMutation.mutate({ id });
   };
 
-  const getMetricColor = (
-    current: number | null,
-    target: number | null,
-    type: string,
-  ): string => {
-    if (!current || !target) return "text-gray-500";
-
-    const percentage = (current / target) * 100;
-
-    if (type === "duration") {
-      // For duration, lower is better
-      if (percentage <= 100) return "text-green-600";
-      if (percentage <= 120) return "text-yellow-600";
-      return "text-red-600";
-    } else {
-      // For other types, higher is better
-      if (percentage >= 100) return "text-green-600";
-      if (percentage >= 80) return "text-yellow-600";
-      return "text-red-600";
-    }
-  };
-
-  const formatValue = (
-    value: number | null,
-    type: string,
-    unit?: string | null,
-  ): string => {
-    if (value === null) return "N/A";
-
-    const formatted = value.toFixed(2);
-
-    if (type === "percentage") {
-      return `${formatted}%`;
-    }
-
-    if (unit) {
-      return `${formatted} ${unit}`;
-    }
-
-    return formatted;
+  // Filter metrics by integration
+  const getMetricsForIntegration = (connectionId: string) => {
+    return metrics?.filter((m) => m.integrationId === connectionId) ?? [];
   };
 
   return (
-    <div className="container mx-auto max-w-6xl space-y-6 p-8">
+    <div className="container mx-auto max-w-7xl space-y-6 p-8">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
@@ -220,152 +192,179 @@ export default function MetricPage() {
         </Alert>
       )}
 
-      {/* Metrics Section */}
-      <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <h2 className="text-2xl font-semibold">Your Metrics</h2>
-          <Button onClick={() => setIsCreateDialogOpen(true)} size="lg">
-            <Plus className="mr-2 h-4 w-4" />
-            Create Metric
-          </Button>
-        </div>
+      {/* Integration Tabs */}
+      <Tabs
+        value={selectedTab}
+        onValueChange={setSelectedTab}
+        className="space-y-6"
+      >
+        <TabsList className="grid w-full grid-cols-3 lg:grid-cols-5">
+          <TabsTrigger value="all">
+            All Metrics
+            {metrics && <Badge className="ml-2">{metrics.length}</Badge>}
+          </TabsTrigger>
+          {activeIntegrations.map((integration) => (
+            <TabsTrigger
+              key={integration.connectionId}
+              value={integration.connectionId}
+              className="capitalize"
+            >
+              {integration.integrationId}
+              <Badge className="ml-2">
+                {getMetricsForIntegration(integration.connectionId).length}
+              </Badge>
+            </TabsTrigger>
+          ))}
+        </TabsList>
 
-        {/* Metrics Grid */}
-        {isLoading ? (
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {[1, 2, 3, 4, 5, 6].map((i) => (
-              <Card key={i}>
-                <CardHeader>
-                  <div className="bg-muted h-6 w-32 animate-pulse rounded" />
-                  <div className="bg-muted h-4 w-48 animate-pulse rounded" />
-                </CardHeader>
-                <CardContent>
-                  <div className="bg-muted h-12 w-24 animate-pulse rounded" />
-                </CardContent>
-              </Card>
-            ))}
+        {/* All Metrics Tab */}
+        <TabsContent value="all" className="space-y-6">
+          <div className="flex items-center justify-between">
+            <h2 className="text-2xl font-semibold">All Metrics</h2>
+            <Button onClick={() => setIsCreateManualDialogOpen(true)} size="lg">
+              <Plus className="mr-2 h-4 w-4" />
+              Create Manual Metric
+            </Button>
           </div>
-        ) : metrics && metrics.length > 0 ? (
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {metrics.map((metric) => (
-              <Card key={metric.id} className="relative">
-                <CardHeader>
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1">
-                      <CardTitle className="text-lg">{metric.name}</CardTitle>
-                      <CardDescription className="mt-1">
-                        {metric.description ?? "No description"}
-                      </CardDescription>
-                    </div>
-                    <Badge variant="outline" className="ml-2">
-                      {metric.type}
-                    </Badge>
-                  </div>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="space-y-2">
-                    <div className="flex items-baseline justify-between">
-                      <span className="text-muted-foreground text-sm">
-                        Current
-                      </span>
-                      <span
-                        className={`text-2xl font-bold ${getMetricColor(metric.currentValue, metric.targetValue, metric.type)}`}
-                      >
-                        {formatValue(
-                          metric.currentValue,
-                          metric.type,
-                          metric.unit,
-                        )}
-                      </span>
-                    </div>
-                    {metric.targetValue !== null && (
-                      <div className="flex items-baseline justify-between">
-                        <span className="text-muted-foreground text-sm">
-                          Target
-                        </span>
-                        <span className="text-lg">
-                          {formatValue(
-                            metric.targetValue,
-                            metric.type,
-                            metric.unit,
-                          )}
-                        </span>
-                      </div>
-                    )}
-                  </div>
 
-                  <div className="flex gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="flex-1"
-                      onClick={() => handleGenerateMockData(metric.id)}
-                      disabled={generateMockDataMutation.isPending}
-                    >
-                      <TrendingUp className="mr-1 h-3 w-3" />
-                      Generate Data
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => handleEdit(metric)}
-                    >
-                      <Pencil className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => handleDelete(metric.id, metric.name)}
-                      disabled={deleteMutation.isPending}
-                    >
-                      <Trash2 className="h-4 w-4 text-red-600" />
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        ) : (
-          <Card>
-            <CardContent className="text-muted-foreground flex min-h-[200px] items-center justify-center text-center">
-              <div className="space-y-3">
-                <p className="text-lg">No metrics yet</p>
-                <p className="text-sm">
-                  Create your first metric to start tracking KPIs
+          {isLoading ? (
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              {[1, 2, 3, 4, 5, 6].map((i) => (
+                <Card key={i}>
+                  <CardHeader>
+                    <div className="bg-muted h-6 w-32 animate-pulse rounded" />
+                    <div className="bg-muted h-4 w-48 animate-pulse rounded" />
+                  </CardHeader>
+                  <CardContent>
+                    <div className="bg-muted h-12 w-24 animate-pulse rounded" />
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          ) : metrics && metrics.length > 0 ? (
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              {metrics.map((metric) => (
+                <IntegrationMetricCard
+                  key={metric.id}
+                  metric={metric}
+                  onRefresh={handleRefresh}
+                  onEdit={handleEdit}
+                  onDelete={handleDelete}
+                  isRefreshing={refreshingMetricId === metric.id}
+                />
+              ))}
+            </div>
+          ) : (
+            <Card>
+              <CardContent className="text-muted-foreground flex min-h-[200px] items-center justify-center text-center">
+                <div className="space-y-3">
+                  <p className="text-lg">No metrics yet</p>
+                  <p className="text-sm">
+                    Create your first metric to start tracking KPIs
+                  </p>
+                  <Button onClick={() => setIsCreateManualDialogOpen(true)}>
+                    <Plus className="mr-2 h-4 w-4" />
+                    Create Metric
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+        </TabsContent>
+
+        {/* Integration Tabs */}
+        {activeIntegrations.map((integration) => {
+          const integrationMetrics = getMetricsForIntegration(
+            integration.connectionId,
+          );
+
+          return (
+            <TabsContent
+              key={integration.connectionId}
+              value={integration.connectionId}
+              className="space-y-6"
+            >
+              <div>
+                <h2 className="text-2xl font-semibold capitalize">
+                  {integration.integrationId} Metrics
+                </h2>
+                <p className="text-muted-foreground mt-1">
+                  Create and manage metrics from your{" "}
+                  {integration.integrationId} integration
                 </p>
-                <Button onClick={() => setIsCreateDialogOpen(true)}>
-                  <Plus className="mr-2 h-4 w-4" />
-                  Create Metric
-                </Button>
               </div>
-            </CardContent>
-          </Card>
-        )}
-      </div>
 
-      {/* Endpoint Testing Section */}
-      <div className="space-y-6">
-        <div className="border-t pt-6">
-          <div className="mb-6">
-            <h2 className="text-2xl font-semibold">
-              Integration Endpoint Testing
-            </h2>
-            <p className="text-muted-foreground mt-1">
-              Test all your integration endpoints to verify connectivity and
-              data access
-            </p>
-          </div>
-          <IntegrationTester />
-        </div>
-      </div>
+              {/* Integration-Specific Metric Creator */}
+              {integration.integrationId === "github" && (
+                <GitHubMetricCreator
+                  connectionId={integration.connectionId}
+                  onSuccess={() => {
+                    void refetch();
+                    setStatus("Metric created successfully!");
+                  }}
+                />
+              )}
+              {integration.integrationId === "google-sheet" && (
+                <SheetsMetricCreator
+                  connectionId={integration.connectionId}
+                  onSuccess={() => {
+                    void refetch();
+                    setStatus("Metric created successfully!");
+                  }}
+                />
+              )}
+              {integration.integrationId === "posthog" && (
+                <PostHogMetricCreator
+                  connectionId={integration.connectionId}
+                  onSuccess={() => {
+                    void refetch();
+                    setStatus("Metric created successfully!");
+                  }}
+                />
+              )}
+              {integration.integrationId === "youtube" && (
+                <YouTubeMetricCreator
+                  connectionId={integration.connectionId}
+                  onSuccess={() => {
+                    void refetch();
+                    setStatus("Metric created successfully!");
+                  }}
+                />
+              )}
 
-      {/* Create Dialog */}
-      <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
+              {/* Existing Metrics */}
+              {integrationMetrics.length > 0 && (
+                <div className="space-y-4">
+                  <h3 className="text-xl font-semibold">Existing Metrics</h3>
+                  <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                    {integrationMetrics.map((metric) => (
+                      <IntegrationMetricCard
+                        key={metric.id}
+                        metric={metric}
+                        onRefresh={handleRefresh}
+                        onEdit={handleEdit}
+                        onDelete={handleDelete}
+                        isRefreshing={refreshingMetricId === metric.id}
+                      />
+                    ))}
+                  </div>
+                </div>
+              )}
+            </TabsContent>
+          );
+        })}
+      </Tabs>
+
+      {/* Create Manual Metric Dialog */}
+      <Dialog
+        open={isCreateManualDialogOpen}
+        onOpenChange={setIsCreateManualDialogOpen}
+      >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Create New Metric</DialogTitle>
+            <DialogTitle>Create Manual Metric</DialogTitle>
             <DialogDescription>
-              Define a new metric to track for your organization
+              Define a new metric to track manually for your organization
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
@@ -441,14 +440,14 @@ export default function MetricPage() {
             <Button
               variant="outline"
               onClick={() => {
-                setIsCreateDialogOpen(false);
+                setIsCreateManualDialogOpen(false);
                 setFormData(initialFormData);
               }}
             >
               Cancel
             </Button>
             <Button
-              onClick={handleCreate}
+              onClick={handleCreateManual}
               disabled={!formData.name || createMutation.isPending}
             >
               {createMutation.isPending ? "Creating..." : "Create Metric"}

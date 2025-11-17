@@ -94,12 +94,16 @@ model Metric {
     // KPI properties
     type           String   // "percentage", "number", "duration", "rate"
     targetValue    Float?   // Target threshold
-    currentValue   Float?   // Current value (mock data)
+    currentValue   Float?   // Current value
     unit           String?  // "ms", "%", "requests", etc.
 
-    // Mock data generation
-    mockDataPrompt String?  @db.Text // AI prompt for generating mock data
+    // Integration-backed metrics
+    integrationId  String?  // Reference to Integration connectionId
+    metricTemplate String?  // Template identifier (e.g., "github-stars-total")
+    endpointConfig Json?    // Endpoint parameters (e.g., {videoId: "abc123"})
+    lastFetchedAt  DateTime? // Last data refresh timestamp
 
+    integration    Integration? @relation(fields: [integrationId], references: [connectionId])
     roles          Role[]   // One metric can be used by many roles
 
     createdAt      DateTime @default(now())
@@ -107,6 +111,7 @@ model Metric {
 
     @@index([organizationId])
     @@index([name])
+    @@index([integrationId])
 }
 
 // Nango Integration Connections
@@ -131,6 +136,8 @@ model Integration {
     // Audit trail
     lastSyncAt     DateTime? // Last successful API call
     errorMessage   String?   // Last error if status = "error"
+
+    metrics        Metric[] // Metrics using this integration
 
     createdAt      DateTime @default(now())
     updatedAt      DateTime @updatedAt

@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import {
   Building2,
   Code2,
+  FlaskConical,
   Palette,
   Plug,
   TrendingUp,
@@ -62,7 +63,8 @@ export function NavMenu() {
               isActivePath("/org") ||
                 isActivePath("/teams") ||
                 isActivePath("/integration") ||
-                isActivePath("/metric")
+                isActivePath("/metric") ||
+                isActivePath("/api-test")
                 ? "bg-accent/50 font-semibold"
                 : "",
             )}
@@ -102,6 +104,14 @@ export function NavMenu() {
                 active={isActivePath("/metric")}
               >
                 Track and manage key performance indicators
+              </ListItem>
+              <ListItem
+                href="/api-test"
+                title="API Testing"
+                icon={<FlaskConical className="text-primary size-5" />}
+                active={isActivePath("/api-test")}
+              >
+                Test integration endpoints and verify connectivity
               </ListItem>
             </ul>
           </NavigationMenuContent>
