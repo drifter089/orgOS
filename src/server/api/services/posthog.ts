@@ -13,6 +13,20 @@ import { env } from "@/env";
 
 import type { ServiceEndpoint } from "./github";
 
+/**
+ * Generic endpoint patterns for metric templates
+ * Used by metric system to create dynamic metrics
+ */
+export const posthogMetricEndpoints = {
+  PROJECT_EVENTS: "/api/projects/{PROJECT_ID}/events",
+  PROJECT_PERSONS: "/api/projects/{PROJECT_ID}/persons",
+  PROJECTS_LIST: "/api/projects/",
+} as const;
+
+/**
+ * Test endpoints for API testing page
+ * These are example endpoints users can test manually
+ */
 export const posthogEndpoints: ServiceEndpoint[] = [
   {
     label: "List Projects",

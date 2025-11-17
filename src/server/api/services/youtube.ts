@@ -29,6 +29,15 @@ import {
 } from "./youtube-analytics";
 
 /**
+ * Generic endpoint patterns for metric templates
+ * Used by metric system to create dynamic metrics
+ */
+export const youtubeMetricEndpoints = {
+  VIDEO_STATS: "/youtube/v3/videos?part=statistics&id={VIDEO_ID}",
+  CHANNEL_STATS: "/youtube/v3/channels?part=statistics&mine=true",
+} as const;
+
+/**
  * YouTube Data API v3 Endpoints
  * Base URL: https://www.googleapis.com/youtube/v3
  */

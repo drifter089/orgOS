@@ -20,6 +20,20 @@ export interface ServiceEndpoint {
   params?: string[];
 }
 
+/**
+ * Generic endpoint patterns for metric templates
+ * Used by metric system to create dynamic metrics
+ */
+export const githubMetricEndpoints = {
+  USER_PROFILE: "/user",
+  USER_REPOS: "/user/repos",
+  USER_FOLLOWERS: "/user/followers",
+} as const;
+
+/**
+ * Test endpoints for API testing page
+ * These are example endpoints users can test manually
+ */
 export const githubEndpoints: ServiceEndpoint[] = [
   {
     label: "User Profile",

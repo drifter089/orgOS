@@ -4,36 +4,15 @@ import { z } from "zod";
 import { getServiceConfig, getSupportedServices } from "@/server/api/services";
 import { fetchGitHubData } from "@/server/api/services/github";
 import { fetchGoogleSheetsData } from "@/server/api/services/google-sheets";
+import {
+  getAllMetricTemplates,
+  getMetricTemplate,
+  getTemplatesByIntegration,
+} from "@/server/api/services/metric-templates";
 import { fetchPostHogData } from "@/server/api/services/posthog";
 import { fetchYouTubeData } from "@/server/api/services/youtube";
 import { createTRPCRouter, workspaceProcedure } from "@/server/api/trpc";
 import { getIntegrationAndVerifyAccess } from "@/server/api/utils/authorization";
-
-function generateMockValue(type: string, targetValue?: number | null): number {
-  const target = targetValue ?? 100;
-
-  switch (type) {
-    case "percentage":
-      return Math.max(0, Math.min(100, target - Math.random() * 10 - 5));
-    case "duration":
-      return Math.max(
-        1,
-        target - Math.random() * (target * 0.2) - target * 0.1,
-      );
-    case "rate":
-      return Math.max(
-        0,
-        target - Math.random() * (target * 0.2) - target * 0.2,
-      );
-    case "number":
-      return Math.max(
-        0,
-        target - Math.random() * (target * 0.1) - target * 0.05,
-      );
-    default:
-      return target * 0.9;
-  }
-}
 
 export const metricRouter = createTRPCRouter({
   getAll: workspaceProcedure.query(async ({ ctx }) => {
@@ -105,11 +84,299 @@ export const metricRouter = createTRPCRouter({
       });
     }),
 
-  generateMockData: workspaceProcedure
+  // Integration Metrics - Template Management
+  getMetricTemplates: workspaceProcedure.query(() => {
+    return getAllMetricTemplates();
+  }),
+
+  getTemplatesByIntegration: workspaceProcedure
+    .input(z.object({ integrationId: z.string() }))
+    .query(({ input }) => {
+      return getTemplatesByIntegration(input.integrationId);
+    }),
+
+  createFromTemplate: workspaceProcedure
+    .input(
+      z.object({
+        templateId: z.string(),
+        connectionId: z.string(), // Integration connectionId
+        name: z.string().min(1).max(100).optional(), // Override template label
+        description: z.string().optional(),
+        targetValue: z.number().optional(),
+        endpointParams: z.record(z.string()).optional(), // e.g., {VIDEO_ID: "abc123"}
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      // Get template definition
+      const template = getMetricTemplate(input.templateId);
+      if (!template) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: `Template not found: ${input.templateId}`,
+        });
+      }
+
+      // Verify integration exists and user has access
+      const integration = await getIntegrationAndVerifyAccess(
+        ctx.db,
+        input.connectionId,
+        ctx.user.id,
+        ctx.workspace,
+      );
+
+      if (integration.integrationId !== template.integrationId) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: `Template ${input.templateId} requires ${template.integrationId} integration`,
+        });
+      }
+
+      // Validate required parameters
+      if (template.requiredParams && template.requiredParams.length > 0) {
+        const missingParams = template.requiredParams
+          .filter((p) => p.required)
+          .filter((p) => !input.endpointParams?.[p.name]);
+
+        if (missingParams.length > 0) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: `Missing required parameters: ${missingParams.map((p) => p.label).join(", ")}`,
+          });
+        }
+      }
+
+      // Create metric
+      return ctx.db.metric.create({
+        data: {
+          name: input.name ?? template.label,
+          description: input.description ?? template.description,
+          type: template.metricType,
+          targetValue: input.targetValue,
+          unit: template.defaultUnit,
+          organizationId: ctx.workspace.organizationId,
+          integrationId: input.connectionId,
+          metricTemplate: template.templateId,
+          endpointConfig: input.endpointParams ?? {},
+        },
+      });
+    }),
+
+  // Google Sheets - Fetch Sheet Structure
+  getSheetStructure: workspaceProcedure
+    .input(
+      z.object({
+        connectionId: z.string(),
+        spreadsheetId: z.string(),
+      }),
+    )
+    .query(async ({ ctx, input }) => {
+      // Verify integration access
+      await getIntegrationAndVerifyAccess(
+        ctx.db,
+        input.connectionId,
+        ctx.user.id,
+        ctx.workspace,
+      );
+
+      try {
+        // Fetch spreadsheet metadata
+        const response = await fetchGoogleSheetsData(
+          input.connectionId,
+          "/v4/spreadsheets/{SPREADSHEET_ID}",
+          { SPREADSHEET_ID: input.spreadsheetId },
+          "GET",
+        );
+
+        // Extract sheet titles and dimensions
+        const responseData = response.data as {
+          sheets?: Array<{
+            properties: {
+              title: string;
+              gridProperties: {
+                rowCount: number;
+                columnCount: number;
+              };
+            };
+          }>;
+        };
+
+        const sheets =
+          responseData.sheets?.map((sheet) => ({
+            title: sheet.properties.title,
+            rowCount: sheet.properties.gridProperties.rowCount,
+            columnCount: sheet.properties.gridProperties.columnCount,
+          })) ?? [];
+
+        return { sheets };
+      } catch (error) {
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message:
+            error instanceof Error
+              ? error.message
+              : "Failed to fetch sheet structure",
+        });
+      }
+    }),
+
+  getSheetPreview: workspaceProcedure
+    .input(
+      z.object({
+        connectionId: z.string(),
+        spreadsheetId: z.string(),
+        sheetName: z.string(),
+        maxRows: z.number().optional().default(10), // Preview first 10 rows
+      }),
+    )
+    .query(async ({ ctx, input }) => {
+      // Verify integration access
+      await getIntegrationAndVerifyAccess(
+        ctx.db,
+        input.connectionId,
+        ctx.user.id,
+        ctx.workspace,
+      );
+
+      try {
+        // Fetch all non-empty data from the sheet
+        // Using just the sheet name returns all non-empty rows/columns
+        const response = await fetchGoogleSheetsData(
+          input.connectionId,
+          "/v4/spreadsheets/{SPREADSHEET_ID}/values/{SHEET_NAME}",
+          {
+            SPREADSHEET_ID: input.spreadsheetId,
+            SHEET_NAME: input.sheetName,
+          },
+          "GET",
+        );
+
+        const responseData = response.data as {
+          range?: string;
+          majorDimension?: string;
+          values?: string[][];
+        };
+
+        const allRows = responseData.values ?? [];
+        const headers = allRows.length > 0 ? allRows[0] : [];
+        const dataRows = allRows.slice(1, input.maxRows + 1); // Skip header, take maxRows
+
+        return {
+          headers: headers ?? [],
+          rows: dataRows,
+          totalRows: allRows.length - 1, // Exclude header
+          totalColumns: (headers ?? []).length,
+        };
+      } catch (error) {
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message:
+            error instanceof Error
+              ? error.message
+              : "Failed to fetch sheet preview",
+        });
+      }
+    }),
+
+  // Dynamic Parameter Options
+  fetchDynamicOptions: workspaceProcedure
+    .input(
+      z.object({
+        connectionId: z.string(),
+        endpoint: z.string(), // e.g., "posthog-projects" or "posthog-events"
+        dependsOnValue: z.string().optional(), // For cascading selects (e.g., PROJECT_ID for events)
+      }),
+    )
+    .query(async ({ ctx, input }) => {
+      // Verify integration access
+      await getIntegrationAndVerifyAccess(
+        ctx.db,
+        input.connectionId,
+        ctx.user.id,
+        ctx.workspace,
+      );
+
+      let result: Array<{ label: string; value: string }> = [];
+
+      try {
+        switch (input.endpoint) {
+          case "posthog-projects": {
+            // Fetch PostHog projects
+            const response = await fetchPostHogData(
+              input.connectionId,
+              "/api/projects",
+              undefined,
+              "GET",
+            );
+
+            // Extract projects from response
+            const responseData = response.data as {
+              results?: Array<{ id: number; name: string }>;
+            };
+            const projects = responseData.results ?? [];
+            result = projects.map((project) => ({
+              label: project.name,
+              value: project.id.toString(),
+            }));
+            break;
+          }
+
+          case "posthog-events": {
+            // Fetch PostHog events for a specific project
+            if (!input.dependsOnValue) {
+              throw new TRPCError({
+                code: "BAD_REQUEST",
+                message: "PROJECT_ID is required to fetch events",
+              });
+            }
+
+            const response = await fetchPostHogData(
+              input.connectionId,
+              `/api/projects/${input.dependsOnValue}/event_definitions`,
+              undefined,
+              "GET",
+            );
+
+            // Extract event names from response
+            const responseData = response.data as {
+              results?: Array<{ name: string }>;
+            };
+            const events = responseData.results ?? [];
+            result = events.map((event) => ({
+              label: event.name,
+              value: event.name,
+            }));
+            break;
+          }
+
+          default:
+            throw new TRPCError({
+              code: "BAD_REQUEST",
+              message: `Unknown dynamic endpoint: ${input.endpoint}`,
+            });
+        }
+      } catch (error) {
+        if (error instanceof TRPCError) {
+          throw error;
+        }
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message:
+            error instanceof Error
+              ? error.message
+              : "Failed to fetch dynamic options",
+        });
+      }
+
+      return result;
+    }),
+
+  refreshMetricValue: workspaceProcedure
     .input(z.object({ id: z.string() }))
     .mutation(async ({ ctx, input }) => {
+      // Get metric
       const metric = await ctx.db.metric.findUnique({
         where: { id: input.id },
+        include: { integration: true },
       });
 
       if (!metric) {
@@ -119,14 +386,162 @@ export const metricRouter = createTRPCRouter({
         });
       }
 
-      const mockValue = generateMockValue(metric.type, metric.targetValue);
-      const prompt = `Generate a realistic ${metric.type} value for the metric "${metric.name}". ${metric.description || ""}. Target: ${metric.targetValue || "none"}. Unit: ${metric.unit || "none"}`;
+      // Check if this is an integration metric
+      if (!metric.integrationId || !metric.metricTemplate) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "This metric is not integration-backed",
+        });
+      }
 
+      // Get template
+      const template = getMetricTemplate(metric.metricTemplate);
+      if (!template) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: `Template not found: ${metric.metricTemplate}`,
+        });
+      }
+
+      // Verify integration access
+      if (!metric.integration) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Integration not found",
+        });
+      }
+
+      await getIntegrationAndVerifyAccess(
+        ctx.db,
+        metric.integrationId,
+        ctx.user.id,
+        ctx.workspace,
+      );
+
+      // Prepare endpoint with parameters
+      let endpoint = template.endpoint;
+      const params = (metric.endpointConfig as Record<string, string>) ?? {};
+
+      // Replace path parameters
+      Object.entries(params).forEach(([key, value]) => {
+        endpoint = endpoint.replace(`{${key}}`, value);
+      });
+
+      // Fetch data from integration
+      let result;
+      try {
+        switch (metric.integration.integrationId) {
+          case "github":
+            result = await fetchGitHubData(
+              metric.integrationId,
+              endpoint,
+              template.method ?? "GET",
+            );
+            break;
+          case "google-sheet":
+            result = await fetchGoogleSheetsData(
+              metric.integrationId,
+              endpoint,
+              params,
+              template.method ?? "GET",
+            );
+            break;
+          case "posthog":
+            result = await fetchPostHogData(
+              metric.integrationId,
+              endpoint,
+              params,
+              template.method ?? "GET",
+            );
+            break;
+          case "youtube":
+            result = await fetchYouTubeData(
+              metric.integrationId,
+              endpoint,
+              params,
+              template.method ?? "GET",
+            );
+            break;
+          default:
+            throw new TRPCError({
+              code: "BAD_REQUEST",
+              message: `Unsupported integration: ${metric.integration.integrationId}`,
+            });
+        }
+      } catch (error) {
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message:
+            error instanceof Error
+              ? error.message
+              : "Failed to fetch metric data",
+        });
+      }
+
+      // Extract value using dataPath
+      const value = extractValueFromPath(result.data, template.dataPath);
+
+      // Special handling for extractColumn transformation (stores full column data)
+      if (template.transformData === "extractColumn") {
+        const columnIndex = parseInt(params.COLUMN_INDEX ?? "0");
+
+        // Extract full column data (skip header row)
+        const columnData: number[] = [];
+        if (Array.isArray(value)) {
+          // Skip row 0 (header), start from row 1
+          for (let i = 1; i < value.length; i++) {
+            const row = value[i];
+            if (Array.isArray(row) && row[columnIndex] !== undefined) {
+              const cellValue = parseFloat(String(row[columnIndex]));
+              if (!isNaN(cellValue)) {
+                columnData.push(cellValue);
+              }
+            }
+          }
+        }
+
+        // Get latest value (last in array)
+        const latestValue =
+          columnData.length > 0 ? columnData[columnData.length - 1] : 0;
+
+        // Update metric with full column data stored in endpointConfig
+        const updatedConfig = {
+          ...(metric.endpointConfig as Record<string, unknown>),
+          columnData, // Store full array for visualization
+          lastDataFetch: new Date().toISOString(),
+        };
+
+        return ctx.db.metric.update({
+          where: { id: input.id },
+          data: {
+            currentValue: latestValue,
+            lastFetchedAt: new Date(),
+            endpointConfig: updatedConfig,
+          },
+        });
+      }
+
+      // Apply transformation if specified
+      let finalValue: number;
+      if (template.transformData) {
+        finalValue = applyTransformation(value, template.transformData);
+      } else {
+        // Convert to number
+        finalValue = parseFloat(String(value));
+        if (isNaN(finalValue)) {
+          throw new TRPCError({
+            code: "INTERNAL_SERVER_ERROR",
+            message: `Failed to extract numeric value from path: ${template.dataPath}`,
+          });
+        }
+      }
+
+      // Update metric
       return ctx.db.metric.update({
         where: { id: input.id },
         data: {
-          currentValue: Math.round(mockValue * 100) / 100,
-          mockDataPrompt: prompt,
+          currentValue: finalValue,
+          lastFetchedAt: new Date(),
         },
       });
     }),
@@ -272,3 +687,68 @@ export const metricRouter = createTRPCRouter({
       }
     }),
 });
+
+// ============================================================================
+// Helper Functions
+// ============================================================================
+
+/**
+ * Extract a value from a nested object using a dot-notation path
+ * @param data The object to extract from
+ * @param path Dot-notation path (e.g., "items.0.statistics.viewCount")
+ * @returns The extracted value or undefined
+ */
+function extractValueFromPath(data: unknown, path: string): unknown {
+  const keys = path.split(".");
+  let current: unknown = data;
+
+  for (const key of keys) {
+    if (current === null || current === undefined) {
+      return undefined;
+    }
+
+    if (typeof current === "object" && !Array.isArray(current)) {
+      current = (current as Record<string, unknown>)[key];
+    } else if (Array.isArray(current)) {
+      const index = parseInt(key, 10);
+      if (!isNaN(index)) {
+        current = current[index];
+      } else {
+        return undefined;
+      }
+    } else {
+      return undefined;
+    }
+  }
+
+  return current;
+}
+
+/**
+ * Apply transformation to extracted data
+ * @param value The extracted value
+ * @param transformType The transformation type
+ * @returns The transformed numeric value
+ */
+function applyTransformation(value: unknown, transformType: string): number {
+  switch (transformType) {
+    case "countRows":
+      // Count number of rows in a Google Sheets response
+      if (Array.isArray(value)) {
+        return value.length;
+      }
+      return 0;
+
+    case "countEvents":
+      // Count number of events in PostHog response
+      if (Array.isArray(value)) {
+        return value.length;
+      }
+      return 0;
+
+    default:
+      // Default: convert to number
+      const numValue = parseFloat(String(value));
+      return isNaN(numValue) ? 0 : numValue;
+  }
+}

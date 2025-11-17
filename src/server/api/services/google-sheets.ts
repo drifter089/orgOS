@@ -13,10 +13,24 @@ import { env } from "@/env";
 
 import type { ServiceEndpoint } from "./github";
 
+/**
+ * Generic endpoint patterns for metric templates
+ * Used by metric system to create dynamic metrics
+ */
+export const googleSheetsMetricEndpoints = {
+  SPREADSHEET_METADATA: "/v4/spreadsheets/{SPREADSHEET_ID}",
+  RANGE_VALUES: "/v4/spreadsheets/{SPREADSHEET_ID}/values/{RANGE}",
+  SHEET_VALUES: "/v4/spreadsheets/{SPREADSHEET_ID}/values/{SHEET_NAME}",
+} as const;
+
+/**
+ * Test endpoints for API testing page
+ * These are example endpoints users can test manually
+ */
 export const googleSheetsEndpoints: ServiceEndpoint[] = [
   {
     label: "Get Spreadsheet",
-    path: "/v4/spreadsheets/{SPREADSHEET_ID}",
+    path: googleSheetsMetricEndpoints.SPREADSHEET_METADATA,
     method: "GET",
     description: "Get spreadsheet metadata and all sheets",
     requiresParams: true,
