@@ -1025,6 +1025,74 @@ Convert raw metric data into the exact format needed for Recharts charts. You MU
 
 ## Common Data Formats You'll Encounter
 
+### GitHub Pull Requests / Issues List
+\`\`\`json
+[
+  { "title": "feat: add feature", "state": "open", "created_at": "2025-01-15T10:30:00Z", "user": { "login": "username" } },
+  { "title": "fix: bug fix", "state": "merged", "created_at": "2025-01-14T08:20:00Z", "user": { "login": "user2" } }
+]
+\`\`\`
+**IMPORTANT**: For GitHub PR/Issue lists, you should:
+- Group by date (created_at) and count → line chart showing PR velocity over time
+- OR group by state (open/closed/merged) and count → bar/pie chart showing distribution
+- OR group by user.login and count → bar chart showing contributor activity
+- Extract dates with: extract_labels(data, "*.created_at") then truncate to just date
+- Format: [{ date: "2025-01-15", count: 5 }, { date: "2025-01-14", count: 3 }]
+
+### GitHub Commits List
+\`\`\`json
+[
+  { "sha": "abc123", "commit": { "message": "feat: ...", "author": { "name": "User", "date": "2025-01-15T10:00:00Z" } } }
+]
+\`\`\`
+→ Group by commit.author.date (truncated to date) and count for commit activity over time
+→ OR group by commit.author.name and count for contributor chart
+
+### GitHub Workflow Runs
+\`\`\`json
+{ "workflow_runs": [
+  { "name": "CI", "conclusion": "success", "created_at": "2025-01-15T10:00:00Z", "run_number": 123 }
+]}
+\`\`\`
+→ Group by conclusion (success/failure) for success rate pie chart
+→ OR group by date for runs over time
+
+### GitHub Languages
+\`\`\`json
+{ "TypeScript": 50000, "JavaScript": 30000, "CSS": 10000 }
+\`\`\`
+→ Convert to: [{ language: "TypeScript", bytes: 50000 }, ...] for pie/bar chart
+
+### GitHub Commit Activity (stats/commit_activity)
+\`\`\`json
+[
+  { "week": 1704067200, "total": 15, "days": [2, 3, 4, 1, 2, 3, 0] }
+]
+\`\`\`
+→ Convert week timestamp to date string, use total for line chart
+
+### GitHub Code Frequency (stats/code_frequency)
+\`\`\`json
+[[1704067200, 1000, -200], [1704672000, 500, -100]]
+\`\`\`
+→ First value is timestamp, second is additions, third is deletions (negative)
+→ Format: [{ week: "2025-01-01", additions: 1000, deletions: 200 }]
+
+### GitHub Participation (stats/participation)
+\`\`\`json
+{ "all": [10, 20, 15, ...], "owner": [5, 8, 3, ...] }
+\`\`\`
+→ 52 weeks of data, combine into: [{ week: 1, all: 10, owner: 5 }, ...]
+
+### GitHub Contributor Stats (stats/contributors)
+\`\`\`json
+[
+  { "author": { "login": "user1" }, "total": 150, "weeks": [...] },
+  { "author": { "login": "user2" }, "total": 80, "weeks": [...] }
+]
+\`\`\`
+→ Format: [{ contributor: "user1", commits: 150 }, ...] for bar chart
+
 ### PostHog Format (columns + results)
 \`\`\`json
 {
@@ -1037,7 +1105,7 @@ Convert raw metric data into the exact format needed for Recharts charts. You MU
 \`\`\`
 → Use flatten_nested - it auto-detects this format
 
-### Array of Objects
+### Array of Objects (generic)
 \`\`\`json
 [
   { "date": "2025-01-01", "views": 100, "clicks": 20 },
@@ -1045,16 +1113,6 @@ Convert raw metric data into the exact format needed for Recharts charts. You MU
 ]
 \`\`\`
 → Already chart-ready, just call format_chart_data
-
-### Nested Data
-\`\`\`json
-{
-  "data": [
-    { "name": "Jan", "metrics": { "value": 100 } }
-  ]
-}
-\`\`\`
-→ Use flatten_nested with xPath="name", yPaths=["metrics.value"]
 
 ### Object with Values
 \`\`\`json
@@ -1068,9 +1126,13 @@ Convert raw metric data into the exact format needed for Recharts charts. You MU
 - **Multi-series** (multiple numeric columns) → grouped bar or multi-line
 - **Single value** → kpi type
 - **Part-to-whole** → pie or radial chart
+- **GitHub PRs/Issues over time** → line chart with date on x-axis, count on y-axis
+- **GitHub contributor activity** → bar chart with username on x-axis, count on y-axis
 
 ## Important Rules
 - Always convert string numbers to actual numbers
+- For GitHub arrays, GROUP and COUNT - don't try to chart individual items
+- Truncate ISO timestamps (2025-01-15T10:30:00Z) to just the date (2025-01-15) for grouping
 - Use var(--chart-1) through var(--chart-5) for colors (handled by format_chart_data)
 - Preserve original key names when they're descriptive
 - Sort time-series data chronologically

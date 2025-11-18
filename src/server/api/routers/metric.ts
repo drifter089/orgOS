@@ -380,6 +380,70 @@ export const metricRouter = createTRPCRouter({
             break;
           }
 
+          case "github-repos": {
+            const repoResponse = await fetchGitHubData(
+              input.connectionId,
+              "/user/repos?per_page=100&sort=updated",
+            );
+
+            const repos = repoResponse.data as Array<{
+              full_name: string;
+              name: string;
+              owner: { login: string };
+              private: boolean;
+            }>;
+
+            result = repos.map((repo) => ({
+              label: `${repo.full_name}${repo.private ? " (private)" : ""}`,
+              value: repo.full_name,
+            }));
+            break;
+          }
+
+          case "github-orgs": {
+            const orgResponse = await fetchGitHubData(
+              input.connectionId,
+              "/user/orgs",
+            );
+
+            const orgs = orgResponse.data as Array<{
+              login: string;
+              description?: string;
+            }>;
+
+            result = orgs.map((org) => ({
+              label: org.login,
+              value: org.login,
+            }));
+            break;
+          }
+
+          case "github-org-repos": {
+            if (!input.dependsOnValue) {
+              throw new TRPCError({
+                code: "BAD_REQUEST",
+                message: "Organization name is required to fetch repos",
+              });
+            }
+
+            const orgRepoResponse = await fetchGitHubData(
+              input.connectionId,
+              `/orgs/${input.dependsOnValue}/repos?per_page=100&sort=updated`,
+            );
+
+            const orgRepos = orgRepoResponse.data as Array<{
+              full_name: string;
+              name: string;
+              private: boolean;
+            }>;
+
+            result = orgRepos.map((repo) => ({
+              label: `${repo.name}${repo.private ? " (private)" : ""}`,
+              value: repo.full_name,
+            }));
+            break;
+          }
+
           default:
             throw new TRPCError({
               code: "BAD_REQUEST",

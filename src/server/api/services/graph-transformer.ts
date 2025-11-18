@@ -497,12 +497,18 @@ export function transformMetricSimple(metric: Metric): ChartTransformResult {
     };
   }
 
-  // Check for numeric fields at root level
-  if (endpointConfig && typeof endpointConfig === "object") {
+  // Check for numeric fields at root level (like GitHub languages)
+  if (
+    endpointConfig &&
+    typeof endpointConfig === "object" &&
+    !Array.isArray(endpointConfig)
+  ) {
     const numericEntries = Object.entries(endpointConfig).filter(
-      ([, value]) =>
-        typeof value === "number" ||
-        (typeof value === "string" && !isNaN(parseFloat(value))),
+      ([key, value]) =>
+        // Skip nested objects/arrays
+        (typeof value === "number" ||
+          (typeof value === "string" && !isNaN(parseFloat(value)))) &&
+        !["all", "owner", "workflow_runs"].includes(key),
     );
 
     if (numericEntries.length > 0) {
@@ -521,12 +527,276 @@ export function transformMetricSimple(metric: Metric): ChartTransformResult {
       });
 
       return {
-        chartType: "bar",
+        chartType: numericEntries.length <= 6 ? "pie" : "bar",
         chartData,
         chartConfig,
         xAxisKey: "category",
         dataKeys: ["value"],
-        reasoning: "Fallback: Found numeric fields, formatted as bar chart",
+        reasoning: `Fallback: Found ${numericEntries.length} numeric fields, formatted as ${numericEntries.length <= 6 ? "pie" : "bar"} chart`,
+      };
+    }
+
+    // Check for GitHub participation format { all: [...], owner: [...] }
+    if (
+      "all" in endpointConfig &&
+      "owner" in endpointConfig &&
+      Array.isArray(endpointConfig.all) &&
+      Array.isArray(endpointConfig.owner)
+    ) {
+      const allData = endpointConfig.all as number[];
+      const ownerData = endpointConfig.owner as number[];
+
+      const chartData = allData.map((allVal, i) => ({
+        week: `Week ${i + 1}`,
+        all: allVal,
+        owner: ownerData[i] ?? 0,
+      }));
+
+      return {
+        chartType: "area",
+        chartData,
+        chartConfig: {
+          all: { label: "All Contributors", color: "var(--chart-1)" },
+          owner: { label: "Owner", color: "var(--chart-2)" },
+        },
+        xAxisKey: "week",
+        dataKeys: ["all", "owner"],
+        reasoning:
+          "Fallback: Found GitHub participation data (52 weeks), formatted as area chart",
+      };
+    }
+
+    // Check for workflow_runs wrapper
+    if (
+      "workflow_runs" in endpointConfig &&
+      Array.isArray(endpointConfig.workflow_runs)
+    ) {
+      const runs = endpointConfig.workflow_runs as Array<{
+        conclusion?: string;
+        created_at?: string;
+        name?: string;
+      }>;
+
+      // Group by conclusion for success rate
+      const conclusionCounts = runs.reduce<Record<string, number>>(
+        (acc, run) => {
+          const conclusion = run.conclusion ?? "pending";
+          acc[conclusion] = (acc[conclusion] ?? 0) + 1;
+          return acc;
+        },
+        {},
+      );
+
+      const chartData = Object.entries(conclusionCounts).map(
+        ([conclusion, count], index) => ({
+          status: conclusion,
+          count,
+          fill: `var(--chart-${(index % 5) + 1})`,
+        }),
+      );
+
+      const chartConfig: Record<string, { label: string; color: string }> = {};
+      chartData.forEach((item, index) => {
+        chartConfig[item.status] = {
+          label: item.status.charAt(0).toUpperCase() + item.status.slice(1),
+          color: `var(--chart-${(index % 5) + 1})`,
+        };
+      });
+
+      return {
+        chartType: "pie",
+        chartData,
+        chartConfig,
+        xAxisKey: "status",
+        dataKeys: ["count"],
+        reasoning: `Fallback: Found ${runs.length} workflow runs, grouped by conclusion status`,
+      };
+    }
+  }
+
+  // Check for array of GitHub objects (PRs, issues, commits)
+  if (Array.isArray(endpointConfig) && endpointConfig.length > 0) {
+    const firstItem = endpointConfig[0] as Record<string, unknown>;
+
+    // GitHub PR/Issue format (has created_at, state, title)
+    if ("created_at" in firstItem && "state" in firstItem) {
+      // Group by date
+      const dateCounts = (
+        endpointConfig as Array<{ created_at: string }>
+      ).reduce<Record<string, number>>((acc, item) => {
+        const date = item.created_at.split("T")[0] ?? "unknown";
+        acc[date] = (acc[date] ?? 0) + 1;
+        return acc;
+      }, {});
+
+      const chartData = Object.entries(dateCounts)
+        .sort(([a], [b]) => a.localeCompare(b))
+        .map(([date, count]) => ({
+          date,
+          count,
+        }));
+
+      return {
+        chartType: "line",
+        chartData,
+        chartConfig: {
+          count: { label: "Count", color: "var(--chart-1)" },
+        },
+        xAxisKey: "date",
+        dataKeys: ["count"],
+        reasoning: `Fallback: Found ${endpointConfig.length} GitHub items with dates, grouped by date for velocity chart`,
+      };
+    }
+
+    // GitHub commit format (has sha, commit.author.date)
+    if ("sha" in firstItem && "commit" in firstItem) {
+      const commits = endpointConfig as Array<{
+        commit: { author: { date: string; name: string } };
+      }>;
+
+      const dateCounts = commits.reduce<Record<string, number>>((acc, item) => {
+        const date = item.commit.author.date.split("T")[0] ?? "unknown";
+        acc[date] = (acc[date] ?? 0) + 1;
+        return acc;
+      }, {});
+
+      const chartData = Object.entries(dateCounts)
+        .sort(([a], [b]) => a.localeCompare(b))
+        .map(([date, count]) => ({
+          date,
+          count,
+        }));
+
+      return {
+        chartType: "line",
+        chartData,
+        chartConfig: {
+          count: { label: "Commits", color: "var(--chart-1)" },
+        },
+        xAxisKey: "date",
+        dataKeys: ["count"],
+        reasoning: `Fallback: Found ${endpointConfig.length} commits, grouped by date`,
+      };
+    }
+
+    // GitHub contributor stats format (has author.login, total)
+    if ("author" in firstItem && "total" in firstItem) {
+      const contributors = endpointConfig as Array<{
+        author: { login: string };
+        total: number;
+      }>;
+
+      const chartData = contributors
+        .sort((a, b) => b.total - a.total)
+        .slice(0, 10)
+        .map((item, index) => ({
+          contributor: item.author.login,
+          commits: item.total,
+          fill: `var(--chart-${(index % 5) + 1})`,
+        }));
+
+      const chartConfig: Record<string, { label: string; color: string }> = {};
+      chartData.forEach((item, index) => {
+        chartConfig[item.contributor] = {
+          label: item.contributor,
+          color: `var(--chart-${(index % 5) + 1})`,
+        };
+      });
+
+      return {
+        chartType: "bar",
+        chartData,
+        chartConfig,
+        xAxisKey: "contributor",
+        dataKeys: ["commits"],
+        reasoning: `Fallback: Found ${contributors.length} contributors, showing top 10 by commits`,
+      };
+    }
+
+    // GitHub commit activity format (has week timestamp, total, days)
+    if ("week" in firstItem && "total" in firstItem && "days" in firstItem) {
+      const weeks = endpointConfig as Array<{
+        week: number;
+        total: number;
+      }>;
+
+      const chartData = weeks.map((item) => ({
+        week:
+          new Date(item.week * 1000).toISOString().split("T")[0] ?? "unknown",
+        commits: item.total,
+      }));
+
+      return {
+        chartType: "area",
+        chartData,
+        chartConfig: {
+          commits: { label: "Commits", color: "var(--chart-1)" },
+        },
+        xAxisKey: "week",
+        dataKeys: ["commits"],
+        reasoning: `Fallback: Found ${weeks.length} weeks of commit activity`,
+      };
+    }
+
+    // GitHub code frequency format (array of [timestamp, additions, deletions])
+    if (Array.isArray(firstItem) && firstItem.length === 3) {
+      const weeks = endpointConfig as Array<[number, number, number]>;
+
+      const chartData = weeks.map(([timestamp, additions, deletions]) => ({
+        week:
+          new Date(timestamp * 1000).toISOString().split("T")[0] ?? "unknown",
+        additions,
+        deletions: Math.abs(deletions),
+      }));
+
+      return {
+        chartType: "bar",
+        chartData,
+        chartConfig: {
+          additions: { label: "Additions", color: "var(--chart-1)" },
+          deletions: { label: "Deletions", color: "var(--chart-2)" },
+        },
+        xAxisKey: "week",
+        dataKeys: ["additions", "deletions"],
+        reasoning: `Fallback: Found ${weeks.length} weeks of code frequency data`,
+      };
+    }
+
+    // GitHub punch card format (array of [day, hour, count])
+    if (
+      Array.isArray(firstItem) &&
+      firstItem.length === 3 &&
+      typeof firstItem[0] === "number" &&
+      typeof firstItem[1] === "number"
+    ) {
+      const punchCard = endpointConfig as Array<[number, number, number]>;
+
+      // Group by day for simpler visualization
+      const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+      const dayCounts = punchCard.reduce<Record<string, number>>(
+        (acc, [day, , count]) => {
+          const dayName = dayNames[day] ?? `Day ${day}`;
+          acc[dayName] = (acc[dayName] ?? 0) + count;
+          return acc;
+        },
+        {},
+      );
+
+      const chartData = dayNames.map((day, index) => ({
+        day,
+        commits: dayCounts[day] ?? 0,
+        fill: `var(--chart-${(index % 5) + 1})`,
+      }));
+
+      return {
+        chartType: "bar",
+        chartData,
+        chartConfig: {
+          commits: { label: "Commits", color: "var(--chart-1)" },
+        },
+        xAxisKey: "day",
+        dataKeys: ["commits"],
+        reasoning: "Fallback: Found punch card data, grouped by day of week",
       };
     }
   }

@@ -58,7 +58,28 @@ export interface MetricTemplate {
 // GitHub Templates
 // ============================================================================
 
+// Common parameter definitions for reuse
+const githubRepoParams: MetricTemplateParam[] = [
+  {
+    name: "OWNER",
+    label: "Repository Owner",
+    description: "GitHub username or organization name",
+    type: "text",
+    required: true,
+    placeholder: "facebook",
+  },
+  {
+    name: "REPO",
+    label: "Repository Name",
+    description: "Name of the repository",
+    type: "text",
+    required: true,
+    placeholder: "react",
+  },
+];
+
 export const githubTemplates: MetricTemplate[] = [
+  // ===== User-Level Metrics (No Repo Required) =====
   {
     templateId: "github-stars-total",
     label: "Repository Stars",
@@ -91,6 +112,208 @@ export const githubTemplates: MetricTemplate[] = [
     endpoint: githubMetricEndpoints.USER_PROFILE,
     dataPath: "followers",
     requiredParams: [],
+  },
+
+  // ===== Repository Info Metrics =====
+  {
+    templateId: "github-repo-stars",
+    label: "Repository Stars",
+    description: "Star count for a specific repository",
+    integrationId: "github",
+    metricType: "number",
+    defaultUnit: "stars",
+    endpoint: githubMetricEndpoints.REPO_INFO,
+    dataPath: "stargazers_count",
+    requiredParams: githubRepoParams,
+  },
+  {
+    templateId: "github-repo-forks",
+    label: "Repository Forks",
+    description: "Fork count for a specific repository",
+    integrationId: "github",
+    metricType: "number",
+    defaultUnit: "forks",
+    endpoint: githubMetricEndpoints.REPO_INFO,
+    dataPath: "forks_count",
+    requiredParams: githubRepoParams,
+  },
+  {
+    templateId: "github-repo-watchers",
+    label: "Repository Watchers",
+    description: "Watcher count for a specific repository",
+    integrationId: "github",
+    metricType: "number",
+    defaultUnit: "watchers",
+    endpoint: githubMetricEndpoints.REPO_INFO,
+    dataPath: "watchers_count",
+    requiredParams: githubRepoParams,
+  },
+  {
+    templateId: "github-repo-open-issues",
+    label: "Open Issues Count",
+    description: "Number of open issues in a repository",
+    integrationId: "github",
+    metricType: "number",
+    defaultUnit: "issues",
+    endpoint: githubMetricEndpoints.REPO_INFO,
+    dataPath: "open_issues_count",
+    requiredParams: githubRepoParams,
+  },
+
+  // ===== Time-Series Data (Excellent for Charts) =====
+  {
+    templateId: "github-commit-activity",
+    label: "Commit Activity (Last Year)",
+    description:
+      "Weekly commit activity for the last year. Returns array of {week, total, days} - perfect for time-series line charts.",
+    integrationId: "github",
+    metricType: "number",
+    endpoint: githubMetricEndpoints.REPO_STATS_COMMIT_ACTIVITY,
+    dataPath: "results", // Full array for visualization
+    transformData: "extractCommitActivity",
+    requiredParams: githubRepoParams,
+  },
+  {
+    templateId: "github-code-frequency",
+    label: "Code Frequency (Additions/Deletions)",
+    description:
+      "Weekly code additions and deletions. Returns array of [timestamp, additions, deletions] - excellent for area/bar charts showing code growth.",
+    integrationId: "github",
+    metricType: "number",
+    endpoint: githubMetricEndpoints.REPO_STATS_CODE_FREQUENCY,
+    dataPath: "results", // Full array for visualization
+    transformData: "extractCodeFrequency",
+    requiredParams: githubRepoParams,
+  },
+  {
+    templateId: "github-participation",
+    label: "Participation Stats (52 Weeks)",
+    description:
+      "Weekly commit counts for owner vs all contributors over last 52 weeks. Perfect for comparative area charts.",
+    integrationId: "github",
+    metricType: "number",
+    endpoint: githubMetricEndpoints.REPO_STATS_PARTICIPATION,
+    dataPath: "results", // Returns {all: [...], owner: [...]}
+    transformData: "extractParticipation",
+    requiredParams: githubRepoParams,
+  },
+
+  // ===== Contributor & Distribution Data =====
+  {
+    templateId: "github-contributor-stats",
+    label: "Contributor Statistics",
+    description:
+      "Detailed commit statistics per contributor including weekly breakdown. Great for bar charts and contributor leaderboards.",
+    integrationId: "github",
+    metricType: "number",
+    endpoint: githubMetricEndpoints.REPO_STATS_CONTRIBUTORS,
+    dataPath: "results", // Array of contributor objects with commit data
+    transformData: "extractContributorStats",
+    requiredParams: githubRepoParams,
+  },
+  {
+    templateId: "github-punch-card",
+    label: "Commit Punch Card",
+    description:
+      "Hourly commit distribution by day of week. Returns array of [day, hour, count] - perfect for heatmap visualizations.",
+    integrationId: "github",
+    metricType: "number",
+    endpoint: githubMetricEndpoints.REPO_STATS_PUNCH_CARD,
+    dataPath: "results", // Full array for heatmap
+    transformData: "extractPunchCard",
+    requiredParams: githubRepoParams,
+  },
+  {
+    templateId: "github-languages",
+    label: "Repository Languages",
+    description:
+      "Programming languages used in repository with byte counts. Perfect for pie/donut charts showing language distribution.",
+    integrationId: "github",
+    metricType: "number",
+    endpoint: githubMetricEndpoints.REPO_LANGUAGES,
+    dataPath: "results", // Object with language: bytes
+    transformData: "extractLanguages",
+    requiredParams: githubRepoParams,
+  },
+
+  // ===== List-Based Metrics =====
+  {
+    templateId: "github-issues-list",
+    label: "Issues List",
+    description:
+      "List of repository issues with details. Useful for tracking issue trends and analysis.",
+    integrationId: "github",
+    metricType: "number",
+    endpoint: githubMetricEndpoints.REPO_ISSUES,
+    dataPath: "results", // Full array of issues
+    transformData: "extractIssuesList",
+    requiredParams: [
+      ...githubRepoParams,
+      {
+        name: "STATE",
+        label: "Issue State",
+        description: "Filter issues by state",
+        type: "select",
+        required: true,
+        options: [
+          { label: "Open", value: "open" },
+          { label: "Closed", value: "closed" },
+          { label: "All", value: "all" },
+        ],
+      },
+    ],
+  },
+  {
+    templateId: "github-pulls-list",
+    label: "Pull Requests List",
+    description:
+      "List of repository pull requests with details. Track PR velocity and review patterns.",
+    integrationId: "github",
+    metricType: "number",
+    endpoint: githubMetricEndpoints.REPO_PULLS,
+    dataPath: "results", // Full array of PRs
+    transformData: "extractPullsList",
+    requiredParams: [
+      ...githubRepoParams,
+      {
+        name: "STATE",
+        label: "PR State",
+        description: "Filter pull requests by state",
+        type: "select",
+        required: true,
+        options: [
+          { label: "Open", value: "open" },
+          { label: "Closed", value: "closed" },
+          { label: "All", value: "all" },
+        ],
+      },
+    ],
+  },
+  {
+    templateId: "github-commits-list",
+    label: "Recent Commits",
+    description:
+      "List of recent repository commits with author and message details. Track commit frequency over time.",
+    integrationId: "github",
+    metricType: "number",
+    endpoint: githubMetricEndpoints.REPO_COMMITS,
+    dataPath: "results", // Full array of commits
+    transformData: "extractCommitsList",
+    requiredParams: githubRepoParams,
+  },
+
+  // ===== CI/CD Metrics =====
+  {
+    templateId: "github-workflow-runs",
+    label: "Workflow Runs",
+    description:
+      "GitHub Actions workflow runs with status and timing. Track CI/CD success rates and performance.",
+    integrationId: "github",
+    metricType: "number",
+    endpoint: githubMetricEndpoints.REPO_WORKFLOW_RUNS,
+    dataPath: "workflow_runs", // Array of workflow run objects
+    transformData: "extractWorkflowRuns",
+    requiredParams: githubRepoParams,
   },
 ];
 
