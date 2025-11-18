@@ -33,6 +33,8 @@ import {
 } from "@/components/ui/select";
 import { api } from "@/trpc/react";
 
+import { JsonViewer } from "./json-viewer";
+
 interface ServiceEndpoint {
   label: string;
   path: string;
@@ -113,7 +115,8 @@ export function IntegrationTester() {
   };
 
   const getEndpointKey = (endpoint: ServiceEndpoint) => {
-    return `${endpoint.method}:${endpoint.path}`;
+    // Include label to make keys unique for endpoints with same path (e.g., PostHog Query API)
+    return `${endpoint.method}:${endpoint.path}:${endpoint.label}`;
   };
 
   const updateTestResult = (endpointKey: string, result: TestResult) => {
@@ -388,7 +391,7 @@ export function IntegrationTester() {
                       </span>
                     </div>
                   </CardHeader>
-                  <CardContent className="space-y-3">
+                  <CardContent className="min-w-0 space-y-3">
                     {/* Parameters */}
                     {endpoint.requiresParams && endpoint.params && (
                       <div className="space-y-2">
@@ -455,16 +458,11 @@ export function IntegrationTester() {
 
                     {/* Response Preview */}
                     {result?.status === "success" && result.response && (
-                      <div className="bg-muted rounded p-2 text-xs">
-                        <p className="text-muted-foreground mb-1">Response:</p>
-                        <pre className="max-h-20 overflow-auto text-[10px]">
-                          {JSON.stringify(result.response, null, 2).slice(
-                            0,
-                            200,
-                          )}
-                          {JSON.stringify(result.response).length > 200 &&
-                            "..."}
-                        </pre>
+                      <div className="min-w-0 overflow-hidden">
+                        <JsonViewer
+                          data={result.response}
+                          maxPreviewHeight="100px"
+                        />
                       </div>
                     )}
 
