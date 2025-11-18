@@ -649,11 +649,25 @@ export const metricRouter = createTRPCRouter({
             );
             break;
           case "posthog":
+            // For Query API POST requests, provide example body based on endpoint label
+            let postBody = undefined;
+            if (input.method === "POST" && input.endpoint.includes("/query/")) {
+              // Simple HogQL query example for testing
+              postBody = {
+                query: {
+                  kind: "HogQLQuery",
+                  query:
+                    "SELECT event, count() as count FROM events WHERE timestamp > now() - INTERVAL 7 DAY GROUP BY event ORDER BY count DESC LIMIT 10",
+                },
+              };
+            }
+
             result = await fetchPostHogData(
               input.connectionId,
               input.endpoint,
               input.params,
               input.method,
+              postBody,
             );
             break;
           case "youtube":
