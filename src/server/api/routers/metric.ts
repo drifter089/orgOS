@@ -642,40 +642,75 @@ export const metricRouter = createTRPCRouter({
 
       // Special handling for multi-column Google Sheets data
       if (template.transformData === "extractMultipleColumns") {
-        const dataColumnIndices = (params.DATA_COLUMN_INDICES ?? "1")
+        const labelColumnIndex = params.LABEL_COLUMN_INDEX
+          ? parseInt(params.LABEL_COLUMN_INDEX)
+          : null;
+        const dataColumnIndices = (params.DATA_COLUMN_INDICES ?? "0")
           .split(",")
-          .map((s) => parseInt(s.trim()));
+          .map((s) => parseInt(s.trim()))
+          .filter((n) => !isNaN(n));
 
-        // Extract all columns data (skip header row)
+        // Get headers for column names
+        const headers: string[] = [];
         const multiColumnData: Array<Record<string, string | number>> = [];
 
-        if (Array.isArray(value) && value.length > 1) {
+        if (Array.isArray(value) && value.length > 0) {
+          // Extract headers from first row
+          const headerRow = value[0] as string[];
+          dataColumnIndices.forEach((colIndex) => {
+            headers.push(headerRow[colIndex] ?? `Column ${colIndex}`);
+          });
+
           // Extract data from rows (skip header)
           for (let i = 1; i < value.length; i++) {
             const row = value[i] as (string | number)[];
-            let sum = 0;
-            dataColumnIndices.forEach((colIndex) => {
+            const dataPoint: Record<string, string | number> = {};
+
+            // Add label if specified
+            if (
+              labelColumnIndex !== null &&
+              row[labelColumnIndex] !== undefined
+            ) {
+              dataPoint.label = String(row[labelColumnIndex]);
+            } else {
+              dataPoint.label = `Row ${i}`;
+            }
+
+            // Add each data column
+            dataColumnIndices.forEach((colIndex, idx) => {
               const cellValue = row[colIndex];
               const numValue = parseFloat(String(cellValue));
-              if (!isNaN(numValue)) sum += numValue;
+              dataPoint[headers[idx] ?? `value${idx}`] = isNaN(numValue)
+                ? 0
+                : numValue;
             });
-            multiColumnData.push({ value: sum });
+
+            multiColumnData.push(dataPoint);
           }
         }
 
-        // Get latest value (sum of last row's selected columns)
+        // Get latest value (first data column's last value)
         const latestValue =
-          multiColumnData.length > 0
-            ? ((multiColumnData[multiColumnData.length - 1]!.value as number) ??
-              0)
+          multiColumnData.length > 0 && headers.length > 0
+            ? ((multiColumnData[multiColumnData.length - 1]![
+                headers[0]!
+              ] as number) ?? 0)
             : 0;
 
-        // Only store params, no data
+        // Store multi-column data in endpointConfig
+        const updatedConfig = {
+          ...(metric.endpointConfig as Record<string, unknown>),
+          multiColumnData,
+          headers,
+          lastDataFetch: new Date().toISOString(),
+        };
+
         return ctx.db.metric.update({
           where: { id: input.id },
           data: {
             currentValue: latestValue,
             lastFetchedAt: new Date(),
+            endpointConfig: updatedConfig,
           },
         });
       }

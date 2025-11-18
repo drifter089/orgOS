@@ -23,6 +23,13 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import type { RouterOutputs } from "@/trpc/react";
 import { api } from "@/trpc/react";
 
@@ -30,9 +37,19 @@ import { api } from "@/trpc/react";
 type DashboardMetrics = RouterOutputs["dashboard"]["getDashboardMetrics"];
 type DashboardMetricWithRelations = DashboardMetrics[number];
 
+// Chart type union
+export type ChartType =
+  | "line"
+  | "bar"
+  | "area"
+  | "pie"
+  | "radar"
+  | "radial"
+  | "kpi";
+
 // Chart transform result type
 export interface ChartTransformResult {
-  chartType: string;
+  chartType: ChartType;
   chartData: Array<Record<string, string | number>>;
   chartConfig: Record<string, { label: string; color: string }>;
   xAxisKey: string;
@@ -45,6 +62,16 @@ export interface DisplayedChart {
   metricName: string;
   chartTransform: ChartTransformResult;
 }
+
+// Available chart types for the dropdown
+const CHART_TYPES = [
+  { value: "line", label: "Line" },
+  { value: "area", label: "Area" },
+  { value: "bar", label: "Bar" },
+  { value: "pie", label: "Pie" },
+  { value: "radar", label: "Radar" },
+  { value: "radial", label: "Radial" },
+] as const;
 
 interface DashboardMetricCardProps {
   dashboardMetric: DashboardMetricWithRelations;
@@ -139,6 +166,19 @@ export function DashboardMetricCard({
     }
   };
 
+  const handleChartTypeChange = async (newType: string) => {
+    if (!chartTransform) return;
+
+    // Update the chart config with the new type
+    await updateConfigMutation.mutateAsync({
+      dashboardMetricId: dashboardMetric.id,
+      chartTransform: {
+        ...chartTransform,
+        chartType: newType as ChartType,
+      },
+    });
+  };
+
   const isFetching = fetchDataMutation.isPending;
   const isTransforming =
     transformMutation.isPending || updateConfigMutation.isPending;
@@ -159,9 +199,22 @@ export function DashboardMetricCard({
                 </Badge>
               )}
               {hasChartData && (
-                <Badge variant="outline" className="text-xs">
-                  {chartTransform?.chartType}
-                </Badge>
+                <Select
+                  value={chartTransform?.chartType}
+                  onValueChange={handleChartTypeChange}
+                  disabled={updateConfigMutation.isPending}
+                >
+                  <SelectTrigger className="border-primary/50 h-7 w-[100px] text-xs font-medium">
+                    <SelectValue placeholder="Chart type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {CHART_TYPES.map((type) => (
+                      <SelectItem key={type.value} value={type.value}>
+                        {type.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               )}
             </div>
             {metric.description && (

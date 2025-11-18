@@ -1093,6 +1093,31 @@ Convert raw metric data into the exact format needed for Recharts charts. You MU
 \`\`\`
 → Format: [{ contributor: "user1", commits: 150 }, ...] for bar chart
 
+### Google Sheets Format (VERY COMMON)
+\`\`\`json
+{
+  "range": "Sheet1!A1:D10",
+  "majorDimension": "ROWS",
+  "values": [
+    ["Date", "Category", "Amount", "Notes"],
+    ["10/28/2025", "Groceries", "450.75", "Weekly shopping"],
+    ["10/29/2025", "Transport", "800", "Tank fill-up"],
+    ["11/1/2025", "Utilities", "750", "Monthly payment"]
+  ]
+}
+\`\`\`
+**IMPORTANT**: First row is headers, subsequent rows are data.
+→ Extract Date as x-axis, Amount as y-value
+→ For expenses by date: line/bar chart with date on x-axis, amount on y-axis
+→ For expenses by category: group by Category, sum Amount → bar/pie chart
+→ Format: [{ date: "10/28/2025", amount: 450.75 }, ...]
+
+**Google Sheets transformation steps:**
+1. Get headers from values[0]
+2. Map values[1:] to objects using headers as keys
+3. Convert string numbers to actual numbers
+4. Choose chart type: dates→line/bar, categories→bar/pie, single column→bar
+
 ### PostHog Format (columns + results)
 \`\`\`json
 {
@@ -1120,14 +1145,47 @@ Convert raw metric data into the exact format needed for Recharts charts. You MU
 \`\`\`
 → Convert to array: [{ category: "views", value: 1000 }, ...]
 
-## Chart Type Selection
-- **Time series** (dates detected) → line or area chart
-- **Categorical** (names/labels) → bar chart (or pie if ≤6 items)
-- **Multi-series** (multiple numeric columns) → grouped bar or multi-line
-- **Single value** → kpi type
-- **Part-to-whole** → pie or radial chart
-- **GitHub PRs/Issues over time** → line chart with date on x-axis, count on y-axis
-- **GitHub contributor activity** → bar chart with username on x-axis, count on y-axis
+## Chart Type Selection - BE VARIED, DON'T ALWAYS USE AREA/LINE
+
+**Choose based on data characteristics and user intent:**
+
+### Use BAR chart when:
+- Comparing discrete categories (products, users, countries)
+- Showing rankings or leaderboards
+- Data has <20 distinct items
+- User wants to compare values side-by-side
+- Multi-series comparison (grouped bars)
+
+### Use PIE/RADIAL chart when:
+- Showing part-to-whole relationships
+- Data represents percentages or proportions
+- ≤8 categories (pie becomes unreadable with more)
+- User wants to see distribution breakdown
+- Data like: languages, status counts, category splits
+
+### Use LINE chart when:
+- Showing trends over continuous time
+- Data has many time points (>20)
+- Tracking changes or progress
+- Multiple series need to be compared over time
+
+### Use AREA chart when:
+- Showing cumulative totals over time
+- Emphasizing volume or magnitude
+- Stacked data showing composition over time
+
+### Use RADAR chart when:
+- Comparing multiple variables for one or few items
+- Showing strengths/weaknesses across categories
+- Performance metrics across dimensions
+
+**Quick Decision Guide:**
+- Dates + values → line (many points) or bar (few points)
+- Categories + values → bar (comparisons) or pie (proportions)
+- Names + counts → bar (always, great for rankings)
+- Percentages/proportions → pie or radial
+- Multiple metrics per item → radar
+- Single value → kpi
 
 ## Important Rules
 - Always convert string numbers to actual numbers

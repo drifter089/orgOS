@@ -6,17 +6,11 @@
  */
 import { createOpenRouter } from "@openrouter/ai-sdk-provider";
 import type { Metric } from "@prisma/client";
-import { type CoreMessage, generateText } from "ai";
-import { z } from "zod";
+import { generateText } from "ai";
 
 import { env } from "@/env";
 
-import {
-  type ChartTransformResult,
-  type ChartType,
-  chartTransformationPrompt,
-  toolExecutors,
-} from "./chart-ai-tools";
+import { type ChartTransformResult, type ChartType } from "./chart-ai-tools";
 
 // ============================================================================
 // Types & Interfaces
@@ -54,290 +48,115 @@ export async function transformMetricWithAI(
       apiKey: env.OPENROUTER_API_KEY,
     });
 
-    // Build the prompt with metric context
-    const metricContext = buildMetricPrompt(metric, userHint);
+    // Build the direct transformation prompt
+    const systemPrompt = `You are a data transformation expert. Transform the provided metric data into Recharts-compatible chart format.
 
-    // Define tools (schemas only, execution handled manually)
-    // Using 'as any' to bypass AI SDK v5 strict typing issues
-    const tools = {
-      // Primary tool: Auto-detect data pattern
-      detect_pattern: {
-        description:
-          "RECOMMENDED FIRST STEP: Automatically detect the data format and suggest the best chart type. Identifies time-series, categorical, multi-series patterns.",
-        parameters: z.object({
-          data: z.any().describe("The data to analyze"),
-        }),
-      },
-      inspect_data: {
-        description:
-          "Analyze the structure of the metric data with samples and key type analysis.",
-        parameters: z.object({
-          data: z.any().describe("The data to inspect"),
-        }),
-      },
-      // Flatten nested/complex structures
-      flatten_nested: {
-        description:
-          "Convert nested or complex data structures (like PostHog columns+results) into flat chart-ready format.",
-        parameters: z.object({
-          data: z.any().describe("The nested data to flatten"),
-          options: z
-            .object({
-              xPath: z.string().optional().describe("Path to x-axis values"),
-              yPaths: z
-                .array(z.string())
-                .optional()
-                .describe("Paths to y-axis values"),
-              xKey: z
-                .string()
-                .optional()
-                .describe("Key name for x-axis in output"),
-              yKeys: z
-                .array(z.string())
-                .optional()
-                .describe("Key names for y-values"),
-            })
-            .optional()
-            .describe("Options for flattening"),
-        }),
-      },
-      // Combine separate arrays
-      combine_arrays: {
-        description:
-          "Combine separate label and value arrays into unified chart data.",
-        parameters: z.object({
-          labels: z.array(z.string()).describe("Array of labels for x-axis"),
-          valueSets: z
-            .array(
-              z.object({
-                key: z.string().describe("Key name for this value series"),
-                values: z.array(z.number()).describe("Numeric values"),
-              }),
-            )
-            .describe("One or more sets of numeric values"),
-        }),
-      },
-      // Sort by date
-      sort_by_date: {
-        description: "Sort chart data chronologically by a date column.",
-        parameters: z.object({
-          data: z
-            .array(z.record(z.union([z.string(), z.number()])))
-            .describe("Chart data to sort"),
-          dateKey: z.string().describe("The key containing date values"),
-        }),
-      },
-      extract_values: {
-        description:
-          "Extract numeric values from a specific path in the data. Use dot notation for nested paths.",
-        parameters: z.object({
-          data: z.any().describe("The source data"),
-          path: z.string().describe("JSON path to extract values from"),
-        }),
-      },
-      extract_labels: {
-        description:
-          "Extract string labels from a specific path. Use for getting x-axis labels.",
-        parameters: z.object({
-          data: z.any().describe("The source data"),
-          path: z.string().describe("JSON path to extract labels from"),
-        }),
-      },
-      get_keys: {
-        description:
-          "Get the field names (keys) of an object at a specific path with type analysis.",
-        parameters: z.object({
-          data: z.any().describe("The source data"),
-          path: z.string().optional().describe("JSON path to the object"),
-        }),
-      },
-      format_chart_data: {
-        description:
-          "FINAL STEP: Format extracted data into Recharts-compatible format with colors.",
-        parameters: z.object({
-          chartType: z
-            .enum(["line", "bar", "area", "pie", "radar", "radial", "kpi"])
-            .describe("The type of chart to create"),
-          chartData: z
-            .array(z.record(z.union([z.string(), z.number()])))
-            .describe("Array of data points"),
-          xAxisKey: z.string().describe("The key to use for x-axis"),
-          dataKeys: z
-            .array(z.string())
-            .describe("Keys containing numeric values"),
-          reasoning: z.string().describe("Explanation of chart choice"),
-        }),
-      },
-    } as Record<string, unknown>;
+RESPOND WITH ONLY VALID JSON in this exact format:
+{
+  "chartType": "line" | "bar" | "area" | "pie" | "radar" | "radial" | "kpi",
+  "chartData": [{"label": "...", "value": 123}, ...],
+  "chartConfig": {"value": {"label": "Label", "color": "var(--chart-1)"}},
+  "xAxisKey": "label",
+  "dataKeys": ["value"],
+  "reasoning": "Brief explanation of transformation"
+}
 
-    // Manual tool calling loop
-    const messages: CoreMessage[] = [{ role: "user", content: metricContext }];
+## Chart Type Selection Rules:
+- PIE/RADIAL: Use for distributions, percentages, part-to-whole (≤8 categories)
+- BAR: Use for comparisons, rankings, categories with values
+- LINE/AREA: Use for time-series trends (many data points over time)
+- RADAR: Use for multi-variable comparison
+- KPI: Use only for single scalar values
 
-    let totalToolCalls = 0;
-    const maxIterations = 10;
+## Data Transformation Rules:
+1. For Google Sheets with "values" array: first row is headers, rest is data
+2. Convert all string numbers to actual numbers
+3. Use meaningful keys from headers (not generic names)
+4. For pie charts: use "name" and "value" keys, add "fill" with colors
+5. Colors: var(--chart-1) through var(--chart-5)
 
-    for (let i = 0; i < maxIterations; i++) {
-      const result = await generateText({
-        model: openrouter("anthropic/claude-3-haiku-20240307"),
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        tools: tools as any,
-        system: chartTransformationPrompt,
-        messages,
-      });
+## IMPORTANT:
+- If user requests a specific chart type (pie, bar, etc.), USE THAT TYPE
+- For categorical data with few items, prefer BAR or PIE over LINE
+- Always return valid JSON, no markdown code blocks`;
 
-      // Check if there are tool calls
-      if (!result.toolCalls || result.toolCalls.length === 0) {
-        break;
-      }
+    // Build the user message with full context
+    const userMessage = buildMetricPrompt(metric, userHint);
 
-      totalToolCalls += result.toolCalls.length;
+    console.info(
+      "[AI Transform] Starting transformation for metric:",
+      metric.name,
+    );
+    if (userHint) {
+      console.info("[AI Transform] User hint:", userHint);
+    }
 
-      // Process tool calls
-      const toolResultMessages: CoreMessage[] = [];
+    const result = await generateText({
+      model: openrouter("anthropic/claude-sonnet-4-20250514"),
+      system: systemPrompt,
+      messages: [{ role: "user", content: userMessage }],
+    });
 
-      for (const toolCall of result.toolCalls) {
-        // Cast to access properties (AI SDK v5 typing workaround)
-        const tc = toolCall as unknown as {
-          toolName: string;
-          args: unknown;
-          toolCallId: string;
-        };
-        const { toolName, args, toolCallId } = tc;
-        let toolResult: unknown;
+    // Parse the JSON response
+    const responseText = result.text.trim();
+    console.info(
+      "[AI Transform] Raw response:",
+      responseText.substring(0, 500),
+    );
 
-        // Execute the tool
-        switch (toolName) {
-          case "detect_pattern":
-            toolResult = toolExecutors.detect_pattern(
-              (args as { data: unknown }).data,
-            );
-            break;
-          case "inspect_data":
-            toolResult = toolExecutors.inspect_data(
-              (args as { data: unknown }).data,
-            );
-            break;
-          case "flatten_nested": {
-            const flattenArgs = args as {
-              data: unknown;
-              options?: {
-                xPath?: string;
-                yPaths?: string[];
-                xKey?: string;
-                yKeys?: string[];
-              };
-            };
-            toolResult = toolExecutors.flatten_nested(
-              flattenArgs.data,
-              flattenArgs.options,
-            );
-            break;
-          }
-          case "combine_arrays": {
-            const combineArgs = args as {
-              labels: string[];
-              valueSets: { key: string; values: number[] }[];
-            };
-            toolResult = toolExecutors.combine_arrays(
-              combineArgs.labels,
-              combineArgs.valueSets,
-            );
-            break;
-          }
-          case "sort_by_date": {
-            const sortArgs = args as {
-              data: Array<Record<string, string | number>>;
-              dateKey: string;
-            };
-            toolResult = toolExecutors.sort_by_date(
-              sortArgs.data,
-              sortArgs.dateKey,
-            );
-            break;
-          }
-          case "extract_values":
-            toolResult = toolExecutors.extract_values(
-              (args as { data: unknown; path: string }).data,
-              (args as { data: unknown; path: string }).path,
-            );
-            break;
-          case "extract_labels":
-            toolResult = toolExecutors.extract_labels(
-              (args as { data: unknown; path: string }).data,
-              (args as { data: unknown; path: string }).path,
-            );
-            break;
-          case "get_keys":
-            toolResult = toolExecutors.get_keys(
-              (args as { data: unknown; path?: string }).data,
-              (args as { data: unknown; path?: string }).path,
-            );
-            break;
-          case "format_chart_data": {
-            const formatArgs = args as {
-              chartType: ChartType;
-              chartData: Array<Record<string, string | number>>;
-              xAxisKey: string;
-              dataKeys: string[];
-              reasoning: string;
-            };
-            const chartResult = toolExecutors.format_chart_data(
-              formatArgs.chartType,
-              formatArgs.chartData,
-              formatArgs.xAxisKey,
-              formatArgs.dataKeys,
-              formatArgs.reasoning,
-            );
-            // Return final result
-            return {
-              success: true,
-              data: chartResult,
-              toolCalls: totalToolCalls,
-            };
-          }
-          default:
-            toolResult = { error: `Unknown tool: ${toolName}` };
-        }
+    // Try to extract JSON from the response
+    let jsonStr = responseText;
 
-        toolResultMessages.push({
-          role: "tool",
-          content: [
-            {
-              type: "tool-result",
-              toolCallId,
-              toolName,
-              result: JSON.stringify(toolResult),
-            },
-          ],
-        } as unknown as CoreMessage);
-      }
+    // Remove markdown code blocks if present
+    const jsonMatch = /```(?:json)?\s*([\s\S]*?)```/.exec(responseText);
+    if (jsonMatch) {
+      jsonStr = jsonMatch[1]!.trim();
+    }
 
-      // Add assistant response and tool results
-      const assistantToolCalls = result.toolCalls.map((tc) => {
-        const call = tc as unknown as {
-          toolCallId: string;
-          toolName: string;
-          args: unknown;
-        };
-        return {
-          type: "tool-call" as const,
-          toolCallId: call.toolCallId,
-          toolName: call.toolName,
-          args: call.args,
+    // Find JSON object in response
+    const jsonStartIndex = jsonStr.indexOf("{");
+    const jsonEndIndex = jsonStr.lastIndexOf("}");
+    if (jsonStartIndex !== -1 && jsonEndIndex !== -1) {
+      jsonStr = jsonStr.slice(jsonStartIndex, jsonEndIndex + 1);
+    }
+
+    const chartResult = JSON.parse(jsonStr) as {
+      chartType: ChartType;
+      chartData: Array<Record<string, string | number>>;
+      chartConfig: Record<string, { label: string; color: string }>;
+      xAxisKey: string;
+      dataKeys: string[];
+      reasoning: string;
+    };
+
+    // Validate required fields
+    if (
+      !chartResult.chartType ||
+      !chartResult.chartData ||
+      !chartResult.xAxisKey ||
+      !chartResult.dataKeys
+    ) {
+      throw new Error("Invalid chart result: missing required fields");
+    }
+
+    console.info("[AI Transform] Parsed chart type:", chartResult.chartType);
+    console.info("[AI Transform] Data points:", chartResult.chartData.length);
+
+    // Ensure chartConfig exists and has colors
+    if (!chartResult.chartConfig) {
+      chartResult.chartConfig = {};
+      chartResult.dataKeys.forEach((key, index) => {
+        chartResult.chartConfig[key] = {
+          label: key,
+          color: `var(--chart-${(index % 5) + 1})`,
         };
       });
-
-      messages.push({
-        role: "assistant",
-        content: assistantToolCalls,
-      } as unknown as CoreMessage);
-      messages.push(...toolResultMessages);
     }
 
     return {
-      success: false,
-      error: "AI did not produce a valid chart format after max iterations",
-      toolCalls: totalToolCalls,
+      success: true,
+      data: chartResult,
+      toolCalls: 0,
     };
   } catch (error) {
     console.error("AI transformation error:", error);
@@ -381,22 +200,79 @@ function buildMetricPrompt(metric: Metric, userHint?: string): string {
     parts.push(`- Target Value: ${metric.targetValue}`);
   }
 
+  // Add integration and template context - crucial for understanding data format
+  if (metric.integrationId || metric.metricTemplate) {
+    parts.push("");
+    parts.push(`## Data Source Context`);
+
+    if (metric.metricTemplate) {
+      parts.push(`- Template: ${metric.metricTemplate}`);
+
+      // Provide specific guidance based on template
+      if (metric.metricTemplate.includes("gsheets")) {
+        parts.push(`- Source: Google Sheets`);
+        parts.push(
+          `- Data Format: Sheets API returns { range, majorDimension: "ROWS", values: [[header], [row1], [row2], ...] }`,
+        );
+      } else if (metric.metricTemplate.includes("github")) {
+        parts.push(`- Source: GitHub API`);
+      } else if (metric.metricTemplate.includes("posthog")) {
+        parts.push(`- Source: PostHog Analytics`);
+      }
+    }
+
+    // Include endpoint params which contain user's selections
+    const params = metric.endpointConfig as Record<string, unknown> | null;
+    if (params) {
+      // Extract configuration params (not the actual data)
+      const configKeys = [
+        "SPREADSHEET_ID",
+        "SHEET_NAME",
+        "LABEL_COLUMN_INDEX",
+        "DATA_COLUMN_INDICES",
+        "COLUMN_INDEX",
+        "PROJECT_ID",
+        "OWNER",
+        "REPO",
+      ];
+      const configParams: Record<string, unknown> = {};
+
+      configKeys.forEach((key) => {
+        if (params[key] !== undefined) {
+          configParams[key] = params[key];
+        }
+      });
+
+      if (Object.keys(configParams).length > 0) {
+        parts.push(`- Configuration: ${JSON.stringify(configParams)}`);
+      }
+    }
+  }
+
   parts.push("");
   parts.push(`## Raw Data`);
   parts.push("```json");
   parts.push(JSON.stringify(metric.endpointConfig ?? {}, null, 2));
   parts.push("```");
 
-  if (userHint) {
-    parts.push("");
-    parts.push(`## User Request`);
-    parts.push(userHint);
-  }
-
   parts.push("");
   parts.push(
-    `Transform this data into chart format. Use the tools to inspect the data structure, extract values, and format the final chart data.`,
+    `Transform this data into chart format. Extract values and format the final chart data.`,
   );
+  parts.push("");
+  parts.push(
+    `For Google Sheets data with "values" array, the first row is headers and subsequent rows are data. Extract columns by index and create proper chart data with meaningful labels.`,
+  );
+
+  // Put user hint LAST so AI prioritizes it
+  if (userHint) {
+    parts.push("");
+    parts.push(`## USER REQUEST (HIGHEST PRIORITY)`);
+    parts.push(`The user specifically requested: "${userHint}"`);
+    parts.push(
+      `YOU MUST follow this request. If user says "pie chart", use chartType: "pie". If user says "bar chart", use chartType: "bar".`,
+    );
+  }
 
   return parts.join("\n");
 }
@@ -472,6 +348,116 @@ export function transformMetricSimple(metric: Metric): ChartTransformResult {
       xAxisKey,
       dataKeys,
       reasoning: `Fallback: Found PostHog results with columns [${columns.join(", ")}], formatted as line chart with ${chartData.length} data points`,
+    };
+  }
+
+  // Check for Google Sheets format: { values: [[headers], [row1], [row2], ...] }
+  if (
+    endpointConfig?.values &&
+    Array.isArray(endpointConfig.values) &&
+    endpointConfig.values.length > 1
+  ) {
+    const values = endpointConfig.values as (string | number)[][];
+    const headers = values[0] as string[];
+    const dataRows = values.slice(1);
+
+    // Find date/label column (first string column) and numeric columns
+    let labelIndex = 0;
+    const numericIndices: number[] = [];
+
+    // Analyze first data row to determine column types
+    const firstRow = dataRows[0];
+    if (firstRow) {
+      headers.forEach((_, i) => {
+        const value = firstRow[i];
+        const numValue = parseFloat(String(value));
+        if (
+          !isNaN(numValue) &&
+          !/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(String(value))
+        ) {
+          numericIndices.push(i);
+        }
+      });
+
+      // If no numeric columns found, try to find Amount/Value columns by name
+      if (numericIndices.length === 0) {
+        headers.forEach((header, i) => {
+          if (
+            /amount|value|price|cost|total|count|qty|quantity/i.test(header)
+          ) {
+            numericIndices.push(i);
+          }
+        });
+      }
+    }
+
+    // Use first column as label, or find Date/Category column
+    const dateIndex = headers.findIndex((h) =>
+      /date|time|day|month|year/i.test(h),
+    );
+    const categoryIndex = headers.findIndex((h) =>
+      /category|type|name|item/i.test(h),
+    );
+    labelIndex =
+      dateIndex >= 0 ? dateIndex : categoryIndex >= 0 ? categoryIndex : 0;
+
+    // Remove label column from numeric indices if present
+    const dataIndices = numericIndices.filter((i) => i !== labelIndex);
+
+    // If still no data columns, use all columns except label
+    if (dataIndices.length === 0) {
+      headers.forEach((_, i) => {
+        if (i !== labelIndex) dataIndices.push(i);
+      });
+    }
+
+    // Build chart data
+    const chartData = dataRows.map((row) => {
+      const obj: Record<string, string | number> = {};
+      obj[headers[labelIndex] ?? "label"] = String(row[labelIndex] ?? "");
+
+      dataIndices.forEach((i) => {
+        const value = row[i];
+        const numValue = parseFloat(String(value).replace(/[,$]/g, ""));
+        obj[headers[i] ?? `col${i}`] = isNaN(numValue) ? 0 : numValue;
+      });
+
+      return obj;
+    });
+
+    // Build chart config
+    const xAxisKey = headers[labelIndex] ?? "label";
+    const dataKeys = dataIndices.map((i) => headers[i] ?? `col${i}`);
+    const chartConfig: Record<string, { label: string; color: string }> = {};
+
+    dataKeys.forEach((key, index) => {
+      chartConfig[key] = {
+        label: key,
+        color: `var(--chart-${(index % 5) + 1})`,
+      };
+    });
+
+    // Determine chart type based on data characteristics
+    const hasDateLabels = /^\d{1,2}\/\d{1,2}\/\d{4}$/.test(
+      String(dataRows[0]?.[labelIndex] ?? ""),
+    );
+    const itemCount = chartData.length;
+    const isCategorical = !hasDateLabels && itemCount <= 10;
+
+    let chartType: "line" | "bar" | "area" | "pie" = "bar";
+    if (hasDateLabels && itemCount > 5) {
+      chartType = "line";
+    } else if (isCategorical && dataKeys.length === 1 && itemCount <= 6) {
+      chartType = "pie";
+    }
+
+    return {
+      chartType,
+      chartData,
+      chartConfig,
+      xAxisKey,
+      dataKeys,
+      reasoning: `Fallback: Google Sheets data with ${headers.length} columns and ${dataRows.length} rows. Using ${xAxisKey} as x-axis and ${dataKeys.join(", ")} as data series.`,
     };
   }
 
