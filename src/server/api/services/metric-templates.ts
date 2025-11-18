@@ -49,6 +49,9 @@ export interface MetricTemplate {
 
   // Optional custom data transformation
   transformData?: string; // Function name for custom transformation
+
+  // Request body for POST/PUT requests (with {PARAM} placeholders)
+  requestBodyTemplate?: string; // JSON string template with placeholders
 }
 
 // ============================================================================
@@ -191,6 +194,53 @@ export const googleSheetsTemplates: MetricTemplate[] = [
       },
     ],
   },
+  {
+    templateId: "gsheets-multi-column-data",
+    label: "Multi-Column Data (Full Dataset)",
+    description:
+      "Track multiple columns for rich visualization. Stores all selected column data for charts with multiple series.",
+    integrationId: "google-sheet",
+    metricType: "number",
+    endpoint: googleSheetsMetricEndpoints.SHEET_VALUES,
+    dataPath: "values", // Full sheet data
+    transformData: "extractMultipleColumns", // Custom transformation
+    requiredParams: [
+      {
+        name: "SPREADSHEET_ID",
+        label: "Spreadsheet ID",
+        description: "The ID from the spreadsheet URL",
+        type: "text",
+        required: true,
+        placeholder: "1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms",
+      },
+      {
+        name: "SHEET_NAME",
+        label: "Sheet Name",
+        description: "The name of the sheet (e.g., Sheet1)",
+        type: "text",
+        required: true,
+        placeholder: "Sheet1",
+      },
+      {
+        name: "LABEL_COLUMN_INDEX",
+        label: "Label Column Index",
+        description:
+          "Column index for labels/x-axis (0-based, e.g., 0 for column A with dates)",
+        type: "number",
+        required: true,
+        placeholder: "0",
+      },
+      {
+        name: "DATA_COLUMN_INDICES",
+        label: "Data Column Indices",
+        description:
+          "Comma-separated column indices for data series (e.g., 1,2,3 for columns B,C,D)",
+        type: "text",
+        required: true,
+        placeholder: "1,2,3",
+      },
+    ],
+  },
 ];
 
 // ============================================================================
@@ -200,14 +250,17 @@ export const googleSheetsTemplates: MetricTemplate[] = [
 export const posthogTemplates: MetricTemplate[] = [
   {
     templateId: "posthog-event-count",
-    label: "Event Count",
-    description: "Count occurrences of a specific event in a project",
+    label: "Event Count (Time Series)",
+    description:
+      "Count occurrences of a specific event over time. Returns daily counts for visualization.",
     integrationId: "posthog",
     metricType: "number",
     defaultUnit: "events",
-    endpoint: posthogMetricEndpoints.PROJECT_EVENTS,
-    dataPath: "results", // Will count array length
-    transformData: "countEvents",
+    endpoint: posthogMetricEndpoints.QUERY_API,
+    method: "POST",
+    dataPath: "results", // HogQL results array
+    requestBodyTemplate:
+      '{"query":{"kind":"HogQLQuery","query":"SELECT formatDateTime(timestamp, \'%Y-%m-%d\') as date, count() as count FROM events WHERE event = \'{EVENT_NAME}\' AND timestamp > now() - INTERVAL 30 DAY GROUP BY date ORDER BY date"}}',
     requiredParams: [
       {
         name: "PROJECT_ID",
@@ -245,6 +298,163 @@ export const posthogTemplates: MetricTemplate[] = [
         type: "dynamic-select",
         required: true,
         dynamicOptionsEndpoint: "posthog-projects",
+      },
+    ],
+  },
+  {
+    templateId: "posthog-hogql-query",
+    label: "HogQL Query (Custom SQL)",
+    description:
+      "Run a custom HogQL SQL query to get analytics data. Returns full result for visualization.",
+    integrationId: "posthog",
+    metricType: "number",
+    endpoint: posthogMetricEndpoints.QUERY_API,
+    method: "POST",
+    dataPath: "results", // Full results array for visualization
+    transformData: "extractHogQLResults",
+    requestBodyTemplate:
+      '{"query":{"kind":"HogQLQuery","query":"{HOGQL_QUERY}"}}',
+    requiredParams: [
+      {
+        name: "PROJECT_ID",
+        label: "Project",
+        description: "Select the PostHog project",
+        type: "dynamic-select",
+        required: true,
+        dynamicOptionsEndpoint: "posthog-projects",
+      },
+      {
+        name: "HOGQL_QUERY",
+        label: "HogQL Query",
+        description:
+          "SQL query using HogQL syntax. Example: SELECT event, count() as count FROM events WHERE timestamp > now() - INTERVAL 7 DAY GROUP BY event ORDER BY count DESC LIMIT 10",
+        type: "text",
+        required: true,
+        placeholder:
+          "SELECT event, count() as count FROM events WHERE timestamp > now() - INTERVAL 7 DAY GROUP BY event ORDER BY count DESC LIMIT 10",
+      },
+    ],
+  },
+  {
+    templateId: "posthog-trends-query",
+    label: "Trends Query (Time Series)",
+    description:
+      "Get event trends over time. Returns time-series data perfect for line/area charts.",
+    integrationId: "posthog",
+    metricType: "number",
+    endpoint: posthogMetricEndpoints.QUERY_API,
+    method: "POST",
+    dataPath: "results", // Full results for time-series visualization
+    transformData: "extractTrendsResults",
+    requestBodyTemplate:
+      '{"query":{"kind":"TrendsQuery","series":[{"event":"{EVENT_NAME}"}],"trendsFilter":{"display":"ActionsLineGraph"},"dateRange":{"date_from":"{DATE_FROM}"}}}',
+    requiredParams: [
+      {
+        name: "PROJECT_ID",
+        label: "Project",
+        description: "Select the PostHog project",
+        type: "dynamic-select",
+        required: true,
+        dynamicOptionsEndpoint: "posthog-projects",
+      },
+      {
+        name: "EVENT_NAME",
+        label: "Event",
+        description: "Select the event to track trends for",
+        type: "dynamic-select",
+        required: true,
+        dynamicOptionsEndpoint: "posthog-events",
+        dependsOn: "PROJECT_ID",
+      },
+      {
+        name: "DATE_FROM",
+        label: "Date Range",
+        description: "How far back to query (e.g., -7d, -30d, -90d)",
+        type: "select",
+        required: true,
+        options: [
+          { label: "Last 7 days", value: "-7d" },
+          { label: "Last 14 days", value: "-14d" },
+          { label: "Last 30 days", value: "-30d" },
+          { label: "Last 90 days", value: "-90d" },
+        ],
+      },
+    ],
+  },
+  {
+    templateId: "posthog-saved-insight",
+    label: "Saved Insight",
+    description:
+      "Fetch data from a saved insight in PostHog. Great for reusing existing analyses.",
+    integrationId: "posthog",
+    metricType: "number",
+    endpoint: posthogMetricEndpoints.INSIGHT_DETAIL,
+    method: "GET",
+    dataPath: "result", // Insight result data
+    transformData: "extractInsightResults",
+    requiredParams: [
+      {
+        name: "PROJECT_ID",
+        label: "Project",
+        description: "Select the PostHog project",
+        type: "dynamic-select",
+        required: true,
+        dynamicOptionsEndpoint: "posthog-projects",
+      },
+      {
+        name: "INSIGHT_ID",
+        label: "Insight",
+        description: "Select the saved insight to fetch",
+        type: "dynamic-select",
+        required: true,
+        dynamicOptionsEndpoint: "posthog-insights",
+        dependsOn: "PROJECT_ID",
+      },
+    ],
+  },
+  {
+    templateId: "posthog-events-list",
+    label: "Events List (Raw Data)",
+    description:
+      "Fetch raw event data with all properties. Useful for detailed analysis and custom visualizations.",
+    integrationId: "posthog",
+    metricType: "number",
+    endpoint: posthogMetricEndpoints.QUERY_API,
+    method: "POST",
+    dataPath: "results",
+    transformData: "extractEventsResults",
+    requestBodyTemplate:
+      '{"query":{"kind":"EventsQuery","select":["*","event","timestamp","properties"],"event":"{EVENT_NAME}","limit":{LIMIT},"orderBy":["timestamp DESC"]}}',
+    requiredParams: [
+      {
+        name: "PROJECT_ID",
+        label: "Project",
+        description: "Select the PostHog project",
+        type: "dynamic-select",
+        required: true,
+        dynamicOptionsEndpoint: "posthog-projects",
+      },
+      {
+        name: "EVENT_NAME",
+        label: "Event",
+        description: "Select the event to fetch",
+        type: "dynamic-select",
+        required: true,
+        dynamicOptionsEndpoint: "posthog-events",
+        dependsOn: "PROJECT_ID",
+      },
+      {
+        name: "LIMIT",
+        label: "Limit",
+        description: "Maximum number of events to fetch",
+        type: "select",
+        required: true,
+        options: [
+          { label: "50 events", value: "50" },
+          { label: "100 events", value: "100" },
+          { label: "500 events", value: "500" },
+          { label: "1000 events", value: "1000" },
+        ],
       },
     ],
   },

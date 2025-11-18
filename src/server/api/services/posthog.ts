@@ -64,6 +64,11 @@ export const posthogMetricEndpoints = {
   PROJECT_EVENTS: "/api/projects/{PROJECT_ID}/events",
   PROJECT_PERSONS: "/api/projects/{PROJECT_ID}/persons",
   PROJECTS_LIST: "/api/projects/",
+  // Query API endpoints (POST)
+  QUERY_API: "/api/projects/{PROJECT_ID}/query/",
+  // Insights endpoints
+  INSIGHTS_LIST: "/api/projects/{PROJECT_ID}/insights/",
+  INSIGHT_DETAIL: "/api/projects/{PROJECT_ID}/insights/{INSIGHT_ID}/",
 } as const;
 
 /**

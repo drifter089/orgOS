@@ -348,6 +348,38 @@ export const metricRouter = createTRPCRouter({
             break;
           }
 
+          case "posthog-insights": {
+            // Fetch PostHog saved insights for a specific project
+            if (!input.dependsOnValue) {
+              throw new TRPCError({
+                code: "BAD_REQUEST",
+                message: "PROJECT_ID is required to fetch insights",
+              });
+            }
+
+            const response = await fetchPostHogData(
+              input.connectionId,
+              `/api/projects/${input.dependsOnValue}/insights`,
+              undefined,
+              "GET",
+            );
+
+            // Extract insights from response
+            const responseData = response.data as {
+              results?: Array<{
+                id: number;
+                name: string;
+                description?: string;
+              }>;
+            };
+            const insights = responseData.results ?? [];
+            result = insights.map((insight) => ({
+              label: insight.name || `Insight ${insight.id}`,
+              value: insight.id.toString(),
+            }));
+            break;
+          }
+
           default:
             throw new TRPCError({
               code: "BAD_REQUEST",
@@ -446,14 +478,37 @@ export const metricRouter = createTRPCRouter({
               template.method ?? "GET",
             );
             break;
-          case "posthog":
+          case "posthog": {
+            // Build request body if template has a body template
+            let requestBody: unknown = undefined;
+            if (template.requestBodyTemplate && template.method === "POST") {
+              let bodyString = template.requestBodyTemplate;
+              // Replace parameter placeholders in body
+              Object.entries(params).forEach(([key, value]) => {
+                bodyString = bodyString.replace(
+                  new RegExp(`\\{${key}\\}`, "g"),
+                  value,
+                );
+              });
+              try {
+                requestBody = JSON.parse(bodyString);
+              } catch {
+                throw new TRPCError({
+                  code: "INTERNAL_SERVER_ERROR",
+                  message: "Failed to parse request body template",
+                });
+              }
+            }
+
             result = await fetchPostHogData(
               metric.integrationId,
               endpoint,
               params,
               template.method ?? "GET",
+              requestBody,
             );
             break;
+          }
           case "youtube":
             result = await fetchYouTubeData(
               metric.integrationId,
@@ -517,6 +572,69 @@ export const metricRouter = createTRPCRouter({
             currentValue: latestValue,
             lastFetchedAt: new Date(),
             endpointConfig: updatedConfig,
+          },
+        });
+      }
+
+      // Special handling for multi-column Google Sheets data
+      if (template.transformData === "extractMultipleColumns") {
+        const dataColumnIndices = (params.DATA_COLUMN_INDICES ?? "1")
+          .split(",")
+          .map((s) => parseInt(s.trim()));
+
+        // Extract all columns data (skip header row)
+        const multiColumnData: Array<Record<string, string | number>> = [];
+
+        if (Array.isArray(value) && value.length > 1) {
+          // Extract data from rows (skip header)
+          for (let i = 1; i < value.length; i++) {
+            const row = value[i] as (string | number)[];
+            let sum = 0;
+            dataColumnIndices.forEach((colIndex) => {
+              const cellValue = row[colIndex];
+              const numValue = parseFloat(String(cellValue));
+              if (!isNaN(numValue)) sum += numValue;
+            });
+            multiColumnData.push({ value: sum });
+          }
+        }
+
+        // Get latest value (sum of last row's selected columns)
+        const latestValue =
+          multiColumnData.length > 0
+            ? ((multiColumnData[multiColumnData.length - 1]!.value as number) ??
+              0)
+            : 0;
+
+        // Only store params, no data
+        return ctx.db.metric.update({
+          where: { id: input.id },
+          data: {
+            currentValue: latestValue,
+            lastFetchedAt: new Date(),
+          },
+        });
+      }
+
+      // Special handling for PostHog query results
+      if (
+        template.transformData &&
+        [
+          "extractHogQLResults",
+          "extractTrendsResults",
+          "extractEventsResults",
+          "extractInsightResults",
+        ].includes(template.transformData)
+      ) {
+        // Get count as the metric value
+        const resultCount = Array.isArray(value) ? value.length : 0;
+
+        // Only store params, no data - data will be fetched fresh for visualization
+        return ctx.db.metric.update({
+          where: { id: input.id },
+          data: {
+            currentValue: resultCount,
+            lastFetchedAt: new Date(),
           },
         });
       }
@@ -755,6 +873,17 @@ function applyTransformation(value: unknown, transformType: string): number {
 
     case "countEvents":
       // Count number of events in PostHog response
+      if (Array.isArray(value)) {
+        return value.length;
+      }
+      return 0;
+
+    case "extractHogQLResults":
+    case "extractTrendsResults":
+    case "extractEventsResults":
+    case "extractInsightResults":
+      // For PostHog query results, return row count as the metric value
+      // Full data is stored in endpointConfig for visualization
       if (Array.isArray(value)) {
         return value.length;
       }
