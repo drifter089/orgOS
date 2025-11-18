@@ -12,6 +12,7 @@ import {
   Trash2,
 } from "lucide-react";
 
+import { useConfirmation } from "@/components/confirmation-dialog";
 import { JsonViewer } from "@/components/json-viewer";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -87,12 +88,67 @@ export function DashboardMetricCard({
   const [fetchedData, setFetchedData] = useState<unknown>(null);
 
   const utils = api.useUtils();
+  const { confirm } = useConfirmation();
 
-  // Remove from dashboard mutation
+  // Check if this is a pending optimistic update (temp ID)
+  const isPending = dashboardMetric.id.startsWith("temp-");
+
+  // Remove from dashboard mutation with optimistic update
   const removeMetricMutation =
     api.dashboard.removeMetricFromDashboard.useMutation({
-      onSuccess: async () => {
-        await utils.dashboard.getDashboardMetrics.invalidate();
+      onMutate: async ({ dashboardMetricId }) => {
+        // Cancel pending refetches
+        await utils.dashboard.getDashboardMetrics.cancel();
+        await utils.dashboard.getAvailableMetrics.cancel();
+
+        // Snapshot previous data
+        const previousDashboardMetrics =
+          utils.dashboard.getDashboardMetrics.getData();
+        const previousAvailableMetrics =
+          utils.dashboard.getAvailableMetrics.getData();
+
+        // Optimistically remove from dashboard
+        if (previousDashboardMetrics) {
+          const removedMetric = previousDashboardMetrics.find(
+            (dm) => dm.id === dashboardMetricId,
+          );
+
+          utils.dashboard.getDashboardMetrics.setData(
+            undefined,
+            previousDashboardMetrics.filter(
+              (dm) => dm.id !== dashboardMetricId,
+            ),
+          );
+
+          // Optimistically add back to available metrics
+          if (removedMetric && previousAvailableMetrics) {
+            utils.dashboard.getAvailableMetrics.setData(undefined, [
+              ...previousAvailableMetrics,
+              removedMetric.metric,
+            ]);
+          }
+        }
+
+        return { previousDashboardMetrics, previousAvailableMetrics };
+      },
+      onError: (_err, _variables, context) => {
+        // Revert on error
+        if (context?.previousDashboardMetrics) {
+          utils.dashboard.getDashboardMetrics.setData(
+            undefined,
+            context.previousDashboardMetrics,
+          );
+        }
+        if (context?.previousAvailableMetrics) {
+          utils.dashboard.getAvailableMetrics.setData(
+            undefined,
+            context.previousAvailableMetrics,
+          );
+        }
+      },
+      onSettled: async () => {
+        // Only invalidate available metrics to sync with server
+        // Dashboard metrics are already correctly updated in onMutate
         await utils.dashboard.getAvailableMetrics.invalidate();
       },
     });
@@ -107,14 +163,26 @@ export function DashboardMetricCard({
   // Transform with AI mutation
   const transformMutation = api.dashboard.transformMetricForChart.useMutation();
   const updateConfigMutation = api.dashboard.updateGraphConfig.useMutation({
-    onSuccess: async () => {
-      await utils.dashboard.getDashboardMetrics.invalidate();
+    onSuccess: (updatedDashboardMetric) => {
+      // Direct cache update instead of invalidation
+      utils.dashboard.getDashboardMetrics.setData(undefined, (old) =>
+        old?.map((dm) =>
+          dm.id === updatedDashboardMetric.id ? updatedDashboardMetric : dm,
+        ),
+      );
       setTransformHint("");
     },
   });
 
-  const handleRemove = () => {
-    if (confirm("Remove this metric from dashboard?")) {
+  const handleRemove = async () => {
+    const confirmed = await confirm({
+      title: "Remove metric from dashboard",
+      description: `Are you sure you want to remove "${dashboardMetric.metric.name}" from your dashboard? The metric will still be available to add again later.`,
+      confirmText: "Remove",
+      variant: "destructive",
+    });
+
+    if (confirmed) {
       removeMetricMutation.mutate({
         dashboardMetricId: dashboardMetric.id,
       });
@@ -187,12 +255,23 @@ export function DashboardMetricCard({
   const canTransform = fetchedData !== null;
 
   return (
-    <Card className="flex flex-col">
+    <Card
+      className={`flex flex-col ${isPending ? "animate-pulse opacity-70" : ""}`}
+    >
       <CardHeader className="pb-3">
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-2">
               <CardTitle className="truncate text-lg">{metric.name}</CardTitle>
+              {isPending && (
+                <Badge
+                  variant="outline"
+                  className="text-muted-foreground text-xs"
+                >
+                  <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                  Saving...
+                </Badge>
+              )}
               {metric.integration && (
                 <Badge variant="secondary" className="text-xs">
                   {metric.integration.integrationId}
@@ -227,7 +306,7 @@ export function DashboardMetricCard({
             variant="ghost"
             size="icon"
             onClick={handleRemove}
-            disabled={removeMetricMutation.isPending}
+            disabled={isPending || removeMetricMutation.isPending}
             className="flex-shrink-0"
           >
             {removeMetricMutation.isPending ? (
@@ -264,7 +343,7 @@ export function DashboardMetricCard({
               variant="outline"
               size="sm"
               onClick={handleFetchData}
-              disabled={isFetching}
+              disabled={isPending || isFetching}
               className="flex-1"
             >
               {isFetching ? (
@@ -282,7 +361,7 @@ export function DashboardMetricCard({
             <Button
               size="sm"
               onClick={handleTransform}
-              disabled={!canTransform || isTransforming}
+              disabled={isPending || !canTransform || isTransforming}
               className="flex-1"
               title={
                 !canTransform

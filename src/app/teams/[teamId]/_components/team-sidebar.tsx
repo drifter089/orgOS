@@ -5,6 +5,7 @@ import { type ComponentProps, useState } from "react";
 import type { User } from "@workos-inc/node";
 import { Loader2, Mail, Trash2 } from "lucide-react";
 
+import { useConfirmation } from "@/components/confirmation-dialog";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -88,6 +89,7 @@ function RolesList({ teamId }: { teamId: string }) {
   const setNodes = useTeamStore((state) => state.setNodes);
   const markDirty = useTeamStore((state) => state.markDirty);
 
+  const { confirm } = useConfirmation();
   const utils = api.useUtils();
   const deleteRole = api.role.delete.useMutation({
     onMutate: async (variables) => {
@@ -203,12 +205,15 @@ function RolesList({ teamId }: { teamId: string }) {
                 variant="ghost"
                 size="icon"
                 className="text-muted-foreground hover:text-destructive hover:bg-destructive/10 h-8 w-8 flex-shrink-0 opacity-0 transition-all group-hover:opacity-100"
-                onClick={() => {
-                  if (
-                    confirm(
-                      `Are you sure you want to delete the role "${role.title}"? This will also remove it from the canvas.`,
-                    )
-                  ) {
+                onClick={async () => {
+                  const confirmed = await confirm({
+                    title: "Delete role",
+                    description: `Are you sure you want to delete "${role.title}"? This will also remove it from the canvas.`,
+                    confirmText: "Delete",
+                    variant: "destructive",
+                  });
+
+                  if (confirmed) {
                     setDeletingRoleId(role.id);
                     deleteRole.mutate({ id: role.id });
                   }

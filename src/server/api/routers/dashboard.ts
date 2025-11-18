@@ -2,17 +2,17 @@ import type { Metric, Prisma } from "@prisma/client";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 
-import { fetchGitHubData } from "@/server/api/services/github";
-import { fetchGoogleSheetsData } from "@/server/api/services/google-sheets";
 import {
   type ChartTransformResult,
   transformMetricSimple,
   transformMetricWithAI,
 } from "@/server/api/services/graph-transformer";
 import { getMetricTemplate } from "@/server/api/services/metric-templates";
-import { fetchPostHogData } from "@/server/api/services/posthog";
-import { fetchYouTubeData } from "@/server/api/services/youtube";
 import { createTRPCRouter, workspaceProcedure } from "@/server/api/trpc";
+import {
+  buildEndpointWithParams,
+  fetchIntegrationData,
+} from "@/server/api/utils/fetch-integration-data";
 
 // ============================================================================
 // Dashboard Router
@@ -268,74 +268,16 @@ export const dashboardRouter = createTRPCRouter({
 
       // Build endpoint with params
       const params = (metric.endpointConfig as Record<string, string>) ?? {};
-      let endpoint = template.endpoint;
-      Object.entries(params).forEach(([key, value]) => {
-        endpoint = endpoint.replace(`{${key}}`, value);
+      const endpoint = buildEndpointWithParams(template.endpoint, params);
+
+      const result = await fetchIntegrationData({
+        connectionId: metric.integrationId,
+        integrationId: metric.integration.integrationId,
+        endpoint,
+        params,
+        method: template.method ?? "GET",
+        requestBodyTemplate: template.requestBodyTemplate,
       });
-
-      let result: { data: unknown; status?: number };
-
-      // Fetch data from appropriate service
-      switch (metric.integration.integrationId) {
-        case "github":
-          result = await fetchGitHubData(
-            metric.integrationId,
-            endpoint,
-            template.method ?? "GET",
-          );
-          break;
-        case "google-sheet":
-          result = await fetchGoogleSheetsData(
-            metric.integrationId,
-            endpoint,
-            params,
-            template.method ?? "GET",
-          );
-          break;
-        case "posthog": {
-          // Build request body if template has a body template
-          let requestBody: unknown = undefined;
-          if (template.requestBodyTemplate && template.method === "POST") {
-            let bodyString = template.requestBodyTemplate;
-            Object.entries(params).forEach(([key, value]) => {
-              bodyString = bodyString.replace(
-                new RegExp(`\\{${key}\\}`, "g"),
-                value,
-              );
-            });
-            try {
-              requestBody = JSON.parse(bodyString);
-            } catch {
-              throw new TRPCError({
-                code: "INTERNAL_SERVER_ERROR",
-                message: "Failed to parse request body template",
-              });
-            }
-          }
-
-          result = await fetchPostHogData(
-            metric.integrationId,
-            endpoint,
-            params,
-            template.method ?? "GET",
-            requestBody,
-          );
-          break;
-        }
-        case "youtube":
-          result = await fetchYouTubeData(
-            metric.integrationId,
-            endpoint,
-            params,
-            template.method ?? "GET",
-          );
-          break;
-        default:
-          throw new TRPCError({
-            code: "BAD_REQUEST",
-            message: `Unsupported integration: ${metric.integration.integrationId}`,
-          });
-      }
 
       return {
         data: result.data,
@@ -414,72 +356,17 @@ export const dashboardRouter = createTRPCRouter({
           // Build endpoint with params
           const params =
             (metric.endpointConfig as Record<string, string>) ?? {};
-          let endpoint = template.endpoint;
-          Object.entries(params).forEach(([key, value]) => {
-            endpoint = endpoint.replace(`{${key}}`, value);
-          });
+          const endpoint = buildEndpointWithParams(template.endpoint, params);
 
           try {
-            let result: { data: unknown };
-
-            // Fetch data from appropriate service
-            switch (metric.integration.integrationId) {
-              case "github":
-                result = await fetchGitHubData(
-                  metric.integrationId,
-                  endpoint,
-                  template.method ?? "GET",
-                );
-                break;
-              case "google-sheet":
-                result = await fetchGoogleSheetsData(
-                  metric.integrationId,
-                  endpoint,
-                  params,
-                  template.method ?? "GET",
-                );
-                break;
-              case "posthog": {
-                // Build request body if template has a body template
-                let requestBody: unknown = undefined;
-                if (
-                  template.requestBodyTemplate &&
-                  template.method === "POST"
-                ) {
-                  let bodyString = template.requestBodyTemplate;
-                  Object.entries(params).forEach(([key, value]) => {
-                    bodyString = bodyString.replace(
-                      new RegExp(`\\{${key}\\}`, "g"),
-                      value,
-                    );
-                  });
-                  try {
-                    requestBody = JSON.parse(bodyString);
-                  } catch {
-                    // Invalid JSON in body template
-                  }
-                }
-
-                result = await fetchPostHogData(
-                  metric.integrationId,
-                  endpoint,
-                  params,
-                  template.method ?? "GET",
-                  requestBody,
-                );
-                break;
-              }
-              case "youtube":
-                result = await fetchYouTubeData(
-                  metric.integrationId,
-                  endpoint,
-                  params,
-                  template.method ?? "GET",
-                );
-                break;
-              default:
-                result = { data: metric.endpointConfig };
-            }
+            const result = await fetchIntegrationData({
+              connectionId: metric.integrationId,
+              integrationId: metric.integration.integrationId,
+              endpoint,
+              params,
+              method: template.method ?? "GET",
+              requestBodyTemplate: template.requestBodyTemplate,
+            });
 
             // Create metric with fresh data in endpointConfig for AI
             metricWithFreshData = {

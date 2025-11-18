@@ -6,6 +6,7 @@ import { Handle, type Node, type NodeProps, Position } from "@xyflow/react";
 import { Loader2, Trash2, TrendingUp, User } from "lucide-react";
 import { toast } from "sonner";
 
+import { useConfirmation } from "@/components/confirmation-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -45,6 +46,7 @@ function RoleNodeComponent({ data, selected }: NodeProps<RoleNode>) {
   const setEdges = useTeamStore((state) => state.setEdges);
   const markDirty = useTeamStore((state) => state.markDirty);
 
+  const { confirm } = useConfirmation();
   const utils = api.useUtils();
 
   const deleteRole = api.role.delete.useMutation({
@@ -100,15 +102,18 @@ function RoleNodeComponent({ data, selected }: NodeProps<RoleNode>) {
     },
   });
 
-  const handleDelete = useCallback(() => {
-    if (
-      confirm(
-        `Are you sure you want to delete the role "${data.title}"? This will also remove it from the canvas.`,
-      )
-    ) {
+  const handleDelete = useCallback(async () => {
+    const confirmed = await confirm({
+      title: "Delete role",
+      description: `Are you sure you want to delete "${data.title}"? This will also remove it from the canvas.`,
+      confirmText: "Delete",
+      variant: "destructive",
+    });
+
+    if (confirmed) {
       deleteRole.mutate({ id: data.roleId });
     }
-  }, [data.roleId, data.title, deleteRole]);
+  }, [data.roleId, data.title, deleteRole, confirm]);
 
   const color = data.color ?? "#3b82f6";
   const truncatedPurpose =
@@ -148,7 +153,7 @@ function RoleNodeComponent({ data, selected }: NodeProps<RoleNode>) {
           size="icon"
           onClick={(e) => {
             e.stopPropagation();
-            handleDelete();
+            void handleDelete();
           }}
           disabled={isDeleting}
           className={cn(

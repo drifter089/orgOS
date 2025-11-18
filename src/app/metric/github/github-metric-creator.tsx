@@ -178,7 +178,7 @@ export function GitHubMetricCreator({
 
   // Fetch repositories dynamically
   const { data: repos, isLoading: loadingRepos } =
-    api.metric.fetchDynamicOptions.useQuery({
+    api.metricIntegration.fetchDynamicOptions.useQuery({
       connectionId,
       endpoint: "github-repos",
     });

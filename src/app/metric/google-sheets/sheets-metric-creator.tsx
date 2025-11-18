@@ -49,7 +49,7 @@ export function SheetsMetricCreator({
 
   // Fetch sheet structure (sheets list and dimensions)
   const { data: sheetStructure, refetch: fetchStructure } =
-    api.metric.getSheetStructure.useQuery(
+    api.metricIntegration.getSheetStructure.useQuery(
       {
         connectionId,
         spreadsheetId,
@@ -61,7 +61,7 @@ export function SheetsMetricCreator({
 
   // Fetch sheet preview data
   const { data: previewData, isLoading: isLoadingPreview } =
-    api.metric.getSheetPreview.useQuery(
+    api.metricIntegration.getSheetPreview.useQuery(
       {
         connectionId,
         spreadsheetId,

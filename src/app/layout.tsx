@@ -3,6 +3,7 @@ import { Geist } from "next/font/google";
 import { AuthKitProvider } from "@workos-inc/authkit-nextjs/components";
 import { type Metadata } from "next";
 
+import { ConfirmationDialogProvider } from "@/components/confirmation-dialog";
 import { NavBar } from "@/components/navbar/NavBar.server";
 import { Toaster } from "@/components/ui/sonner";
 import { ThemeProvider } from "@/providers/ThemeProvider";
@@ -64,9 +65,11 @@ export default function RootLayout({
               enableSystem
               disableTransitionOnChange
             >
-              <NavBar />
-              <TransitionProvider>{children}</TransitionProvider>
-              <Toaster />
+              <ConfirmationDialogProvider>
+                <NavBar />
+                <TransitionProvider>{children}</TransitionProvider>
+                <Toaster />
+              </ConfirmationDialogProvider>
             </ThemeProvider>
           </TRPCReactProvider>
         </AuthKitProvider>

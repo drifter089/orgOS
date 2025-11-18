@@ -33,16 +33,98 @@ export function MetricSelector({ open, onOpenChange }: MetricSelectorProps) {
       enabled: open,
     });
 
-  // Add metric to dashboard mutation
+  // Add metric to dashboard mutation with optimistic update
   const addMetricMutation = api.dashboard.addMetricToDashboard.useMutation({
-    onSuccess: async () => {
-      // Invalidate and refetch dashboard metrics
-      await utils.dashboard.getDashboardMetrics.invalidate();
-      await utils.dashboard.getAvailableMetrics.invalidate();
+    onMutate: async (newMetricInput) => {
+      // Cancel any outgoing refetches to avoid overwriting optimistic update
+      await utils.dashboard.getDashboardMetrics.cancel();
+      await utils.dashboard.getAvailableMetrics.cancel();
 
-      // Reset form and close dialog
+      // Snapshot previous values for rollback
+      const previousDashboardMetrics =
+        utils.dashboard.getDashboardMetrics.getData();
+      const previousAvailableMetrics =
+        utils.dashboard.getAvailableMetrics.getData();
+
+      // Find the selected metric from available metrics
+      const selectedMetricData = availableMetrics?.find(
+        (m) => m.id === newMetricInput.metricId,
+      );
+
+      if (selectedMetricData && previousDashboardMetrics) {
+        // Calculate next position
+        const maxPosition = Math.max(
+          ...previousDashboardMetrics.map((dm) => dm.position),
+          -1,
+        );
+
+        // Optimistically add to dashboard metrics
+        utils.dashboard.getDashboardMetrics.setData(undefined, [
+          ...previousDashboardMetrics,
+          {
+            id: `temp-${Date.now()}`, // Temporary ID
+            organizationId: "", // Will be set by server
+            metricId: selectedMetricData.id,
+            graphType: "bar",
+            graphConfig: {},
+            size: "medium",
+            position: maxPosition + 1,
+            createdAt: new Date(),
+            updatedAt: new Date(),
+            metric: selectedMetricData,
+            // Flag to indicate this is a pending optimistic update
+            _isPending: true,
+          } as (typeof previousDashboardMetrics)[number] & {
+            _isPending?: boolean;
+          },
+        ]);
+
+        // Optimistically remove from available metrics
+        if (previousAvailableMetrics) {
+          utils.dashboard.getAvailableMetrics.setData(
+            undefined,
+            previousAvailableMetrics.filter(
+              (m) => m.id !== newMetricInput.metricId,
+            ),
+          );
+        }
+      }
+
+      // Close dialog immediately for instant feedback
       setSelectedMetric(null);
       onOpenChange(false);
+
+      return { previousDashboardMetrics, previousAvailableMetrics };
+    },
+    onError: (_err, _newMetricInput, context) => {
+      // Revert to previous state on error
+      if (context?.previousDashboardMetrics) {
+        utils.dashboard.getDashboardMetrics.setData(
+          undefined,
+          context.previousDashboardMetrics,
+        );
+      }
+      if (context?.previousAvailableMetrics) {
+        utils.dashboard.getAvailableMetrics.setData(
+          undefined,
+          context.previousAvailableMetrics,
+        );
+      }
+    },
+    onSuccess: (newDashboardMetric) => {
+      // Replace the temporary optimistic entry with the real server data
+      utils.dashboard.getDashboardMetrics.setData(undefined, (old) => {
+        if (!old) return [newDashboardMetric];
+        // Remove temp entry and add real one
+        return old
+          .filter((dm) => !dm.id.startsWith("temp-"))
+          .concat(newDashboardMetric);
+      });
+    },
+    onSettled: async () => {
+      // Only invalidate available metrics to ensure consistency
+      // Dashboard metrics are already updated directly
+      await utils.dashboard.getAvailableMetrics.invalidate();
     },
   });
 
