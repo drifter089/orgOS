@@ -3,6 +3,7 @@
 import { useState } from "react";
 
 import {
+  BarChart3,
   ChevronDown,
   ChevronUp,
   Database,
@@ -30,7 +31,7 @@ type DashboardMetrics = RouterOutputs["dashboard"]["getDashboardMetrics"];
 type DashboardMetricWithRelations = DashboardMetrics[number];
 
 // Chart transform result type
-interface ChartTransformResult {
+export interface ChartTransformResult {
   chartType: string;
   chartData: Array<Record<string, string | number>>;
   chartConfig: Record<string, { label: string; color: string }>;
@@ -39,12 +40,20 @@ interface ChartTransformResult {
   reasoning: string;
 }
 
+export interface DisplayedChart {
+  id: string;
+  metricName: string;
+  chartTransform: ChartTransformResult;
+}
+
 interface DashboardMetricCardProps {
   dashboardMetric: DashboardMetricWithRelations;
+  onShowChart?: (chart: DisplayedChart) => void;
 }
 
 export function DashboardMetricCard({
   dashboardMetric,
+  onShowChart,
 }: DashboardMetricCardProps) {
   const [chartDataExpanded, setChartDataExpanded] = useState(true);
   const [transformHint, setTransformHint] = useState("");
@@ -119,6 +128,16 @@ export function DashboardMetricCard({
   const hasChartData = !!(
     chartTransform?.chartData && chartTransform.chartData.length > 0
   );
+
+  const handleShowChart = () => {
+    if (chartTransform && onShowChart) {
+      onShowChart({
+        id: dashboardMetric.id,
+        metricName: metric.name,
+        chartTransform,
+      });
+    }
+  };
 
   const isFetching = fetchDataMutation.isPending;
   const isTransforming =
@@ -231,6 +250,19 @@ export function DashboardMetricCard({
               )}
             </Button>
           </div>
+        )}
+
+        {/* Show Chart Button - enabled after AI transform */}
+        {hasChartData && onShowChart && (
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={handleShowChart}
+            className="w-full"
+          >
+            <BarChart3 className="mr-2 h-3 w-3" />
+            Show Chart
+          </Button>
         )}
 
         {/* Transform Hint Input */}
