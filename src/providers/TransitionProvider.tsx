@@ -85,11 +85,11 @@ export function TransitionProvider({
 
       <div
         ref={firstLayer}
-        className="bg-primary/20 fixed inset-0 z-999 -translate-x-full backdrop-blur-md"
+        className="bg-primary/80 fixed inset-0 z-999 -translate-x-full backdrop-blur-xl"
       />
       <div
         ref={secondLayer}
-        className="bg-accent/30 fixed inset-0 z-999 -translate-x-full backdrop-blur-sm"
+        className="bg-accent/90 fixed inset-0 z-999 -translate-x-full backdrop-blur-2xl"
       />
     </TransitionRouter>
   );
