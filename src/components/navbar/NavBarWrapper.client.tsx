@@ -8,99 +8,189 @@ import {
   useState,
 } from "react";
 
+import dynamic from "next/dynamic";
+
+import gsap from "gsap";
+
 import { cn } from "@/lib/utils";
+
+// Dynamic import for Three.js component to avoid SSR issues
+const NavRobotIndicator = dynamic(
+  () =>
+    import("./NavRobotIndicator.client").then((mod) => mod.NavRobotIndicator),
+  { ssr: false },
+);
 
 interface NavBarWrapperProps {
   children: ReactNode;
 }
 
 export function NavBarWrapper({ children }: NavBarWrapperProps) {
-  const [isVisible, setIsVisible] = useState(true);
-  const [lastScrollY, setLastScrollY] = useState(0);
+  const [isVisible, setIsVisible] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
+  const navRef = useRef<HTMLDivElement>(null);
+  const timelineRef = useRef<gsap.core.Timeline | null>(null);
   const isHoveringNavRef = useRef(false);
   const hideTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Function to schedule auto-hide using ref for hover state
+  useEffect(() => {
+    const checkMobile = () => setIsMobile(window.innerWidth < 768);
+    checkMobile();
+    window.addEventListener("resize", checkMobile);
+    return () => window.removeEventListener("resize", checkMobile);
+  }, []);
+
+  useEffect(() => {
+    if (!navRef.current) return;
+
+    const tl = gsap.timeline({ paused: true });
+
+    tl.fromTo(
+      navRef.current,
+      {
+        y: "-100%",
+        rotateX: 15,
+        opacity: 0,
+        transformOrigin: "top center",
+      },
+      {
+        y: "0%",
+        rotateX: 0,
+        opacity: 1,
+        duration: 0.4,
+        ease: "steps(8)",
+      },
+    )
+      .to(navRef.current, {
+        y: "2%",
+        duration: 0.05,
+        ease: "power2.in",
+      })
+      .to(navRef.current, {
+        y: "0%",
+        duration: 0.08,
+        ease: "power2.out",
+      })
+      .fromTo(
+        navRef.current,
+        { scaleX: 0.98 },
+        {
+          scaleX: 1,
+          duration: 0.1,
+          ease: "power2.out",
+        },
+        "-=0.1",
+      );
+
+    timelineRef.current = tl;
+
+    return () => {
+      tl.kill();
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!timelineRef.current) return;
+
+    if (isVisible) {
+      timelineRef.current.play();
+    } else {
+      timelineRef.current.reverse();
+    }
+  }, [isVisible]);
+
   const scheduleHide = useCallback(() => {
-    // Clear any existing timeout
     if (hideTimeoutRef.current) {
       clearTimeout(hideTimeoutRef.current);
     }
 
-    // Schedule hide after 1 second if not hovering
     hideTimeoutRef.current = setTimeout(() => {
       if (!isHoveringNavRef.current) {
         setIsVisible(false);
       }
-    }, 1000);
+    }, 1500);
   }, []);
 
-  // Function to show navbar and schedule hide
-  const showAndScheduleHide = useCallback(() => {
-    setIsVisible(true);
-    scheduleHide();
-  }, [scheduleHide]);
-
   useEffect(() => {
-    // Auto-hide on initial mount after 1 second
-    scheduleHide();
-
     const handleScroll = () => {
-      const currentScrollY = window.scrollY;
-
-      // Show navbar when scrolling (any direction)
       setIsVisible(true);
-
-      // Schedule hide after scroll stops
       scheduleHide();
-
-      setLastScrollY(currentScrollY);
-    };
-
-    const handleMouseMove = (e: MouseEvent) => {
-      // Show navbar when mouse is near the top (within 100px)
-      if (e.clientY < 100) {
-        showAndScheduleHide();
-      }
     };
 
     window.addEventListener("scroll", handleScroll, { passive: true });
-    window.addEventListener("mousemove", handleMouseMove, { passive: true });
 
     return () => {
       window.removeEventListener("scroll", handleScroll);
-      window.removeEventListener("mousemove", handleMouseMove);
       if (hideTimeoutRef.current) {
         clearTimeout(hideTimeoutRef.current);
       }
     };
-  }, [scheduleHide, showAndScheduleHide]);
+  }, [scheduleHide]);
 
-  const handleMouseEnter = () => {
+  const handleIndicatorHover = () => {
+    if (!isMobile) {
+      isHoveringNavRef.current = true;
+      setIsVisible(true);
+      if (hideTimeoutRef.current) {
+        clearTimeout(hideTimeoutRef.current);
+      }
+    }
+  };
+
+  const handleIndicatorLeave = () => {
+    if (!isMobile) {
+      isHoveringNavRef.current = false;
+      scheduleHide();
+    }
+  };
+
+  const handleIndicatorClick = () => {
+    if (isMobile) {
+      setIsVisible(!isVisible);
+      if (!isVisible && hideTimeoutRef.current) {
+        clearTimeout(hideTimeoutRef.current);
+      }
+    }
+  };
+
+  const handleNavMouseEnter = () => {
     isHoveringNavRef.current = true;
-    setIsVisible(true);
-    // Clear hide timeout when hovering
     if (hideTimeoutRef.current) {
       clearTimeout(hideTimeoutRef.current);
     }
   };
 
-  const handleMouseLeave = () => {
+  const handleNavMouseLeave = () => {
     isHoveringNavRef.current = false;
-    // Schedule hide when mouse leaves
     scheduleHide();
   };
 
   return (
-    <div
-      className={cn(
-        "fixed top-0 z-50 w-full transition-transform duration-300 ease-in-out",
-        isVisible ? "translate-y-0" : "-translate-y-full",
-      )}
-      onMouseEnter={handleMouseEnter}
-      onMouseLeave={handleMouseLeave}
-    >
-      {children}
-    </div>
+    <>
+      <NavRobotIndicator
+        isOpen={isVisible}
+        onHover={handleIndicatorHover}
+        onLeave={handleIndicatorLeave}
+        onClick={handleIndicatorClick}
+      />
+
+      <div
+        ref={navRef}
+        className={cn(
+          "fixed top-0 z-50 w-full",
+          "border-border bg-background/95 supports-backdrop-filter:bg-background/80 border-b shadow-sm backdrop-blur-md",
+          !isVisible && "pointer-events-none",
+        )}
+        style={{
+          transform: "translateY(-100%)",
+          opacity: 0,
+          perspective: "1000px",
+        }}
+        onMouseEnter={handleNavMouseEnter}
+        onMouseLeave={handleNavMouseLeave}
+      >
+        {children}
+      </div>
+    </>
   );
 }

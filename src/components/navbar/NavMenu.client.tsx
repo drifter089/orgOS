@@ -26,6 +26,8 @@ import {
 } from "@/components/ui/navigation-menu";
 import { cn } from "@/lib/utils";
 
+const isDev = process.env.NODE_ENV === "development";
+
 /**
  * NavMenu - Main navigation component using shadcn NavigationMenu
  * Organizes pages into logical groups with dropdown submenus
@@ -66,7 +68,7 @@ export function NavMenu() {
                 isActivePath("/dashboard") ||
                 isActivePath("/integration") ||
                 isActivePath("/metric") ||
-                isActivePath("/api-test")
+                (isDev && isActivePath("/api-test"))
                 ? "bg-accent/50 font-semibold"
                 : "",
             )}
@@ -115,60 +117,63 @@ export function NavMenu() {
               >
                 Track and manage key performance indicators
               </ListItem>
-              <ListItem
-                href="/api-test"
-                title="API Testing"
-                icon={<FlaskConical className="text-primary size-5" />}
-                active={isActivePath("/api-test")}
-              >
-                Test integration endpoints and verify connectivity
-              </ListItem>
+              {isDev && (
+                <ListItem
+                  href="/api-test"
+                  title="API Testing"
+                  icon={<FlaskConical className="text-primary size-5" />}
+                  active={isActivePath("/api-test")}
+                >
+                  Test integration endpoints and verify connectivity
+                </ListItem>
+              )}
             </ul>
           </NavigationMenuContent>
         </NavigationMenuItem>
 
-        {/* Features - Dropdown with demo pages */}
-        <NavigationMenuItem>
-          <NavigationMenuTrigger
-            className={cn(
-              isActivePath("/design-strategy") ||
-                isActivePath("/render-strategy") ||
-                isActivePath("/workflow")
-                ? "bg-accent/50 font-semibold"
-                : "",
-            )}
-          >
-            Features
-          </NavigationMenuTrigger>
-          <NavigationMenuContent>
-            <ul className="grid w-[400px] gap-3 p-4 md:w-[500px] md:grid-cols-2 lg:w-[600px]">
-              <ListItem
-                href="/design-strategy"
-                title="Design Strategy"
-                icon={<Palette className="text-primary size-5" />}
-                active={isActivePath("/design-strategy")}
-              >
-                Explore design patterns and component showcase
-              </ListItem>
-              <ListItem
-                href="/render-strategy"
-                title="Render Strategy"
-                icon={<Code2 className="text-primary size-5" />}
-                active={isActivePath("/render-strategy")}
-              >
-                Learn about server/client rendering and data fetching patterns
-              </ListItem>
-              <ListItem
-                href="/workflow"
-                title="Workflow Builder"
-                icon={<Workflow className="text-primary size-5" />}
-                active={isActivePath("/workflow")}
-              >
-                Visual workflow builder with React Flow
-              </ListItem>
-            </ul>
-          </NavigationMenuContent>
-        </NavigationMenuItem>
+        {isDev && (
+          <NavigationMenuItem>
+            <NavigationMenuTrigger
+              className={cn(
+                isActivePath("/design-strategy") ||
+                  isActivePath("/render-strategy") ||
+                  isActivePath("/workflow")
+                  ? "bg-accent/50 font-semibold"
+                  : "",
+              )}
+            >
+              Features
+            </NavigationMenuTrigger>
+            <NavigationMenuContent>
+              <ul className="grid w-[400px] gap-3 p-4 md:w-[500px] md:grid-cols-2 lg:w-[600px]">
+                <ListItem
+                  href="/design-strategy"
+                  title="Design Strategy"
+                  icon={<Palette className="text-primary size-5" />}
+                  active={isActivePath("/design-strategy")}
+                >
+                  Explore design patterns and component showcase
+                </ListItem>
+                <ListItem
+                  href="/render-strategy"
+                  title="Render Strategy"
+                  icon={<Code2 className="text-primary size-5" />}
+                  active={isActivePath("/render-strategy")}
+                >
+                  Learn about server/client rendering and data fetching patterns
+                </ListItem>
+                <ListItem
+                  href="/workflow"
+                  title="Workflow Builder"
+                  icon={<Workflow className="text-primary size-5" />}
+                  active={isActivePath("/workflow")}
+                >
+                  Visual workflow builder with React Flow
+                </ListItem>
+              </ul>
+            </NavigationMenuContent>
+          </NavigationMenuItem>
+        )}
 
         {/* Docs - Standalone link */}
         <NavigationMenuItem>
