@@ -6,13 +6,13 @@
 
 @theme {
   --font-sans:
-    var(--font-inter), ui-sans-serif, system-ui, sans-serif,
+    var(--font-space-grotesk), ui-sans-serif, system-ui, sans-serif,
     "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
   --font-serif:
-    var(--font-source-serif), ui-serif, Georgia, Cambria, "Times New Roman",
-    Times, serif;
+    var(--font-fraunces), ui-serif, Georgia, Cambria, "Times New Roman", Times,
+    serif;
   --font-mono:
-    var(--font-jetbrains), ui-monospace, SFMono-Regular, "SF Mono", Menlo,
+    var(--font-space-mono), ui-monospace, SFMono-Regular, "SF Mono", Menlo,
     Consolas, monospace;
 }
 
@@ -52,9 +52,9 @@
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
-  --font-sans: Inter, sans-serif;
-  --font-mono: JetBrains Mono, monospace;
-  --font-serif: Source Serif 4, serif;
+  --font-sans: Space Grotesk, sans-serif;
+  --font-mono: Space Mono, monospace;
+  --font-serif: Fraunces, serif;
   --radius: 0;
   --tracking-tighter: calc(var(--tracking-normal) - 0.05em);
   --tracking-tight: calc(var(--tracking-normal) - 0.025em);
@@ -90,11 +90,11 @@
 }
 
 :root {
-  --background: oklch(1 0 0);
+  --background: oklch(0.98 0.002 90);
   --foreground: oklch(0.2686 0 0);
-  --card: oklch(1 0 0);
+  --card: oklch(1 0 0 / 0.7);
   --card-foreground: oklch(0.2686 0 0);
-  --popover: oklch(1 0 0);
+  --popover: oklch(1 0 0 / 0.85);
   --popover-foreground: oklch(0.2686 0 0);
   --primary: oklch(0.7686 0.1647 70.0804);
   --primary-foreground: oklch(0 0 0);
@@ -122,9 +122,9 @@
   --sidebar-accent-foreground: oklch(0.4732 0.1247 46.2007);
   --sidebar-border: oklch(0.9276 0.0058 264.5313);
   --sidebar-ring: oklch(0.7686 0.1647 70.0804);
-  --font-sans: Inter, sans-serif;
-  --font-serif: Source Serif 4, serif;
-  --font-mono: JetBrains Mono, monospace;
+  --font-sans: Space Grotesk, sans-serif;
+  --font-serif: Fraunces, serif;
+  --font-mono: Space Mono, monospace;
   --radius: 0;
   --shadow-x: 0px;
   --shadow-y: 4px;
@@ -158,11 +158,11 @@
 }
 
 .dark {
-  --background: oklch(0.2046 0 0);
+  --background: oklch(0.15 0.005 270);
   --foreground: oklch(0.9219 0 0);
-  --card: oklch(0.2686 0 0);
+  --card: oklch(0.2686 0 0 / 0.7);
   --card-foreground: oklch(0.9219 0 0);
-  --popover: oklch(0.2686 0 0);
+  --popover: oklch(0.2686 0 0 / 0.85);
   --popover-foreground: oklch(0.9219 0 0);
   --primary: oklch(0.7686 0.1647 70.0804);
   --primary-foreground: oklch(0 0 0);
@@ -190,9 +190,9 @@
   --sidebar-accent-foreground: oklch(0.9243 0.1151 95.7459);
   --sidebar-border: oklch(0.3715 0 0);
   --sidebar-ring: oklch(0.7686 0.1647 70.0804);
-  --font-sans: Inter, sans-serif;
-  --font-serif: Source Serif 4, serif;
-  --font-mono: JetBrains Mono, monospace;
+  --font-sans: Space Grotesk, sans-serif;
+  --font-serif: Fraunces, serif;
+  --font-mono: Space Mono, monospace;
   --radius: 0;
   --shadow-x: 0px;
   --shadow-y: 4px;
@@ -270,6 +270,23 @@
     linear-gradient(to right, var(--border-20) 1px, transparent 1px),
     linear-gradient(to bottom, var(--border-20) 1px, transparent 1px);
   background-size: 12px 12px;
+}
+
+/* Glass effect utilities */
+.glass {
+  @apply bg-card border-border/50 backdrop-blur-md;
+}
+
+.glass-sm {
+  @apply bg-card border-border/50 backdrop-blur-sm;
+}
+
+.glass-lg {
+  @apply bg-card border-border/50 backdrop-blur-lg;
+}
+
+.glass-xl {
+  @apply bg-card border-border/50 backdrop-blur-xl;
 }
 
 /* Gradient accent utilities for hover states */

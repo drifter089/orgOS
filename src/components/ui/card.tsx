@@ -8,9 +8,11 @@ function Card({ className, ...props }: React.ComponentProps<"div">) {
       data-slot="card"
       className={cn(
         "bg-card text-card-foreground border-border/60 hover:border-border/80 flex flex-col gap-6 rounded-lg border py-6 shadow-sm transition-all duration-200 hover:shadow-md",
-        // Subtle gradient overlay
+        // Glass effect with backdrop blur
+        "backdrop-blur-md",
+        // Gradient overlay - more visible
         "relative overflow-hidden",
-        "before:from-primary/[0.03] before:to-accent/[0.02] before:absolute before:inset-0 before:-z-10 before:bg-gradient-to-br before:via-transparent",
+        "before:from-primary/[0.08] before:to-accent/[0.05] before:absolute before:inset-0 before:-z-10 before:bg-gradient-to-br before:via-transparent",
         className,
       )}
       {...props}
