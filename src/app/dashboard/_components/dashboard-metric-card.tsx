@@ -12,7 +12,6 @@ import {
   Trash2,
 } from "lucide-react";
 
-import { useConfirmation } from "@/components/confirmation-dialog";
 import { JsonViewer } from "@/components/json-viewer";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -31,6 +30,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { useConfirmation } from "@/providers/ConfirmationDialogProvider";
 import type { RouterOutputs } from "@/trpc/react";
 import { api } from "@/trpc/react";
 

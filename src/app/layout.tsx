@@ -3,9 +3,9 @@ import { Geist } from "next/font/google";
 import { AuthKitProvider } from "@workos-inc/authkit-nextjs/components";
 import { type Metadata } from "next";
 
-import { ConfirmationDialogProvider } from "@/components/confirmation-dialog";
 import { NavBar } from "@/components/navbar/NavBar.server";
 import { Toaster } from "@/components/ui/sonner";
+import { ConfirmationDialogProvider } from "@/providers/ConfirmationDialogProvider";
 import { ThemeProvider } from "@/providers/ThemeProvider";
 import { TransitionProvider } from "@/providers/TransitionProvider";
 import "@/styles/globals.css";

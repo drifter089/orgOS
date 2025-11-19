@@ -68,21 +68,34 @@ export function ConfirmationDialogProvider({
   }, []);
 
   const handleConfirm = useCallback(() => {
-    setIsOpen(false);
     resolveRef?.(true);
     setResolveRef(null);
+    setIsOpen(false);
   }, [resolveRef]);
 
   const handleCancel = useCallback(() => {
-    setIsOpen(false);
     resolveRef?.(false);
     setResolveRef(null);
+    setIsOpen(false);
   }, [resolveRef]);
+
+  // Handle dismiss via Escape key or backdrop click
+  const handleOpenChange = useCallback(
+    (open: boolean) => {
+      if (!open) {
+        // Treat dismiss as cancellation - resolve with false if not already resolved
+        resolveRef?.(false);
+        setResolveRef(null);
+      }
+      setIsOpen(open);
+    },
+    [resolveRef],
+  );
 
   return (
     <ConfirmationContext.Provider value={{ confirm }}>
       {children}
-      <AlertDialog open={isOpen} onOpenChange={setIsOpen}>
+      <AlertDialog open={isOpen} onOpenChange={handleOpenChange}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>{options?.title}</AlertDialogTitle>

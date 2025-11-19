@@ -6,7 +6,6 @@ import { Handle, type Node, type NodeProps, Position } from "@xyflow/react";
 import { Loader2, Trash2, TrendingUp, User } from "lucide-react";
 import { toast } from "sonner";
 
-import { useConfirmation } from "@/components/confirmation-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -16,6 +15,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
+import { useConfirmation } from "@/providers/ConfirmationDialogProvider";
 import { api } from "@/trpc/react";
 
 import { useTeamStore } from "../store/team-store";

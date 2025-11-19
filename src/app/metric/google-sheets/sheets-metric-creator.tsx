@@ -11,6 +11,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -42,10 +43,12 @@ export function SheetsMetricCreator({
   const [spreadsheetUrl, setSpreadsheetUrl] = useState("");
   const [spreadsheetId, setSpreadsheetId] = useState("");
   const [selectedSheet, setSelectedSheet] = useState("");
+  const [selectedColumns, setSelectedColumns] = useState<number[]>([]);
   const [labelColumn, setLabelColumn] = useState<number | null>(null);
   const [dataColumns, setDataColumns] = useState<number[]>([]);
   const [targetValue, setTargetValue] = useState("");
   const [metricName, setMetricName] = useState("");
+  const [isAutoDetecting, setIsAutoDetecting] = useState(false);
 
   // Fetch sheet structure (sheets list and dimensions)
   const { data: sheetStructure, refetch: fetchStructure } =
@@ -80,6 +83,7 @@ export function SheetsMetricCreator({
       setSpreadsheetUrl("");
       setSpreadsheetId("");
       setSelectedSheet("");
+      setSelectedColumns([]);
       setLabelColumn(null);
       setDataColumns([]);
       setTargetValue("");
@@ -110,38 +114,113 @@ export function SheetsMetricCreator({
 
   const handleSheetChange = (sheet: string) => {
     setSelectedSheet(sheet);
+    setSelectedColumns([]);
     setLabelColumn(null);
     setDataColumns([]);
     setMetricName("");
   };
 
-  const handleLabelColumnSelect = (columnIndex: number) => {
-    if (labelColumn === columnIndex) {
-      setLabelColumn(null);
-    } else {
-      setLabelColumn(columnIndex);
-      // Remove from data columns if it was selected there
-      setDataColumns((prev) => prev.filter((i) => i !== columnIndex));
-    }
-    updateMetricName(columnIndex, dataColumns);
-  };
-
-  const handleDataColumnToggle = (columnIndex: number) => {
-    if (columnIndex === labelColumn) return; // Can't select label column as data
-
-    setDataColumns((prev) => {
-      const newColumns = prev.includes(columnIndex)
-        ? prev.filter((i) => i !== columnIndex)
-        : [...prev, columnIndex].sort((a, b) => a - b);
-      updateMetricName(labelColumn, newColumns);
-      return newColumns;
+  const handleColumnToggle = (columnIndex: number) => {
+    setSelectedColumns((prev) => {
+      if (prev.includes(columnIndex)) {
+        if (labelColumn === columnIndex) {
+          setLabelColumn(null);
+        }
+        const newDataColumns = dataColumns.filter((i) => i !== columnIndex);
+        setDataColumns(newDataColumns);
+        updateMetricName(newDataColumns);
+        return prev.filter((i) => i !== columnIndex);
+      } else {
+        const newDataColumns = [...dataColumns, columnIndex].sort(
+          (a, b) => a - b,
+        );
+        setDataColumns(newDataColumns);
+        updateMetricName(newDataColumns);
+        return [...prev, columnIndex].sort((a, b) => a - b);
+      }
     });
   };
 
-  const updateMetricName = (label: number | null, data: number[]) => {
+  const autoDetectColumns = () => {
+    if (!previewData?.headers || selectedColumns.length === 0) return;
+
+    setIsAutoDetecting(true);
+
+    const headers = previewData.headers;
+    const rows = previewData.rows;
+
+    let detectedLabel: number | null = null;
+    const detectedData: number[] = [];
+
+    selectedColumns.forEach((colIndex) => {
+      const header = headers[colIndex]?.toLowerCase() ?? "";
+      const sampleValues = rows
+        .slice(0, 5)
+        .map((row) => row[colIndex])
+        .filter(Boolean);
+
+      // Check if this looks like a label column
+      const isDateLike =
+        /date|time|day|month|year|period|week/i.test(header) ||
+        sampleValues.some((v) =>
+          /^\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4}$/.test(String(v)),
+        );
+      const isCategoryLike =
+        /name|category|type|item|label|id|key/i.test(header) ||
+        sampleValues.every((v) => isNaN(parseFloat(String(v))));
+
+      // Check if this looks like a data column
+      const isNumericLike =
+        /amount|value|price|cost|total|count|qty|quantity|number|rate|percent|%|revenue|sales|score/i.test(
+          header,
+        ) ||
+        sampleValues.every(
+          (v) => !isNaN(parseFloat(String(v).replace(/[$,]/g, ""))),
+        );
+
+      if ((isDateLike || isCategoryLike) && detectedLabel === null) {
+        detectedLabel = colIndex;
+      } else if (isNumericLike || (!isDateLike && !isCategoryLike)) {
+        detectedData.push(colIndex);
+      }
+    });
+
+    // Use first non-numeric column as label when all columns look like data
+    if (detectedLabel === null && detectedData.length > 1) {
+      const firstCol = selectedColumns[0]!;
+      const firstHeader = headers[firstCol]?.toLowerCase() ?? "";
+      const isFirstNumeric =
+        /amount|value|price|cost|total|count|qty|quantity|number|rate|percent|%/i.test(
+          firstHeader,
+        );
+
+      if (!isFirstNumeric) {
+        detectedLabel = firstCol;
+        detectedData.splice(detectedData.indexOf(firstCol), 1);
+      }
+    }
+
+    // Fallback: use all non-label columns as data
+    if (detectedData.length === 0) {
+      selectedColumns.forEach((colIndex) => {
+        if (colIndex !== detectedLabel) {
+          detectedData.push(colIndex);
+        }
+      });
+    }
+
+    setLabelColumn(detectedLabel);
+    setDataColumns(detectedData.sort((a, b) => a - b));
+    updateMetricName(detectedData);
+    setIsAutoDetecting(false);
+  };
+
+  const updateMetricName = (data: number[]) => {
     if (!previewData?.headers) return;
 
-    if (data.length === 1 && previewData.headers[data[0]!]) {
+    if (data.length === 0) {
+      setMetricName("");
+    } else if (data.length === 1 && previewData.headers[data[0]!]) {
       setMetricName(`${selectedSheet} - ${previewData.headers[data[0]!]}`);
     } else if (data.length > 1) {
       const names = data
@@ -254,22 +333,29 @@ export function SheetsMetricCreator({
             <CardDescription>
               {isLoadingPreview
                 ? "Loading data preview..."
-                : "Select a label column (dates/categories) and one or more data columns"}
+                : "Select columns to include, then click Auto-detect to categorize them"}
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             {previewData && (
               <>
-                {/* Selection Instructions */}
-                <div className="bg-muted/50 space-y-2 rounded-lg p-3 text-sm">
-                  <p>
-                    <strong>Label Column</strong> (optional): Click header once
-                    to set as X-axis (dates, categories)
-                  </p>
-                  <p>
-                    <strong>Data Columns</strong> (required): Double-click
-                    headers to select data series
-                  </p>
+                {/* Auto-detect button */}
+                <div className="flex items-center gap-4">
+                  <Button
+                    variant="outline"
+                    onClick={autoDetectColumns}
+                    disabled={selectedColumns.length === 0 || isAutoDetecting}
+                  >
+                    {isAutoDetecting
+                      ? "Detecting..."
+                      : "Auto-detect Label & Data"}
+                  </Button>
+                  {selectedColumns.length > 0 && (
+                    <span className="text-muted-foreground text-sm">
+                      {selectedColumns.length} column
+                      {selectedColumns.length !== 1 ? "s" : ""} selected
+                    </span>
+                  )}
                 </div>
 
                 <div className="overflow-x-auto rounded-lg border">
@@ -278,25 +364,37 @@ export function SheetsMetricCreator({
                       <TableRow>
                         <TableHead className="w-12">Row</TableHead>
                         {(previewData.headers ?? []).map((header, index) => {
+                          const isSelected = selectedColumns.includes(index);
                           const isLabel = labelColumn === index;
                           const isData = dataColumns.includes(index);
                           return (
                             <TableHead
                               key={index}
-                              className={`cursor-pointer transition-colors ${
+                              className={`transition-colors ${
                                 isLabel
                                   ? "bg-blue-500 text-white"
                                   : isData
                                     ? "bg-primary text-primary-foreground"
-                                    : "hover:bg-muted"
+                                    : isSelected
+                                      ? "bg-muted"
+                                      : ""
                               }`}
-                              onClick={() => handleLabelColumnSelect(index)}
-                              onDoubleClick={() =>
-                                handleDataColumnToggle(index)
-                              }
                             >
-                              <div className="flex flex-col gap-1">
-                                <span>{header}</span>
+                              <div className="flex flex-col gap-2">
+                                <div className="flex items-center gap-2">
+                                  <Checkbox
+                                    checked={isSelected}
+                                    onCheckedChange={() =>
+                                      handleColumnToggle(index)
+                                    }
+                                    className={
+                                      isLabel || isData
+                                        ? "data-[state=checked]:text-primary border-white data-[state=checked]:bg-white"
+                                        : ""
+                                    }
+                                  />
+                                  <span className="font-medium">{header}</span>
+                                </div>
                                 <div className="flex gap-1">
                                   {isLabel && (
                                     <Badge
@@ -335,7 +433,9 @@ export function SheetsMetricCreator({
                                   ? "bg-blue-500/10"
                                   : dataColumns.includes(cellIndex)
                                     ? "bg-primary/10"
-                                    : ""
+                                    : selectedColumns.includes(cellIndex)
+                                      ? "bg-muted/50"
+                                      : ""
                               }
                             >
                               {cell}

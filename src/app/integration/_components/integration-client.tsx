@@ -5,7 +5,6 @@ import { useEffect, useRef, useState } from "react";
 import Nango from "@nangohq/frontend";
 import { CheckCircle2, Trash2, XCircle } from "lucide-react";
 
-import { useConfirmation } from "@/components/confirmation-dialog";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -16,6 +15,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { useConfirmation } from "@/providers/ConfirmationDialogProvider";
 import type { RouterOutputs } from "@/trpc/react";
 import { api } from "@/trpc/react";
 

@@ -5,7 +5,6 @@ import { type ComponentProps, useState } from "react";
 import type { User } from "@workos-inc/node";
 import { Loader2, Mail, Trash2 } from "lucide-react";
 
-import { useConfirmation } from "@/components/confirmation-dialog";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -20,6 +19,7 @@ import {
 } from "@/components/ui/sidebar";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
+import { useConfirmation } from "@/providers/ConfirmationDialogProvider";
 import { api } from "@/trpc/react";
 
 import { useTeamStore } from "../store/team-store";
