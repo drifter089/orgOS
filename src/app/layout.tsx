@@ -1,4 +1,4 @@
-import { Geist } from "next/font/google";
+import { Fraunces, Space_Grotesk, Space_Mono } from "next/font/google";
 
 import { AuthKitProvider } from "@workos-inc/authkit-nextjs/components";
 import { type Metadata } from "next";
@@ -10,6 +10,22 @@ import { ThemeProvider } from "@/providers/ThemeProvider";
 import { TransitionProvider } from "@/providers/TransitionProvider";
 import "@/styles/globals.css";
 import { TRPCReactProvider } from "@/trpc/react";
+
+const spaceGrotesk = Space_Grotesk({
+  subsets: ["latin"],
+  variable: "--font-space-grotesk",
+});
+
+const fraunces = Fraunces({
+  subsets: ["latin"],
+  variable: "--font-fraunces",
+});
+
+const spaceMono = Space_Mono({
+  subsets: ["latin"],
+  weight: ["400", "700"],
+  variable: "--font-space-mono",
+});
 
 export const metadata: Metadata = {
   title: {
@@ -46,16 +62,15 @@ export const metadata: Metadata = {
   ],
 };
 
-const geist = Geist({
-  subsets: ["latin"],
-  variable: "--font-geist-sans",
-});
-
 export default function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="en" className={`${geist.variable}`} suppressHydrationWarning>
+    <html
+      lang="en"
+      className={`${spaceGrotesk.variable} ${fraunces.variable} ${spaceMono.variable}`}
+      suppressHydrationWarning
+    >
       <body suppressHydrationWarning>
         <AuthKitProvider>
           <TRPCReactProvider>
