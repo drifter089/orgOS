@@ -11,6 +11,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -42,13 +43,16 @@ export function SheetsMetricCreator({
   const [spreadsheetUrl, setSpreadsheetUrl] = useState("");
   const [spreadsheetId, setSpreadsheetId] = useState("");
   const [selectedSheet, setSelectedSheet] = useState("");
-  const [selectedColumn, setSelectedColumn] = useState<number | null>(null);
+  const [selectedColumns, setSelectedColumns] = useState<number[]>([]);
+  const [labelColumn, setLabelColumn] = useState<number | null>(null);
+  const [dataColumns, setDataColumns] = useState<number[]>([]);
   const [targetValue, setTargetValue] = useState("");
   const [metricName, setMetricName] = useState("");
+  const [isAutoDetecting, setIsAutoDetecting] = useState(false);
 
   // Fetch sheet structure (sheets list and dimensions)
   const { data: sheetStructure, refetch: fetchStructure } =
-    api.metric.getSheetStructure.useQuery(
+    api.metricIntegration.getSheetStructure.useQuery(
       {
         connectionId,
         spreadsheetId,
@@ -60,7 +64,7 @@ export function SheetsMetricCreator({
 
   // Fetch sheet preview data
   const { data: previewData, isLoading: isLoadingPreview } =
-    api.metric.getSheetPreview.useQuery(
+    api.metricIntegration.getSheetPreview.useQuery(
       {
         connectionId,
         spreadsheetId,
@@ -79,7 +83,9 @@ export function SheetsMetricCreator({
       setSpreadsheetUrl("");
       setSpreadsheetId("");
       setSelectedSheet("");
-      setSelectedColumn(null);
+      setSelectedColumns([]);
+      setLabelColumn(null);
+      setDataColumns([]);
       setTargetValue("");
       setMetricName("");
       onSuccess?.();
@@ -108,37 +114,147 @@ export function SheetsMetricCreator({
 
   const handleSheetChange = (sheet: string) => {
     setSelectedSheet(sheet);
-    setSelectedColumn(null); // Reset column selection
-    setMetricName(""); // Reset metric name
+    setSelectedColumns([]);
+    setLabelColumn(null);
+    setDataColumns([]);
+    setMetricName("");
   };
 
-  const handleColumnSelect = (columnIndex: number) => {
-    setSelectedColumn(columnIndex);
-    // Auto-generate metric name from column header
-    if (previewData?.headers?.[columnIndex]) {
-      setMetricName(`${selectedSheet} - ${previewData.headers[columnIndex]}`);
+  const handleColumnToggle = (columnIndex: number) => {
+    setSelectedColumns((prev) => {
+      if (prev.includes(columnIndex)) {
+        if (labelColumn === columnIndex) {
+          setLabelColumn(null);
+        }
+        const newDataColumns = dataColumns.filter((i) => i !== columnIndex);
+        setDataColumns(newDataColumns);
+        updateMetricName(newDataColumns);
+        return prev.filter((i) => i !== columnIndex);
+      } else {
+        const newDataColumns = [...dataColumns, columnIndex].sort(
+          (a, b) => a - b,
+        );
+        setDataColumns(newDataColumns);
+        updateMetricName(newDataColumns);
+        return [...prev, columnIndex].sort((a, b) => a - b);
+      }
+    });
+  };
+
+  const autoDetectColumns = () => {
+    if (!previewData?.headers || selectedColumns.length === 0) return;
+
+    setIsAutoDetecting(true);
+
+    const headers = previewData.headers;
+    const rows = previewData.rows;
+
+    let detectedLabel: number | null = null;
+    const detectedData: number[] = [];
+
+    selectedColumns.forEach((colIndex) => {
+      const header = headers[colIndex]?.toLowerCase() ?? "";
+      const sampleValues = rows
+        .slice(0, 5)
+        .map((row) => row[colIndex])
+        .filter(Boolean);
+
+      // Check if this looks like a label column
+      const isDateLike =
+        /date|time|day|month|year|period|week/i.test(header) ||
+        sampleValues.some((v) =>
+          /^\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4}$/.test(String(v)),
+        );
+      const isCategoryLike =
+        /name|category|type|item|label|id|key/i.test(header) ||
+        sampleValues.every((v) => isNaN(parseFloat(String(v))));
+
+      // Check if this looks like a data column
+      const isNumericLike =
+        /amount|value|price|cost|total|count|qty|quantity|number|rate|percent|%|revenue|sales|score/i.test(
+          header,
+        ) ||
+        sampleValues.every(
+          (v) => !isNaN(parseFloat(String(v).replace(/[$,]/g, ""))),
+        );
+
+      if ((isDateLike || isCategoryLike) && detectedLabel === null) {
+        detectedLabel = colIndex;
+      } else if (isNumericLike || (!isDateLike && !isCategoryLike)) {
+        detectedData.push(colIndex);
+      }
+    });
+
+    // Use first non-numeric column as label when all columns look like data
+    if (detectedLabel === null && detectedData.length > 1) {
+      const firstCol = selectedColumns[0]!;
+      const firstHeader = headers[firstCol]?.toLowerCase() ?? "";
+      const isFirstNumeric =
+        /amount|value|price|cost|total|count|qty|quantity|number|rate|percent|%/i.test(
+          firstHeader,
+        );
+
+      if (!isFirstNumeric) {
+        detectedLabel = firstCol;
+        detectedData.splice(detectedData.indexOf(firstCol), 1);
+      }
+    }
+
+    // Fallback: use all non-label columns as data
+    if (detectedData.length === 0) {
+      selectedColumns.forEach((colIndex) => {
+        if (colIndex !== detectedLabel) {
+          detectedData.push(colIndex);
+        }
+      });
+    }
+
+    setLabelColumn(detectedLabel);
+    setDataColumns(detectedData.sort((a, b) => a - b));
+    updateMetricName(detectedData);
+    setIsAutoDetecting(false);
+  };
+
+  const updateMetricName = (data: number[]) => {
+    if (!previewData?.headers) return;
+
+    if (data.length === 0) {
+      setMetricName("");
+    } else if (data.length === 1 && previewData.headers[data[0]!]) {
+      setMetricName(`${selectedSheet} - ${previewData.headers[data[0]!]}`);
+    } else if (data.length > 1) {
+      const names = data
+        .slice(0, 2)
+        .map((i) => previewData.headers[i])
+        .join(", ");
+      setMetricName(
+        `${selectedSheet} - ${names}${data.length > 2 ? "..." : ""}`,
+      );
     }
   };
 
   const handleCreate = () => {
-    if (selectedColumn === null || !spreadsheetId || !selectedSheet) return;
+    if (dataColumns.length === 0 || !spreadsheetId || !selectedSheet) return;
 
     createMutation.mutate({
-      templateId: "gsheets-column-data",
+      templateId: "gsheets-multi-column-data",
       connectionId,
       name: metricName,
       targetValue: targetValue ? parseFloat(targetValue) : undefined,
       endpointParams: {
         SPREADSHEET_ID: spreadsheetId,
         SHEET_NAME: selectedSheet,
-        COLUMN_INDEX: selectedColumn.toString(),
+        ...(labelColumn !== null && {
+          LABEL_COLUMN_INDEX: labelColumn.toString(),
+        }),
+        DATA_COLUMN_INDICES: dataColumns.join(","),
       },
     });
   };
 
   const canFetchStructure = Boolean(spreadsheetId);
   const canCreate = Boolean(
-    spreadsheetId && selectedSheet && selectedColumn !== null && metricName,
+    spreadsheetId && selectedSheet && dataColumns.length > 0 && metricName,
   );
 
   return (
@@ -215,41 +331,94 @@ export function SheetsMetricCreator({
       {selectedSheet && (
         <Card>
           <CardHeader>
-            <CardTitle>Step 3: Select Data Column</CardTitle>
+            <CardTitle>Step 3: Select Columns</CardTitle>
             <CardDescription>
               {isLoadingPreview
                 ? "Loading data preview..."
-                : "Click on a column header to select it as your metric source"}
+                : "Select columns to include, then click Auto-detect to categorize them"}
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             {previewData && (
               <>
-                <div className="rounded-lg border">
+                {/* Auto-detect button */}
+                <div className="flex items-center gap-4">
+                  <Button
+                    variant="outline"
+                    onClick={autoDetectColumns}
+                    disabled={selectedColumns.length === 0 || isAutoDetecting}
+                  >
+                    {isAutoDetecting
+                      ? "Detecting..."
+                      : "Auto-detect Label & Data"}
+                  </Button>
+                  {selectedColumns.length > 0 && (
+                    <span className="text-muted-foreground text-sm">
+                      {selectedColumns.length} column
+                      {selectedColumns.length !== 1 ? "s" : ""} selected
+                    </span>
+                  )}
+                </div>
+
+                <div className="overflow-x-auto rounded-lg border">
                   <Table>
                     <TableHeader>
                       <TableRow>
                         <TableHead className="w-12">Row</TableHead>
-                        {(previewData.headers ?? []).map((header, index) => (
-                          <TableHead
-                            key={index}
-                            className={`hover:bg-muted cursor-pointer transition-colors ${
-                              selectedColumn === index
-                                ? "bg-primary text-primary-foreground"
-                                : ""
-                            }`}
-                            onClick={() => handleColumnSelect(index)}
-                          >
-                            <div className="flex items-center gap-2">
-                              {header}
-                              {selectedColumn === index && (
-                                <Badge variant="secondary" className="text-xs">
-                                  Selected
-                                </Badge>
-                              )}
-                            </div>
-                          </TableHead>
-                        ))}
+                        {(previewData.headers ?? []).map((header, index) => {
+                          const isSelected = selectedColumns.includes(index);
+                          const isLabel = labelColumn === index;
+                          const isData = dataColumns.includes(index);
+                          return (
+                            <TableHead
+                              key={index}
+                              className={`transition-colors ${
+                                isLabel
+                                  ? "bg-blue-500 text-white"
+                                  : isData
+                                    ? "bg-primary text-primary-foreground"
+                                    : isSelected
+                                      ? "bg-muted"
+                                      : ""
+                              }`}
+                            >
+                              <div className="flex flex-col gap-2">
+                                <div className="flex items-center gap-2">
+                                  <Checkbox
+                                    checked={isSelected}
+                                    onCheckedChange={() =>
+                                      handleColumnToggle(index)
+                                    }
+                                    className={
+                                      isLabel || isData
+                                        ? "data-[state=checked]:text-primary border-white data-[state=checked]:bg-white"
+                                        : ""
+                                    }
+                                  />
+                                  <span className="font-medium">{header}</span>
+                                </div>
+                                <div className="flex gap-1">
+                                  {isLabel && (
+                                    <Badge
+                                      variant="secondary"
+                                      className="bg-blue-200 text-xs text-blue-800"
+                                    >
+                                      Label
+                                    </Badge>
+                                  )}
+                                  {isData && (
+                                    <Badge
+                                      variant="secondary"
+                                      className="text-xs"
+                                    >
+                                      Data
+                                    </Badge>
+                                  )}
+                                </div>
+                              </div>
+                            </TableHead>
+                          );
+                        })}
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -262,9 +431,13 @@ export function SheetsMetricCreator({
                             <TableCell
                               key={cellIndex}
                               className={
-                                selectedColumn === cellIndex
-                                  ? "bg-primary/10"
-                                  : ""
+                                labelColumn === cellIndex
+                                  ? "bg-blue-500/10"
+                                  : dataColumns.includes(cellIndex)
+                                    ? "bg-primary/10"
+                                    : selectedColumns.includes(cellIndex)
+                                      ? "bg-muted/50"
+                                      : ""
                               }
                             >
                               {cell}
@@ -281,22 +454,33 @@ export function SheetsMetricCreator({
                   data rows. All rows will be tracked for visualization.
                 </div>
 
-                {selectedColumn !== null && (
-                  <div className="bg-muted rounded-lg p-3">
-                    <p className="text-sm font-medium">
-                      ✓ Full Column Selected
-                    </p>
-                    <p className="text-muted-foreground text-xs">
-                      All {previewData.totalRows} data rows will be stored for
-                      plotting. Latest value:{" "}
-                      {String(
-                        previewData.rows[previewData.rows.length - 1]?.[
-                          selectedColumn
-                        ] ?? "",
-                      )}
-                    </p>
-                  </div>
-                )}
+                {/* Selection Summary */}
+                <div className="space-y-2">
+                  {labelColumn !== null && (
+                    <div className="rounded-lg bg-blue-50 p-3 dark:bg-blue-950">
+                      <p className="text-sm font-medium text-blue-700 dark:text-blue-300">
+                        Label Column: {previewData.headers?.[labelColumn]}
+                      </p>
+                      <p className="text-xs text-blue-600 dark:text-blue-400">
+                        Will be used as X-axis for charts (dates, categories)
+                      </p>
+                    </div>
+                  )}
+                  {dataColumns.length > 0 && (
+                    <div className="bg-muted rounded-lg p-3">
+                      <p className="text-sm font-medium">
+                        Data Columns ({dataColumns.length}):{" "}
+                        {dataColumns
+                          .map((i) => previewData.headers?.[i])
+                          .join(", ")}
+                      </p>
+                      <p className="text-muted-foreground text-xs">
+                        All {previewData.totalRows} rows will be stored for
+                        plotting
+                      </p>
+                    </div>
+                  )}
+                </div>
               </>
             )}
           </CardContent>
@@ -304,7 +488,7 @@ export function SheetsMetricCreator({
       )}
 
       {/* Step 4: Metric Configuration */}
-      {selectedColumn !== null && (
+      {dataColumns.length > 0 && (
         <Card>
           <CardHeader>
             <CardTitle>Step 4: Configure Metric</CardTitle>

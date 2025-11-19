@@ -25,9 +25,28 @@ export interface ServiceEndpoint {
  * Used by metric system to create dynamic metrics
  */
 export const githubMetricEndpoints = {
+  // User endpoints
   USER_PROFILE: "/user",
   USER_REPOS: "/user/repos",
   USER_FOLLOWERS: "/user/followers",
+
+  // Repository-specific endpoints (require OWNER/REPO params)
+  REPO_INFO: "/repos/{OWNER}/{REPO}",
+  REPO_LANGUAGES: "/repos/{OWNER}/{REPO}/languages",
+  REPO_CONTRIBUTORS: "/repos/{OWNER}/{REPO}/contributors",
+  REPO_ISSUES: "/repos/{OWNER}/{REPO}/issues",
+  REPO_PULLS: "/repos/{OWNER}/{REPO}/pulls",
+  REPO_COMMITS: "/repos/{OWNER}/{REPO}/commits",
+
+  // Repository statistics (excellent for visualization)
+  REPO_STATS_COMMIT_ACTIVITY: "/repos/{OWNER}/{REPO}/stats/commit_activity",
+  REPO_STATS_CODE_FREQUENCY: "/repos/{OWNER}/{REPO}/stats/code_frequency",
+  REPO_STATS_CONTRIBUTORS: "/repos/{OWNER}/{REPO}/stats/contributors",
+  REPO_STATS_PARTICIPATION: "/repos/{OWNER}/{REPO}/stats/participation",
+  REPO_STATS_PUNCH_CARD: "/repos/{OWNER}/{REPO}/stats/punch_card",
+
+  // GitHub Actions
+  REPO_WORKFLOW_RUNS: "/repos/{OWNER}/{REPO}/actions/runs",
 } as const;
 
 /**

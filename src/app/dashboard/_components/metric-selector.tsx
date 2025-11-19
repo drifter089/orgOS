@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 
-import { Check, Loader2 } from "lucide-react";
+import { Check, Loader2, Plus } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -15,13 +15,6 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { api } from "@/trpc/react";
 
 interface MetricSelectorProps {
@@ -31,7 +24,6 @@ interface MetricSelectorProps {
 
 export function MetricSelector({ open, onOpenChange }: MetricSelectorProps) {
   const [selectedMetric, setSelectedMetric] = useState<string | null>(null);
-  const [graphType, setGraphType] = useState<string>("line");
 
   const utils = api.useUtils();
 
@@ -41,32 +33,109 @@ export function MetricSelector({ open, onOpenChange }: MetricSelectorProps) {
       enabled: open,
     });
 
-  // Add metric to dashboard mutation
+  // Add metric to dashboard mutation with optimistic update
   const addMetricMutation = api.dashboard.addMetricToDashboard.useMutation({
-    onSuccess: async () => {
-      // Invalidate and refetch dashboard metrics
-      await utils.dashboard.getDashboardMetrics.invalidate();
-      await utils.dashboard.getAvailableMetrics.invalidate();
+    onMutate: async (newMetricInput) => {
+      // Cancel any outgoing refetches to avoid overwriting optimistic update
+      await utils.dashboard.getDashboardMetrics.cancel();
+      await utils.dashboard.getAvailableMetrics.cancel();
 
-      // Reset form and close dialog
+      // Snapshot previous values for rollback
+      const previousDashboardMetrics =
+        utils.dashboard.getDashboardMetrics.getData();
+      const previousAvailableMetrics =
+        utils.dashboard.getAvailableMetrics.getData();
+
+      // Find the selected metric from available metrics
+      const selectedMetricData = availableMetrics?.find(
+        (m) => m.id === newMetricInput.metricId,
+      );
+
+      if (selectedMetricData && previousDashboardMetrics) {
+        // Calculate next position
+        const maxPosition = Math.max(
+          ...previousDashboardMetrics.map((dm) => dm.position),
+          -1,
+        );
+
+        // Optimistically add to dashboard metrics
+        utils.dashboard.getDashboardMetrics.setData(undefined, [
+          ...previousDashboardMetrics,
+          {
+            id: `temp-${Date.now()}`, // Temporary ID
+            organizationId: "", // Will be set by server
+            metricId: selectedMetricData.id,
+            graphType: "bar",
+            graphConfig: {},
+            size: "medium",
+            position: maxPosition + 1,
+            createdAt: new Date(),
+            updatedAt: new Date(),
+            metric: selectedMetricData,
+            // Flag to indicate this is a pending optimistic update
+            _isPending: true,
+          } as (typeof previousDashboardMetrics)[number] & {
+            _isPending?: boolean;
+          },
+        ]);
+
+        // Optimistically remove from available metrics
+        if (previousAvailableMetrics) {
+          utils.dashboard.getAvailableMetrics.setData(
+            undefined,
+            previousAvailableMetrics.filter(
+              (m) => m.id !== newMetricInput.metricId,
+            ),
+          );
+        }
+      }
+
+      // Close dialog immediately for instant feedback
       setSelectedMetric(null);
-      setGraphType("line");
       onOpenChange(false);
+
+      return { previousDashboardMetrics, previousAvailableMetrics };
+    },
+    onError: (_err, _newMetricInput, context) => {
+      // Revert to previous state on error
+      if (context?.previousDashboardMetrics) {
+        utils.dashboard.getDashboardMetrics.setData(
+          undefined,
+          context.previousDashboardMetrics,
+        );
+      }
+      if (context?.previousAvailableMetrics) {
+        utils.dashboard.getAvailableMetrics.setData(
+          undefined,
+          context.previousAvailableMetrics,
+        );
+      }
+    },
+    onSuccess: (newDashboardMetric) => {
+      // Replace the temporary optimistic entry with the real server data
+      utils.dashboard.getDashboardMetrics.setData(undefined, (old) => {
+        if (!old) return [newDashboardMetric];
+        // Remove temp entry and add real one
+        return old
+          .filter((dm) => !dm.id.startsWith("temp-"))
+          .concat(newDashboardMetric);
+      });
+    },
+    onSettled: async () => {
+      // Only invalidate available metrics to ensure consistency
+      // Dashboard metrics are already updated directly
+      await utils.dashboard.getAvailableMetrics.invalidate();
     },
   });
 
   const handleAddMetric = () => {
     if (!selectedMetric) return;
 
+    // Just add the metric - no AI transformation
     addMetricMutation.mutate({
       metricId: selectedMetric,
-      graphType: graphType as "line" | "bar" | "area" | "pie" | "kpi",
     });
   };
-
-  const selectedMetricData = availableMetrics?.find(
-    (m) => m.id === selectedMetric,
-  );
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -74,7 +143,8 @@ export function MetricSelector({ open, onOpenChange }: MetricSelectorProps) {
         <DialogHeader>
           <DialogTitle>Add Metric to Dashboard</DialogTitle>
           <DialogDescription>
-            Select a metric and choose how you want to visualize it
+            Select a metric to add. You can then fetch its data and transform it
+            with AI.
           </DialogDescription>
         </DialogHeader>
 
@@ -95,7 +165,7 @@ export function MetricSelector({ open, onOpenChange }: MetricSelectorProps) {
                 </p>
               </div>
             ) : (
-              <div className="space-y-2">
+              <div className="max-h-[300px] space-y-2 overflow-y-auto">
                 {availableMetrics?.map((metric) => (
                   <button
                     key={metric.id}
@@ -142,60 +212,6 @@ export function MetricSelector({ open, onOpenChange }: MetricSelectorProps) {
               </div>
             )}
           </div>
-
-          {/* Graph Type Selection */}
-          {selectedMetricData && (
-            <div className="space-y-2">
-              <Label htmlFor="graph-type">Graph Type</Label>
-              <Select value={graphType} onValueChange={setGraphType}>
-                <SelectTrigger id="graph-type">
-                  <SelectValue placeholder="Select graph type" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="line">
-                    <div>
-                      <div className="font-medium">Line Chart</div>
-                      <div className="text-muted-foreground text-xs">
-                        Best for time-series data and trends
-                      </div>
-                    </div>
-                  </SelectItem>
-                  <SelectItem value="bar">
-                    <div>
-                      <div className="font-medium">Bar Chart</div>
-                      <div className="text-muted-foreground text-xs">
-                        Compare values across categories
-                      </div>
-                    </div>
-                  </SelectItem>
-                  <SelectItem value="area">
-                    <div>
-                      <div className="font-medium">Area Chart</div>
-                      <div className="text-muted-foreground text-xs">
-                        Show cumulative values over time
-                      </div>
-                    </div>
-                  </SelectItem>
-                  <SelectItem value="pie">
-                    <div>
-                      <div className="font-medium">Pie Chart</div>
-                      <div className="text-muted-foreground text-xs">
-                        Show proportions and percentages
-                      </div>
-                    </div>
-                  </SelectItem>
-                  <SelectItem value="kpi">
-                    <div>
-                      <div className="font-medium">KPI Card</div>
-                      <div className="text-muted-foreground text-xs">
-                        Display single value prominently
-                      </div>
-                    </div>
-                  </SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          )}
         </div>
 
         <DialogFooter>
@@ -203,9 +219,9 @@ export function MetricSelector({ open, onOpenChange }: MetricSelectorProps) {
             variant="outline"
             onClick={() => {
               setSelectedMetric(null);
-              setGraphType("line");
               onOpenChange(false);
             }}
+            disabled={addMetricMutation.isPending}
           >
             Cancel
           </Button>
@@ -219,7 +235,10 @@ export function MetricSelector({ open, onOpenChange }: MetricSelectorProps) {
                 Adding...
               </>
             ) : (
-              "Add to Dashboard"
+              <>
+                <Plus className="mr-2 h-4 w-4" />
+                Add to Dashboard
+              </>
             )}
           </Button>
         </DialogFooter>

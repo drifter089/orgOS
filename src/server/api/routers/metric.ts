@@ -1,18 +1,29 @@
+/**
+ * Core Metric Router
+ *
+ * Handles core metric operations:
+ * - CRUD operations (create, read, update, delete)
+ * - Template management
+ * - Metric value refresh
+ */
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 
-import { getServiceConfig, getSupportedServices } from "@/server/api/services";
-import { fetchGitHubData } from "@/server/api/services/github";
-import { fetchGoogleSheetsData } from "@/server/api/services/google-sheets";
 import {
   getAllMetricTemplates,
   getMetricTemplate,
   getTemplatesByIntegration,
 } from "@/server/api/services/metric-templates";
-import { fetchPostHogData } from "@/server/api/services/posthog";
-import { fetchYouTubeData } from "@/server/api/services/youtube";
 import { createTRPCRouter, workspaceProcedure } from "@/server/api/trpc";
 import { getIntegrationAndVerifyAccess } from "@/server/api/utils/authorization";
+import {
+  buildEndpointWithParams,
+  fetchIntegrationData,
+} from "@/server/api/utils/fetch-integration-data";
+import {
+  applyTransformation,
+  extractValueFromPath,
+} from "@/server/api/utils/metric-data";
 
 export const metricRouter = createTRPCRouter({
   getAll: workspaceProcedure.query(async ({ ctx }) => {
@@ -161,214 +172,9 @@ export const metricRouter = createTRPCRouter({
       });
     }),
 
-  // Google Sheets - Fetch Sheet Structure
-  getSheetStructure: workspaceProcedure
-    .input(
-      z.object({
-        connectionId: z.string(),
-        spreadsheetId: z.string(),
-      }),
-    )
-    .query(async ({ ctx, input }) => {
-      // Verify integration access
-      await getIntegrationAndVerifyAccess(
-        ctx.db,
-        input.connectionId,
-        ctx.user.id,
-        ctx.workspace,
-      );
-
-      try {
-        // Fetch spreadsheet metadata
-        const response = await fetchGoogleSheetsData(
-          input.connectionId,
-          "/v4/spreadsheets/{SPREADSHEET_ID}",
-          { SPREADSHEET_ID: input.spreadsheetId },
-          "GET",
-        );
-
-        // Extract sheet titles and dimensions
-        const responseData = response.data as {
-          sheets?: Array<{
-            properties: {
-              title: string;
-              gridProperties: {
-                rowCount: number;
-                columnCount: number;
-              };
-            };
-          }>;
-        };
-
-        const sheets =
-          responseData.sheets?.map((sheet) => ({
-            title: sheet.properties.title,
-            rowCount: sheet.properties.gridProperties.rowCount,
-            columnCount: sheet.properties.gridProperties.columnCount,
-          })) ?? [];
-
-        return { sheets };
-      } catch (error) {
-        throw new TRPCError({
-          code: "INTERNAL_SERVER_ERROR",
-          message:
-            error instanceof Error
-              ? error.message
-              : "Failed to fetch sheet structure",
-        });
-      }
-    }),
-
-  getSheetPreview: workspaceProcedure
-    .input(
-      z.object({
-        connectionId: z.string(),
-        spreadsheetId: z.string(),
-        sheetName: z.string(),
-        maxRows: z.number().optional().default(10), // Preview first 10 rows
-      }),
-    )
-    .query(async ({ ctx, input }) => {
-      // Verify integration access
-      await getIntegrationAndVerifyAccess(
-        ctx.db,
-        input.connectionId,
-        ctx.user.id,
-        ctx.workspace,
-      );
-
-      try {
-        // Fetch all non-empty data from the sheet
-        // Using just the sheet name returns all non-empty rows/columns
-        const response = await fetchGoogleSheetsData(
-          input.connectionId,
-          "/v4/spreadsheets/{SPREADSHEET_ID}/values/{SHEET_NAME}",
-          {
-            SPREADSHEET_ID: input.spreadsheetId,
-            SHEET_NAME: input.sheetName,
-          },
-          "GET",
-        );
-
-        const responseData = response.data as {
-          range?: string;
-          majorDimension?: string;
-          values?: string[][];
-        };
-
-        const allRows = responseData.values ?? [];
-        const headers = allRows.length > 0 ? allRows[0] : [];
-        const dataRows = allRows.slice(1, input.maxRows + 1); // Skip header, take maxRows
-
-        return {
-          headers: headers ?? [],
-          rows: dataRows,
-          totalRows: allRows.length - 1, // Exclude header
-          totalColumns: (headers ?? []).length,
-        };
-      } catch (error) {
-        throw new TRPCError({
-          code: "INTERNAL_SERVER_ERROR",
-          message:
-            error instanceof Error
-              ? error.message
-              : "Failed to fetch sheet preview",
-        });
-      }
-    }),
-
-  // Dynamic Parameter Options
-  fetchDynamicOptions: workspaceProcedure
-    .input(
-      z.object({
-        connectionId: z.string(),
-        endpoint: z.string(), // e.g., "posthog-projects" or "posthog-events"
-        dependsOnValue: z.string().optional(), // For cascading selects (e.g., PROJECT_ID for events)
-      }),
-    )
-    .query(async ({ ctx, input }) => {
-      // Verify integration access
-      await getIntegrationAndVerifyAccess(
-        ctx.db,
-        input.connectionId,
-        ctx.user.id,
-        ctx.workspace,
-      );
-
-      let result: Array<{ label: string; value: string }> = [];
-
-      try {
-        switch (input.endpoint) {
-          case "posthog-projects": {
-            // Fetch PostHog projects
-            const response = await fetchPostHogData(
-              input.connectionId,
-              "/api/projects",
-              undefined,
-              "GET",
-            );
-
-            // Extract projects from response
-            const responseData = response.data as {
-              results?: Array<{ id: number; name: string }>;
-            };
-            const projects = responseData.results ?? [];
-            result = projects.map((project) => ({
-              label: project.name,
-              value: project.id.toString(),
-            }));
-            break;
-          }
-
-          case "posthog-events": {
-            // Fetch PostHog events for a specific project
-            if (!input.dependsOnValue) {
-              throw new TRPCError({
-                code: "BAD_REQUEST",
-                message: "PROJECT_ID is required to fetch events",
-              });
-            }
-
-            const response = await fetchPostHogData(
-              input.connectionId,
-              `/api/projects/${input.dependsOnValue}/event_definitions`,
-              undefined,
-              "GET",
-            );
-
-            // Extract event names from response
-            const responseData = response.data as {
-              results?: Array<{ name: string }>;
-            };
-            const events = responseData.results ?? [];
-            result = events.map((event) => ({
-              label: event.name,
-              value: event.name,
-            }));
-            break;
-          }
-
-          default:
-            throw new TRPCError({
-              code: "BAD_REQUEST",
-              message: `Unknown dynamic endpoint: ${input.endpoint}`,
-            });
-        }
-      } catch (error) {
-        if (error instanceof TRPCError) {
-          throw error;
-        }
-        throw new TRPCError({
-          code: "INTERNAL_SERVER_ERROR",
-          message:
-            error instanceof Error
-              ? error.message
-              : "Failed to fetch dynamic options",
-        });
-      }
-
-      return result;
-    }),
+  // ============================================================================
+  // Metric Value Operations
+  // ============================================================================
 
   refreshMetricValue: workspaceProcedure
     .input(z.object({ id: z.string() }))
@@ -419,56 +225,24 @@ export const metricRouter = createTRPCRouter({
       );
 
       // Prepare endpoint with parameters
-      let endpoint = template.endpoint;
       const params = (metric.endpointConfig as Record<string, string>) ?? {};
-
-      // Replace path parameters
-      Object.entries(params).forEach(([key, value]) => {
-        endpoint = endpoint.replace(`{${key}}`, value);
-      });
+      const endpoint = buildEndpointWithParams(template.endpoint, params);
 
       // Fetch data from integration
       let result;
       try {
-        switch (metric.integration.integrationId) {
-          case "github":
-            result = await fetchGitHubData(
-              metric.integrationId,
-              endpoint,
-              template.method ?? "GET",
-            );
-            break;
-          case "google-sheet":
-            result = await fetchGoogleSheetsData(
-              metric.integrationId,
-              endpoint,
-              params,
-              template.method ?? "GET",
-            );
-            break;
-          case "posthog":
-            result = await fetchPostHogData(
-              metric.integrationId,
-              endpoint,
-              params,
-              template.method ?? "GET",
-            );
-            break;
-          case "youtube":
-            result = await fetchYouTubeData(
-              metric.integrationId,
-              endpoint,
-              params,
-              template.method ?? "GET",
-            );
-            break;
-          default:
-            throw new TRPCError({
-              code: "BAD_REQUEST",
-              message: `Unsupported integration: ${metric.integration.integrationId}`,
-            });
-        }
+        result = await fetchIntegrationData({
+          connectionId: metric.integrationId,
+          integrationId: metric.integration.integrationId,
+          endpoint,
+          params,
+          method: template.method ?? "GET",
+          requestBodyTemplate: template.requestBodyTemplate,
+        });
       } catch (error) {
+        if (error instanceof TRPCError) {
+          throw error;
+        }
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
           message:
@@ -521,6 +295,104 @@ export const metricRouter = createTRPCRouter({
         });
       }
 
+      // Special handling for multi-column Google Sheets data
+      if (template.transformData === "extractMultipleColumns") {
+        const labelColumnIndex = params.LABEL_COLUMN_INDEX
+          ? parseInt(params.LABEL_COLUMN_INDEX)
+          : null;
+        const dataColumnIndices = (params.DATA_COLUMN_INDICES ?? "0")
+          .split(",")
+          .map((s) => parseInt(s.trim()))
+          .filter((n) => !isNaN(n));
+
+        // Get headers for column names
+        const headers: string[] = [];
+        const multiColumnData: Array<Record<string, string | number>> = [];
+
+        if (Array.isArray(value) && value.length > 0) {
+          // Extract headers from first row
+          const headerRow = value[0] as string[];
+          dataColumnIndices.forEach((colIndex) => {
+            headers.push(headerRow[colIndex] ?? `Column ${colIndex}`);
+          });
+
+          // Extract data from rows (skip header)
+          for (let i = 1; i < value.length; i++) {
+            const row = value[i] as (string | number)[];
+            const dataPoint: Record<string, string | number> = {};
+
+            // Add label if specified
+            if (
+              labelColumnIndex !== null &&
+              row[labelColumnIndex] !== undefined
+            ) {
+              dataPoint.label = String(row[labelColumnIndex]);
+            } else {
+              dataPoint.label = `Row ${i}`;
+            }
+
+            // Add each data column
+            dataColumnIndices.forEach((colIndex, idx) => {
+              const cellValue = row[colIndex];
+              const numValue = parseFloat(String(cellValue));
+              dataPoint[headers[idx] ?? `value${idx}`] = isNaN(numValue)
+                ? 0
+                : numValue;
+            });
+
+            multiColumnData.push(dataPoint);
+          }
+        }
+
+        // Get latest value (first data column's last value)
+        const latestValue =
+          multiColumnData.length > 0 && headers.length > 0
+            ? ((multiColumnData[multiColumnData.length - 1]![
+                headers[0]!
+              ] as number) ?? 0)
+            : 0;
+
+        // Store multi-column data in endpointConfig
+        const updatedConfig = {
+          ...(metric.endpointConfig as Record<string, unknown>),
+          multiColumnData,
+          headers,
+          lastDataFetch: new Date().toISOString(),
+        };
+
+        return ctx.db.metric.update({
+          where: { id: input.id },
+          data: {
+            currentValue: latestValue,
+            lastFetchedAt: new Date(),
+            endpointConfig: updatedConfig,
+          },
+        });
+      }
+
+      // Special handling for PostHog query results
+      if (
+        template.transformData &&
+        [
+          "extractHogQLResults",
+          "extractTrendsResults",
+          "extractEventsResults",
+          "extractInsightResults",
+        ].includes(template.transformData)
+      ) {
+        // Get count as the metric value
+        const resultCount = Array.isArray(value) ? value.length : 0;
+
+        // Only store params, no data - data will be fetched fresh for visualization
+        return ctx.db.metric.update({
+          where: { id: input.id },
+          data: {
+            currentValue: resultCount,
+            lastFetchedAt: new Date(),
+          },
+        });
+      }
+
       // Apply transformation if specified
       let finalValue: number;
       if (template.transformData) {
@@ -566,203 +438,4 @@ export const metricRouter = createTRPCRouter({
 
       return { success: true };
     }),
-
-  // Integration endpoint testing procedures
-  listSupportedServices: workspaceProcedure.query(() => {
-    const services = getSupportedServices();
-    return services.map((serviceId) => {
-      const config = getServiceConfig(serviceId);
-      return {
-        id: serviceId,
-        name: config?.name ?? serviceId,
-        endpointCount: config?.endpoints.length ?? 0,
-      };
-    });
-  }),
-
-  getServiceEndpoints: workspaceProcedure
-    .input(z.object({ integrationId: z.string() }))
-    .query(({ input }) => {
-      const config = getServiceConfig(input.integrationId);
-
-      if (!config) {
-        throw new TRPCError({
-          code: "NOT_FOUND",
-          message: `Service configuration not found for ${input.integrationId}`,
-        });
-      }
-
-      return {
-        name: config.name,
-        integrationId: config.integrationId,
-        endpoints: config.endpoints,
-        exampleParams:
-          "exampleParams" in config ? config.exampleParams : undefined,
-      };
-    }),
-
-  testIntegrationEndpoint: workspaceProcedure
-    .input(
-      z.object({
-        connectionId: z.string(),
-        integrationId: z.string(),
-        endpoint: z.string(),
-        method: z
-          .enum(["GET", "POST", "PUT", "PATCH", "DELETE"])
-          .default("GET"),
-        params: z.record(z.string()).optional(),
-      }),
-    )
-    .mutation(async ({ ctx, input }) => {
-      // Verify user has access to this integration
-      const integration = await getIntegrationAndVerifyAccess(
-        ctx.db,
-        input.connectionId,
-        ctx.user.id,
-        ctx.workspace,
-      );
-
-      if (integration.status !== "active") {
-        throw new TRPCError({
-          code: "BAD_REQUEST",
-          message: `Integration is ${integration.status}. Please reconnect.`,
-        });
-      }
-
-      // Route to appropriate service based on integration ID
-      try {
-        let result;
-        switch (input.integrationId) {
-          case "github":
-            result = await fetchGitHubData(
-              input.connectionId,
-              input.endpoint,
-              input.method,
-            );
-            break;
-          case "google-sheet": // Match Nango integration ID
-            result = await fetchGoogleSheetsData(
-              input.connectionId,
-              input.endpoint,
-              input.params,
-              input.method,
-            );
-            break;
-          case "posthog":
-            // For Query API POST requests, provide example body based on endpoint label
-            let postBody = undefined;
-            if (input.method === "POST" && input.endpoint.includes("/query/")) {
-              // Simple HogQL query example for testing
-              postBody = {
-                query: {
-                  kind: "HogQLQuery",
-                  query:
-                    "SELECT event, count() as count FROM events WHERE timestamp > now() - INTERVAL 7 DAY GROUP BY event ORDER BY count DESC LIMIT 10",
-                },
-              };
-            }
-
-            result = await fetchPostHogData(
-              input.connectionId,
-              input.endpoint,
-              input.params,
-              input.method,
-              postBody,
-            );
-            break;
-          case "youtube":
-            // Auto-routes to Data or Analytics API based on endpoint
-            result = await fetchYouTubeData(
-              input.connectionId,
-              input.endpoint,
-              input.params,
-              input.method,
-            );
-            break;
-          default:
-            throw new TRPCError({
-              code: "BAD_REQUEST",
-              message: `Unsupported integration type: ${input.integrationId}`,
-            });
-        }
-
-        return result;
-      } catch (error) {
-        if (error instanceof TRPCError) {
-          throw error;
-        }
-        throw new TRPCError({
-          code: "INTERNAL_SERVER_ERROR",
-          message:
-            error instanceof Error
-              ? error.message
-              : "Failed to test integration endpoint",
-        });
-      }
-    }),
 });
-
-// ============================================================================
-// Helper Functions
-// ============================================================================
-
-/**
- * Extract a value from a nested object using a dot-notation path
- * @param data The object to extract from
- * @param path Dot-notation path (e.g., "items.0.statistics.viewCount")
- * @returns The extracted value or undefined
- */
-function extractValueFromPath(data: unknown, path: string): unknown {
-  const keys = path.split(".");
-  let current: unknown = data;
-
-  for (const key of keys) {
-    if (current === null || current === undefined) {
-      return undefined;
-    }
-
-    if (typeof current === "object" && !Array.isArray(current)) {
-      current = (current as Record<string, unknown>)[key];
-    } else if (Array.isArray(current)) {
-      const index = parseInt(key, 10);
-      if (!isNaN(index)) {
-        current = current[index];
-      } else {
-        return undefined;
-      }
-    } else {
-      return undefined;
-    }
-  }
-
-  return current;
-}
-
-/**
- * Apply transformation to extracted data
- * @param value The extracted value
- * @param transformType The transformation type
- * @returns The transformed numeric value
- */
-function applyTransformation(value: unknown, transformType: string): number {
-  switch (transformType) {
-    case "countRows":
-      // Count number of rows in a Google Sheets response
-      if (Array.isArray(value)) {
-        return value.length;
-      }
-      return 0;
-
-    case "countEvents":
-      // Count number of events in PostHog response
-      if (Array.isArray(value)) {
-        return value.length;
-      }
-      return 0;
-
-    default:
-      // Default: convert to number
-      const numValue = parseFloat(String(value));
-      return isNaN(numValue) ? 0 : numValue;
-  }
-}

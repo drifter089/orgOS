@@ -5,6 +5,7 @@ import { type Metadata } from "next";
 
 import { NavBar } from "@/components/navbar/NavBar.server";
 import { Toaster } from "@/components/ui/sonner";
+import { ConfirmationDialogProvider } from "@/providers/ConfirmationDialogProvider";
 import { ThemeProvider } from "@/providers/ThemeProvider";
 import { TransitionProvider } from "@/providers/TransitionProvider";
 import "@/styles/globals.css";
@@ -64,9 +65,11 @@ export default function RootLayout({
               enableSystem
               disableTransitionOnChange
             >
-              <NavBar />
-              <TransitionProvider>{children}</TransitionProvider>
-              <Toaster />
+              <ConfirmationDialogProvider>
+                <NavBar />
+                <TransitionProvider>{children}</TransitionProvider>
+                <Toaster />
+              </ConfirmationDialogProvider>
             </ThemeProvider>
           </TRPCReactProvider>
         </AuthKitProvider>

@@ -42,6 +42,7 @@ interface IntegrationMetricCardProps {
   onEdit: (metric: Metric) => void;
   onDelete: (id: string, name: string) => void;
   isRefreshing?: boolean;
+  isDeleting?: boolean;
 }
 
 export function IntegrationMetricCard({
@@ -50,6 +51,7 @@ export function IntegrationMetricCard({
   onEdit,
   onDelete,
   isRefreshing,
+  isDeleting,
 }: IntegrationMetricCardProps) {
   const getMetricColor = (
     current: number | null,
@@ -96,7 +98,9 @@ export function IntegrationMetricCard({
   const isIntegrationMetric = metric.integrationId && metric.metricTemplate;
 
   return (
-    <Card className="relative">
+    <Card
+      className={`relative transition-opacity ${isDeleting ? "pointer-events-none opacity-50" : ""}`}
+    >
       <CardHeader>
         <div className="flex items-start justify-between">
           <div className="flex-1">

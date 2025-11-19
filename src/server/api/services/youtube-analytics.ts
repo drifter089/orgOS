@@ -24,97 +24,256 @@ import { env } from "@/env";
 
 import type { ServiceEndpoint } from "./github";
 
+// ============================================================================
+// Dynamic Date Helpers
+// ============================================================================
+
+function formatDate(date: Date): string {
+  return date.toISOString().split("T")[0]!;
+}
+
+function getDateRange(daysAgo: number): { startDate: string; endDate: string } {
+  const endDate = new Date();
+  const startDate = new Date();
+  startDate.setDate(endDate.getDate() - daysAgo);
+  return {
+    startDate: formatDate(startDate),
+    endDate: formatDate(endDate),
+  };
+}
+
+const last7Days = getDateRange(7);
+const last28Days = getDateRange(28);
+const last90Days = getDateRange(90);
+
+// ============================================================================
+// Metric Endpoint Templates for Templates System
+// ============================================================================
+
+export const youtubeAnalyticsMetricEndpoints = {
+  // Channel-level time series analytics endpoints (with dimensions=day for plotting)
+  CHANNEL_DAILY_VIEWS_28D: `/v2/reports?ids=channel==MINE&startDate=${last28Days.startDate}&endDate=${last28Days.endDate}&metrics=views&dimensions=day`,
+  CHANNEL_DAILY_WATCH_TIME_28D: `/v2/reports?ids=channel==MINE&startDate=${last28Days.startDate}&endDate=${last28Days.endDate}&metrics=estimatedMinutesWatched&dimensions=day`,
+  CHANNEL_DAILY_AVG_VIEW_DURATION_28D: `/v2/reports?ids=channel==MINE&startDate=${last28Days.startDate}&endDate=${last28Days.endDate}&metrics=averageViewDuration&dimensions=day`,
+  CHANNEL_DAILY_SUBSCRIBERS_28D: `/v2/reports?ids=channel==MINE&startDate=${last28Days.startDate}&endDate=${last28Days.endDate}&metrics=subscribersGained,subscribersLost&dimensions=day`,
+  CHANNEL_DAILY_ENGAGEMENT_28D: `/v2/reports?ids=channel==MINE&startDate=${last28Days.startDate}&endDate=${last28Days.endDate}&metrics=likes,comments,shares&dimensions=day`,
+
+  // Video-level time series analytics endpoints (require VIDEO_ID)
+  VIDEO_DAILY_VIEWS_28D: `/v2/reports?ids=channel==MINE&startDate=${last28Days.startDate}&endDate=${last28Days.endDate}&metrics=views&dimensions=day&filters=video=={VIDEO_ID}`,
+  VIDEO_DAILY_WATCH_TIME_28D: `/v2/reports?ids=channel==MINE&startDate=${last28Days.startDate}&endDate=${last28Days.endDate}&metrics=estimatedMinutesWatched&dimensions=day&filters=video=={VIDEO_ID}`,
+  VIDEO_DAILY_ENGAGEMENT_28D: `/v2/reports?ids=channel==MINE&startDate=${last28Days.startDate}&endDate=${last28Days.endDate}&metrics=likes,comments,shares&dimensions=day&filters=video=={VIDEO_ID}`,
+
+  // Top videos comparison (returns per-video breakdown)
+  TOP_VIDEOS_BY_VIEWS_28D: `/v2/reports?ids=channel==MINE&startDate=${last28Days.startDate}&endDate=${last28Days.endDate}&metrics=views,estimatedMinutesWatched,averageViewDuration,likes,comments,shares&dimensions=video&sort=-views&maxResults=25`,
+  TOP_VIDEOS_BY_WATCH_TIME_28D: `/v2/reports?ids=channel==MINE&startDate=${last28Days.startDate}&endDate=${last28Days.endDate}&metrics=views,estimatedMinutesWatched,averageViewDuration&dimensions=video&sort=-estimatedMinutesWatched&maxResults=25`,
+
+  // Traffic sources breakdown
+  TRAFFIC_SOURCES_28D: `/v2/reports?ids=channel==MINE&startDate=${last28Days.startDate}&endDate=${last28Days.endDate}&metrics=views,estimatedMinutesWatched&dimensions=insightTrafficSourceType&sort=-views`,
+
+  // Geographic breakdown
+  GEOGRAPHIC_28D: `/v2/reports?ids=channel==MINE&startDate=${last28Days.startDate}&endDate=${last28Days.endDate}&metrics=views,estimatedMinutesWatched&dimensions=country&sort=-views&maxResults=25`,
+
+  // Device breakdown
+  DEVICE_28D: `/v2/reports?ids=channel==MINE&startDate=${last28Days.startDate}&endDate=${last28Days.endDate}&metrics=views,estimatedMinutesWatched&dimensions=deviceType&sort=-views`,
+} as const;
+
 /**
  * YouTube Analytics API v2 Endpoints
  * Base URL: https://youtubeanalytics.googleapis.com/v2
  */
 export const youtubeAnalyticsEndpoints: ServiceEndpoint[] = [
+  // ============================================================================
   // Channel Reports - Time-based
+  // ============================================================================
   {
-    label: "Channel Analytics - 28 Days",
-    path: "/v2/reports?ids=channel==MINE&startDate=2024-01-01&endDate=2024-12-31&metrics=views,estimatedMinutesWatched,averageViewDuration,subscribersGained,subscribersLost",
+    label: "📊 Channel Analytics - Last 28 Days",
+    path: `/v2/reports?ids=channel==MINE&startDate=${last28Days.startDate}&endDate=${last28Days.endDate}&metrics=views,estimatedMinutesWatched,averageViewDuration,subscribersGained,subscribersLost`,
     method: "GET",
     description:
-      "Get channel analytics for date range (views, watch time, subscribers)",
+      "Get channel analytics for last 28 days (views, watch time, subscribers)",
   },
   {
-    label: "Channel Analytics - Last 7 Days",
-    path: "/v2/reports?ids=channel==MINE&startDate=2024-11-10&endDate=2024-11-17&metrics=views,estimatedMinutesWatched,likes,comments,shares",
+    label: "📊 Channel Analytics - Last 7 Days",
+    path: `/v2/reports?ids=channel==MINE&startDate=${last7Days.startDate}&endDate=${last7Days.endDate}&metrics=views,estimatedMinutesWatched,likes,comments,shares`,
     method: "GET",
     description: "Get recent channel engagement metrics",
   },
   {
-    label: "Daily Channel Stats",
-    path: "/v2/reports?ids=channel==MINE&startDate=2024-10-01&endDate=2024-11-17&metrics=views,estimatedMinutesWatched&dimensions=day",
+    label: "📊 Channel Analytics - Last 90 Days",
+    path: `/v2/reports?ids=channel==MINE&startDate=${last90Days.startDate}&endDate=${last90Days.endDate}&metrics=views,estimatedMinutesWatched,averageViewDuration,subscribersGained,subscribersLost,likes,comments,shares`,
     method: "GET",
-    description: "Get daily breakdown of views and watch time",
-  },
-
-  // Top Content
-  {
-    label: "Top Videos by Views",
-    path: "/v2/reports?ids=channel==MINE&startDate=2024-01-01&endDate=2024-12-31&metrics=views,estimatedMinutesWatched,averageViewDuration,likes&dimensions=video&sort=-views&maxResults=10",
-    method: "GET",
-    description: "Get top 10 performing videos by views",
+    description: "Get comprehensive channel analytics for last 90 days",
   },
   {
-    label: "Top Videos by Watch Time",
-    path: "/v2/reports?ids=channel==MINE&startDate=2024-01-01&endDate=2024-12-31&metrics=views,estimatedMinutesWatched&dimensions=video&sort=-estimatedMinutesWatched&maxResults=10",
+    label: "📈 Daily Channel Stats (28 Days)",
+    path: `/v2/reports?ids=channel==MINE&startDate=${last28Days.startDate}&endDate=${last28Days.endDate}&metrics=views,estimatedMinutesWatched&dimensions=day`,
     method: "GET",
-    description: "Get top 10 videos by total watch time",
+    description: "Get daily breakdown of views and watch time for plotting",
+  },
+  {
+    label: "📈 Daily Subscribers (28 Days)",
+    path: `/v2/reports?ids=channel==MINE&startDate=${last28Days.startDate}&endDate=${last28Days.endDate}&metrics=subscribersGained,subscribersLost&dimensions=day`,
+    method: "GET",
+    description: "Get daily subscriber changes for trend analysis",
+  },
+  {
+    label: "📈 Daily Engagement (28 Days)",
+    path: `/v2/reports?ids=channel==MINE&startDate=${last28Days.startDate}&endDate=${last28Days.endDate}&metrics=likes,comments,shares&dimensions=day`,
+    method: "GET",
+    description: "Get daily engagement breakdown for plotting",
   },
 
+  // ============================================================================
+  // Top Content & Comparisons
+  // ============================================================================
+  {
+    label: "🏆 Top Videos by Views (28 Days)",
+    path: `/v2/reports?ids=channel==MINE&startDate=${last28Days.startDate}&endDate=${last28Days.endDate}&metrics=views,estimatedMinutesWatched,averageViewDuration,likes,comments,shares&dimensions=video&sort=-views&maxResults=25`,
+    method: "GET",
+    description: "Get top 25 performing videos by views with full metrics",
+  },
+  {
+    label: "🏆 Top Videos by Watch Time (28 Days)",
+    path: `/v2/reports?ids=channel==MINE&startDate=${last28Days.startDate}&endDate=${last28Days.endDate}&metrics=views,estimatedMinutesWatched,averageViewDuration&dimensions=video&sort=-estimatedMinutesWatched&maxResults=25`,
+    method: "GET",
+    description: "Get top 25 videos by total watch time",
+  },
+  {
+    label: "🏆 Top Videos by Engagement (28 Days)",
+    path: `/v2/reports?ids=channel==MINE&startDate=${last28Days.startDate}&endDate=${last28Days.endDate}&metrics=views,likes,comments,shares&dimensions=video&sort=-likes&maxResults=25`,
+    method: "GET",
+    description: "Get top 25 videos by engagement (likes)",
+  },
+  {
+    label: "📊 All Videos Comparison (90 Days)",
+    path: `/v2/reports?ids=channel==MINE&startDate=${last90Days.startDate}&endDate=${last90Days.endDate}&metrics=views,estimatedMinutesWatched,averageViewDuration,likes,comments,shares&dimensions=video&sort=-views&maxResults=50`,
+    method: "GET",
+    description: "Compare all videos performance over 90 days",
+  },
+
+  // ============================================================================
   // Traffic Sources
+  // ============================================================================
   {
-    label: "Traffic Sources",
-    path: "/v2/reports?ids=channel==MINE&startDate=2024-01-01&endDate=2024-12-31&metrics=views&dimensions=insightTrafficSourceType&sort=-views",
+    label: "🔍 Traffic Sources (28 Days)",
+    path: `/v2/reports?ids=channel==MINE&startDate=${last28Days.startDate}&endDate=${last28Days.endDate}&metrics=views,estimatedMinutesWatched&dimensions=insightTrafficSourceType&sort=-views`,
     method: "GET",
     description:
       "Analyze where channel views come from (search, suggested, external, etc.)",
   },
   {
-    label: "Search Terms",
-    path: "/v2/reports?ids=channel==MINE&startDate=2024-01-01&endDate=2024-12-31&metrics=views&dimensions=insightTrafficSourceDetail&filters=insightTrafficSourceType==YT_SEARCH&sort=-views&maxResults=25",
+    label: "🔍 Search Terms (28 Days)",
+    path: `/v2/reports?ids=channel==MINE&startDate=${last28Days.startDate}&endDate=${last28Days.endDate}&metrics=views&dimensions=insightTrafficSourceDetail&filters=insightTrafficSourceType==YT_SEARCH&sort=-views&maxResults=50`,
     method: "GET",
     description: "Top YouTube search terms that led to your videos",
   },
-
-  // Demographics
   {
-    label: "Geographic Analytics",
-    path: "/v2/reports?ids=channel==MINE&startDate=2024-01-01&endDate=2024-12-31&metrics=views,estimatedMinutesWatched&dimensions=country&sort=-views&maxResults=10",
+    label: "🔍 External Traffic Sources (28 Days)",
+    path: `/v2/reports?ids=channel==MINE&startDate=${last28Days.startDate}&endDate=${last28Days.endDate}&metrics=views&dimensions=insightTrafficSourceDetail&filters=insightTrafficSourceType==EXT_URL&sort=-views&maxResults=25`,
     method: "GET",
-    description: "Get top 10 countries by viewership",
+    description: "External websites sending traffic to your channel",
   },
   {
-    label: "Age & Gender",
-    path: "/v2/reports?ids=channel==MINE&startDate=2024-01-01&endDate=2024-12-31&metrics=viewerPercentage&dimensions=ageGroup,gender&sort=-viewerPercentage",
+    label: "🔍 Suggested Video Sources (28 Days)",
+    path: `/v2/reports?ids=channel==MINE&startDate=${last28Days.startDate}&endDate=${last28Days.endDate}&metrics=views&dimensions=insightTrafficSourceDetail&filters=insightTrafficSourceType==RELATED_VIDEO&sort=-views&maxResults=25`,
+    method: "GET",
+    description: "Videos that suggested your content",
+  },
+
+  // ============================================================================
+  // Audience Demographics
+  // ============================================================================
+  {
+    label: "🌍 Geographic Analytics (28 Days)",
+    path: `/v2/reports?ids=channel==MINE&startDate=${last28Days.startDate}&endDate=${last28Days.endDate}&metrics=views,estimatedMinutesWatched,averageViewDuration&dimensions=country&sort=-views&maxResults=25`,
+    method: "GET",
+    description: "Get top 25 countries by viewership with watch metrics",
+  },
+  {
+    label: "👥 Age & Gender (28 Days)",
+    path: `/v2/reports?ids=channel==MINE&startDate=${last28Days.startDate}&endDate=${last28Days.endDate}&metrics=viewerPercentage&dimensions=ageGroup,gender&sort=-viewerPercentage`,
     method: "GET",
     description: "Viewer demographics by age and gender",
   },
-
-  // Device Types
   {
-    label: "Device Analytics",
-    path: "/v2/reports?ids=channel==MINE&startDate=2024-01-01&endDate=2024-12-31&metrics=views&dimensions=deviceType&sort=-views",
+    label: "📱 Device Analytics (28 Days)",
+    path: `/v2/reports?ids=channel==MINE&startDate=${last28Days.startDate}&endDate=${last28Days.endDate}&metrics=views,estimatedMinutesWatched&dimensions=deviceType&sort=-views`,
     method: "GET",
-    description: "Views by device type (mobile, desktop, tablet, TV)",
+    description: "Views and watch time by device type",
+  },
+  {
+    label: "🖥️ Operating System (28 Days)",
+    path: `/v2/reports?ids=channel==MINE&startDate=${last28Days.startDate}&endDate=${last28Days.endDate}&metrics=views&dimensions=operatingSystem&sort=-views`,
+    method: "GET",
+    description: "Views by operating system",
   },
 
-  // Video-specific Reports (requires VIDEO_ID parameter)
+  // ============================================================================
+  // Playlist Analytics
+  // ============================================================================
   {
-    label: "Video Analytics",
-    path: "/v2/reports?ids=channel==MINE&startDate=2024-01-01&endDate=2024-12-31&metrics=views,estimatedMinutesWatched,averageViewDuration,likes,comments,shares&filters=video=={VIDEO_ID}",
+    label: "📋 Playlist Performance (28 Days)",
+    path: `/v2/reports?ids=channel==MINE&startDate=${last28Days.startDate}&endDate=${last28Days.endDate}&metrics=views,estimatedMinutesWatched,playlistStarts,averageTimeInPlaylist&dimensions=playlist&sort=-views&maxResults=25`,
+    method: "GET",
+    description: "Get playlist performance metrics",
+  },
+
+  // ============================================================================
+  // Cards & End Screens
+  // ============================================================================
+  {
+    label: "🎴 Card Performance (28 Days)",
+    path: `/v2/reports?ids=channel==MINE&startDate=${last28Days.startDate}&endDate=${last28Days.endDate}&metrics=cardImpressions,cardClicks,cardClickRate&dimensions=card&sort=-cardClicks&maxResults=25`,
+    method: "GET",
+    description: "Card click-through performance across videos",
+  },
+  {
+    label: "🔚 End Screen Performance (28 Days)",
+    path: `/v2/reports?ids=channel==MINE&startDate=${last28Days.startDate}&endDate=${last28Days.endDate}&metrics=endScreenElementImpressions,endScreenElementClicks,endScreenElementClickRate&dimensions=endScreenElementType&sort=-endScreenElementClicks`,
+    method: "GET",
+    description: "End screen element performance by type",
+  },
+
+  // ============================================================================
+  // Video-specific Reports (requires VIDEO_ID parameter)
+  // ============================================================================
+  {
+    label: "🎥 Video Analytics (28 Days)",
+    path: `/v2/reports?ids=channel==MINE&startDate=${last28Days.startDate}&endDate=${last28Days.endDate}&metrics=views,estimatedMinutesWatched,averageViewDuration,likes,comments,shares,subscribersGained&filters=video=={VIDEO_ID}`,
     method: "GET",
     description: "Get detailed analytics for a specific video",
     requiresParams: true,
     params: ["VIDEO_ID"],
   },
   {
-    label: "Video Traffic Sources",
-    path: "/v2/reports?ids=channel==MINE&startDate=2024-01-01&endDate=2024-12-31&metrics=views&dimensions=insightTrafficSourceType&filters=video=={VIDEO_ID}&sort=-views",
+    label: "🎥 Video Daily Stats (28 Days)",
+    path: `/v2/reports?ids=channel==MINE&startDate=${last28Days.startDate}&endDate=${last28Days.endDate}&metrics=views,estimatedMinutesWatched,likes&dimensions=day&filters=video=={VIDEO_ID}`,
+    method: "GET",
+    description: "Daily breakdown for a specific video (for plotting)",
+    requiresParams: true,
+    params: ["VIDEO_ID"],
+  },
+  {
+    label: "🎥 Video Traffic Sources",
+    path: `/v2/reports?ids=channel==MINE&startDate=${last28Days.startDate}&endDate=${last28Days.endDate}&metrics=views,estimatedMinutesWatched&dimensions=insightTrafficSourceType&filters=video=={VIDEO_ID}&sort=-views`,
     method: "GET",
     description: "Analyze traffic sources for a specific video",
+    requiresParams: true,
+    params: ["VIDEO_ID"],
+  },
+  {
+    label: "🎥 Video Geographic (28 Days)",
+    path: `/v2/reports?ids=channel==MINE&startDate=${last28Days.startDate}&endDate=${last28Days.endDate}&metrics=views,estimatedMinutesWatched&dimensions=country&filters=video=={VIDEO_ID}&sort=-views&maxResults=25`,
+    method: "GET",
+    description: "Geographic distribution for a specific video",
+    requiresParams: true,
+    params: ["VIDEO_ID"],
+  },
+  {
+    label: "🎥 Video Audience Retention",
+    path: `/v2/reports?ids=channel==MINE&startDate=${last28Days.startDate}&endDate=${last28Days.endDate}&metrics=audienceWatchRatio&dimensions=elapsedVideoTimeRatio&filters=video=={VIDEO_ID}`,
+    method: "GET",
+    description: "Audience retention curve for a specific video",
     requiresParams: true,
     params: ["VIDEO_ID"],
   },

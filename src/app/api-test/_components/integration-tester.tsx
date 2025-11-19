@@ -12,6 +12,7 @@ import {
   XCircle,
 } from "lucide-react";
 
+import { JsonViewer } from "@/components/json-viewer";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -32,8 +33,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { api } from "@/trpc/react";
-
-import { JsonViewer } from "./json-viewer";
 
 interface ServiceEndpoint {
   label: string;
@@ -75,25 +74,30 @@ export function IntegrationTester() {
   );
 
   // Fetch service configs for all supported services
-  const { data: githubService } = api.metric.getServiceEndpoints.useQuery(
-    { integrationId: "github" },
-    { enabled: selectedIntegration?.integrationId === "github" },
-  );
-  const { data: googleSheetsService } = api.metric.getServiceEndpoints.useQuery(
-    { integrationId: "google-sheet" },
-    { enabled: selectedIntegration?.integrationId === "google-sheet" },
-  );
-  const { data: posthogService } = api.metric.getServiceEndpoints.useQuery(
-    { integrationId: "posthog" },
-    { enabled: selectedIntegration?.integrationId === "posthog" },
-  );
-  const { data: youtubeService } = api.metric.getServiceEndpoints.useQuery(
-    { integrationId: "youtube" },
-    { enabled: selectedIntegration?.integrationId === "youtube" },
-  );
+  const { data: githubService } =
+    api.metricIntegration.getServiceEndpoints.useQuery(
+      { integrationId: "github" },
+      { enabled: selectedIntegration?.integrationId === "github" },
+    );
+  const { data: googleSheetsService } =
+    api.metricIntegration.getServiceEndpoints.useQuery(
+      { integrationId: "google-sheet" },
+      { enabled: selectedIntegration?.integrationId === "google-sheet" },
+    );
+  const { data: posthogService } =
+    api.metricIntegration.getServiceEndpoints.useQuery(
+      { integrationId: "posthog" },
+      { enabled: selectedIntegration?.integrationId === "posthog" },
+    );
+  const { data: youtubeService } =
+    api.metricIntegration.getServiceEndpoints.useQuery(
+      { integrationId: "youtube" },
+      { enabled: selectedIntegration?.integrationId === "youtube" },
+    );
 
   // Test endpoint mutation
-  const testMutation = api.metric.testIntegrationEndpoint.useMutation();
+  const testMutation =
+    api.metricIntegration.testIntegrationEndpoint.useMutation();
 
   // Get service config based on selected integration
   const serviceConfig = selectedIntegration?.integrationId
@@ -155,11 +159,11 @@ export function IntegrationTester() {
         params: params && Object.keys(params).length > 0 ? params : undefined,
       });
 
+      const statusCode = result.status ?? 200;
       updateTestResult(endpointKey, {
-        status:
-          result.status >= 200 && result.status < 300 ? "success" : "fail",
-        statusCode: result.status,
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+        status: statusCode >= 200 && statusCode < 300 ? "success" : "fail",
+        statusCode,
+
         response: result.data,
       });
     } catch (error) {

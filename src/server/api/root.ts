@@ -1,10 +1,12 @@
 import { dashboardRouter } from "@/server/api/routers/dashboard";
 import { integrationRouter } from "@/server/api/routers/integration";
 import { metricRouter } from "@/server/api/routers/metric";
+import { metricIntegrationRouter } from "@/server/api/routers/metric-integration";
 import { organizationRouter } from "@/server/api/routers/organization";
 import { roleRouter } from "@/server/api/routers/role";
 import { taskRouter } from "@/server/api/routers/task";
 import { teamRouter } from "@/server/api/routers/team";
+import { youtubeRouter } from "@/server/api/routers/youtube";
 import { createCallerFactory, createTRPCRouter } from "@/server/api/trpc";
 
 /**
@@ -18,8 +20,10 @@ export const appRouter = createTRPCRouter({
   team: teamRouter,
   role: roleRouter,
   metric: metricRouter,
+  metricIntegration: metricIntegrationRouter,
   integration: integrationRouter,
   dashboard: dashboardRouter,
+  youtube: youtubeRouter,
 });
 
 // export type definition of API
