@@ -2,7 +2,13 @@
 
 import { useState } from "react";
 
-import { ChevronDown, ChevronUp, Database, Sparkles } from "lucide-react";
+import {
+  ChevronDown,
+  ChevronUp,
+  Database,
+  Loader2,
+  Sparkles,
+} from "lucide-react";
 
 import { JsonViewer } from "@/components/json-viewer";
 import { Badge } from "@/components/ui/badge";
@@ -19,6 +25,7 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
+import { Input } from "@/components/ui/input";
 import type { RouterOutputs } from "@/trpc/react";
 import { api } from "@/trpc/react";
 
@@ -35,6 +42,11 @@ export function DashboardDebugPanel({
   const [fetchedDataMap, setFetchedDataMap] = useState<Record<string, unknown>>(
     {},
   );
+  const [transformHints, setTransformHints] = useState<Record<string, string>>(
+    {},
+  );
+
+  const utils = api.useUtils();
 
   const { data: dashboardMetrics } = api.dashboard.getDashboardMetrics.useQuery(
     undefined,
@@ -52,8 +64,41 @@ export function DashboardDebugPanel({
     },
   });
 
+  const transformMutation = api.dashboard.transformMetricForChart.useMutation();
+  const updateConfigMutation = api.dashboard.updateGraphConfig.useMutation({
+    onSuccess: (updatedDashboardMetric) => {
+      utils.dashboard.getDashboardMetrics.setData(undefined, (old) =>
+        old?.map((dm) =>
+          dm.id === updatedDashboardMetric.id ? updatedDashboardMetric : dm,
+        ),
+      );
+    },
+  });
+
   const handleFetchData = (metricId: string) => {
     fetchDataMutation.mutate({ metricId });
+  };
+
+  const handleTransform = async (
+    metricId: string,
+    dashboardMetricId: string,
+  ) => {
+    const fetchedData = fetchedDataMap[metricId];
+    const hint = transformHints[metricId] ?? "";
+
+    const result = await transformMutation.mutateAsync({
+      metricId,
+      rawData: fetchedData ?? undefined,
+      userHint: hint || undefined,
+    });
+
+    if (result.success && result.data) {
+      await updateConfigMutation.mutateAsync({
+        dashboardMetricId,
+        chartTransform: result.data,
+      });
+      setTransformHints((prev) => ({ ...prev, [metricId]: "" }));
+    }
   };
 
   return (
@@ -95,6 +140,13 @@ export function DashboardDebugPanel({
             {/* Individual Metric Debug Cards */}
             {dashboardMetrics.map((dm) => {
               const fetchedData = fetchedDataMap[dm.metric.id];
+              const canTransform = fetchedData !== undefined;
+              const isTransforming =
+                (transformMutation.isPending &&
+                  transformMutation.variables?.metricId === dm.metric.id) ||
+                (updateConfigMutation.isPending &&
+                  updateConfigMutation.variables?.dashboardMetricId === dm.id);
+
               return (
                 <Card key={dm.id} className="bg-muted/30">
                   <CardHeader className="pb-3">
@@ -117,20 +169,57 @@ export function DashboardDebugPanel({
                     </div>
                   </CardHeader>
                   <CardContent className="space-y-4">
-                    {/* Fetch Data Button */}
                     {dm.metric.integrationId && (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleFetchData(dm.metric.id)}
-                        disabled={fetchDataMutation.isPending}
-                      >
-                        <Database className="mr-2 h-3 w-3" />
-                        {fetchDataMutation.isPending &&
-                        fetchDataMutation.variables?.metricId === dm.metric.id
-                          ? "Fetching..."
-                          : "Fetch Raw Data"}
-                      </Button>
+                      <div className="flex gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleFetchData(dm.metric.id)}
+                          disabled={
+                            fetchDataMutation.isPending &&
+                            fetchDataMutation.variables?.metricId ===
+                              dm.metric.id
+                          }
+                        >
+                          <Database className="mr-2 h-3 w-3" />
+                          {fetchDataMutation.isPending &&
+                          fetchDataMutation.variables?.metricId === dm.metric.id
+                            ? "Fetching..."
+                            : "Fetch Data"}
+                        </Button>
+                        <Button
+                          size="sm"
+                          onClick={() => handleTransform(dm.metric.id, dm.id)}
+                          disabled={!canTransform || isTransforming}
+                        >
+                          {isTransforming ? (
+                            <>
+                              <Loader2 className="mr-2 h-3 w-3 animate-spin" />
+                              Transforming...
+                            </>
+                          ) : (
+                            <>
+                              <Sparkles className="mr-2 h-3 w-3" />
+                              Transform
+                            </>
+                          )}
+                        </Button>
+                      </div>
+                    )}
+
+                    {canTransform && (
+                      <Input
+                        placeholder="Hint: 'show as pie chart' or 'group by week'"
+                        value={transformHints[dm.metric.id] ?? ""}
+                        onChange={(e) =>
+                          setTransformHints((prev) => ({
+                            ...prev,
+                            [dm.metric.id]: e.target.value,
+                          }))
+                        }
+                        disabled={isTransforming}
+                        className="text-sm"
+                      />
                     )}
 
                     {/* Fetched Raw Data */}
