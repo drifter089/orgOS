@@ -6,6 +6,7 @@ import { organizationRouter } from "@/server/api/routers/organization";
 import { roleRouter } from "@/server/api/routers/role";
 import { taskRouter } from "@/server/api/routers/task";
 import { teamRouter } from "@/server/api/routers/team";
+import { youtubeRouter } from "@/server/api/routers/youtube";
 import { createCallerFactory, createTRPCRouter } from "@/server/api/trpc";
 
 /**
@@ -22,6 +23,7 @@ export const appRouter = createTRPCRouter({
   metricIntegration: metricIntegrationRouter,
   integration: integrationRouter,
   dashboard: dashboardRouter,
+  youtube: youtubeRouter,
 });
 
 // export type definition of API

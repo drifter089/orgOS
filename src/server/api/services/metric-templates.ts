@@ -14,6 +14,7 @@ import { githubMetricEndpoints } from "./github";
 import { googleSheetsMetricEndpoints } from "./google-sheets";
 import { posthogMetricEndpoints } from "./posthog";
 import { youtubeMetricEndpoints } from "./youtube";
+import { youtubeAnalyticsMetricEndpoints } from "./youtube-analytics";
 
 export type MetricType = "percentage" | "number" | "duration" | "rate";
 
@@ -687,47 +688,21 @@ export const posthogTemplates: MetricTemplate[] = [
 // YouTube Templates
 // ============================================================================
 
+// Common VIDEO_ID parameter with dynamic selection
+const youtubeVideoParam: MetricTemplateParam = {
+  name: "VIDEO_ID",
+  label: "Select Video",
+  description: "Select a video from your channel",
+  type: "dynamic-select",
+  required: true,
+  dynamicOptionsEndpoint: "youtube.getMyVideos",
+  placeholder: "Select a video...",
+};
+
 export const youtubeTemplates: MetricTemplate[] = [
-  {
-    templateId: "youtube-video-views",
-    label: "Video Views",
-    description: "Total view count for a specific video",
-    integrationId: "youtube",
-    metricType: "number",
-    defaultUnit: "views",
-    endpoint: youtubeMetricEndpoints.VIDEO_STATS,
-    dataPath: "items.0.statistics.viewCount",
-    requiredParams: [
-      {
-        name: "VIDEO_ID",
-        label: "Video ID",
-        description: "The YouTube video ID (e.g., dQw4w9WgXcQ from the URL)",
-        type: "text",
-        required: true,
-        placeholder: "dQw4w9WgXcQ",
-      },
-    ],
-  },
-  {
-    templateId: "youtube-video-likes",
-    label: "Video Likes",
-    description: "Total like count for a specific video",
-    integrationId: "youtube",
-    metricType: "number",
-    defaultUnit: "likes",
-    endpoint: youtubeMetricEndpoints.VIDEO_STATS,
-    dataPath: "items.0.statistics.likeCount",
-    requiredParams: [
-      {
-        name: "VIDEO_ID",
-        label: "Video ID",
-        description: "The YouTube video ID",
-        type: "text",
-        required: true,
-        placeholder: "dQw4w9WgXcQ",
-      },
-    ],
-  },
+  // ============================================================================
+  // Channel Lifetime Metrics (Data API)
+  // ============================================================================
   {
     templateId: "youtube-channel-subscribers",
     label: "Channel Subscribers",
@@ -749,6 +724,217 @@ export const youtubeTemplates: MetricTemplate[] = [
     endpoint: youtubeMetricEndpoints.CHANNEL_STATS,
     dataPath: "items.0.statistics.viewCount",
     requiredParams: [],
+  },
+  {
+    templateId: "youtube-channel-video-count",
+    label: "Channel Video Count",
+    description: "Total number of videos on your channel",
+    integrationId: "youtube",
+    metricType: "number",
+    defaultUnit: "videos",
+    endpoint: youtubeMetricEndpoints.CHANNEL_STATS,
+    dataPath: "items.0.statistics.videoCount",
+    requiredParams: [],
+  },
+
+  // ============================================================================
+  // Channel Analytics Time Series (28 Days - Analytics API)
+  // These return daily data for plotting, not aggregated values
+  // ============================================================================
+  {
+    templateId: "youtube-channel-daily-views-28d",
+    label: "Daily Views (28 Days)",
+    description: "Daily view counts for the last 28 days - for plotting",
+    integrationId: "youtube",
+    metricType: "number",
+    defaultUnit: "views",
+    endpoint: youtubeAnalyticsMetricEndpoints.CHANNEL_DAILY_VIEWS_28D,
+    dataPath: "rows",
+    requiredParams: [],
+  },
+  {
+    templateId: "youtube-channel-daily-watch-time-28d",
+    label: "Daily Watch Time (28 Days)",
+    description: "Daily minutes watched for the last 28 days - for plotting",
+    integrationId: "youtube",
+    metricType: "duration",
+    defaultUnit: "minutes",
+    endpoint: youtubeAnalyticsMetricEndpoints.CHANNEL_DAILY_WATCH_TIME_28D,
+    dataPath: "rows",
+    requiredParams: [],
+  },
+  {
+    templateId: "youtube-channel-daily-avg-duration-28d",
+    label: "Daily Avg Duration (28 Days)",
+    description:
+      "Daily average view duration for the last 28 days - for plotting",
+    integrationId: "youtube",
+    metricType: "duration",
+    defaultUnit: "seconds",
+    endpoint:
+      youtubeAnalyticsMetricEndpoints.CHANNEL_DAILY_AVG_VIEW_DURATION_28D,
+    dataPath: "rows",
+    requiredParams: [],
+  },
+  {
+    templateId: "youtube-channel-daily-subscribers-28d",
+    label: "Daily Subscribers (28 Days)",
+    description:
+      "Daily subscriber gains/losses for the last 28 days - for plotting",
+    integrationId: "youtube",
+    metricType: "number",
+    defaultUnit: "subscribers",
+    endpoint: youtubeAnalyticsMetricEndpoints.CHANNEL_DAILY_SUBSCRIBERS_28D,
+    dataPath: "rows",
+    requiredParams: [],
+  },
+  {
+    templateId: "youtube-channel-daily-engagement-28d",
+    label: "Daily Engagement (28 Days)",
+    description:
+      "Daily likes, comments, shares for the last 28 days - for plotting",
+    integrationId: "youtube",
+    metricType: "number",
+    defaultUnit: "interactions",
+    endpoint: youtubeAnalyticsMetricEndpoints.CHANNEL_DAILY_ENGAGEMENT_28D,
+    dataPath: "rows",
+    requiredParams: [],
+  },
+
+  // ============================================================================
+  // Channel Comparison & Breakdown Metrics (28 Days)
+  // ============================================================================
+  {
+    templateId: "youtube-top-videos-by-views-28d",
+    label: "Top Videos by Views (28 Days)",
+    description: "Your top 25 videos ranked by views with full metrics",
+    integrationId: "youtube",
+    metricType: "number",
+    defaultUnit: "views",
+    endpoint: youtubeAnalyticsMetricEndpoints.TOP_VIDEOS_BY_VIEWS_28D,
+    dataPath: "rows",
+    requiredParams: [],
+  },
+  {
+    templateId: "youtube-top-videos-by-watch-time-28d",
+    label: "Top Videos by Watch Time (28 Days)",
+    description: "Your top 25 videos ranked by watch time",
+    integrationId: "youtube",
+    metricType: "duration",
+    defaultUnit: "minutes",
+    endpoint: youtubeAnalyticsMetricEndpoints.TOP_VIDEOS_BY_WATCH_TIME_28D,
+    dataPath: "rows",
+    requiredParams: [],
+  },
+  {
+    templateId: "youtube-traffic-sources-28d",
+    label: "Traffic Sources (28 Days)",
+    description:
+      "Where your views come from (search, suggested, external, etc.)",
+    integrationId: "youtube",
+    metricType: "number",
+    defaultUnit: "views",
+    endpoint: youtubeAnalyticsMetricEndpoints.TRAFFIC_SOURCES_28D,
+    dataPath: "rows",
+    requiredParams: [],
+  },
+  {
+    templateId: "youtube-geographic-28d",
+    label: "Geographic Breakdown (28 Days)",
+    description: "Views by country for the last 28 days",
+    integrationId: "youtube",
+    metricType: "number",
+    defaultUnit: "views",
+    endpoint: youtubeAnalyticsMetricEndpoints.GEOGRAPHIC_28D,
+    dataPath: "rows",
+    requiredParams: [],
+  },
+  {
+    templateId: "youtube-device-28d",
+    label: "Device Breakdown (28 Days)",
+    description: "Views by device type (mobile, desktop, tablet, TV)",
+    integrationId: "youtube",
+    metricType: "number",
+    defaultUnit: "views",
+    endpoint: youtubeAnalyticsMetricEndpoints.DEVICE_28D,
+    dataPath: "rows",
+    requiredParams: [],
+  },
+
+  // ============================================================================
+  // Video Lifetime Metrics (Data API)
+  // ============================================================================
+  {
+    templateId: "youtube-video-views",
+    label: "Video Views (Lifetime)",
+    description: "Total view count for a specific video",
+    integrationId: "youtube",
+    metricType: "number",
+    defaultUnit: "views",
+    endpoint: youtubeMetricEndpoints.VIDEO_STATS,
+    dataPath: "items.0.statistics.viewCount",
+    requiredParams: [youtubeVideoParam],
+  },
+  {
+    templateId: "youtube-video-likes",
+    label: "Video Likes (Lifetime)",
+    description: "Total like count for a specific video",
+    integrationId: "youtube",
+    metricType: "number",
+    defaultUnit: "likes",
+    endpoint: youtubeMetricEndpoints.VIDEO_STATS,
+    dataPath: "items.0.statistics.likeCount",
+    requiredParams: [youtubeVideoParam],
+  },
+  {
+    templateId: "youtube-video-comments",
+    label: "Video Comments (Lifetime)",
+    description: "Total comment count for a specific video",
+    integrationId: "youtube",
+    metricType: "number",
+    defaultUnit: "comments",
+    endpoint: youtubeMetricEndpoints.VIDEO_STATS,
+    dataPath: "items.0.statistics.commentCount",
+    requiredParams: [youtubeVideoParam],
+  },
+
+  // ============================================================================
+  // Video Analytics Time Series (28 Days - Analytics API)
+  // These return daily data for plotting, not aggregated values
+  // ============================================================================
+  {
+    templateId: "youtube-video-daily-views-28d",
+    label: "Video Daily Views (28 Days)",
+    description: "Daily view counts for a specific video - for plotting",
+    integrationId: "youtube",
+    metricType: "number",
+    defaultUnit: "views",
+    endpoint: youtubeAnalyticsMetricEndpoints.VIDEO_DAILY_VIEWS_28D,
+    dataPath: "rows",
+    requiredParams: [youtubeVideoParam],
+  },
+  {
+    templateId: "youtube-video-daily-watch-time-28d",
+    label: "Video Daily Watch Time (28 Days)",
+    description: "Daily minutes watched for a specific video - for plotting",
+    integrationId: "youtube",
+    metricType: "duration",
+    defaultUnit: "minutes",
+    endpoint: youtubeAnalyticsMetricEndpoints.VIDEO_DAILY_WATCH_TIME_28D,
+    dataPath: "rows",
+    requiredParams: [youtubeVideoParam],
+  },
+  {
+    templateId: "youtube-video-daily-engagement-28d",
+    label: "Video Daily Engagement (28 Days)",
+    description:
+      "Daily likes, comments, shares for a specific video - for plotting",
+    integrationId: "youtube",
+    metricType: "number",
+    defaultUnit: "interactions",
+    endpoint: youtubeAnalyticsMetricEndpoints.VIDEO_DAILY_ENGAGEMENT_28D,
+    dataPath: "rows",
+    requiredParams: [youtubeVideoParam],
   },
 ];
 
