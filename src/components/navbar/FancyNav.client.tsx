@@ -199,7 +199,7 @@ export function FancyNav({ user, signUpUrl, signOutAction }: FancyNavProps) {
       });
 
       // Get the initial collapsed height
-      const collapsedHeight = pillRef.current.offsetHeight;
+      const collapsedHeight = pillElement.offsetHeight;
 
       // Step 1: Hide pill content (0s - 0.3s)
       tl.to(
