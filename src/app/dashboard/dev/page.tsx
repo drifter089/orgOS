@@ -25,7 +25,10 @@ export default async function DashboardDevPage() {
         </span>
       </div>
 
-      <DashboardClient initialDashboardMetrics={dashboardMetrics} />
+      <DashboardClient
+        initialDashboardMetrics={dashboardMetrics}
+        autoTrigger={false}
+      />
       <DashboardDebugPanel initialDashboardMetrics={dashboardMetrics} />
     </div>
   );
