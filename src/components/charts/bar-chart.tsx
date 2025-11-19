@@ -1,6 +1,6 @@
 "use client";
 
-import { Bar, BarChart, CartesianGrid, XAxis } from "recharts";
+import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from "recharts";
 
 import {
   Card,
@@ -11,6 +11,8 @@ import {
 } from "@/components/ui/card";
 import {
   ChartContainer,
+  ChartLegend,
+  ChartLegendContent,
   ChartTooltip,
   ChartTooltipContent,
 } from "@/components/ui/chart";
@@ -24,6 +26,11 @@ export function DashboardBarChart({
   dataKeys,
   title,
   description,
+  xAxisLabel,
+  yAxisLabel,
+  showLegend = false,
+  showTooltip = true,
+  stacked = false,
 }: ChartComponentProps) {
   return (
     <Card>
@@ -45,19 +52,48 @@ export function DashboardBarChart({
               tickFormatter={(value: string | number) =>
                 String(value).slice(0, 10)
               }
+              label={
+                xAxisLabel
+                  ? {
+                      value: xAxisLabel,
+                      position: "insideBottom",
+                      offset: -5,
+                      className: "fill-muted-foreground text-xs",
+                    }
+                  : undefined
+              }
             />
-            <ChartTooltip
-              cursor={false}
-              content={<ChartTooltipContent indicator="dashed" />}
+            <YAxis
+              tickLine={false}
+              axisLine={false}
+              tickMargin={8}
+              label={
+                yAxisLabel
+                  ? {
+                      value: yAxisLabel,
+                      angle: -90,
+                      position: "insideLeft",
+                      className: "fill-muted-foreground text-xs",
+                    }
+                  : undefined
+              }
             />
+            {showTooltip && (
+              <ChartTooltip
+                cursor={false}
+                content={<ChartTooltipContent indicator="dashed" />}
+              />
+            )}
             {dataKeys.map((key) => (
               <Bar
                 key={key}
                 dataKey={key}
                 fill={`var(--color-${key})`}
                 radius={4}
+                stackId={stacked ? "a" : undefined}
               />
             ))}
+            {showLegend && <ChartLegend content={<ChartLegendContent />} />}
           </BarChart>
         </ChartContainer>
       </CardContent>

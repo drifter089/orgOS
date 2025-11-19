@@ -1,6 +1,6 @@
 "use client";
 
-import { PolarGrid, RadialBar, RadialBarChart } from "recharts";
+import { Label, PolarGrid, RadialBar, RadialBarChart } from "recharts";
 
 import {
   Card,
@@ -24,6 +24,8 @@ export function DashboardRadialChart({
   dataKeys,
   title,
   description,
+  showTooltip = true,
+  centerLabel,
 }: ChartComponentProps) {
   const dataKey = dataKeys[0] ?? "value";
 
@@ -41,12 +43,46 @@ export function DashboardRadialChart({
           className="mx-auto aspect-square max-h-[250px]"
         >
           <RadialBarChart data={chartData} innerRadius={30} outerRadius={100}>
-            <ChartTooltip
-              cursor={false}
-              content={<ChartTooltipContent hideLabel nameKey={xAxisKey} />}
-            />
+            {showTooltip && (
+              <ChartTooltip
+                cursor={false}
+                content={<ChartTooltipContent hideLabel nameKey={xAxisKey} />}
+              />
+            )}
             <PolarGrid gridType="circle" />
-            <RadialBar dataKey={dataKey} />
+            <RadialBar dataKey={dataKey}>
+              {centerLabel && (
+                <Label
+                  content={({ viewBox }) => {
+                    if (viewBox && "cx" in viewBox && "cy" in viewBox) {
+                      return (
+                        <text
+                          x={viewBox.cx}
+                          y={viewBox.cy}
+                          textAnchor="middle"
+                          dominantBaseline="middle"
+                        >
+                          <tspan
+                            x={viewBox.cx}
+                            y={viewBox.cy}
+                            className="fill-foreground text-2xl font-bold"
+                          >
+                            {centerLabel.value}
+                          </tspan>
+                          <tspan
+                            x={viewBox.cx}
+                            y={(viewBox.cy ?? 0) + 20}
+                            className="fill-muted-foreground text-xs"
+                          >
+                            {centerLabel.label}
+                          </tspan>
+                        </text>
+                      );
+                    }
+                  }}
+                />
+              )}
+            </RadialBar>
           </RadialBarChart>
         </ChartContainer>
       </CardContent>

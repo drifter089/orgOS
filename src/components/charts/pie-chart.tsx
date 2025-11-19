@@ -1,6 +1,6 @@
 "use client";
 
-import { Cell, Pie, PieChart } from "recharts";
+import { Cell, Label, Pie, PieChart } from "recharts";
 
 import {
   Card,
@@ -26,6 +26,9 @@ export function DashboardPieChart({
   dataKeys,
   title,
   description,
+  showLegend = true,
+  showTooltip = true,
+  centerLabel,
 }: ChartComponentProps) {
   const dataKey = dataKeys[0] ?? "value";
 
@@ -43,10 +46,12 @@ export function DashboardPieChart({
           className="mx-auto aspect-square h-[250px]"
         >
           <PieChart>
-            <ChartTooltip
-              cursor={false}
-              content={<ChartTooltipContent hideLabel nameKey={xAxisKey} />}
-            />
+            {showTooltip && (
+              <ChartTooltip
+                cursor={false}
+                content={<ChartTooltipContent hideLabel nameKey={xAxisKey} />}
+              />
+            )}
             <Pie
               data={chartData}
               dataKey={dataKey}
@@ -63,8 +68,39 @@ export function DashboardPieChart({
                   }
                 />
               ))}
+              {centerLabel && (
+                <Label
+                  content={({ viewBox }) => {
+                    if (viewBox && "cx" in viewBox && "cy" in viewBox) {
+                      return (
+                        <text
+                          x={viewBox.cx}
+                          y={viewBox.cy}
+                          textAnchor="middle"
+                          dominantBaseline="middle"
+                        >
+                          <tspan
+                            x={viewBox.cx}
+                            y={viewBox.cy}
+                            className="fill-foreground text-2xl font-bold"
+                          >
+                            {centerLabel.value}
+                          </tspan>
+                          <tspan
+                            x={viewBox.cx}
+                            y={(viewBox.cy ?? 0) + 20}
+                            className="fill-muted-foreground text-xs"
+                          >
+                            {centerLabel.label}
+                          </tspan>
+                        </text>
+                      );
+                    }
+                  }}
+                />
+              )}
             </Pie>
-            <ChartLegend content={<ChartLegendContent />} />
+            {showLegend && <ChartLegend content={<ChartLegendContent />} />}
           </PieChart>
         </ChartContainer>
       </CardContent>

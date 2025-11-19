@@ -244,7 +244,9 @@ export function SheetsMetricCreator({
       endpointParams: {
         SPREADSHEET_ID: spreadsheetId,
         SHEET_NAME: selectedSheet,
-        LABEL_COLUMN_INDEX: labelColumn?.toString() ?? "",
+        ...(labelColumn !== null && {
+          LABEL_COLUMN_INDEX: labelColumn.toString(),
+        }),
         DATA_COLUMN_INDICES: dataColumns.join(","),
       },
     });

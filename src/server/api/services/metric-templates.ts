@@ -449,9 +449,9 @@ export const googleSheetsTemplates: MetricTemplate[] = [
         name: "LABEL_COLUMN_INDEX",
         label: "Label Column Index",
         description:
-          "Column index for labels/x-axis (0-based, e.g., 0 for column A with dates)",
+          "Column index for labels/x-axis (0-based, e.g., 0 for column A with dates). Optional - AI can auto-detect.",
         type: "number",
-        required: true,
+        required: false,
         placeholder: "0",
       },
       {

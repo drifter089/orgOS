@@ -4,7 +4,6 @@ import { z } from "zod";
 
 import {
   type ChartTransformResult,
-  transformMetricSimple,
   transformMetricWithAI,
 } from "@/server/api/services/graph-transformer";
 import { getMetricTemplate } from "@/server/api/services/metric-templates";
@@ -140,6 +139,22 @@ export const dashboardRouter = createTRPCRouter({
             ),
             xAxisKey: z.string(),
             dataKeys: z.array(z.string()),
+            // Rich chart metadata
+            title: z.string(),
+            description: z.string(),
+            xAxisLabel: z.string(),
+            yAxisLabel: z.string(),
+            // Feature flags
+            showLegend: z.boolean(),
+            showTooltip: z.boolean(),
+            stacked: z.boolean().optional(),
+            // Pie/Radial specific
+            centerLabel: z
+              .object({
+                value: z.string(),
+                label: z.string(),
+              })
+              .optional(),
             reasoning: z.string(),
           })
           .optional(),
@@ -306,10 +321,6 @@ export const dashboardRouter = createTRPCRouter({
           .describe(
             "Optional hint like 'show as pie chart' or 'group by month'",
           ),
-        useFallback: z
-          .boolean()
-          .optional()
-          .describe("Use simple fallback instead of AI"),
       }),
     )
     .mutation(async ({ ctx, input }) => {
@@ -379,38 +390,22 @@ export const dashboardRouter = createTRPCRouter({
         }
       }
 
-      // Use fallback if requested or AI unavailable
-      if (input.useFallback) {
-        const result = transformMetricSimple(metricWithFreshData);
-        return {
-          success: true,
-          data: result,
-          usedAI: false,
-        };
-      }
-
-      // Transform using AI with tools
+      // Transform using AI
       const result = await transformMetricWithAI(
         metricWithFreshData,
         input.userHint,
       );
 
       if (!result.success) {
-        // Fall back to simple transformation on AI failure
-        const fallbackResult = transformMetricSimple(metricWithFreshData);
-        return {
-          success: true,
-          data: fallbackResult,
-          usedAI: false,
-          aiError: result.error,
-        };
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: result.error ?? "AI transformation failed",
+        });
       }
 
       return {
         success: true,
         data: result.data,
-        usedAI: true,
-        toolCalls: result.toolCalls,
       };
     }),
 

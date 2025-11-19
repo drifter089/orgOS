@@ -60,17 +60,36 @@ export function DashboardClient({
   };
 
   const renderChart = (chart: DisplayedChart) => {
-    const { chartTransform, metricName } = chart;
-    const { chartType, chartData, chartConfig, xAxisKey, dataKeys } =
-      chartTransform;
+    const { chartTransform } = chart;
+    const {
+      chartType,
+      chartData,
+      chartConfig,
+      xAxisKey,
+      dataKeys,
+      title,
+      description,
+      xAxisLabel,
+      yAxisLabel,
+      showLegend,
+      showTooltip,
+      stacked,
+      centerLabel,
+    } = chartTransform;
 
     const chartProps = {
       chartData,
       chartConfig,
       xAxisKey,
       dataKeys,
-      title: metricName,
-      description: chartTransform.reasoning,
+      title,
+      description,
+      xAxisLabel,
+      yAxisLabel,
+      showLegend,
+      showTooltip,
+      stacked,
+      centerLabel,
     };
 
     switch (chartType) {

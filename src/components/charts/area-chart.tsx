@@ -1,6 +1,6 @@
 "use client";
 
-import { Area, AreaChart, CartesianGrid, XAxis } from "recharts";
+import { Area, AreaChart, CartesianGrid, XAxis, YAxis } from "recharts";
 
 import {
   Card,
@@ -26,6 +26,11 @@ export function DashboardAreaChart({
   dataKeys,
   title,
   description,
+  xAxisLabel,
+  yAxisLabel,
+  showLegend = true,
+  showTooltip = true,
+  stacked = true,
 }: ChartComponentProps) {
   return (
     <Card>
@@ -82,28 +87,55 @@ export function DashboardAreaChart({
                 }
                 return strValue.slice(0, 10);
               }}
-            />
-            <ChartTooltip
-              cursor={false}
-              content={
-                <ChartTooltipContent
-                  labelFormatter={(value: string | number) => {
-                    const strValue = String(value);
-                    if (
-                      strValue.includes("-") &&
-                      !isNaN(Date.parse(strValue))
-                    ) {
-                      return new Date(strValue).toLocaleDateString("en-US", {
-                        month: "short",
-                        day: "numeric",
-                      });
+              label={
+                xAxisLabel
+                  ? {
+                      value: xAxisLabel,
+                      position: "insideBottom",
+                      offset: -5,
+                      className: "fill-muted-foreground text-xs",
                     }
-                    return strValue;
-                  }}
-                  indicator="dot"
-                />
+                  : undefined
               }
             />
+            <YAxis
+              tickLine={false}
+              axisLine={false}
+              tickMargin={8}
+              label={
+                yAxisLabel
+                  ? {
+                      value: yAxisLabel,
+                      angle: -90,
+                      position: "insideLeft",
+                      className: "fill-muted-foreground text-xs",
+                    }
+                  : undefined
+              }
+            />
+            {showTooltip && (
+              <ChartTooltip
+                cursor={false}
+                content={
+                  <ChartTooltipContent
+                    labelFormatter={(value: string | number) => {
+                      const strValue = String(value);
+                      if (
+                        strValue.includes("-") &&
+                        !isNaN(Date.parse(strValue))
+                      ) {
+                        return new Date(strValue).toLocaleDateString("en-US", {
+                          month: "short",
+                          day: "numeric",
+                        });
+                      }
+                      return strValue;
+                    }}
+                    indicator="dot"
+                  />
+                }
+              />
+            )}
             {dataKeys.map((key) => (
               <Area
                 key={key}
@@ -111,10 +143,10 @@ export function DashboardAreaChart({
                 type="natural"
                 fill={`url(#fill${key})`}
                 stroke={`var(--color-${key})`}
-                stackId="a"
+                stackId={stacked ? "a" : undefined}
               />
             ))}
-            <ChartLegend content={<ChartLegendContent />} />
+            {showLegend && <ChartLegend content={<ChartLegendContent />} />}
           </AreaChart>
         </ChartContainer>
       </CardContent>

@@ -11,6 +11,8 @@ import {
 } from "@/components/ui/card";
 import {
   ChartContainer,
+  ChartLegend,
+  ChartLegendContent,
   ChartTooltip,
   ChartTooltipContent,
 } from "@/components/ui/chart";
@@ -24,6 +26,8 @@ export function DashboardRadarChart({
   dataKeys,
   title,
   description,
+  showLegend = true,
+  showTooltip = true,
 }: ChartComponentProps) {
   return (
     <Card>
@@ -39,7 +43,9 @@ export function DashboardRadarChart({
           className="mx-auto aspect-square max-h-[250px]"
         >
           <RadarChart data={chartData}>
-            <ChartTooltip cursor={false} content={<ChartTooltipContent />} />
+            {showTooltip && (
+              <ChartTooltip cursor={false} content={<ChartTooltipContent />} />
+            )}
             <PolarAngleAxis dataKey={xAxisKey} />
             <PolarGrid />
             {dataKeys.map((key) => (
@@ -54,6 +60,7 @@ export function DashboardRadarChart({
                 }}
               />
             ))}
+            {showLegend && <ChartLegend content={<ChartLegendContent />} />}
           </RadarChart>
         </ChartContainer>
       </CardContent>
