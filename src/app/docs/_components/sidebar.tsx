@@ -12,6 +12,7 @@ import {
   FolderGit2,
   Home,
   Menu,
+  Plug,
   TestTube2,
   Workflow,
   Wrench,
@@ -64,6 +65,12 @@ const docsRoutes = [
       { title: "React Flow", href: "/docs/react-flow", icon: Workflow },
       { title: "AI & Dev Tools", href: "/docs/ai-and-dev-tools", icon: Wrench },
       { title: "CI/CD", href: "/docs/ci-cd", icon: Code },
+    ],
+  },
+  {
+    title: "Integrations",
+    items: [
+      { title: "Nango Platform", href: "/docs/integrations/nango", icon: Plug },
     ],
   },
   {
