@@ -23,24 +23,27 @@ export function TransitionProvider({
           })
           .fromTo(
             firstLayer.current,
-            { x: "-100%" },
+            { x: "-100%", opacity: 0 },
             {
               x: 0,
-              duration: 0.5,
-              ease: "circ.inOut",
+              opacity: 1,
+              duration: 0.4,
+              ease: "power2.inOut",
             },
           )
           .fromTo(
             secondLayer.current,
             {
               x: "-100%",
+              opacity: 0,
             },
             {
               x: 0,
-              duration: 0.5,
-              ease: "circ.inOut",
+              opacity: 1,
+              duration: 0.4,
+              ease: "power2.inOut",
             },
-            "<50%",
+            "<40%",
           );
 
         return () => {
@@ -52,24 +55,26 @@ export function TransitionProvider({
           .timeline()
           .fromTo(
             secondLayer.current,
-            { x: 0 },
+            { x: 0, opacity: 1 },
             {
               x: "100%",
-              duration: 0.5,
-              ease: "circ.inOut",
+              opacity: 0,
+              duration: 0.4,
+              ease: "power2.inOut",
             },
           )
           .fromTo(
             firstLayer.current,
-            { x: 0 },
+            { x: 0, opacity: 1 },
             {
               x: "100%",
-              duration: 0.5,
-              ease: "circ.inOut",
+              opacity: 0,
+              duration: 0.4,
+              ease: "power2.inOut",
             },
-            "<50%",
+            "<40%",
           )
-          .call(next, undefined, "<50%");
+          .call(next, undefined, "<40%");
 
         return () => {
           tl.kill();
@@ -80,11 +85,11 @@ export function TransitionProvider({
 
       <div
         ref={firstLayer}
-        className="bg-card fixed inset-0 z-999 -translate-x-full"
+        className="bg-primary/20 fixed inset-0 z-999 -translate-x-full backdrop-blur-md"
       />
       <div
         ref={secondLayer}
-        className="bg-card fixed inset-0 z-999 -translate-x-full"
+        className="bg-accent/30 fixed inset-0 z-999 -translate-x-full backdrop-blur-sm"
       />
     </TransitionRouter>
   );
