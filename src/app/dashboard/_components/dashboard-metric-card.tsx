@@ -1,18 +1,16 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
+
+import { Loader2, RefreshCw, Sparkles, Trash2 } from "lucide-react";
 
 import {
-  BarChart3,
-  ChevronDown,
-  ChevronUp,
-  Database,
-  Loader2,
-  Sparkles,
-  Trash2,
-} from "lucide-react";
-
-import { JsonViewer } from "@/components/json-viewer";
+  DashboardAreaChart,
+  DashboardBarChart,
+  DashboardPieChart,
+  DashboardRadarChart,
+  DashboardRadialChart,
+} from "@/components/charts";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -27,11 +25,9 @@ import { useConfirmation } from "@/providers/ConfirmationDialogProvider";
 import type { RouterOutputs } from "@/trpc/react";
 import { api } from "@/trpc/react";
 
-// Infer types from tRPC router
 type DashboardMetrics = RouterOutputs["dashboard"]["getDashboardMetrics"];
 type DashboardMetricWithRelations = DashboardMetrics[number];
 
-// Chart type union
 export type ChartType =
   | "line"
   | "bar"
@@ -41,23 +37,19 @@ export type ChartType =
   | "radial"
   | "kpi";
 
-// Chart transform result type with rich metadata
 export interface ChartTransformResult {
   chartType: ChartType;
   chartData: Array<Record<string, string | number>>;
   chartConfig: Record<string, { label: string; color: string }>;
   xAxisKey: string;
   dataKeys: string[];
-  // Rich chart metadata
   title: string;
   description: string;
   xAxisLabel: string;
   yAxisLabel: string;
-  // Feature flags
   showLegend: boolean;
   showTooltip: boolean;
   stacked?: boolean;
-  // Pie/Radial specific
   centerLabel?: { value: string; label: string };
   reasoning: string;
 }
@@ -70,38 +62,41 @@ export interface DisplayedChart {
 
 interface DashboardMetricCardProps {
   dashboardMetric: DashboardMetricWithRelations;
-  onShowChart?: (chart: DisplayedChart) => void;
+  autoTrigger?: boolean;
 }
 
 export function DashboardMetricCard({
   dashboardMetric,
-  onShowChart,
+  autoTrigger = true,
 }: DashboardMetricCardProps) {
-  const [chartDataExpanded, setChartDataExpanded] = useState(true);
-  const [transformHint, setTransformHint] = useState("");
-  const [fetchedData, setFetchedData] = useState<unknown>(null);
+  const [prompt, setPrompt] = useState("");
+  const [isProcessing, setIsProcessing] = useState(false);
+  const hasTriggeredRef = useRef(false);
 
   const utils = api.useUtils();
   const { confirm } = useConfirmation();
 
-  // Check if this is a pending optimistic update (temp ID)
   const isPending = dashboardMetric.id.startsWith("temp-");
+  const { metric } = dashboardMetric;
+  const isIntegrationMetric = !!metric.integrationId;
 
-  // Remove from dashboard mutation with optimistic update
+  const chartTransform =
+    dashboardMetric.graphConfig as unknown as ChartTransformResult | null;
+  const hasChartData = !!(
+    chartTransform?.chartData && chartTransform.chartData.length > 0
+  );
+
   const removeMetricMutation =
     api.dashboard.removeMetricFromDashboard.useMutation({
       onMutate: async ({ dashboardMetricId }) => {
-        // Cancel pending refetches
         await utils.dashboard.getDashboardMetrics.cancel();
         await utils.dashboard.getAvailableMetrics.cancel();
 
-        // Snapshot previous data
         const previousDashboardMetrics =
           utils.dashboard.getDashboardMetrics.getData();
         const previousAvailableMetrics =
           utils.dashboard.getAvailableMetrics.getData();
 
-        // Optimistically remove from dashboard
         if (previousDashboardMetrics) {
           const removedMetric = previousDashboardMetrics.find(
             (dm) => dm.id === dashboardMetricId,
@@ -114,7 +109,6 @@ export function DashboardMetricCard({
             ),
           );
 
-          // Optimistically add back to available metrics
           if (removedMetric && previousAvailableMetrics) {
             utils.dashboard.getAvailableMetrics.setData(undefined, [
               ...previousAvailableMetrics,
@@ -126,7 +120,6 @@ export function DashboardMetricCard({
         return { previousDashboardMetrics, previousAvailableMetrics };
       },
       onError: (_err, _variables, context) => {
-        // Revert on error
         if (context?.previousDashboardMetrics) {
           utils.dashboard.getDashboardMetrics.setData(
             undefined,
@@ -141,37 +134,70 @@ export function DashboardMetricCard({
         }
       },
       onSettled: async () => {
-        // Only invalidate available metrics to sync with server
-        // Dashboard metrics are already correctly updated in onMutate
         await utils.dashboard.getAvailableMetrics.invalidate();
       },
     });
 
-  // Fetch metric data mutation
-  const fetchDataMutation = api.dashboard.fetchMetricData.useMutation({
-    onSuccess: (result) => {
-      setFetchedData(result.data);
-    },
-  });
-
-  // Transform with AI mutation
+  const fetchDataMutation = api.dashboard.fetchMetricData.useMutation();
   const transformMutation = api.dashboard.transformMetricForChart.useMutation();
   const updateConfigMutation = api.dashboard.updateGraphConfig.useMutation({
     onSuccess: (updatedDashboardMetric) => {
-      // Direct cache update instead of invalidation
       utils.dashboard.getDashboardMetrics.setData(undefined, (old) =>
         old?.map((dm) =>
           dm.id === updatedDashboardMetric.id ? updatedDashboardMetric : dm,
         ),
       );
-      setTransformHint("");
     },
   });
+
+  const handleFetchAndTransform = async (userHint?: string) => {
+    if (!isIntegrationMetric) return;
+
+    setIsProcessing(true);
+    try {
+      const fetchResult = await fetchDataMutation.mutateAsync({
+        metricId: metric.id,
+      });
+
+      const transformResult = await transformMutation.mutateAsync({
+        metricId: metric.id,
+        rawData: fetchResult.data,
+        userHint: userHint || undefined,
+      });
+
+      if (transformResult.success && transformResult.data) {
+        await updateConfigMutation.mutateAsync({
+          dashboardMetricId: dashboardMetric.id,
+          chartTransform: transformResult.data,
+        });
+      }
+    } catch (error) {
+      console.error("Fetch and transform failed:", error);
+    } finally {
+      setIsProcessing(false);
+      setPrompt("");
+    }
+  };
+
+  // Auto-trigger fetch and transform for new metrics
+  useEffect(() => {
+    if (
+      autoTrigger &&
+      isIntegrationMetric &&
+      !hasChartData &&
+      !isPending &&
+      !hasTriggeredRef.current &&
+      !isProcessing
+    ) {
+      hasTriggeredRef.current = true;
+      void handleFetchAndTransform();
+    }
+  }, [autoTrigger, isIntegrationMetric, hasChartData, isPending, isProcessing]);
 
   const handleRemove = async () => {
     const confirmed = await confirm({
       title: "Remove metric from dashboard",
-      description: `Are you sure you want to remove "${dashboardMetric.metric.name}" from your dashboard? The metric will still be available to add again later.`,
+      description: `Are you sure you want to remove "${metric.name}" from your dashboard? The metric will still be available to add again later.`,
       confirmText: "Remove",
       variant: "destructive",
     });
@@ -183,57 +209,44 @@ export function DashboardMetricCard({
     }
   };
 
-  const handleFetchData = () => {
-    fetchDataMutation.mutate({
-      metricId: dashboardMetric.metric.id,
-    });
+  const handleRegenerate = () => {
+    void handleFetchAndTransform(prompt);
   };
 
-  const handleTransform = async () => {
-    try {
-      const result = await transformMutation.mutateAsync({
-        metricId: dashboardMetric.metric.id,
-        rawData: fetchedData ?? undefined,
-        userHint: transformHint || undefined,
-      });
+  const renderChart = () => {
+    if (!chartTransform) return null;
 
-      if (result.success && result.data) {
-        await updateConfigMutation.mutateAsync({
-          dashboardMetricId: dashboardMetric.id,
-          chartTransform: result.data,
-        });
-      }
-    } catch (error) {
-      console.error("Transform failed:", error);
+    const chartProps = {
+      chartData: chartTransform.chartData,
+      chartConfig: chartTransform.chartConfig,
+      xAxisKey: chartTransform.xAxisKey,
+      dataKeys: chartTransform.dataKeys,
+      title: "",
+      description: "",
+      xAxisLabel: chartTransform.xAxisLabel,
+      yAxisLabel: chartTransform.yAxisLabel,
+      showLegend: chartTransform.showLegend,
+      showTooltip: chartTransform.showTooltip,
+      stacked: chartTransform.stacked,
+      centerLabel: chartTransform.centerLabel,
+    };
+
+    switch (chartTransform.chartType) {
+      case "line":
+      case "area":
+        return <DashboardAreaChart {...chartProps} />;
+      case "bar":
+        return <DashboardBarChart {...chartProps} />;
+      case "pie":
+        return <DashboardPieChart {...chartProps} />;
+      case "radar":
+        return <DashboardRadarChart {...chartProps} />;
+      case "radial":
+        return <DashboardRadialChart {...chartProps} />;
+      default:
+        return <DashboardBarChart {...chartProps} />;
     }
   };
-
-  const { metric } = dashboardMetric;
-  const isIntegrationMetric = !!metric.integrationId;
-
-  // Get chart transform result from graphConfig
-  const chartTransform =
-    dashboardMetric.graphConfig as unknown as ChartTransformResult | null;
-  const hasChartData = !!(
-    chartTransform?.chartData && chartTransform.chartData.length > 0
-  );
-
-  const handleShowChart = () => {
-    if (chartTransform && onShowChart) {
-      onShowChart({
-        id: dashboardMetric.id,
-        metricName: metric.name,
-        chartTransform,
-      });
-    }
-  };
-
-  const isFetching = fetchDataMutation.isPending;
-  const isTransforming =
-    transformMutation.isPending || updateConfigMutation.isPending;
-
-  // AI button is enabled only if data has been fetched
-  const canTransform = fetchedData !== null;
 
   return (
     <Card
@@ -244,13 +257,13 @@ export function DashboardMetricCard({
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-2">
               <CardTitle className="truncate text-lg">{metric.name}</CardTitle>
-              {isPending && (
+              {(isPending || isProcessing) && (
                 <Badge
                   variant="outline"
                   className="text-muted-foreground text-xs"
                 >
                   <Loader2 className="mr-1 h-3 w-3 animate-spin" />
-                  Saving...
+                  {isPending ? "Saving..." : "Processing..."}
                 </Badge>
               )}
               {metric.integration && (
@@ -275,7 +288,7 @@ export function DashboardMetricCard({
             size="icon"
             onClick={handleRemove}
             disabled={isPending || removeMetricMutation.isPending}
-            className="flex-shrink-0"
+            className="h-8 w-8 flex-shrink-0"
           >
             {removeMetricMutation.isPending ? (
               <Loader2 className="h-4 w-4 animate-spin" />
@@ -284,172 +297,76 @@ export function DashboardMetricCard({
             )}
           </Button>
         </div>
-
-        {/* Metric Stats */}
-        <div className="text-muted-foreground mt-2 flex gap-4 text-sm">
-          <div>
-            <span className="font-medium">Current: </span>
-            {metric.currentValue !== null
-              ? `${metric.currentValue}${metric.unit ? ` ${metric.unit}` : ""}`
-              : "N/A"}
-          </div>
-          {metric.targetValue !== null && (
-            <div>
-              <span className="font-medium">Target: </span>
-              {metric.targetValue}
-              {metric.unit ? ` ${metric.unit}` : ""}
-            </div>
-          )}
-        </div>
       </CardHeader>
 
-      <CardContent className="flex-1 space-y-4">
-        {/* Action Buttons - Fetch Data and Transform */}
-        {isIntegrationMetric && (
-          <div className="flex gap-2">
+      <CardContent className="flex-1 space-y-3">
+        {hasChartData && (
+          <div className="rounded-md border p-2">{renderChart()}</div>
+        )}
+
+        {!hasChartData && !isProcessing && (
+          <div className="text-muted-foreground rounded-md border border-dashed p-4 text-center text-sm">
+            {isIntegrationMetric
+              ? "Loading chart..."
+              : "Manual metrics don't have charts"}
+          </div>
+        )}
+
+        {isProcessing && (
+          <div className="flex items-center justify-center rounded-md border border-dashed p-8">
+            <div className="text-center">
+              <Loader2 className="text-muted-foreground mx-auto h-6 w-6 animate-spin" />
+              <p className="text-muted-foreground mt-2 text-sm">
+                Fetching data and generating chart...
+              </p>
+            </div>
+          </div>
+        )}
+
+        {hasChartData && isIntegrationMetric && (
+          <div className="flex items-center gap-2">
+            <Input
+              placeholder="Try: 'pie chart' or 'by month'"
+              value={prompt}
+              onChange={(e) => setPrompt(e.target.value)}
+              disabled={isProcessing}
+              className="h-8 text-xs"
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && !isProcessing) {
+                  handleRegenerate();
+                }
+              }}
+            />
             <Button
               variant="outline"
-              size="sm"
-              onClick={handleFetchData}
-              disabled={isPending || isFetching}
-              className="flex-1"
+              size="icon"
+              onClick={handleRegenerate}
+              disabled={isProcessing}
+              className="h-8 w-8 flex-shrink-0"
+              title="Regenerate chart"
             >
-              {isFetching ? (
-                <>
-                  <Loader2 className="mr-2 h-3 w-3 animate-spin" />
-                  Fetching...
-                </>
+              {isProcessing ? (
+                <Loader2 className="h-3 w-3 animate-spin" />
               ) : (
-                <>
-                  <Database className="mr-2 h-3 w-3" />
-                  Fetch Data
-                </>
+                <Sparkles className="h-3 w-3" />
               )}
             </Button>
             <Button
-              size="sm"
-              onClick={handleTransform}
-              disabled={isPending || !canTransform || isTransforming}
-              className="flex-1"
-              title={
-                !canTransform
-                  ? "Fetch data first before transforming"
-                  : undefined
-              }
+              variant="outline"
+              size="icon"
+              onClick={() => handleFetchAndTransform()}
+              disabled={isProcessing}
+              className="h-8 w-8 flex-shrink-0"
+              title="Refetch data"
             >
-              {isTransforming ? (
-                <>
-                  <Loader2 className="mr-2 h-3 w-3 animate-spin" />
-                  Analyzing...
-                </>
-              ) : (
-                <>
-                  <Sparkles className="mr-2 h-3 w-3" />
-                  Transform with AI
-                </>
-              )}
+              <RefreshCw className="h-3 w-3" />
             </Button>
           </div>
         )}
 
-        {/* Show Chart Button - enabled after AI transform */}
-        {hasChartData && onShowChart && (
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={handleShowChart}
-            className="w-full"
-          >
-            <BarChart3 className="mr-2 h-3 w-3" />
-            Show Chart
-          </Button>
-        )}
-
-        {/* Transform Hint Input */}
-        {canTransform && (
-          <Input
-            placeholder="Optional: 'show as pie chart' or 'group by week'"
-            value={transformHint}
-            onChange={(e) => setTransformHint(e.target.value)}
-            disabled={isTransforming}
-            className="text-sm"
-          />
-        )}
-
-        {/* Fetched Raw Data Preview */}
-        {fetchedData !== null && (
-          <div className="space-y-2">
-            <div className="text-sm font-medium">Raw Fetched Data</div>
-            <JsonViewer data={fetchedData} maxPreviewHeight="200px" />
-          </div>
-        )}
-
-        {/* AI Reasoning */}
-        {chartTransform?.reasoning && (
-          <div className="bg-muted/50 rounded-md p-3">
-            <div className="mb-1 flex items-center gap-2 text-xs font-medium">
-              <Sparkles className="h-3 w-3" />
-              AI Analysis
-            </div>
-            <p className="text-muted-foreground text-sm">
-              {chartTransform.reasoning}
-            </p>
-          </div>
-        )}
-
-        {/* Transformed Chart Config Preview */}
-        {hasChartData && (
-          <div className="space-y-2">
-            <button
-              onClick={() => setChartDataExpanded(!chartDataExpanded)}
-              className="hover:text-primary flex items-center gap-2 text-sm font-medium transition-colors"
-            >
-              {chartDataExpanded ? (
-                <ChevronUp className="h-4 w-4" />
-              ) : (
-                <ChevronDown className="h-4 w-4" />
-              )}
-              Transformed Chart Data ({chartTransform?.chartData?.length ?? 0}{" "}
-              points)
-            </button>
-
-            {chartDataExpanded && (
-              <div className="space-y-3">
-                {/* Summary */}
-                <div className="bg-muted/30 rounded-md px-3 py-2">
-                  <div className="flex flex-wrap gap-3 text-xs">
-                    <span>
-                      <strong>Type:</strong> {chartTransform?.chartType}
-                    </span>
-                    <span>
-                      <strong>X-Axis:</strong> {chartTransform?.xAxisKey}
-                    </span>
-                    <span>
-                      <strong>Data Keys:</strong>{" "}
-                      {chartTransform?.dataKeys?.join(", ")}
-                    </span>
-                  </div>
-                </div>
-
-                {/* Full Transform Result */}
-                <JsonViewer data={chartTransform} maxPreviewHeight="250px" />
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* No chart data message */}
-        {!hasChartData && !fetchedData && (
-          <div className="text-muted-foreground rounded-md border border-dashed p-4 text-center text-sm">
-            Click &quot;Fetch Data&quot; to load raw data, then &quot;Transform
-            with AI&quot; to generate chart config.
-          </div>
-        )}
-
-        {/* Last Fetched */}
         {metric.lastFetchedAt && (
           <div className="text-muted-foreground text-xs">
-            Last updated: {new Date(metric.lastFetchedAt).toLocaleString()}
+            Updated: {new Date(metric.lastFetchedAt).toLocaleString()}
           </div>
         )}
       </CardContent>
