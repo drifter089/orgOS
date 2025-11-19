@@ -14,7 +14,7 @@ export const env = createEnv({
     WORKOS_DIR_ID: z.string().optional(),
     NANGO_SECRET_KEY_DEV: z.string().min(1),
     NANGO_WEBHOOK_SECRET: z.string().optional(),
-    OPENROUTER_API_KEY: z.string().min(1),
+    OPENROUTER_API_KEY: z.string().min(1).optional(),
   },
 
   /**
