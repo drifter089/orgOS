@@ -4,15 +4,13 @@ import { useState } from "react";
 
 import {
   BarChart3,
-  ChevronDown,
-  ChevronUp,
+  Check,
   Database,
   Loader2,
   Sparkles,
   Trash2,
 } from "lucide-react";
 
-import { JsonViewer } from "@/components/json-viewer";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -77,7 +75,6 @@ export function DashboardMetricCard({
   dashboardMetric,
   onShowChart,
 }: DashboardMetricCardProps) {
-  const [chartDataExpanded, setChartDataExpanded] = useState(true);
   const [transformHint, setTransformHint] = useState("");
   const [fetchedData, setFetchedData] = useState<unknown>(null);
 
@@ -376,11 +373,13 @@ export function DashboardMetricCard({
           />
         )}
 
-        {/* Fetched Raw Data Preview */}
+        {/* Data Loaded Indicator */}
         {fetchedData !== null && (
-          <div className="space-y-2">
-            <div className="text-sm font-medium">Raw Fetched Data</div>
-            <JsonViewer data={fetchedData} maxPreviewHeight="200px" />
+          <div className="bg-muted/50 flex items-center gap-2 rounded-md p-2 text-sm">
+            <Check className="h-4 w-4 text-green-600" />
+            <span className="text-muted-foreground">
+              Data loaded - ready to transform
+            </span>
           </div>
         )}
 
@@ -394,47 +393,6 @@ export function DashboardMetricCard({
             <p className="text-muted-foreground text-sm">
               {chartTransform.reasoning}
             </p>
-          </div>
-        )}
-
-        {/* Transformed Chart Config Preview */}
-        {hasChartData && (
-          <div className="space-y-2">
-            <button
-              onClick={() => setChartDataExpanded(!chartDataExpanded)}
-              className="hover:text-primary flex items-center gap-2 text-sm font-medium transition-colors"
-            >
-              {chartDataExpanded ? (
-                <ChevronUp className="h-4 w-4" />
-              ) : (
-                <ChevronDown className="h-4 w-4" />
-              )}
-              Transformed Chart Data ({chartTransform?.chartData?.length ?? 0}{" "}
-              points)
-            </button>
-
-            {chartDataExpanded && (
-              <div className="space-y-3">
-                {/* Summary */}
-                <div className="bg-muted/30 rounded-md px-3 py-2">
-                  <div className="flex flex-wrap gap-3 text-xs">
-                    <span>
-                      <strong>Type:</strong> {chartTransform?.chartType}
-                    </span>
-                    <span>
-                      <strong>X-Axis:</strong> {chartTransform?.xAxisKey}
-                    </span>
-                    <span>
-                      <strong>Data Keys:</strong>{" "}
-                      {chartTransform?.dataKeys?.join(", ")}
-                    </span>
-                  </div>
-                </div>
-
-                {/* Full Transform Result */}
-                <JsonViewer data={chartTransform} maxPreviewHeight="250px" />
-              </div>
-            )}
           </div>
         )}
 
