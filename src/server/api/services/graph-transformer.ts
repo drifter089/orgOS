@@ -104,7 +104,7 @@ RESPOND WITH ONLY VALID JSON in this exact format:
 ## Styling Configuration:
 
 ### Colors:
-- Use var(--chart-1) through var(--chart-5)
+- Use var(--chart-1) through var(--chart-12)
 - For pie charts, add "fill" property to each data point
 
 ### Labels:
@@ -175,7 +175,7 @@ RESPOND WITH ONLY VALID JSON in this exact format:
       model: openrouter("google/gemini-2.5-pro-preview"),
       system: systemPrompt,
       messages: [{ role: "user", content: userMessage }],
-      maxTokens: 8192,
+      maxOutputTokens: 8192,
     });
 
     // Parse the JSON response
@@ -222,7 +222,7 @@ RESPOND WITH ONLY VALID JSON in this exact format:
       chartResult.dataKeys.forEach((key, index) => {
         chartResult.chartConfig[key] = {
           label: key,
-          color: `var(--chart-${(index % 5) + 1})`,
+          color: `var(--chart-${(index % 12) + 1})`,
         };
       });
     }

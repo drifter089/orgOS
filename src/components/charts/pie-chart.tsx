@@ -64,7 +64,7 @@ export function DashboardPieChart({
                 <Cell
                   key={`cell-${index}`}
                   fill={
-                    (entry.fill as string) ?? `var(--chart-${(index % 5) + 1})`
+                    (entry.fill as string) ?? `var(--chart-${(index % 12) + 1})`
                   }
                 />
               ))}
@@ -100,7 +100,11 @@ export function DashboardPieChart({
                 />
               )}
             </Pie>
-            {showLegend && <ChartLegend content={<ChartLegendContent />} />}
+            {showLegend && (
+              <ChartLegend
+                content={<ChartLegendContent nameKey={xAxisKey} />}
+              />
+            )}
           </PieChart>
         </ChartContainer>
       </CardContent>
