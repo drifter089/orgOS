@@ -220,13 +220,13 @@ export function FancyNav({
       // Get the initial collapsed height (dynamic based on pill vs breadcrumb mode)
       const collapsedHeight = pillElement.offsetHeight;
 
-      // Step 1: Hide pill content (30% faster)
+      // Step 1: Hide pill content (44% faster than original)
       tl.to(
         ".pill-content",
         {
           opacity: 0,
           scale: 0.8,
-          duration: 0.21,
+          duration: 0.17,
           ease: "power2.in",
         },
         0,
@@ -239,18 +239,18 @@ export function FancyNav({
           position: "absolute",
           pointerEvents: "none",
         },
-        0.21,
+        0.17,
       );
 
-      // Step 2: Expand width (30% faster)
+      // Step 2: Expand width (44% faster than original)
       tl.to(
         pillRef.current,
         {
           width: "min(800px, 90vw)",
-          duration: 0.28,
+          duration: 0.22,
           ease: "power3.out",
         },
-        0.07,
+        0.06,
       );
 
       // Step 3: Show expanded content early
@@ -260,10 +260,10 @@ export function FancyNav({
           display: "grid",
           opacity: 0,
         },
-        0.21,
+        0.17,
       );
 
-      // Step 4: Expand height (30% faster)
+      // Step 4: Expand height (44% faster than original)
       tl.fromTo(
         pillRef.current,
         {
@@ -271,20 +271,20 @@ export function FancyNav({
         },
         {
           height: "auto",
-          duration: 0.98,
+          duration: 0.78,
           ease: "power1.out",
         },
-        0.28,
+        0.22,
       );
 
-      // Step 5: Fade in expanded content (30% faster)
+      // Step 5: Fade in expanded content (44% faster than original)
       tl.to(
         expandedRef.current,
         {
           opacity: 1,
-          duration: 0.21,
+          duration: 0.17,
         },
-        0.63,
+        0.5,
       );
 
       tl.from(
@@ -292,36 +292,36 @@ export function FancyNav({
         {
           scale: 0.95,
           y: 10,
-          duration: 0.35,
+          duration: 0.28,
           ease: "back.out(1.5)",
         },
-        0.63,
+        0.5,
       );
 
-      // Step 5: Stagger menu items (30% faster)
+      // Step 5: Stagger menu items (44% faster than original)
       tl.from(
         ".menu-item",
         {
           opacity: 0,
           x: -15,
           y: 8,
-          duration: 0.35,
-          stagger: 0.056,
+          duration: 0.28,
+          stagger: 0.045,
           ease: "back.out(1.5)",
         },
-        0.7,
+        0.56,
       );
 
-      // Step 6: Show actions (30% faster)
+      // Step 6: Show actions (44% faster than original)
       tl.from(
         actionsRef.current,
         {
           opacity: 0,
           y: 15,
-          duration: 0.35,
+          duration: 0.28,
           ease: "back.out(2)",
         },
-        0.98,
+        0.78,
       );
 
       // Store timeline reference
@@ -384,7 +384,7 @@ export function FancyNav({
             <>
               {/* Breadcrumb Navigation Mode */}
               <Breadcrumb>
-                <BreadcrumbList className="gap-1.5">
+                <BreadcrumbList className="flex-nowrap gap-1.5">
                   {breadcrumbs.map((item, index) => (
                     <div key={item.id} className="flex items-center gap-1.5">
                       {/* Breadcrumb Item */}
