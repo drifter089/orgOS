@@ -1,22 +1,15 @@
 "use client";
 
-import { type ComponentProps, useState } from "react";
+import { useState } from "react";
 
+import * as SheetPrimitive from "@radix-ui/react-dialog";
 import type { User } from "@workos-inc/node";
 import { Loader2, Mail, Trash2 } from "lucide-react";
 
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-  Sidebar,
-  SidebarContent,
-  SidebarGroup,
-  SidebarGroupContent,
-  SidebarGroupLabel,
-  SidebarHeader,
-  SidebarSeparator,
-} from "@/components/ui/sidebar";
+import { Sheet } from "@/components/ui/sheet";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import { useConfirmation } from "@/providers/ConfirmationDialogProvider";
@@ -24,8 +17,44 @@ import { api } from "@/trpc/react";
 
 import { useTeamStore } from "../store/team-store";
 import { CreateRoleDialog } from "./role-dialog";
+import { TeamSheetEdgeTrigger } from "./team-sheet-edge-trigger";
 
-interface TeamSidebarProps extends ComponentProps<typeof Sidebar> {
+/**
+ * Custom sheet content without modal overlay
+ * Used for non-modal sidebar that allows canvas interaction
+ */
+function NonModalSheetContent({
+  className,
+  children,
+  side = "right",
+  ...props
+}: React.ComponentProps<typeof SheetPrimitive.Content> & {
+  side?: "top" | "right" | "bottom" | "left";
+}) {
+  return (
+    <SheetPrimitive.Portal>
+      <SheetPrimitive.Content
+        className={cn(
+          "bg-background data-[state=open]:animate-in data-[state=closed]:animate-out fixed z-40 flex flex-col gap-4 shadow-lg transition ease-in-out data-[state=closed]:duration-300 data-[state=open]:duration-500",
+          side === "right" &&
+            "data-[state=closed]:slide-out-to-right data-[state=open]:slide-in-from-right inset-y-0 right-0 h-full border-l",
+          side === "left" &&
+            "data-[state=closed]:slide-out-to-left data-[state=open]:slide-in-from-left inset-y-0 left-0 h-full border-r",
+          className,
+        )}
+        {...props}
+      >
+        {/* Hidden title for accessibility */}
+        <SheetPrimitive.Title className="sr-only">
+          Team Sidebar
+        </SheetPrimitive.Title>
+        {children}
+      </SheetPrimitive.Content>
+    </SheetPrimitive.Portal>
+  );
+}
+
+interface TeamSheetSidebarProps {
   teamId: string;
   teamName: string;
   teamDescription?: string | null;
@@ -235,13 +264,19 @@ function RolesList({ teamId }: { teamId: string }) {
   );
 }
 
-export function TeamSidebar({
+/**
+ * Sheet-based sidebar for team management
+ * Closed by default to allow data prefetching while user interacts with canvas
+ */
+export function TeamSheetSidebar({
   teamId,
   teamName,
   teamDescription,
   roleCount,
-  ...props
-}: TeamSidebarProps) {
+}: TeamSheetSidebarProps) {
+  // Closed by default to allow data prefetching
+  const [isOpen, setIsOpen] = useState(false);
+
   const { data: members, isLoading: membersLoading } =
     api.organization.getCurrentOrgMembers.useQuery();
 
@@ -258,105 +293,103 @@ export function TeamSidebar({
   );
 
   return (
-    <Sidebar
-      side="right"
-      collapsible="offcanvas"
-      className="bg-sidebar border-l"
-      style={
-        {
-          "--sidebar-width": "24rem",
-        } as React.CSSProperties
-      }
-      {...props}
-    >
-      <SidebarHeader className="flex-shrink-0 border-b px-6 py-4">
-        <div className="space-y-3">
-          <div>
-            <h2 className="text-xl font-bold tracking-tight">{teamName}</h2>
-            {teamDescription && (
-              <p className="text-muted-foreground mt-1 line-clamp-2 text-sm leading-relaxed">
-                {teamDescription}
-              </p>
-            )}
-          </div>
-          <CreateRoleDialog teamId={teamId} />
-        </div>
-      </SidebarHeader>
-      <SidebarContent className="[&::-webkit-scrollbar-thumb]:bg-border/40 hover:[&::-webkit-scrollbar-thumb]:bg-border/60 overflow-x-hidden overflow-y-auto px-2 [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-track]:bg-transparent">
-        {/* Team Info */}
-        <SidebarGroup>
-          <SidebarGroupLabel className="text-muted-foreground px-4 text-xs font-semibold tracking-wider uppercase">
-            Team Info
-          </SidebarGroupLabel>
-          <SidebarGroupContent>
-            <div className="px-4 py-2">
-              <div className="bg-card flex items-center justify-between rounded-lg border px-3 py-2">
-                <span className="text-muted-foreground text-sm font-medium">
-                  Total Roles
-                </span>
-                <Badge variant="secondary" className="text-sm font-semibold">
-                  {roleCount}
-                </Badge>
+    <>
+      {/* Circular Edge Trigger Button */}
+      <TeamSheetEdgeTrigger
+        isOpen={isOpen}
+        onToggle={() => setIsOpen(!isOpen)}
+      />
+
+      {/* Sheet Sidebar */}
+      <Sheet open={isOpen} onOpenChange={setIsOpen} modal={false}>
+        <NonModalSheetContent
+          side="right"
+          className="w-[24rem] overflow-hidden p-0"
+        >
+          <div className="flex h-full flex-col">
+            {/* Header */}
+            <div className="flex-shrink-0 border-b px-6 py-4">
+              <div className="space-y-3">
+                <div>
+                  <h2 className="text-xl font-bold tracking-tight">
+                    {teamName}
+                  </h2>
+                  {teamDescription && (
+                    <p className="text-muted-foreground mt-1 line-clamp-2 text-sm leading-relaxed">
+                      {teamDescription}
+                    </p>
+                  )}
+                </div>
+                <CreateRoleDialog teamId={teamId} />
               </div>
             </div>
-          </SidebarGroupContent>
-        </SidebarGroup>
 
-        <SidebarSeparator />
+            {/* Scrollable Content */}
+            <div className="[&::-webkit-scrollbar-thumb]:bg-border/40 hover:[&::-webkit-scrollbar-thumb]:bg-border/60 flex-1 space-y-6 overflow-y-auto px-6 py-4 [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-track]:bg-transparent">
+              {/* Team Info */}
+              <div>
+                <h3 className="text-muted-foreground mb-2 text-xs font-semibold tracking-wider uppercase">
+                  Team Info
+                </h3>
+                <div className="bg-card flex items-center justify-between rounded-lg border px-3 py-2">
+                  <span className="text-muted-foreground text-sm font-medium">
+                    Total Roles
+                  </span>
+                  <Badge variant="secondary" className="text-sm font-semibold">
+                    {roleCount}
+                  </Badge>
+                </div>
+              </div>
 
-        {/* Organization Members */}
-        <SidebarGroup>
-          <div className="px-4">
-            <div className="flex items-center justify-between">
-              <SidebarGroupLabel className="text-muted-foreground px-0 text-xs font-semibold tracking-wider uppercase">
-                Team Members
-              </SidebarGroupLabel>
-              {members && (
-                <Badge variant="secondary" className="text-xs font-semibold">
-                  {members.length}
-                </Badge>
-              )}
+              {/* Organization Members */}
+              <div>
+                <div className="mb-2 flex items-center justify-between">
+                  <h3 className="text-muted-foreground text-xs font-semibold tracking-wider uppercase">
+                    Team Members
+                  </h3>
+                  {members && (
+                    <Badge
+                      variant="secondary"
+                      className="text-xs font-semibold"
+                    >
+                      {members.length}
+                    </Badge>
+                  )}
+                </div>
+                <div className="space-y-2">
+                  {membersLoading ? (
+                    <>
+                      {[1, 2, 3].map((i) => (
+                        <Skeleton key={i} className="h-16 w-full" />
+                      ))}
+                    </>
+                  ) : !members || members.length === 0 ? (
+                    <div className="text-muted-foreground flex flex-col items-center justify-center rounded-lg border border-dashed py-6 text-center">
+                      <p className="text-xs">No members found</p>
+                    </div>
+                  ) : (
+                    members.map((member) => (
+                      <MemberCard
+                        key={member.membership.id}
+                        user={member.user}
+                        roleCount={roleCountByUser[member.user.id] ?? 0}
+                      />
+                    ))
+                  )}
+                </div>
+              </div>
+
+              {/* Roles List */}
+              <div>
+                <h3 className="text-muted-foreground mb-2 text-xs font-semibold tracking-wider uppercase">
+                  Roles
+                </h3>
+                <RolesList teamId={teamId} />
+              </div>
             </div>
           </div>
-          <SidebarGroupContent>
-            <div className="space-y-2 px-4 py-2">
-              {membersLoading ? (
-                <>
-                  {[1, 2, 3].map((i) => (
-                    <Skeleton key={i} className="h-16 w-full" />
-                  ))}
-                </>
-              ) : !members || members.length === 0 ? (
-                <div className="text-muted-foreground flex flex-col items-center justify-center rounded-lg border border-dashed py-6 text-center">
-                  <p className="text-xs">No members found</p>
-                </div>
-              ) : (
-                members.map((member) => (
-                  <MemberCard
-                    key={member.membership.id}
-                    user={member.user}
-                    roleCount={roleCountByUser[member.user.id] ?? 0}
-                  />
-                ))
-              )}
-            </div>
-          </SidebarGroupContent>
-        </SidebarGroup>
-
-        <SidebarSeparator />
-
-        {/* Roles List */}
-        <SidebarGroup>
-          <SidebarGroupLabel className="text-muted-foreground px-4 text-xs font-semibold tracking-wider uppercase">
-            Roles
-          </SidebarGroupLabel>
-          <SidebarGroupContent>
-            <div className="px-4 py-2">
-              <RolesList teamId={teamId} />
-            </div>
-          </SidebarGroupContent>
-        </SidebarGroup>
-      </SidebarContent>
-    </Sidebar>
+        </NonModalSheetContent>
+      </Sheet>
+    </>
   );
 }

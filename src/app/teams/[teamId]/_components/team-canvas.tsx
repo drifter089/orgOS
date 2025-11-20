@@ -18,6 +18,7 @@ import { useAutoSave } from "../hooks/use-auto-save";
 import { useTeamStore } from "../store/team-store";
 import { RoleDialog } from "./role-dialog";
 import { type RoleNodeData, RoleNodeMemo } from "./role-node";
+import { TeamCanvasControls } from "./team-canvas-controls";
 import { TeamEdge } from "./team-edge";
 
 const nodeTypes = {
@@ -106,6 +107,7 @@ export function TeamCanvas() {
       >
         <Background variant={BackgroundVariant.Dots} gap={16} size={1} />
         <ZoomSlider position="bottom-left" />
+        <TeamCanvasControls />
       </ReactFlow>
 
       {/* Edit Role Dialog */}

@@ -1,11 +1,9 @@
 import { notFound } from "next/navigation";
 
-import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import { api } from "@/trpc/server";
 
 import { TeamCanvasWrapper } from "./_components/team-canvas-wrapper";
-import { TeamSidebar } from "./_components/team-sidebar";
-import { TeamSidebarTrigger } from "./_components/team-sidebar-trigger";
+import { TeamSheetSidebar } from "./_components/team-sheet-sidebar";
 import { TeamSwitcher } from "./_components/team-switcher";
 import { TeamStoreProvider } from "./store/team-store";
 import { type StoredEdge, type StoredNode } from "./types/canvas";
@@ -36,45 +34,30 @@ export default async function TeamPage({
     ? (team.reactFlowEdges as StoredEdge[])
     : [];
 
-  // Default to open on desktop screens, closed on mobile
-  // This provides better discoverability on larger screens
-  const defaultSidebarOpen = true;
-
   return (
     <TeamStoreProvider teamId={team.id} teamName={team.name}>
-      <SidebarProvider
-        defaultOpen={defaultSidebarOpen}
-        className="flex h-screen w-full overflow-hidden"
-      >
-        {/* Main Canvas Area with Inset for proper spacing */}
-        <SidebarInset className="flex-1 overflow-hidden">
-          <div className="relative h-full w-full">
-            {/* Team Switcher - Bottom-left floating control, offset from zoom slider */}
-            <TeamSwitcher
-              currentTeamId={team.id}
-              currentTeamName={team.name}
-              className="absolute bottom-4 left-64 z-20"
-            />
+      <div className="flex h-screen w-full overflow-hidden">
+        {/* Main Canvas Area */}
+        <div className="relative h-full w-full flex-1 overflow-hidden">
+          {/* Team Switcher - Bottom-left floating control, offset from zoom slider */}
+          <TeamSwitcher
+            currentTeamId={team.id}
+            currentTeamName={team.name}
+            className="absolute bottom-4 left-64 z-20"
+          />
 
-            {/* Sidebar Trigger - Bottom-right floating control */}
-            <TeamSidebarTrigger
-              roleCount={team.roles.length}
-              className="absolute right-4 bottom-4 z-20"
-            />
+          {/* Canvas */}
+          <TeamCanvasWrapper initialNodes={nodes} initialEdges={edges} />
+        </div>
 
-            {/* Canvas */}
-            <TeamCanvasWrapper initialNodes={nodes} initialEdges={edges} />
-          </div>
-        </SidebarInset>
-
-        {/* Right Sidebar */}
-        <TeamSidebar
+        {/* Right Sidebar (Sheet) - Closed by default to allow data prefetching */}
+        <TeamSheetSidebar
           teamId={team.id}
           teamName={team.name}
           teamDescription={team.description}
           roleCount={team.roles.length}
         />
-      </SidebarProvider>
+      </div>
     </TeamStoreProvider>
   );
 }
