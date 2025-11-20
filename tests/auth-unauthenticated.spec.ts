@@ -1,6 +1,15 @@
 // spec: Authentication Tests for T3 Stack Application with WorkOS AuthKit
 // seed: tests/seed.spec.ts
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
+
+// Helper function to expand the FancyNav navigation
+async function expandNav(page: Page) {
+  // Click the menu toggle button to expand the nav
+  const menuButton = page.getByRole("button", { name: /Open menu|Close menu/ });
+  await menuButton.click();
+  // Wait for the expanded content to become visible
+  await page.waitForSelector('[class*="col-span-full"]', { state: "visible" });
+}
 
 test.describe("Unauthenticated Access", () => {
   test("should allow access to public routes", async ({ page }) => {
@@ -15,14 +24,17 @@ test.describe("Unauthenticated Access", () => {
     // 3. Check that content is visible
     await expect(page.getByText("Your organizational operating system")).toBeVisible();
 
-    // 4. Verify "Sign in" and "Sign up" buttons are visible in NavBar
+    // 4. Expand the nav to access Sign in/Sign up buttons
+    await expandNav(page);
+
+    // 5. Verify "Sign in" and "Sign up" buttons are visible in expanded NavBar
     await expect(page.getByRole("link", { name: "Sign in" })).toBeVisible();
     await expect(page.getByRole("link", { name: "Sign up" })).toBeVisible();
 
-    // 5. Navigate to docs page
+    // 6. Navigate to docs page
     await page.goto("/docs");
 
-    // 6. Verify docs page loads successfully
+    // 7. Verify docs page loads successfully
     await expect(
       page.getByRole("heading", { name: "OrgOS Documentation" }),
     ).toBeVisible();
@@ -52,17 +64,20 @@ test.describe("Unauthenticated Access", () => {
     // 1. Start from home page
     await page.goto("/");
 
-    // 2. Click "Sign in" button in NavBar
+    // 2. Expand the nav to access Sign in button
+    await expandNav(page);
+
+    // 3. Click "Sign in" button in NavBar
     await page.getByRole("link", { name: "Sign in" }).click();
 
-    // 3. Wait for redirect to WorkOS authentication page
+    // 4. Wait for redirect to WorkOS authentication page
     await page.waitForURL(/authkit\.app/);
     await expect(page.getByRole("heading", { name: "Sign in" })).toBeVisible();
 
-    // 4. Verify email input field is present
+    // 5. Verify email input field is present
     await expect(page.getByRole("textbox", { name: "Email" })).toBeVisible();
 
-    // 5. Verify Continue button is present
+    // 6. Verify Continue button is present
     await expect(page.getByRole("button", { name: "Continue" })).toBeVisible();
   });
 });
@@ -73,6 +88,7 @@ test.describe("WorkOS Authentication Flow", () => {
   }) => {
     // 1. Navigate to sign-in page
     await page.goto("/");
+    await expandNav(page);
     await page.getByRole("link", { name: "Sign in" }).click();
 
     // 2. Wait for WorkOS authentication page
@@ -111,6 +127,7 @@ test.describe("WorkOS Authentication Flow", () => {
     // 4. Use WorkOS impersonation feature if available in your plan
 
     await page.goto("/");
+    await expandNav(page);
     await page.getByRole("link", { name: "Sign in" }).click();
 
     // Fill in email

@@ -1,4 +1,5 @@
 import { test, expect } from "./fixtures/auth.fixture";
+import type { Page } from "@playwright/test";
 
 /**
  * Authenticated User Tests
@@ -12,6 +13,15 @@ import { test, expect } from "./fixtures/auth.fixture";
  * These tests use the authenticatedPage fixture which provides
  * a pre-authenticated browser context.
  */
+
+// Helper function to expand the FancyNav navigation
+async function expandNav(page: Page) {
+  // Click the menu toggle button to expand the nav
+  const menuButton = page.getByRole("button", { name: /Open menu|Close menu/ });
+  await menuButton.click();
+  // Wait for the expanded content to become visible
+  await page.waitForSelector('[class*="col-span-full"]', { state: "visible" });
+}
 
 test.describe("Authentication & Session Management", () => {
   test("should access protected route /design-strategy", async ({
@@ -53,13 +63,13 @@ test.describe("Authentication & Session Management", () => {
     // Navigate to home page
     await authenticatedPage.goto("/");
 
-    // Wait for page to load
-    await authenticatedPage.waitForLoadState("networkidle");
+    // Expand the nav to see user info
+    await expandNav(authenticatedPage);
 
-    // Verify either welcome message or sign out button is visible
+    // Verify either welcome message or sign out button is visible in expanded nav
     // (NavBar implementation may vary)
     const hasWelcome = await authenticatedPage
-      .getByText(/Welcome/)
+      .getByText(/Welcome|Hi,/)
       .isVisible()
       .catch(() => false);
     const hasSignOut = await authenticatedPage
@@ -79,7 +89,6 @@ test.describe("Authentication & Session Management", () => {
 
     // Refresh the page
     await authenticatedPage.reload();
-    await authenticatedPage.waitForLoadState("networkidle");
 
     // Verify still authenticated (not redirected to sign-in)
     await expect(authenticatedPage).toHaveURL("/render-strategy");
@@ -95,7 +104,6 @@ test.describe("Authentication & Session Management", () => {
   }) => {
     // Start at home page
     await authenticatedPage.goto("/");
-    await authenticatedPage.waitForLoadState("networkidle");
 
     // Navigate to first protected route
     await authenticatedPage.goto("/design-strategy");
@@ -107,12 +115,14 @@ test.describe("Authentication & Session Management", () => {
 
     // Navigate back to home
     await authenticatedPage.goto("/");
-    await authenticatedPage.waitForLoadState("networkidle");
+
+    // Expand nav to see auth state
+    await expandNav(authenticatedPage);
 
     // Verify still authenticated (sign out button visible or welcome message)
     const isStillAuthenticated =
       (await authenticatedPage.getByText("Sign out").isVisible().catch(() => false)) ||
-      (await authenticatedPage.getByText(/Welcome/).isVisible().catch(() => false));
+      (await authenticatedPage.getByText(/Welcome|Hi,/).isVisible().catch(() => false));
 
     expect(isStillAuthenticated).toBe(true);
   });
@@ -120,20 +130,21 @@ test.describe("Authentication & Session Management", () => {
   test("should sign out successfully", async ({ authenticatedPage }) => {
     // Navigate to home page
     await authenticatedPage.goto("/");
-    await authenticatedPage.waitForLoadState("networkidle");
+
+    // Expand nav to access sign out button
+    await expandNav(authenticatedPage);
 
     // Click sign out button
-    const signOutButton = authenticatedPage.getByText("Sign out");
+    const signOutButton = authenticatedPage.getByRole("button", { name: "Sign out" });
     await expect(signOutButton).toBeVisible();
     await signOutButton.click();
 
-    // Wait for navigation/response
-    await authenticatedPage.waitForLoadState("networkidle");
+    // Wait for sign out to complete
+    await authenticatedPage.waitForURL("**/*");
 
     // Verify sign out worked - try to access protected route
     try {
       await authenticatedPage.goto("/render-strategy", {
-        waitUntil: "networkidle",
         timeout: 10000,
       });
 

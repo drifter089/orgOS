@@ -64,7 +64,16 @@ async function globalSetup(config: FullConfig) {
 
     // Verify authentication by checking for sign-out button
     try {
-      await page.waitForLoadState("networkidle");
+      // Wait for page to load
+      await page.waitForLoadState("domcontentloaded");
+
+      // Expand the FancyNav to access sign-out button
+      const menuButton = page.getByRole("button", { name: /Open menu|Close menu/ });
+      await menuButton.click();
+
+      // Wait for expanded content to be visible
+      await page.waitForSelector('[class*="col-span-full"]', { state: "visible" });
+
       const isAuthenticated = await page
         .locator('text="Sign out"')
         .isVisible({ timeout: 10000 });

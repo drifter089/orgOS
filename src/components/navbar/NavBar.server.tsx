@@ -1,13 +1,6 @@
-import Link from "next/link";
-
 import { getSignUpUrl, signOut, withAuth } from "@workos-inc/authkit-nextjs";
-import { Boxes, Github } from "lucide-react";
 
-import { Button } from "@/components/ui/button";
-
-import { NavBarWrapper } from "./NavBarWrapper.client";
-import { NavMenu } from "./NavMenu.client";
-import { ThemeSwitch } from "./ThemeSwitch.client";
+import { FancyNav } from "./FancyNav.client";
 
 export async function NavBar() {
   // Handle optional authentication - gracefully handle routes without auth
@@ -22,84 +15,17 @@ export async function NavBar() {
 
   const signUpUrl = await getSignUpUrl();
 
+  // Server action for sign out
+  const handleSignOut = async () => {
+    "use server";
+    await signOut();
+  };
+
   return (
-    <NavBarWrapper>
-      <nav className="border-border bg-background/95 supports-backdrop-filter:bg-background/80 w-full border-b shadow-sm backdrop-blur-md">
-        <div className="container mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center gap-6">
-            {/* Logo */}
-            <Link href="/" className="flex items-center gap-2">
-              <Boxes className="text-primary h-7 w-7" />
-              <span className="text-xl font-bold tracking-tight">ORG-OS</span>
-            </Link>
-
-            {/* Navigation Menu */}
-            <NavMenu />
-          </div>
-
-          <div className="flex items-center gap-3">
-            {!user ? (
-              <>
-                <Button
-                  variant="ghost"
-                  asChild
-                  className="hover:bg-accent hover:text-accent-foreground"
-                >
-                  <Link href="/login" prefetch={false}>
-                    Sign in
-                  </Link>
-                </Button>
-                <Button
-                  asChild
-                  className="bg-primary text-primary-foreground hover:bg-primary/90 shadow-sm"
-                >
-                  <Link href={signUpUrl} prefetch={false}>
-                    Sign up
-                  </Link>
-                </Button>
-              </>
-            ) : (
-              <>
-                <span className="text-muted-foreground hidden text-sm font-medium sm:inline-block">
-                  Welcome{user.firstName && `, ${user.firstName}`}
-                </span>
-                <form
-                  action={async () => {
-                    "use server";
-                    await signOut();
-                  }}
-                >
-                  <Button
-                    type="submit"
-                    variant="outline"
-                    className="border-border hover:bg-accent hover:text-accent-foreground"
-                  >
-                    Sign out
-                  </Button>
-                </form>
-              </>
-            )}
-            <div className="border-border ml-2 flex items-center gap-3 border-l pl-3">
-              <Button
-                variant="ghost"
-                size="icon"
-                asChild
-                className="hover:bg-accent hover:text-accent-foreground"
-              >
-                <Link
-                  href="https://github.com/drifter089/orgOS"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  <Github className="h-5 w-5" />
-                  <span className="sr-only">GitHub</span>
-                </Link>
-              </Button>
-              <ThemeSwitch />
-            </div>
-          </div>
-        </div>
-      </nav>
-    </NavBarWrapper>
+    <FancyNav
+      user={user ? { firstName: user.firstName } : null}
+      signUpUrl={signUpUrl}
+      signOutAction={handleSignOut}
+    />
   );
 }
