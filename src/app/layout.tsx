@@ -3,6 +3,7 @@ import { Fraunces, Space_Grotesk, Space_Mono } from "next/font/google";
 import { AuthKitProvider } from "@workos-inc/authkit-nextjs/components";
 import { type Metadata } from "next";
 
+import { FeedbackButton } from "@/components/feedback/FeedbackButton";
 import { NavBar } from "@/components/navbar/NavBar.server";
 import { Toaster } from "@/components/ui/sonner";
 import { ConfirmationDialogProvider } from "@/providers/ConfirmationDialogProvider";
@@ -84,6 +85,7 @@ export default function RootLayout({
                 <NavBar />
                 <TransitionProvider>{children}</TransitionProvider>
                 <Toaster />
+                <FeedbackButton />
               </ConfirmationDialogProvider>
             </ThemeProvider>
           </TRPCReactProvider>
