@@ -1,6 +1,6 @@
 import { getSignUpUrl, signOut, withAuth } from "@workos-inc/authkit-nextjs";
 
-import { FancyNav } from "./FancyNav.client";
+import { NavWrapper } from "./NavWrapper.client";
 
 export async function NavBar() {
   // Handle optional authentication - gracefully handle routes without auth
@@ -22,7 +22,7 @@ export async function NavBar() {
   };
 
   return (
-    <FancyNav
+    <NavWrapper
       user={user ? { firstName: user.firstName } : null}
       signUpUrl={signUpUrl}
       signOutAction={handleSignOut}
