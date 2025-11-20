@@ -9,9 +9,11 @@ import { useGSAP } from "@gsap/react";
 import gsap from "gsap";
 import {
   Building2,
+  ChevronDown,
   Code2,
   FlaskConical,
   Github,
+  Home,
   LayoutDashboard,
   Menu,
   Palette,
@@ -21,13 +23,30 @@ import {
   Workflow,
   X,
 } from "lucide-react";
+import { useTransitionRouter } from "next-transition-router";
 
+import {
+  Breadcrumb,
+  BreadcrumbItem as BreadcrumbItemUI,
+  BreadcrumbLink,
+  BreadcrumbList,
+  BreadcrumbPage,
+  BreadcrumbSeparator,
+} from "@/components/ui/breadcrumb";
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import {
   ThemeToggleButton,
   useThemeToggle,
 } from "@/components/ui/skiper-ui/skiper26";
+import type { BreadcrumbItem } from "@/lib/nav-tree";
 import { cn } from "@/lib/utils";
+import { api } from "@/trpc/react";
 
 // Register GSAP plugins
 gsap.registerPlugin();
@@ -38,6 +57,8 @@ interface FancyNavProps {
   } | null;
   signUpUrl: string;
   signOutAction: () => Promise<void>;
+  isOrgPage?: boolean;
+  breadcrumbs?: BreadcrumbItem[];
 }
 
 // Menu item types
@@ -125,11 +146,18 @@ const menuSections: MenuSection[] = [
   },
 ];
 
-export function FancyNav({ user, signUpUrl, signOutAction }: FancyNavProps) {
+export function FancyNav({
+  user,
+  signUpUrl,
+  signOutAction,
+  isOrgPage = false,
+  breadcrumbs = [],
+}: FancyNavProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [isProdMode, setIsProdMode] = useState(false);
   const [mounted, setMounted] = useState(false);
   const pathname = usePathname();
+  const router = useTransitionRouter();
 
   // Refs for GSAP animations
   const containerRef = useRef<HTMLDivElement>(null);
@@ -164,20 +192,11 @@ export function FancyNav({ user, signUpUrl, signOutAction }: FancyNavProps) {
     return pathname === path || pathname.startsWith(path + "/");
   };
 
-  // Filter menu items based on dev/prod mode
-  const getFilteredSections = useCallback(() => {
-    if (showDevItems) {
-      // Show all items including dev-only
-      return menuSections;
-    }
-    // Hide dev-only sections and items (production mode)
-    return menuSections
-      .filter((section) => !section.devOnly)
-      .map((section) => ({
-        ...section,
-        items: section.items.filter((item) => !item.devOnly),
-      }));
-  }, [showDevItems]);
+  // Fetch all teams for dropdown (only when needed)
+  const { data: teams } = api.team.getAll.useQuery(undefined, {
+    enabled: isOrgPage && mounted,
+    retry: false,
+  });
 
   // GSAP Animation setup - Simplified timeline
   useGSAP(
@@ -192,22 +211,22 @@ export function FancyNav({ user, signUpUrl, signOutAction }: FancyNavProps) {
       const pillElement = pillRef.current;
       if (!pillElement) return;
 
-      // Create the main timeline
+      // Create the main timeline with revertOnUpdate support
       const tl = gsap.timeline({
         paused: true,
         defaults: { ease: "power3.out" },
       });
 
-      // Get the initial collapsed height
+      // Get the initial collapsed height (dynamic based on pill vs breadcrumb mode)
       const collapsedHeight = pillElement.offsetHeight;
 
-      // Step 1: Hide pill content (0s - 0.3s)
+      // Step 1: Hide pill content (30% faster)
       tl.to(
         ".pill-content",
         {
           opacity: 0,
           scale: 0.8,
-          duration: 0.3,
+          duration: 0.21,
           ease: "power2.in",
         },
         0,
@@ -220,31 +239,31 @@ export function FancyNav({ user, signUpUrl, signOutAction }: FancyNavProps) {
           position: "absolute",
           pointerEvents: "none",
         },
-        0.3,
+        0.21,
       );
 
-      // Step 2: Expand width (0.1s - 0.5s) - faster
+      // Step 2: Expand width (30% faster)
       tl.to(
         pillRef.current,
         {
           width: "min(800px, 90vw)",
-          duration: 0.4,
+          duration: 0.28,
           ease: "power3.out",
         },
-        0.1,
+        0.07,
       );
 
-      // Step 3: Show expanded content early (0.3s) so height has content to measure
+      // Step 3: Show expanded content early
       tl.set(
         expandedRef.current,
         {
           display: "grid",
           opacity: 0,
         },
-        0.3,
+        0.21,
       );
 
-      // Step 4: Expand height (0.4s - 1.8s) - slower with better easing
+      // Step 4: Expand height (30% faster)
       tl.fromTo(
         pillRef.current,
         {
@@ -252,20 +271,20 @@ export function FancyNav({ user, signUpUrl, signOutAction }: FancyNavProps) {
         },
         {
           height: "auto",
-          duration: 1.4,
+          duration: 0.98,
           ease: "power1.out",
         },
-        0.4,
+        0.28,
       );
 
-      // Step 5: Fade in expanded content (0.9s)
+      // Step 5: Fade in expanded content (30% faster)
       tl.to(
         expandedRef.current,
         {
           opacity: 1,
-          duration: 0.3,
+          duration: 0.21,
         },
-        0.9,
+        0.63,
       );
 
       tl.from(
@@ -273,42 +292,46 @@ export function FancyNav({ user, signUpUrl, signOutAction }: FancyNavProps) {
         {
           scale: 0.95,
           y: 10,
-          duration: 0.5,
+          duration: 0.35,
           ease: "back.out(1.5)",
         },
-        0.9,
+        0.63,
       );
 
-      // Step 5: Stagger menu items (1.0s)
+      // Step 5: Stagger menu items (30% faster)
       tl.from(
         ".menu-item",
         {
           opacity: 0,
           x: -15,
           y: 8,
-          duration: 0.5,
-          stagger: 0.08,
+          duration: 0.35,
+          stagger: 0.056,
           ease: "back.out(1.5)",
         },
-        1.0,
+        0.7,
       );
 
-      // Step 6: Show actions (1.4s)
+      // Step 6: Show actions (30% faster)
       tl.from(
         actionsRef.current,
         {
           opacity: 0,
           y: 15,
-          duration: 0.5,
+          duration: 0.35,
           ease: "back.out(2)",
         },
-        1.4,
+        0.98,
       );
 
       // Store timeline reference
       timelineRef.current = tl;
     },
-    { scope: containerRef, dependencies: [mounted, isProdMode] },
+    {
+      scope: containerRef,
+      dependencies: [mounted, isProdMode, breadcrumbs.length],
+      revertOnUpdate: true,
+    },
   );
 
   // Handle expand/collapse - simply reverse the timeline
@@ -342,8 +365,6 @@ export function FancyNav({ user, signUpUrl, signOutAction }: FancyNavProps) {
     );
   }
 
-  const filteredSections = getFilteredSections();
-
   return (
     <div
       ref={containerRef}
@@ -359,58 +380,187 @@ export function FancyNav({ user, signUpUrl, signOutAction }: FancyNavProps) {
       >
         {/* Collapsed pill content */}
         <div className="pill-content flex items-center gap-3 px-5 py-3">
-          {/* Status indicator - Dynamic Island style */}
-          <div className="relative flex items-center">
-            <div className="bg-primary/80 absolute -left-1 size-2 animate-pulse rounded-full" />
-            <div className="bg-primary/40 absolute -left-1 size-2 animate-ping rounded-full" />
-          </div>
+          {isOrgPage ? (
+            <>
+              {/* Breadcrumb Navigation Mode */}
+              <Breadcrumb>
+                <BreadcrumbList className="gap-1.5">
+                  {breadcrumbs.map((item, index) => (
+                    <div key={item.id} className="flex items-center gap-1.5">
+                      {/* Breadcrumb Item */}
+                      <BreadcrumbItemUI>
+                        {item.dropdown ? (
+                          <DropdownMenu>
+                            <DropdownMenuTrigger className="hover:text-foreground flex items-center gap-1 transition-colors">
+                              {item.icon === "home" ? (
+                                <Home className="size-3.5" />
+                              ) : (
+                                <span className="text-sm">{item.label}</span>
+                              )}
+                              {!item.isCurrentPage && (
+                                <ChevronDown className="size-3" />
+                              )}
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="start">
+                              {item.dropdown.type === "teams" && teams ? (
+                                <>
+                                  {teams.map((team) => (
+                                    <DropdownMenuItem key={team.id} asChild>
+                                      <Link
+                                        href={`/teams/${team.id}`}
+                                        onClick={(e) => {
+                                          // Allow opening in new tab with cmd/ctrl+click
+                                          if (e.metaKey || e.ctrlKey) return;
+                                          // Use transition router for normal clicks
+                                          e.preventDefault();
+                                          router.push(`/teams/${team.id}`);
+                                        }}
+                                      >
+                                        {team.name}
+                                      </Link>
+                                    </DropdownMenuItem>
+                                  ))}
+                                </>
+                              ) : (
+                                <>
+                                  {item.dropdown.items.map((dropdownItem) => (
+                                    <DropdownMenuItem
+                                      key={dropdownItem.path}
+                                      asChild
+                                    >
+                                      <Link
+                                        href={dropdownItem.path}
+                                        onClick={(e) => {
+                                          // Allow opening in new tab with cmd/ctrl+click
+                                          if (e.metaKey || e.ctrlKey) return;
+                                          // Use transition router for normal clicks
+                                          e.preventDefault();
+                                          router.push(dropdownItem.path);
+                                        }}
+                                      >
+                                        {dropdownItem.label}
+                                      </Link>
+                                    </DropdownMenuItem>
+                                  ))}
+                                </>
+                              )}
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        ) : item.isCurrentPage ? (
+                          <BreadcrumbPage className="text-sm">
+                            {item.icon === "home" ? (
+                              <Home className="size-3.5" />
+                            ) : (
+                              item.label
+                            )}
+                          </BreadcrumbPage>
+                        ) : (
+                          <BreadcrumbLink asChild>
+                            <Link
+                              href={item.path}
+                              className="flex items-center text-sm"
+                            >
+                              {item.icon === "home" ? (
+                                <Home className="size-3.5" />
+                              ) : (
+                                item.label
+                              )}
+                            </Link>
+                          </BreadcrumbLink>
+                        )}
+                      </BreadcrumbItemUI>
 
-          {/* Logo */}
-          <Link
-            href="/"
-            className="text-primary flex items-center gap-2 font-bold whitespace-nowrap transition-transform hover:scale-105"
-            onClick={(e) => {
-              if (isExpanded) {
-                e.preventDefault();
-                handleToggle();
-              }
-            }}
-          >
-            <div className="bg-primary shadow-primary/20 flex size-7 shrink-0 items-center justify-center rounded-full shadow-lg">
-              <span className="text-primary-foreground text-xs font-bold">
-                O
-              </span>
-            </div>
-            <span className="text-sm whitespace-nowrap">ORG-OS</span>
-          </Link>
+                      {/* Separator */}
+                      {index < breadcrumbs.length - 1 && (
+                        <BreadcrumbSeparator />
+                      )}
+                    </div>
+                  ))}
+                </BreadcrumbList>
+              </Breadcrumb>
 
-          {/* Separator */}
-          <div className="bg-border h-5 w-px" />
+              {/* Separator */}
+              <div className="bg-border h-5 w-px" />
 
-          {/* Quick actions in pill */}
-          <div className="flex items-center gap-1.5">
-            {/* Theme toggle */}
-            <ThemeToggleButton
-              variant="circle"
-              start="top-right"
-              className="size-8 transition-transform hover:scale-110"
-            />
+              {/* Quick actions */}
+              <div className="flex items-center gap-1.5">
+                <ThemeToggleButton
+                  variant="circle"
+                  start="top-right"
+                  className="size-8 transition-transform hover:scale-110"
+                />
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="size-7 transition-transform hover:scale-110"
+                  onClick={handleToggle}
+                  aria-label={isExpanded ? "Close menu" : "Open menu"}
+                >
+                  {isExpanded ? (
+                    <X className="size-4" />
+                  ) : (
+                    <Menu className="size-4" />
+                  )}
+                </Button>
+              </div>
+            </>
+          ) : (
+            <>
+              {/* Pill Mode (Home/Docs pages) */}
+              {/* Status indicator - Dynamic Island style */}
+              <div className="relative flex items-center">
+                <div className="bg-primary/80 absolute -left-1 size-2 animate-pulse rounded-full" />
+                <div className="bg-primary/40 absolute -left-1 size-2 animate-ping rounded-full" />
+              </div>
 
-            {/* Menu toggle */}
-            <Button
-              variant="ghost"
-              size="icon"
-              className="size-7 transition-transform hover:scale-110"
-              onClick={handleToggle}
-              aria-label={isExpanded ? "Close menu" : "Open menu"}
-            >
-              {isExpanded ? (
-                <X className="size-4" />
-              ) : (
-                <Menu className="size-4" />
-              )}
-            </Button>
-          </div>
+              {/* Logo */}
+              <Link
+                href="/"
+                className="text-primary flex items-center gap-2 font-bold whitespace-nowrap transition-transform hover:scale-105"
+                onClick={(e) => {
+                  if (isExpanded) {
+                    e.preventDefault();
+                    handleToggle();
+                  }
+                }}
+              >
+                <div className="bg-primary shadow-primary/20 flex size-7 shrink-0 items-center justify-center rounded-full shadow-lg">
+                  <span className="text-primary-foreground text-xs font-bold">
+                    O
+                  </span>
+                </div>
+                <span className="text-sm whitespace-nowrap">ORG-OS</span>
+              </Link>
+
+              {/* Separator */}
+              <div className="bg-border h-5 w-px" />
+
+              {/* Quick actions in pill */}
+              <div className="flex items-center gap-1.5">
+                {/* Theme toggle */}
+                <ThemeToggleButton
+                  variant="circle"
+                  start="top-right"
+                  className="size-8 transition-transform hover:scale-110"
+                />
+
+                {/* Menu toggle */}
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="size-7 transition-transform hover:scale-110"
+                  onClick={handleToggle}
+                  aria-label={isExpanded ? "Close menu" : "Open menu"}
+                >
+                  {isExpanded ? (
+                    <X className="size-4" />
+                  ) : (
+                    <Menu className="size-4" />
+                  )}
+                </Button>
+              </div>
+            </>
+          )}
         </div>
 
         {/* Expanded content */}
@@ -460,94 +610,340 @@ export function FancyNav({ user, signUpUrl, signOutAction }: FancyNavProps) {
           {/* Menu sections */}
           <div ref={menuItemsRef} className="col-span-full">
             <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-              {/* Home link */}
-              <div className="menu-item">
-                <Link
-                  href="/"
-                  className={cn(
-                    "bg-muted/50 hover:bg-muted flex items-center gap-3 rounded-lg p-3 transition-colors",
-                    isActivePath("/") && "bg-primary/10 border-primary border",
-                  )}
-                >
-                  <div className="bg-primary/10 text-primary flex size-8 items-center justify-center rounded-lg">
-                    <span className="text-sm font-bold">H</span>
-                  </div>
-                  <div>
-                    <div className="font-medium">Home</div>
-                    <div className="text-muted-foreground text-xs">
-                      Welcome page
-                    </div>
-                  </div>
-                </Link>
-              </div>
-
-              {/* Docs link */}
-              <div className="menu-item">
-                <Link
-                  href="/docs"
-                  className={cn(
-                    "bg-muted/50 hover:bg-muted flex items-center gap-3 rounded-lg p-3 transition-colors",
-                    isActivePath("/docs") &&
-                      "bg-primary/10 border-primary border",
-                  )}
-                >
-                  <div className="bg-primary/10 text-primary flex size-8 items-center justify-center rounded-lg">
-                    <Code2 className="size-4" />
-                  </div>
-                  <div>
-                    <div className="font-medium">Docs</div>
-                    <div className="text-muted-foreground text-xs">
-                      Documentation
-                    </div>
-                  </div>
-                </Link>
-              </div>
-
-              {/* Dynamic sections */}
-              {filteredSections.map((section) => (
-                <div key={section.title} className="space-y-2">
-                  <h3 className="text-muted-foreground px-3 text-xs font-semibold tracking-wider uppercase">
-                    {section.title}
-                    {section.devOnly && showDevItems && (
-                      <span className="ml-2 text-green-500">(Dev)</span>
+              {/* Column 1: General Navigation */}
+              <div className="space-y-4">
+                {/* Home link */}
+                <div className="menu-item">
+                  <Link
+                    href="/"
+                    className={cn(
+                      "bg-muted/50 hover:bg-muted flex items-center gap-3 rounded-lg p-3 transition-colors",
+                      isActivePath("/") &&
+                        "bg-primary/10 border-primary border",
                     )}
-                  </h3>
-                  <div className="space-y-1">
-                    {section.items.map((item) => (
-                      <div key={item.href} className="menu-item">
-                        <Link
-                          href={item.href}
+                  >
+                    <div className="bg-primary/10 text-primary flex size-8 items-center justify-center rounded-lg">
+                      <span className="text-sm font-bold">H</span>
+                    </div>
+                    <div>
+                      <div className="font-medium">Home</div>
+                      <div className="text-muted-foreground text-xs">
+                        Welcome page
+                      </div>
+                    </div>
+                  </Link>
+                </div>
+
+                {/* Docs link */}
+                <div className="menu-item">
+                  <Link
+                    href="/docs"
+                    className={cn(
+                      "bg-muted/50 hover:bg-muted flex items-center gap-3 rounded-lg p-3 transition-colors",
+                      isActivePath("/docs") &&
+                        "bg-primary/10 border-primary border",
+                    )}
+                  >
+                    <div className="bg-primary/10 text-primary flex size-8 items-center justify-center rounded-lg">
+                      <Code2 className="size-4" />
+                    </div>
+                    <div>
+                      <div className="font-medium">Docs</div>
+                      <div className="text-muted-foreground text-xs">
+                        Documentation
+                      </div>
+                    </div>
+                  </Link>
+                </div>
+              </div>
+
+              {/* Column 2: Organization Tree */}
+              <div className="space-y-2">
+                <h3 className="text-muted-foreground px-3 text-xs font-semibold tracking-wider uppercase">
+                  Organization
+                </h3>
+                <div className="space-y-1">
+                  {/* Org */}
+                  <div className="menu-item">
+                    <Link
+                      href="/org"
+                      className={cn(
+                        "hover:bg-muted flex items-center gap-3 rounded-lg p-2 transition-colors",
+                        isActivePath("/org") && "bg-primary/10 text-primary",
+                      )}
+                    >
+                      <div
+                        className={cn(
+                          "text-muted-foreground flex size-6 items-center justify-center",
+                          isActivePath("/org") && "text-primary",
+                        )}
+                      >
+                        <Building2 className="size-4" />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="truncate text-sm font-medium">
+                          Organization
+                        </div>
+                        <div className="text-muted-foreground truncate text-xs">
+                          Manage settings & members
+                        </div>
+                      </div>
+                    </Link>
+                  </div>
+
+                  {/* Team (Indented) */}
+                  <div className="menu-item">
+                    <Link
+                      href="/teams"
+                      className={cn(
+                        "hover:bg-muted flex items-center gap-3 rounded-lg p-2 transition-colors",
+                        isActivePath("/teams") && "bg-primary/10 text-primary",
+                      )}
+                    >
+                      <div className="border-muted-foreground/30 flex items-center pl-3">
+                        <div className="border-muted-foreground/30 mr-3 h-full border-l-2" />
+                        <div
                           className={cn(
-                            "hover:bg-muted flex items-center gap-3 rounded-lg p-2 transition-colors",
-                            isActivePath(item.href) &&
-                              "bg-primary/10 text-primary",
-                            item.devOnly &&
-                              showDevItems &&
-                              "border-l-2 border-green-500",
+                            "text-muted-foreground flex size-6 items-center justify-center",
+                            isActivePath("/teams") && "text-primary",
                           )}
                         >
-                          <div
-                            className={cn(
-                              "text-muted-foreground flex size-6 items-center justify-center",
-                              isActivePath(item.href) && "text-primary",
-                            )}
-                          >
-                            {item.icon}
-                          </div>
-                          <div className="min-w-0 flex-1">
-                            <div className="truncate text-sm font-medium">
-                              {item.title}
-                            </div>
-                            <div className="text-muted-foreground truncate text-xs">
-                              {item.description}
-                            </div>
-                          </div>
-                        </Link>
+                          <Users className="size-4" />
+                        </div>
                       </div>
-                    ))}
+                      <div className="min-w-0 flex-1">
+                        <div className="truncate text-sm font-medium">
+                          Teams
+                        </div>
+                        <div className="text-muted-foreground truncate text-xs">
+                          Browse & manage teams
+                        </div>
+                      </div>
+                    </Link>
+                  </div>
+
+                  {/* Integration (Indented) */}
+                  <div className="menu-item">
+                    <Link
+                      href="/integration"
+                      className={cn(
+                        "hover:bg-muted flex items-center gap-3 rounded-lg p-2 transition-colors",
+                        isActivePath("/integration") &&
+                          "bg-primary/10 text-primary",
+                      )}
+                    >
+                      <div className="border-muted-foreground/30 flex items-center pl-3">
+                        <div className="border-muted-foreground/30 mr-3 h-full border-l-2" />
+                        <div
+                          className={cn(
+                            "text-muted-foreground flex size-6 items-center justify-center",
+                            isActivePath("/integration") && "text-primary",
+                          )}
+                        >
+                          <Plug className="size-4" />
+                        </div>
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="truncate text-sm font-medium">
+                          Integrations
+                        </div>
+                        <div className="text-muted-foreground truncate text-xs">
+                          Connect 3rd party services
+                        </div>
+                      </div>
+                    </Link>
+                  </div>
+
+                  {/* Metric (Double indented under Integration) */}
+                  <div className="menu-item">
+                    <Link
+                      href="/metric"
+                      className={cn(
+                        "hover:bg-muted flex items-center gap-3 rounded-lg p-2 transition-colors",
+                        isActivePath("/metric") && "bg-primary/10 text-primary",
+                      )}
+                    >
+                      <div className="border-muted-foreground/30 flex items-center pl-6">
+                        <div className="border-muted-foreground/30 mr-3 h-full border-l-2" />
+                        <div
+                          className={cn(
+                            "text-muted-foreground flex size-6 items-center justify-center",
+                            isActivePath("/metric") && "text-primary",
+                          )}
+                        >
+                          <TrendingUp className="size-4" />
+                        </div>
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="truncate text-sm font-medium">
+                          Metrics
+                        </div>
+                        <div className="text-muted-foreground truncate text-xs">
+                          Track KPIs
+                        </div>
+                      </div>
+                    </Link>
+                  </div>
+
+                  {/* Dashboard (Double indented under Integration) */}
+                  <div className="menu-item">
+                    <Link
+                      href="/dashboard"
+                      className={cn(
+                        "hover:bg-muted flex items-center gap-3 rounded-lg p-2 transition-colors",
+                        isActivePath("/dashboard") &&
+                          "bg-primary/10 text-primary",
+                      )}
+                    >
+                      <div className="border-muted-foreground/30 flex items-center pl-6">
+                        <div className="border-muted-foreground/30 mr-3 h-full border-l-2" />
+                        <div
+                          className={cn(
+                            "text-muted-foreground flex size-6 items-center justify-center",
+                            isActivePath("/dashboard") && "text-primary",
+                          )}
+                        >
+                          <LayoutDashboard className="size-4" />
+                        </div>
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="truncate text-sm font-medium">
+                          Dashboard
+                        </div>
+                        <div className="text-muted-foreground truncate text-xs">
+                          Monitor key metrics
+                        </div>
+                      </div>
+                    </Link>
+                  </div>
+
+                  {/* API Testing (dev-only) */}
+                  {showDevItems && (
+                    <div className="menu-item">
+                      <Link
+                        href="/api-test"
+                        className={cn(
+                          "hover:bg-muted flex items-center gap-3 rounded-lg p-2 transition-colors",
+                          isActivePath("/api-test") &&
+                            "bg-primary/10 text-primary",
+                          "border-l-2 border-green-500",
+                        )}
+                      >
+                        <div
+                          className={cn(
+                            "text-muted-foreground flex size-6 items-center justify-center",
+                            isActivePath("/api-test") && "text-primary",
+                          )}
+                        >
+                          <FlaskConical className="size-4" />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <div className="truncate text-sm font-medium">
+                            API Testing
+                          </div>
+                          <div className="text-muted-foreground truncate text-xs">
+                            Test endpoints
+                          </div>
+                        </div>
+                      </Link>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Column 3: Dev-only Features */}
+              {showDevItems && (
+                <div className="space-y-2">
+                  <h3 className="text-muted-foreground px-3 text-xs font-semibold tracking-wider uppercase">
+                    Features <span className="text-green-500">(Dev)</span>
+                  </h3>
+                  <div className="space-y-1">
+                    <div className="menu-item">
+                      <Link
+                        href="/design-strategy"
+                        className={cn(
+                          "hover:bg-muted flex items-center gap-3 rounded-lg border-l-2 border-green-500 p-2 transition-colors",
+                          isActivePath("/design-strategy") &&
+                            "bg-primary/10 text-primary",
+                        )}
+                      >
+                        <div
+                          className={cn(
+                            "text-muted-foreground flex size-6 items-center justify-center",
+                            isActivePath("/design-strategy") && "text-primary",
+                          )}
+                        >
+                          <Palette className="size-4" />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <div className="truncate text-sm font-medium">
+                            Design Strategy
+                          </div>
+                          <div className="text-muted-foreground truncate text-xs">
+                            Design patterns & components
+                          </div>
+                        </div>
+                      </Link>
+                    </div>
+
+                    <div className="menu-item">
+                      <Link
+                        href="/render-strategy"
+                        className={cn(
+                          "hover:bg-muted flex items-center gap-3 rounded-lg border-l-2 border-green-500 p-2 transition-colors",
+                          isActivePath("/render-strategy") &&
+                            "bg-primary/10 text-primary",
+                        )}
+                      >
+                        <div
+                          className={cn(
+                            "text-muted-foreground flex size-6 items-center justify-center",
+                            isActivePath("/render-strategy") && "text-primary",
+                          )}
+                        >
+                          <Code2 className="size-4" />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <div className="truncate text-sm font-medium">
+                            Render Strategy
+                          </div>
+                          <div className="text-muted-foreground truncate text-xs">
+                            Server/client rendering
+                          </div>
+                        </div>
+                      </Link>
+                    </div>
+
+                    <div className="menu-item">
+                      <Link
+                        href="/workflow"
+                        className={cn(
+                          "hover:bg-muted flex items-center gap-3 rounded-lg border-l-2 border-green-500 p-2 transition-colors",
+                          isActivePath("/workflow") &&
+                            "bg-primary/10 text-primary",
+                        )}
+                      >
+                        <div
+                          className={cn(
+                            "text-muted-foreground flex size-6 items-center justify-center",
+                            isActivePath("/workflow") && "text-primary",
+                          )}
+                        >
+                          <Workflow className="size-4" />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <div className="truncate text-sm font-medium">
+                            Workflow Builder
+                          </div>
+                          <div className="text-muted-foreground truncate text-xs">
+                            Visual workflow builder
+                          </div>
+                        </div>
+                      </Link>
+                    </div>
                   </div>
                 </div>
-              ))}
+              )}
             </div>
           </div>
 
