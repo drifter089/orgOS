@@ -15,6 +15,8 @@ export const env = createEnv({
     NANGO_SECRET_KEY_DEV: z.string().min(1),
     NANGO_WEBHOOK_SECRET: z.string().optional(),
     OPENROUTER_API_KEY: z.string().min(1).optional(),
+    LINEAR_API_KEY: z.string().optional(),
+    LINEAR_TEAM_ID: z.string().optional(),
   },
 
   /**
@@ -37,6 +39,8 @@ export const env = createEnv({
     NANGO_SECRET_KEY_DEV: process.env.NANGO_SECRET_KEY_DEV,
     NANGO_WEBHOOK_SECRET: process.env.NANGO_WEBHOOK_SECRET,
     OPENROUTER_API_KEY: process.env.OPENROUTER_API_KEY,
+    LINEAR_API_KEY: process.env.LINEAR_API_KEY,
+    LINEAR_TEAM_ID: process.env.LINEAR_TEAM_ID,
     // NEXT_PUBLIC_CLIENTVAR: process.env.NEXT_PUBLIC_CLIENTVAR,
   },
   /**

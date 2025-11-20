@@ -1,4 +1,5 @@
 import { dashboardRouter } from "@/server/api/routers/dashboard";
+import { feedbackRouter } from "@/server/api/routers/feedback";
 import { integrationRouter } from "@/server/api/routers/integration";
 import { metricRouter } from "@/server/api/routers/metric";
 import { metricIntegrationRouter } from "@/server/api/routers/metric-integration";
@@ -24,6 +25,7 @@ export const appRouter = createTRPCRouter({
   integration: integrationRouter,
   dashboard: dashboardRouter,
   youtube: youtubeRouter,
+  feedback: feedbackRouter,
 });
 
 // export type definition of API
