@@ -6,7 +6,7 @@ import { fetchData, getMetricTemplate } from "@/server/api/services/base";
 import {
   type ChartTransformResult,
   transformMetricWithAI,
-} from "@/server/api/services/graph-transformer";
+} from "@/server/api/services/chart-tools/ai-transformer";
 import { createTRPCRouter, workspaceProcedure } from "@/server/api/trpc";
 
 // ============================================================================
