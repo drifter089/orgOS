@@ -48,20 +48,11 @@ export const integrationRouter = createTRPCRouter({
 
       const nango = new Nango({ secretKey: env.NANGO_SECRET_KEY_DEV });
 
-      // Delete from Nango (triggers deletion webhook)
-      try {
-        await nango.deleteConnection(
-          integration.integrationId,
-          input.connectionId,
-        );
-      } catch (error) {
-        console.error("[Nango Connection Delete]", error);
-        // Continue with DB deletion even if Nango fails
-      }
-
-      await ctx.db.integration.delete({
-        where: { connectionId: input.connectionId },
-      });
+      // Delete from Nango - this triggers a webhook that deletes from DB
+      await nango.deleteConnection(
+        integration.integrationId,
+        input.connectionId,
+      );
 
       return { success: true };
     }),
