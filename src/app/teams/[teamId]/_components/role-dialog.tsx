@@ -190,8 +190,6 @@ export function RoleDialog({
           purpose: variables.purpose,
           metricId: variables.metricId ?? undefined,
           metricName: selectedMetric?.name ?? undefined,
-          metricValue: selectedMetric?.currentValue ?? undefined,
-          metricUnit: selectedMetric?.unit ?? undefined,
           assignedUserId: variables.assignedUserId ?? null,
           assignedUserName: variables.assignedUserId
             ? (members.find((m) => m.user.id === variables.assignedUserId)?.user
@@ -229,8 +227,6 @@ export function RoleDialog({
               ...node.data,
               roleId: newRole.id,
               metricName: newRole.metric?.name ?? undefined,
-              metricValue: newRole.metric?.currentValue ?? undefined,
-              metricUnit: newRole.metric?.unit ?? undefined,
               isPending: undefined,
             },
           };
@@ -272,8 +268,6 @@ export function RoleDialog({
               purpose: updatedRole.purpose,
               metricId: updatedRole.metric?.id ?? undefined,
               metricName: updatedRole.metric?.name ?? undefined,
-              metricValue: updatedRole.metric?.currentValue ?? undefined,
-              metricUnit: updatedRole.metric?.unit ?? undefined,
               assignedUserId: updatedRole.assignedUserId,
               assignedUserName: updatedRole.assignedUserId
                 ? (members.find((m) => m.user.id === updatedRole.assignedUserId)
@@ -416,12 +410,7 @@ export function RoleDialog({
                       <SelectItem value="__none__">None</SelectItem>
                       {metrics.map((metric) => (
                         <SelectItem key={metric.id} value={metric.id}>
-                          <div className="flex items-center justify-between gap-4">
-                            <span>{metric.name}</span>
-                            <span className="text-muted-foreground text-xs">
-                              {metric.currentValue?.toFixed(1)} {metric.unit}
-                            </span>
-                          </div>
+                          {metric.name}
                         </SelectItem>
                       ))}
                     </SelectContent>

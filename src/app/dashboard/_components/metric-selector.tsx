@@ -193,15 +193,6 @@ export function MetricSelector({ open, onOpenChange }: MetricSelectorProps) {
                             {metric.description}
                           </p>
                         )}
-                        <div className="text-muted-foreground mt-2 flex gap-2 text-xs">
-                          <span>Type: {metric.type}</span>
-                          {metric.currentValue !== null && (
-                            <span>
-                              Current: {metric.currentValue}
-                              {metric.unit && ` ${metric.unit}`}
-                            </span>
-                          )}
-                        </div>
                       </div>
                       {selectedMetric === metric.id && (
                         <Check className="text-primary h-5 w-5 flex-shrink-0" />

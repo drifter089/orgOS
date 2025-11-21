@@ -19,10 +19,6 @@ interface Metric {
   name: string;
   description: string | null;
   organizationId: string;
-  type: string;
-  targetValue: number | null;
-  currentValue: number | null;
-  unit: string | null;
   integrationId: string | null;
   metricTemplate: string | null;
   endpointConfig: Prisma.JsonValue;
@@ -53,48 +49,6 @@ export function MetricCard({
   isRefreshing,
   isDeleting,
 }: MetricCardProps) {
-  const getMetricColor = (
-    current: number | null,
-    target: number | null,
-    type: string,
-  ): string => {
-    if (!current || !target) return "text-gray-500";
-
-    const percentage = (current / target) * 100;
-
-    if (type === "duration") {
-      // For duration, lower is better
-      if (percentage <= 100) return "text-green-600";
-      if (percentage <= 120) return "text-yellow-600";
-      return "text-red-600";
-    } else {
-      // For other types, higher is better
-      if (percentage >= 100) return "text-green-600";
-      if (percentage >= 80) return "text-yellow-600";
-      return "text-red-600";
-    }
-  };
-
-  const formatValue = (
-    value: number | null,
-    type: string,
-    unit?: string | null,
-  ): string => {
-    if (value === null) return "N/A";
-
-    const formatted = value.toFixed(2);
-
-    if (type === "percentage") {
-      return `${formatted}%`;
-    }
-
-    if (unit) {
-      return `${formatted} ${unit}`;
-    }
-
-    return formatted;
-  };
-
   const isIntegrationMetric = metric.integrationId && metric.metricTemplate;
 
   return (
@@ -112,9 +66,6 @@ export function MetricCard({
             </CardDescription>
           </div>
           <div className="flex flex-col gap-1">
-            <Badge variant="outline" className="text-xs whitespace-nowrap">
-              {metric.type}
-            </Badge>
             {isIntegrationMetric && metric.integration && (
               <Badge
                 variant="secondary"
@@ -127,30 +78,17 @@ export function MetricCard({
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
-        {/* Values */}
-        <div className="space-y-2">
-          <div className="flex items-baseline justify-between">
-            <span className="text-muted-foreground text-sm">Current</span>
-            <span
-              className={`text-2xl font-bold ${getMetricColor(metric.currentValue, metric.targetValue, metric.type)}`}
-            >
-              {formatValue(metric.currentValue, metric.type, metric.unit)}
-            </span>
-          </div>
-          {metric.targetValue !== null && (
-            <div className="flex items-baseline justify-between">
-              <span className="text-muted-foreground text-sm">Target</span>
-              <span className="text-lg">
-                {formatValue(metric.targetValue, metric.type, metric.unit)}
-              </span>
-            </div>
-          )}
-        </div>
-
         {/* Last Fetched */}
         {isIntegrationMetric && metric.lastFetchedAt && (
           <div className="text-muted-foreground text-xs">
             Updated {formatDistanceToNow(new Date(metric.lastFetchedAt))} ago
+          </div>
+        )}
+
+        {/* Template Info */}
+        {metric.metricTemplate && (
+          <div className="text-muted-foreground text-xs">
+            Template: {metric.metricTemplate}
           </div>
         )}
 

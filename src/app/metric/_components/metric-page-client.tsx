@@ -2,8 +2,6 @@
 
 import { useState } from "react";
 
-import { Plus } from "lucide-react";
-
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -14,7 +12,6 @@ import type { RouterOutputs } from "@/trpc/react";
 import { api } from "@/trpc/react";
 
 import { MetricCard } from "./cards/metric-card";
-import { CreateManualMetricDialog } from "./dialogs/create-manual-metric-dialog";
 import { EditMetricDialog } from "./dialogs/edit-metric-dialog";
 import { TemplateMetricForm } from "./forms/template-metric-form";
 
@@ -31,8 +28,6 @@ export function MetricPageClient({
   initialMetrics,
   initialIntegrations,
 }: MetricPageClientProps) {
-  const [isCreateManualDialogOpen, setIsCreateManualDialogOpen] =
-    useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [editingMetric, setEditingMetric] = useState<Metrics[0] | null>(null);
   const [status, setStatus] = useState<string>("");
@@ -198,10 +193,6 @@ export function MetricPageClient({
         <TabsContent value="all" className="space-y-6">
           <div className="flex items-center justify-between">
             <h2 className="text-2xl font-semibold">All Metrics</h2>
-            <Button onClick={() => setIsCreateManualDialogOpen(true)} size="lg">
-              <Plus className="mr-2 h-4 w-4" />
-              Create Manual Metric
-            </Button>
           </div>
 
           {metrics && metrics.length > 0 ? (
@@ -224,12 +215,8 @@ export function MetricPageClient({
                 <div className="space-y-3">
                   <p className="text-lg">No metrics yet</p>
                   <p className="text-sm">
-                    Create your first metric to start tracking KPIs
+                    Connect an integration and create metrics from templates
                   </p>
-                  <Button onClick={() => setIsCreateManualDialogOpen(true)}>
-                    <Plus className="mr-2 h-4 w-4" />
-                    Create Metric
-                  </Button>
                 </div>
               </CardContent>
             </Card>
@@ -290,12 +277,6 @@ export function MetricPageClient({
       </Tabs>
 
       {/* Dialogs */}
-      <CreateManualMetricDialog
-        open={isCreateManualDialogOpen}
-        onOpenChange={setIsCreateManualDialogOpen}
-        onSuccess={handleMetricCreated}
-      />
-
       <EditMetricDialog
         metric={editingMetric}
         open={isEditDialogOpen}
