@@ -31,10 +31,7 @@ import { useConfirmation } from "@/providers/ConfirmationDialogProvider";
 import type { RouterOutputs } from "@/trpc/react";
 import { api } from "@/trpc/react";
 
-import { GitHubMetricCreator } from "../github/github-metric-creator";
-import { SheetsMetricCreator } from "../google-sheets/sheets-metric-creator";
-import { PostHogMetricCreator } from "../posthog/posthog-metric-creator";
-import { YouTubeMetricCreator } from "../youtube/youtube-metric-creator";
+import { DynamicMetricCreator } from "./dynamic-metric-creator";
 import { IntegrationMetricCard } from "./integration-metric-card";
 
 type MetricType = "percentage" | "number" | "duration" | "rate";
@@ -446,31 +443,12 @@ export function MetricClient({
                 </p>
               </div>
 
-              {/* Integration-Specific Metric Creator */}
-              {integration.integrationId === "github" && (
-                <GitHubMetricCreator
-                  connectionId={integration.connectionId}
-                  onSuccess={handleMetricCreated}
-                />
-              )}
-              {integration.integrationId === "google-sheet" && (
-                <SheetsMetricCreator
-                  connectionId={integration.connectionId}
-                  onSuccess={handleMetricCreated}
-                />
-              )}
-              {integration.integrationId === "posthog" && (
-                <PostHogMetricCreator
-                  connectionId={integration.connectionId}
-                  onSuccess={handleMetricCreated}
-                />
-              )}
-              {integration.integrationId === "youtube" && (
-                <YouTubeMetricCreator
-                  connectionId={integration.connectionId}
-                  onSuccess={handleMetricCreated}
-                />
-              )}
+              {/* Dynamic Metric Creator - works for all integrations */}
+              <DynamicMetricCreator
+                connectionId={integration.connectionId}
+                integrationId={integration.integrationId}
+                onSuccess={handleMetricCreated}
+              />
 
               {/* Existing Metrics */}
               {integrationMetrics.length > 0 && (
