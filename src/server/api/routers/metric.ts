@@ -28,34 +28,12 @@ export const metricRouter = createTRPCRouter({
     });
   }),
 
-  create: workspaceProcedure
-    .input(
-      z.object({
-        name: z.string().min(1).max(100),
-        description: z.string().optional(),
-        type: z.enum(["percentage", "number", "duration", "rate"]),
-        targetValue: z.number().optional(),
-        unit: z.string().optional(),
-      }),
-    )
-    .mutation(async ({ ctx, input }) => {
-      return ctx.db.metric.create({
-        data: {
-          ...input,
-          organizationId: ctx.workspace.organizationId,
-        },
-      });
-    }),
-
   update: workspaceProcedure
     .input(
       z.object({
         id: z.string(),
         name: z.string().min(1).max(100).optional(),
         description: z.string().optional(),
-        targetValue: z.number().optional(),
-        currentValue: z.number().optional(),
-        unit: z.string().optional(),
       }),
     )
     .mutation(async ({ ctx, input }) => {
@@ -108,7 +86,6 @@ export const metricRouter = createTRPCRouter({
         connectionId: z.string(),
         name: z.string().min(1).max(100).optional(),
         description: z.string().optional(),
-        targetValue: z.number().optional(),
         endpointParams: z.record(z.string()).optional(),
       }),
     )
@@ -145,9 +122,6 @@ export const metricRouter = createTRPCRouter({
         data: {
           name: input.name ?? template.label,
           description: input.description ?? template.description,
-          type: template.metricType,
-          targetValue: input.targetValue,
-          unit: template.defaultUnit,
           organizationId: ctx.workspace.organizationId,
           integrationId: input.connectionId,
           metricTemplate: template.templateId,
@@ -229,13 +203,18 @@ export const metricRouter = createTRPCRouter({
         }
       }
 
-      return ctx.db.metric.update({
+      // Update lastFetchedAt and return the value
+      const updatedMetric = await ctx.db.metric.update({
         where: { id: input.id },
         data: {
-          currentValue: finalValue,
           lastFetchedAt: new Date(),
         },
       });
+
+      return {
+        ...updatedMetric,
+        currentValue: finalValue, // Return the fetched value (not stored)
+      };
     }),
 
   // ===========================================================================

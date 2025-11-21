@@ -56,7 +56,6 @@ export function TemplateMetricForm({
   // Form state - dynamic based on selected template
   const [formValues, setFormValues] = useState<Record<string, string>>({});
   const [metricName, setMetricName] = useState("");
-  const [targetValue, setTargetValue] = useState("");
 
   // Create mutation
   const createMutation = api.metric.createFromTemplate.useMutation({
@@ -65,7 +64,6 @@ export function TemplateMetricForm({
       setSelectedTemplateId("");
       setFormValues({});
       setMetricName("");
-      setTargetValue("");
       onSuccess?.();
     },
   });
@@ -86,7 +84,6 @@ export function TemplateMetricForm({
       templateId: selectedTemplate.templateId,
       connectionId,
       name: metricName || selectedTemplate.label,
-      targetValue: targetValue ? parseFloat(targetValue) : undefined,
       endpointParams: formValues,
     });
   };
@@ -268,19 +265,6 @@ export function TemplateMetricForm({
                 />
                 <p className="text-muted-foreground text-sm">
                   Leave blank to use template name
-                </p>
-              </div>
-
-              <div className="space-y-2">
-                <Label>Target Value (Optional)</Label>
-                <Input
-                  type="number"
-                  value={targetValue}
-                  onChange={(e) => setTargetValue(e.target.value)}
-                  placeholder="e.g., 1000"
-                />
-                <p className="text-muted-foreground text-sm">
-                  Set a target goal for this metric
                 </p>
               </div>
             </div>

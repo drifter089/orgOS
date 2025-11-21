@@ -272,22 +272,9 @@ function buildMetricPrompt(metric: Metric, userHint?: string): string {
 
   parts.push(`## Metric Information`);
   parts.push(`- Name: ${metric.name}`);
-  parts.push(`- Type: ${metric.type}`);
 
   if (metric.description) {
     parts.push(`- Description: ${metric.description}`);
-  }
-
-  if (metric.unit) {
-    parts.push(`- Unit: ${metric.unit}`);
-  }
-
-  if (metric.currentValue !== null) {
-    parts.push(`- Current Value: ${metric.currentValue}`);
-  }
-
-  if (metric.targetValue !== null) {
-    parts.push(`- Target Value: ${metric.targetValue}`);
   }
 
   // Add integration and template context - crucial for understanding data format

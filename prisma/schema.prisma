@@ -87,15 +87,9 @@ model Role {
 
 model Metric {
     id             String   @id @default(cuid())
-    name           String   // e.g., "Customer Satisfaction", "Response Time"
+    name           String   // e.g., "GitHub Stars", "YouTube Views"
     description    String?
     organizationId String   // WorkOS organization ID
-
-    // KPI properties
-    type           String   // "percentage", "number", "duration", "rate"
-    targetValue    Float?   // Target threshold
-    currentValue   Float?   // Current value
-    unit           String?  // "ms", "%", "requests", etc.
 
     // Integration-backed metrics
     integrationId  String?  // Reference to Integration connectionId
