@@ -10,7 +10,7 @@ import { generateText } from "ai";
 
 import { env } from "@/env";
 
-import { type ChartTransformResult, type ChartType } from "./chart-ai-tools";
+import { type ChartTransformResult, type ChartType } from "./types";
 
 // ============================================================================
 // Types & Interfaces
