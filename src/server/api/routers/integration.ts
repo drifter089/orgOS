@@ -48,11 +48,40 @@ export const integrationRouter = createTRPCRouter({
 
       const nango = new Nango({ secretKey: env.NANGO_SECRET_KEY_DEV });
 
-      // Delete from Nango - this triggers a webhook that deletes from DB
-      await nango.deleteConnection(
-        integration.integrationId,
-        input.connectionId,
-      );
+      // Try to delete from Nango (triggers webhook that deletes from DB)
+      try {
+        await nango.deleteConnection(
+          integration.integrationId,
+          input.connectionId,
+        );
+      } catch (error) {
+        console.error("[Nango Connection Delete]", error);
+
+        // Only do direct DB deletion if connection doesn't exist in Nango (orphaned record)
+        // For other errors (auth, rate limit, etc.), throw the error
+        const isNotFoundError =
+          error instanceof Error &&
+          (error.message.includes("not found") ||
+            error.message.includes("does not exist") ||
+            error.message.includes("404"));
+
+        if (isNotFoundError) {
+          // Connection doesn't exist in Nango but exists in DB - clean up orphaned record
+          await ctx.db.integration.delete({
+            where: { connectionId: input.connectionId },
+          });
+          return { success: true };
+        }
+
+        // For other errors, re-throw
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message:
+            error instanceof Error
+              ? error.message
+              : "Failed to delete integration from Nango",
+        });
+      }
 
       return { success: true };
     }),
