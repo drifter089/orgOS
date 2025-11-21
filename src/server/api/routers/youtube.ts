@@ -7,7 +7,7 @@
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 
-import { fetchYouTubeData } from "@/server/api/services/youtube";
+import { fetchData } from "@/server/api/services/base";
 import { createTRPCRouter, workspaceProcedure } from "@/server/api/trpc";
 import { getIntegrationAndVerifyAccess } from "@/server/api/utils/authorization";
 
@@ -72,7 +72,8 @@ export const youtubeRouter = createTRPCRouter({
 
       try {
         // Fetch user's uploaded videos using YouTube Data API
-        const result = await fetchYouTubeData(
+        const result = await fetchData(
+          "youtube",
           input.connectionId,
           `/youtube/v3/search?part=snippet&forMine=true&type=video&order=date&maxResults=${input.maxResults}`,
         );
@@ -137,7 +138,8 @@ export const youtubeRouter = createTRPCRouter({
       }
 
       try {
-        const result = await fetchYouTubeData(
+        const result = await fetchData(
+          "youtube",
           input.connectionId,
           `/youtube/v3/playlists?part=snippet,contentDetails&mine=true&maxResults=${input.maxResults}`,
         );
@@ -202,7 +204,8 @@ export const youtubeRouter = createTRPCRouter({
       }
 
       try {
-        const result = await fetchYouTubeData(
+        const result = await fetchData(
+          "youtube",
           input.connectionId,
           "/youtube/v3/channels?part=snippet,statistics&mine=true",
         );

@@ -2,16 +2,12 @@ import type { Metric, Prisma } from "@prisma/client";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 
+import { fetchData, getMetricTemplate } from "@/server/api/services/base";
 import {
   type ChartTransformResult,
   transformMetricWithAI,
 } from "@/server/api/services/graph-transformer";
-import { getMetricTemplate } from "@/server/api/services/metric-templates";
 import { createTRPCRouter, workspaceProcedure } from "@/server/api/trpc";
-import {
-  buildEndpointWithParams,
-  fetchIntegrationData,
-} from "@/server/api/utils/fetch-integration-data";
 
 // ============================================================================
 // Dashboard Router
@@ -281,18 +277,19 @@ export const dashboardRouter = createTRPCRouter({
         });
       }
 
-      // Build endpoint with params
+      // Fetch data using new base function
       const params = (metric.endpointConfig as Record<string, string>) ?? {};
-      const endpoint = buildEndpointWithParams(template.endpoint, params);
 
-      const result = await fetchIntegrationData({
-        connectionId: metric.integrationId,
-        integrationId: metric.integration.integrationId,
-        endpoint,
-        params,
-        method: template.method ?? "GET",
-        requestBodyTemplate: template.requestBodyTemplate,
-      });
+      const result = await fetchData(
+        metric.integration.integrationId,
+        metric.integrationId,
+        template.metricEndpoint,
+        {
+          method: template.method ?? "GET",
+          params,
+          body: template.requestBody,
+        },
+      );
 
       return {
         data: result.data,
@@ -364,20 +361,21 @@ export const dashboardRouter = createTRPCRouter({
         const template = getMetricTemplate(metric.metricTemplate);
 
         if (template) {
-          // Build endpoint with params
+          // Fetch fresh data using new base function
           const params =
             (metric.endpointConfig as Record<string, string>) ?? {};
-          const endpoint = buildEndpointWithParams(template.endpoint, params);
 
           try {
-            const result = await fetchIntegrationData({
-              connectionId: metric.integrationId,
-              integrationId: metric.integration.integrationId,
-              endpoint,
-              params,
-              method: template.method ?? "GET",
-              requestBodyTemplate: template.requestBodyTemplate,
-            });
+            const result = await fetchData(
+              metric.integration.integrationId,
+              metric.integrationId,
+              template.metricEndpoint,
+              {
+                method: template.method ?? "GET",
+                params,
+                body: template.requestBody,
+              },
+            );
 
             // Create metric with fresh data in endpointConfig for AI
             metricWithFreshData = {

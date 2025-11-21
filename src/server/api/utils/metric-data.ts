@@ -41,11 +41,13 @@ export function extractValueFromPath(data: unknown, path: string): unknown {
  * Apply transformation to extracted data
  * @param value The extracted value
  * @param transformType The transformation type
+ * @param params Optional parameters for transformation
  * @returns The transformed numeric value
  */
 export function applyTransformation(
   value: unknown,
   transformType: string,
+  params?: Record<string, string>,
 ): number {
   switch (transformType) {
     case "countRows":
@@ -54,6 +56,38 @@ export function applyTransformation(
         return value.length;
       }
       return 0;
+
+    case "extractColumn": {
+      // Extract values from a specific column in Google Sheets
+      if (!params?.COLUMN_INDEX) return 0;
+      const columnIndex = parseInt(params.COLUMN_INDEX);
+      const columnData: number[] = [];
+
+      if (Array.isArray(value)) {
+        // Skip header row (index 0)
+        for (let i = 1; i < value.length; i++) {
+          const row = value[i];
+          if (Array.isArray(row) && row[columnIndex] !== undefined) {
+            const cellValue = parseFloat(String(row[columnIndex]));
+            if (!isNaN(cellValue)) {
+              columnData.push(cellValue);
+            }
+          }
+        }
+      }
+
+      // Return the last value in the column
+      return columnData.length > 0 ? columnData[columnData.length - 1]! : 0;
+    }
+
+    case "extractCommitActivity": {
+      // Sum up total commits from GitHub commit activity
+      if (!Array.isArray(value)) return 0;
+      return (value as Array<{ total?: number }>).reduce(
+        (sum: number, week) => sum + (week.total ?? 0),
+        0,
+      );
+    }
 
     case "countEvents":
       // Count number of events in PostHog response
