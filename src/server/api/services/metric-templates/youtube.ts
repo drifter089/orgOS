@@ -11,7 +11,6 @@ export const templates: MetricTemplate[] = [
     defaultUnit: "subscribers",
 
     metricEndpoint: "/youtube/v3/channels?part=statistics&mine=true",
-    dataPath: "items.0.statistics.subscriberCount",
 
     requiredParams: [],
   },
@@ -24,7 +23,6 @@ export const templates: MetricTemplate[] = [
     defaultUnit: "views",
 
     metricEndpoint: "/youtube/v3/channels?part=statistics&mine=true",
-    dataPath: "items.0.statistics.viewCount",
 
     requiredParams: [],
   },
@@ -37,7 +35,6 @@ export const templates: MetricTemplate[] = [
     defaultUnit: "videos",
 
     metricEndpoint: "/youtube/v3/channels?part=statistics&mine=true",
-    dataPath: "items.0.statistics.videoCount",
 
     requiredParams: [],
   },
@@ -72,7 +69,6 @@ export const templates: MetricTemplate[] = [
     ],
 
     metricEndpoint: "/youtube/v3/videos?part=statistics&id={VIDEO_ID}",
-    dataPath: "items.0.statistics.viewCount",
 
     requiredParams: [
       {

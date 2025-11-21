@@ -32,9 +32,6 @@ export function MetricPageClient({
   const [editingMetric, setEditingMetric] = useState<Metrics[0] | null>(null);
   const [status, setStatus] = useState<string>("");
   const [selectedTab, setSelectedTab] = useState<string>("all");
-  const [refreshingMetricId, setRefreshingMetricId] = useState<string | null>(
-    null,
-  );
   const [deletingMetricId, setDeletingMetricId] = useState<string | null>(null);
 
   const { confirm } = useConfirmation();
@@ -89,35 +86,6 @@ export function MetricPageClient({
     },
   });
 
-  // Refresh mutation with optimistic state indicator
-  const refreshMutation = api.metric.refreshMetricValue.useMutation({
-    onMutate: async ({ id }) => {
-      // Cancel outgoing refetches
-      await utils.metric.getAll.cancel();
-
-      // Snapshot previous data
-      const previousMetrics = utils.metric.getAll.getData();
-
-      return { previousMetrics, refreshingId: id };
-    },
-    onError: (error, _variables, context) => {
-      // Revert on error if needed
-      if (context?.previousMetrics) {
-        utils.metric.getAll.setData(undefined, context.previousMetrics);
-      }
-      setRefreshingMetricId(null);
-      setStatus(`Error refreshing metric: ${error.message}`);
-    },
-    onSuccess: (refreshedMetric) => {
-      // Update the metric with fresh value from server
-      utils.metric.getAll.setData(undefined, (old) =>
-        old?.map((m) => (m.id === refreshedMetric.id ? refreshedMetric : m)),
-      );
-      setRefreshingMetricId(null);
-      setStatus("Metric refreshed successfully!");
-    },
-  });
-
   const handleMetricCreated = () => {
     void utils.metric.getAll.invalidate();
     setStatus("Metric created successfully!");
@@ -144,11 +112,6 @@ export function MetricPageClient({
       setDeletingMetricId(id);
       deleteMutation.mutate({ id });
     }
-  };
-
-  const handleRefresh = (id: string) => {
-    setRefreshingMetricId(id);
-    refreshMutation.mutate({ id });
   };
 
   // Filter metrics by integration
@@ -201,10 +164,8 @@ export function MetricPageClient({
                 <MetricCard
                   key={metric.id}
                   metric={metric}
-                  onRefresh={handleRefresh}
                   onEdit={handleEdit}
                   onDelete={handleDelete}
-                  isRefreshing={refreshingMetricId === metric.id}
                   isDeleting={deletingMetricId === metric.id}
                 />
               ))}
@@ -261,10 +222,8 @@ export function MetricPageClient({
                       <MetricCard
                         key={metric.id}
                         metric={metric}
-                        onRefresh={handleRefresh}
                         onEdit={handleEdit}
                         onDelete={handleDelete}
-                        isRefreshing={refreshingMetricId === metric.id}
                         isDeleting={deletingMetricId === metric.id}
                       />
                     ))}
