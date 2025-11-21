@@ -57,13 +57,28 @@ export const integrationRouter = createTRPCRouter({
       } catch (error) {
         console.error("[Nango Connection Delete]", error);
 
-        // Only do direct DB deletion if connection doesn't exist in Nango (orphaned record)
-        // For other errors (auth, rate limit, etc.), throw the error
+        // Check if this is a "connection not found" error (orphaned record)
+        // AxiosError from Nango has response.status and response.data
+        const isAxiosError =
+          error && typeof error === "object" && "response" in error;
+        const responseStatus = isAxiosError
+          ? (error as { response?: { status?: number } }).response?.status
+          : null;
+        const responseData = isAxiosError
+          ? (error as { response?: { data?: unknown } }).response?.data
+          : null;
+        const errorMessage =
+          error instanceof Error ? error.message : String(error);
+
+        // Treat 400/404 as "not found" or check error message/response
         const isNotFoundError =
-          error instanceof Error &&
-          (error.message.includes("not found") ||
-            error.message.includes("does not exist") ||
-            error.message.includes("404"));
+          responseStatus === 400 ||
+          responseStatus === 404 ||
+          errorMessage.includes("not found") ||
+          errorMessage.includes("does not exist") ||
+          (typeof responseData === "string" &&
+            (responseData.includes("not found") ||
+              responseData.includes("does not exist")));
 
         if (isNotFoundError) {
           // Connection doesn't exist in Nango but exists in DB - clean up orphaned record
