@@ -36,7 +36,7 @@ interface Metric {
   } | null;
 }
 
-interface IntegrationMetricCardProps {
+interface MetricCardProps {
   metric: Metric;
   onRefresh: (id: string) => void;
   onEdit: (metric: Metric) => void;
@@ -45,14 +45,14 @@ interface IntegrationMetricCardProps {
   isDeleting?: boolean;
 }
 
-export function IntegrationMetricCard({
+export function MetricCard({
   metric,
   onRefresh,
   onEdit,
   onDelete,
   isRefreshing,
   isDeleting,
-}: IntegrationMetricCardProps) {
+}: MetricCardProps) {
   const getMetricColor = (
     current: number | null,
     target: number | null,

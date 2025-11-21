@@ -1,6 +1,6 @@
 import { api } from "@/trpc/server";
 
-import { MetricClient } from "./_components/metric-client";
+import { MetricPageClient } from "./_components/metric-page-client";
 
 export default async function MetricPage() {
   // Prefetch data on server for instant page load
@@ -21,7 +21,7 @@ export default async function MetricPage() {
         </div>
       </div>
 
-      <MetricClient
+      <MetricPageClient
         initialMetrics={metrics}
         initialIntegrations={integrations}
       />
