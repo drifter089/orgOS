@@ -41,17 +41,19 @@ export function PostHogMetricCreator({
 
   // Fetch PostHog projects
   const { data: projects, isLoading: loadingProjects } =
-    api.metricIntegration.fetchDynamicOptions.useQuery({
+    api.metric.fetchDynamicOptions.useQuery({
       connectionId,
-      endpoint: "posthog-projects",
+      templateId: "posthog-event-count",
+      dropdownKey: "PROJECT_ID",
     });
 
   // Fetch events for selected project
   const { data: events, isLoading: loadingEvents } =
-    api.metricIntegration.fetchDynamicOptions.useQuery(
+    api.metric.fetchDynamicOptions.useQuery(
       {
         connectionId,
-        endpoint: "posthog-events",
+        templateId: "posthog-event-count",
+        dropdownKey: "EVENT_NAME",
         dependsOnValue: projectId,
       },
       {
