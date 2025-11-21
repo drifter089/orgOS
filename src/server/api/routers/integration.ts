@@ -13,11 +13,6 @@ export const integrationRouter = createTRPCRouter({
       orderBy: { createdAt: "desc" },
     });
 
-    const active = integrations.filter((i) => i.status === "active");
-    const revoked = integrations.filter((i) => i.status === "revoked");
-    const error = integrations.filter((i) => i.status === "error");
-
-    // Count by provider
     const byProvider: Record<string, number> = {};
     integrations.forEach((integration) => {
       byProvider[integration.integrationId] =
@@ -25,40 +20,17 @@ export const integrationRouter = createTRPCRouter({
     });
 
     return {
-      active,
+      active: integrations,
       stats: {
         total: integrations.length,
-        active: active.length,
-        revoked: revoked.length,
-        error: error.length,
+        active: integrations.length,
         byProvider,
       },
     };
   }),
 
-  get: workspaceProcedure
+  revoke: workspaceProcedure
     .input(z.object({ connectionId: z.string() }))
-    .query(async ({ ctx, input }) => {
-      const integration = await getIntegrationAndVerifyAccess(
-        ctx.db,
-        input.connectionId,
-        ctx.user.id,
-        ctx.workspace,
-      );
-
-      return integration;
-    }),
-
-  fetchData: workspaceProcedure
-    .input(
-      z.object({
-        connectionId: z.string(),
-        endpoint: z.string(),
-        method: z
-          .enum(["GET", "POST", "PUT", "PATCH", "DELETE"])
-          .default("GET"),
-      }),
-    )
     .mutation(async ({ ctx, input }) => {
       const integration = await getIntegrationAndVerifyAccess(
         ctx.db,
@@ -66,13 +38,6 @@ export const integrationRouter = createTRPCRouter({
         ctx.user.id,
         ctx.workspace,
       );
-
-      if (integration.status !== "active") {
-        throw new TRPCError({
-          code: "BAD_REQUEST",
-          message: `Integration is ${integration.status}. Please reconnect.`,
-        });
-      }
 
       if (!env.NANGO_SECRET_KEY_DEV) {
         throw new TRPCError({
@@ -83,72 +48,19 @@ export const integrationRouter = createTRPCRouter({
 
       const nango = new Nango({ secretKey: env.NANGO_SECRET_KEY_DEV });
 
+      // Delete from Nango (triggers deletion webhook)
       try {
-        const response = await nango.proxy({
-          connectionId: input.connectionId,
-          providerConfigKey: integration.integrationId,
-          endpoint: input.endpoint,
-          method: input.method,
-        });
-
-        return {
-          data: response.data,
-          status: response.status,
-        };
+        await nango.deleteConnection(
+          integration.integrationId,
+          input.connectionId,
+        );
       } catch (error) {
-        console.error("[Integration Data Fetch]", error);
-        throw new TRPCError({
-          code: "INTERNAL_SERVER_ERROR",
-          message:
-            error instanceof Error
-              ? error.message
-              : "Failed to fetch data from integration",
-        });
+        console.error("[Nango Connection Delete]", error);
+        // Continue with DB deletion even if Nango fails
       }
-    }),
 
-  revoke: workspaceProcedure
-    .input(z.object({ connectionId: z.string() }))
-    .mutation(async ({ ctx, input }) => {
-      await getIntegrationAndVerifyAccess(
-        ctx.db,
-        input.connectionId,
-        ctx.user.id,
-        ctx.workspace,
-      );
-
-      await ctx.db.integration.update({
+      await ctx.db.integration.delete({
         where: { connectionId: input.connectionId },
-        data: {
-          status: "revoked",
-        },
-      });
-
-      return { success: true };
-    }),
-
-  updateLastSync: workspaceProcedure
-    .input(
-      z.object({
-        connectionId: z.string(),
-        error: z.string().optional(),
-      }),
-    )
-    .mutation(async ({ ctx, input }) => {
-      await getIntegrationAndVerifyAccess(
-        ctx.db,
-        input.connectionId,
-        ctx.user.id,
-        ctx.workspace,
-      );
-
-      await ctx.db.integration.update({
-        where: { connectionId: input.connectionId },
-        data: {
-          lastSyncAt: input.error ? undefined : new Date(),
-          status: input.error ? "error" : "active",
-          errorMessage: input.error ?? null,
-        },
       });
 
       return { success: true };

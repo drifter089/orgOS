@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 
 import Nango from "@nangohq/frontend";
-import { CheckCircle2, Trash2, XCircle } from "lucide-react";
+import { CheckCircle2, Trash2 } from "lucide-react";
 
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
@@ -43,26 +43,22 @@ export function IntegrationClient({ initialData }: IntegrationClientProps) {
   const integrations = data?.active;
   const stats = data?.stats;
 
-  // Revoke mutation with optimistic update
   const revokeMutation = api.integration.revoke.useMutation({
     onMutate: async ({ connectionId }) => {
-      // Cancel outgoing refetches
       await utils.integration.listWithStats.cancel();
-
-      // Snapshot previous data
       const previousData = utils.integration.listWithStats.getData();
 
-      // Optimistically remove the integration
+      // Optimistically remove integration (will be hard deleted from DB and Nango)
       if (previousData) {
+        const newActive = previousData.active.filter(
+          (i) => i.connectionId !== connectionId,
+        );
         utils.integration.listWithStats.setData(undefined, {
-          active: previousData.active.filter(
-            (i) => i.connectionId !== connectionId,
-          ),
+          active: newActive,
           stats: {
             ...previousData.stats,
-            total: previousData.stats.total,
-            active: previousData.stats.active - 1,
-            revoked: previousData.stats.revoked + 1,
+            total: newActive.length,
+            active: newActive.length,
           },
         });
 
@@ -72,20 +68,18 @@ export function IntegrationClient({ initialData }: IntegrationClientProps) {
       return { previousData };
     },
     onError: (error, _variables, context) => {
-      // Revert on error
       if (context?.previousData) {
         utils.integration.listWithStats.setData(
           undefined,
           context.previousData,
         );
       }
-      setStatus(`Error revoking integration: ${error.message}`);
+      setStatus(`Error deleting integration: ${error.message}`);
     },
     onSuccess: () => {
-      setStatus("Integration revoked successfully");
+      setStatus("Integration deleted successfully");
     },
     onSettled: async () => {
-      // Ensure consistency with server
       await utils.integration.listWithStats.invalidate();
     },
   });
@@ -184,10 +178,10 @@ export function IntegrationClient({ initialData }: IntegrationClientProps) {
 
   const handleRevoke = async (connectionId: string) => {
     const confirmed = await confirm({
-      title: "Revoke integration",
+      title: "Delete integration",
       description:
-        "Are you sure you want to revoke this integration? This will disconnect the service and any metrics using this integration will stop receiving updates.",
-      confirmText: "Revoke",
+        "Are you sure you want to delete this integration? This will permanently remove the connection and any metrics using this integration will stop receiving updates.",
+      confirmText: "Delete",
       variant: "destructive",
     });
 
@@ -226,26 +220,18 @@ export function IntegrationClient({ initialData }: IntegrationClientProps) {
         </CardHeader>
         <CardContent>
           {stats ? (
-            <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+            <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1">
-                <p className="text-muted-foreground text-sm">Total</p>
-                <p className="text-2xl font-bold">{stats.total}</p>
+                <p className="text-muted-foreground text-sm">Total Connected</p>
+                <p className="text-2xl font-bold text-green-600">
+                  {stats.total}
+                </p>
               </div>
               <div className="space-y-1">
                 <p className="text-muted-foreground text-sm">Active</p>
                 <p className="text-2xl font-bold text-green-600">
                   {stats.active}
                 </p>
-              </div>
-              <div className="space-y-1">
-                <p className="text-muted-foreground text-sm">Revoked</p>
-                <p className="text-2xl font-bold text-gray-500">
-                  {stats.revoked}
-                </p>
-              </div>
-              <div className="space-y-1">
-                <p className="text-muted-foreground text-sm">Errors</p>
-                <p className="text-2xl font-bold text-red-600">{stats.error}</p>
               </div>
             </div>
           ) : null}
@@ -275,36 +261,15 @@ export function IntegrationClient({ initialData }: IntegrationClientProps) {
                       <h3 className="font-semibold capitalize">
                         {integration.integrationId}
                       </h3>
-                      <Badge
-                        variant={
-                          integration.status === "active"
-                            ? "default"
-                            : "secondary"
-                        }
-                      >
-                        {integration.status === "active" ? (
-                          <CheckCircle2 className="mr-1 h-3 w-3" />
-                        ) : (
-                          <XCircle className="mr-1 h-3 w-3" />
-                        )}
-                        {integration.status}
+                      <Badge variant="default">
+                        <CheckCircle2 className="mr-1 h-3 w-3" />
+                        Active
                       </Badge>
                     </div>
                     <p className="text-muted-foreground text-sm">
                       Connected{" "}
                       {new Date(integration.createdAt).toLocaleDateString()}
                     </p>
-                    {integration.lastSyncAt && (
-                      <p className="text-muted-foreground text-xs">
-                        Last sync:{" "}
-                        {new Date(integration.lastSyncAt).toLocaleString()}
-                      </p>
-                    )}
-                    {integration.errorMessage && (
-                      <p className="text-xs text-red-600">
-                        Error: {integration.errorMessage}
-                      </p>
-                    )}
                   </div>
                   <Button
                     variant="ghost"
