@@ -127,10 +127,7 @@ async function handleConnectionDeletion(payload: NangoWebhookPayload) {
     return;
   }
 
-  await db.integration.update({
+  await db.integration.delete({
     where: { connectionId },
-    data: {
-      status: "revoked",
-    },
   });
 }
