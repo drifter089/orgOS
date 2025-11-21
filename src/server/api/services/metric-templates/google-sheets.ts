@@ -9,7 +9,6 @@ export const templates: MetricTemplate[] = [
     metricType: "number",
 
     metricEndpoint: "/v4/spreadsheets/{SPREADSHEET_ID}/values/{RANGE}",
-    dataPath: "values.0.0",
 
     requiredParams: [
       {
@@ -54,8 +53,6 @@ export const templates: MetricTemplate[] = [
 
     previewEndpoint: "/v4/spreadsheets/{SPREADSHEET_ID}/values/{SHEET_NAME}",
     metricEndpoint: "/v4/spreadsheets/{SPREADSHEET_ID}/values/{SHEET_NAME}",
-    dataPath: "values",
-    transform: "extractColumn",
 
     requiredParams: [
       {

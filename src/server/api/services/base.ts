@@ -63,10 +63,6 @@ export interface MetricTemplate {
   method?: "GET" | "POST";
   requestBody?: unknown;
 
-  // Data extraction
-  dataPath: string;
-  transform?: string;
-
   // User input params
   requiredParams: Array<{
     name: string;

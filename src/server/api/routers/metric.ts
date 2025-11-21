@@ -11,10 +11,6 @@ import {
 } from "@/server/api/services/base";
 import { createTRPCRouter, workspaceProcedure } from "@/server/api/trpc";
 import { getIntegrationAndVerifyAccess } from "@/server/api/utils/authorization";
-import {
-  applyTransformation,
-  extractValueFromPath,
-} from "@/server/api/utils/metric-data";
 
 export const metricRouter = createTRPCRouter({
   // ===========================================================================
@@ -133,89 +129,6 @@ export const metricRouter = createTRPCRouter({
   // ===========================================================================
   // Metric Refresh
   // ===========================================================================
-
-  refreshMetricValue: workspaceProcedure
-    .input(z.object({ id: z.string() }))
-    .mutation(async ({ ctx, input }) => {
-      const metric = await ctx.db.metric.findUnique({
-        where: { id: input.id },
-        include: { integration: true },
-      });
-
-      if (!metric) {
-        throw new TRPCError({
-          code: "NOT_FOUND",
-          message: "Metric not found",
-        });
-      }
-
-      if (!metric.integrationId || !metric.metricTemplate) {
-        throw new TRPCError({
-          code: "BAD_REQUEST",
-          message: "This metric is not integration-backed",
-        });
-      }
-
-      const template = getMetricTemplate(metric.metricTemplate);
-
-      if (!metric.integration) {
-        throw new TRPCError({
-          code: "NOT_FOUND",
-          message: "Integration not found",
-        });
-      }
-
-      await getIntegrationAndVerifyAccess(
-        ctx.db,
-        metric.integrationId,
-        ctx.user.id,
-        ctx.workspace,
-      );
-
-      const params = (metric.endpointConfig as Record<string, string>) ?? {};
-
-      // Fetch data using new base function
-      const result = await fetchData(
-        metric.integration.integrationId,
-        metric.integrationId,
-        template.metricEndpoint,
-        {
-          method: template.method ?? "GET",
-          params,
-          body: template.requestBody,
-        },
-      );
-
-      // Extract value
-      const value = extractValueFromPath(result.data, template.dataPath);
-
-      // Apply transformation if specified
-      let finalValue: number;
-      if (template.transform) {
-        finalValue = applyTransformation(value, template.transform, params);
-      } else {
-        finalValue = parseFloat(String(value));
-        if (isNaN(finalValue)) {
-          throw new TRPCError({
-            code: "INTERNAL_SERVER_ERROR",
-            message: `Failed to extract numeric value from path: ${template.dataPath}`,
-          });
-        }
-      }
-
-      // Update lastFetchedAt and return the value
-      const updatedMetric = await ctx.db.metric.update({
-        where: { id: input.id },
-        data: {
-          lastFetchedAt: new Date(),
-        },
-      });
-
-      return {
-        ...updatedMetric,
-        currentValue: finalValue, // Return the fetched value (not stored)
-      };
-    }),
 
   // ===========================================================================
   // Integration Operations

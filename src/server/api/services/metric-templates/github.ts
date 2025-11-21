@@ -10,7 +10,6 @@ export const templates: MetricTemplate[] = [
     metricType: "number",
     defaultUnit: "followers",
     metricEndpoint: "/user",
-    dataPath: "followers",
     requiredParams: [],
   },
   {
@@ -21,7 +20,6 @@ export const templates: MetricTemplate[] = [
     metricType: "number",
     defaultUnit: "repos",
     metricEndpoint: "/user",
-    dataPath: "public_repos",
     requiredParams: [],
   },
 
@@ -49,7 +47,6 @@ export const templates: MetricTemplate[] = [
     ],
 
     metricEndpoint: "/repos/{OWNER}/{REPO}",
-    dataPath: "stargazers_count",
 
     requiredParams: [
       {
@@ -93,7 +90,6 @@ export const templates: MetricTemplate[] = [
     ],
 
     metricEndpoint: "/repos/{OWNER}/{REPO}",
-    dataPath: "forks_count",
 
     requiredParams: [
       {
@@ -123,7 +119,6 @@ export const templates: MetricTemplate[] = [
     defaultUnit: "issues",
 
     metricEndpoint: "/repos/{OWNER}/{REPO}",
-    dataPath: "open_issues_count",
 
     requiredParams: [
       {
@@ -155,8 +150,6 @@ export const templates: MetricTemplate[] = [
     metricType: "number",
 
     metricEndpoint: "/repos/{OWNER}/{REPO}/stats/commit_activity",
-    dataPath: ".",
-    transform: "extractCommitActivity",
 
     requiredParams: [
       {

@@ -42,8 +42,6 @@ export const templates: MetricTemplate[] = [
           "SELECT formatDateTime(timestamp, '%Y-%m-%d') as date, count() as count FROM events WHERE event = '{EVENT_NAME}' AND timestamp > now() - INTERVAL 30 DAY GROUP BY date ORDER BY date",
       },
     }),
-    dataPath: "results",
-    transform: "extractHogQLResults",
 
     requiredParams: [
       {
@@ -89,7 +87,6 @@ export const templates: MetricTemplate[] = [
     ],
 
     metricEndpoint: "/api/projects/{PROJECT_ID}/persons/",
-    dataPath: "count",
 
     requiredParams: [
       {

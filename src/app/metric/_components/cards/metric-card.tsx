@@ -2,7 +2,7 @@
 
 import type { Prisma } from "@prisma/client";
 import { formatDistanceToNow } from "date-fns";
-import { Loader2, Pencil, RefreshCw, Trash2 } from "lucide-react";
+import { Pencil, Trash2 } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -34,19 +34,15 @@ interface Metric {
 
 interface MetricCardProps {
   metric: Metric;
-  onRefresh: (id: string) => void;
   onEdit: (metric: Metric) => void;
   onDelete: (id: string, name: string) => void;
-  isRefreshing?: boolean;
   isDeleting?: boolean;
 }
 
 export function MetricCard({
   metric,
-  onRefresh,
   onEdit,
   onDelete,
-  isRefreshing,
   isDeleting,
 }: MetricCardProps) {
   const isIntegrationMetric = metric.integrationId && metric.metricTemplate;
@@ -94,27 +90,6 @@ export function MetricCard({
 
         {/* Actions */}
         <div className="flex gap-2">
-          {isIntegrationMetric && (
-            <Button
-              variant="outline"
-              size="sm"
-              className="flex-1"
-              onClick={() => onRefresh(metric.id)}
-              disabled={isRefreshing}
-            >
-              {isRefreshing ? (
-                <>
-                  <Loader2 className="mr-1 h-3 w-3 animate-spin" />
-                  Refreshing...
-                </>
-              ) : (
-                <>
-                  <RefreshCw className="mr-1 h-3 w-3" />
-                  Refresh
-                </>
-              )}
-            </Button>
-          )}
           <Button variant="ghost" size="sm" onClick={() => onEdit(metric)}>
             <Pencil className="h-4 w-4" />
           </Button>
