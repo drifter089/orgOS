@@ -41,7 +41,6 @@ export function IntegrationClient({ initialData }: IntegrationClientProps) {
     });
 
   const integrations = data?.active;
-  const stats = data?.stats;
 
   const revokeMutation = api.integration.revoke.useMutation({
     onMutate: async ({ connectionId }) => {
@@ -140,7 +139,7 @@ export function IntegrationClient({ initialData }: IntegrationClientProps) {
   const handleConnect = async () => {
     try {
       setIsLoading(true);
-      setStatus("Fetching session token...");
+      setStatus("");
 
       const response = await fetch("/api/nango/session", {
         method: "POST",
@@ -151,18 +150,13 @@ export function IntegrationClient({ initialData }: IntegrationClientProps) {
       }
 
       const data = (await response.json()) as { sessionToken: string };
-      setStatus("Opening Nango Connect UI...");
 
       const nango = new Nango({ connectSessionToken: data.sessionToken });
       nango.openConnectUI({
         onEvent: (event) => {
           if (event.type === "connect") {
-            setStatus(
-              `Connected! Integration: ${event.payload.providerConfigKey} - Waiting for webhook...`,
-            );
             void pollForIntegration(event.payload.connectionId);
           } else if (event.type === "close") {
-            setStatus("Connection flow closed");
             setIsLoading(false);
           }
         },
@@ -192,7 +186,6 @@ export function IntegrationClient({ initialData }: IntegrationClientProps) {
 
   return (
     <>
-      {/* Header Card */}
       <Card>
         <CardHeader>
           <CardTitle>Connect 3rd Party Services</CardTitle>
@@ -210,31 +203,6 @@ export function IntegrationClient({ initialData }: IntegrationClientProps) {
               <AlertDescription>{status}</AlertDescription>
             </Alert>
           )}
-        </CardContent>
-      </Card>
-
-      {/* Stats Card */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Integration Statistics</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {stats ? (
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-1">
-                <p className="text-muted-foreground text-sm">Total Connected</p>
-                <p className="text-2xl font-bold text-green-600">
-                  {stats.total}
-                </p>
-              </div>
-              <div className="space-y-1">
-                <p className="text-muted-foreground text-sm">Active</p>
-                <p className="text-2xl font-bold text-green-600">
-                  {stats.active}
-                </p>
-              </div>
-            </div>
-          ) : null}
         </CardContent>
       </Card>
 
