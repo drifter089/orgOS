@@ -24,23 +24,23 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { api } from "@/trpc/react";
 
-import { DynamicSelectField } from "./field-renderers/dynamic-select-field";
-import { NumberField } from "./field-renderers/number-field";
-import { SelectField } from "./field-renderers/select-field";
-import { TextField } from "./field-renderers/text-field";
-import { GoogleSheetsPreview } from "./google-sheets-preview";
+import { GoogleSheetsPreview } from "../previews/google-sheets-preview";
+import { DynamicSelectField } from "./fields/dynamic-select-field";
+import { NumberField } from "./fields/number-field";
+import { SelectField } from "./fields/select-field";
+import { TextField } from "./fields/text-field";
 
-interface DynamicMetricCreatorProps {
+interface TemplateMetricFormProps {
   connectionId: string;
   integrationId: string;
   onSuccess?: () => void;
 }
 
-export function DynamicMetricCreator({
+export function TemplateMetricForm({
   connectionId,
   integrationId,
   onSuccess,
-}: DynamicMetricCreatorProps) {
+}: TemplateMetricFormProps) {
   // Fetch templates for this integration
   const { data: templates, isLoading: loadingTemplates } =
     api.metric.getTemplatesByIntegration.useQuery({
