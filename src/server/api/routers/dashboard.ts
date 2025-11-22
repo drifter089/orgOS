@@ -7,7 +7,7 @@ import {
   type ChartTransformResult,
   transformMetricWithAI,
 } from "@/server/api/services/chart-tools/ai-transformer";
-import { fetchData } from "@/server/api/services/integrations/base";
+import { fetchData } from "@/server/api/services/nango";
 import { createTRPCRouter, workspaceProcedure } from "@/server/api/trpc";
 
 // ============================================================================
