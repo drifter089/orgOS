@@ -21,54 +21,85 @@ export const baseUrl = "https://www.googleapis.com";
 // =============================================================================
 
 export const templates: MetricTemplate[] = [
-  // ===== Channel Metrics =====
+  // ===== Channel Time-Series Metrics (YouTube Analytics API v2) =====
   {
-    templateId: "youtube-channel-subscribers",
-    label: "Channel Subscribers",
-    description: "Total subscriber count for your channel",
+    templateId: "youtube-channel-views-timeseries",
+    label: "Channel Views (Time Series)",
+    description: "Daily view counts for your entire channel",
+    integrationId: "youtube",
+    metricType: "number",
+    defaultUnit: "views",
+
+    metricEndpoint:
+      "https://youtubeanalytics.googleapis.com/v2/reports?ids=channel==MINE&metrics=views&dimensions=day&startDate=28daysAgo&endDate=today",
+
+    requiredParams: [],
+  },
+  {
+    templateId: "youtube-channel-likes-timeseries",
+    label: "Channel Likes (Time Series)",
+    description: "Daily likes across all your videos",
+    integrationId: "youtube",
+    metricType: "number",
+    defaultUnit: "likes",
+
+    metricEndpoint:
+      "https://youtubeanalytics.googleapis.com/v2/reports?ids=channel==MINE&metrics=likes&dimensions=day&startDate=28daysAgo&endDate=today",
+
+    requiredParams: [],
+  },
+  {
+    templateId: "youtube-channel-subscribers-timeseries",
+    label: "Subscribers Gained (Time Series)",
+    description: "Daily subscriber growth for your channel",
     integrationId: "youtube",
     metricType: "number",
     defaultUnit: "subscribers",
 
-    metricEndpoint: "/youtube/v3/channels?part=statistics&mine=true",
+    metricEndpoint:
+      "https://youtubeanalytics.googleapis.com/v2/reports?ids=channel==MINE&metrics=subscribersGained&dimensions=day&startDate=28daysAgo&endDate=today",
 
     requiredParams: [],
   },
+
+  // ===== Video Time-Series Metrics (YouTube Analytics API v2) =====
   {
-    templateId: "youtube-channel-views",
-    label: "Channel Total Views",
-    description: "Lifetime view count across all videos",
+    templateId: "youtube-video-views-timeseries",
+    label: "Video Views (Time Series)",
+    description: "Daily view counts for a specific video",
     integrationId: "youtube",
     metricType: "number",
     defaultUnit: "views",
 
-    metricEndpoint: "/youtube/v3/channels?part=statistics&mine=true",
+    metricEndpoint:
+      "https://youtubeanalytics.googleapis.com/v2/reports?ids=channel==MINE&metrics=views&dimensions=day&startDate=28daysAgo&endDate=today&filters=video=={VIDEO_ID}",
 
-    requiredParams: [],
+    requiredParams: [
+      {
+        name: "VIDEO_ID",
+        label: "Select Video",
+        description: "Select a video from your channel",
+        type: "dynamic-select",
+        required: true,
+        placeholder: "Select a video",
+        dynamicConfig: {
+          endpoint:
+            "/youtube/v3/search?part=snippet&forMine=true&type=video&maxResults=50",
+          method: "GET",
+        },
+      },
+    ],
   },
   {
-    templateId: "youtube-channel-video-count",
-    label: "Channel Video Count",
-    description: "Total number of videos on your channel",
+    templateId: "youtube-video-likes-timeseries",
+    label: "Video Likes (Time Series)",
+    description: "Daily likes for a specific video",
     integrationId: "youtube",
     metricType: "number",
-    defaultUnit: "videos",
+    defaultUnit: "likes",
 
-    metricEndpoint: "/youtube/v3/channels?part=statistics&mine=true",
-
-    requiredParams: [],
-  },
-
-  // ===== Video Metrics =====
-  {
-    templateId: "youtube-video-views",
-    label: "Video Views (Lifetime)",
-    description: "Total view count for a specific video",
-    integrationId: "youtube",
-    metricType: "number",
-    defaultUnit: "views",
-
-    metricEndpoint: "/youtube/v3/videos?part=statistics&id={VIDEO_ID}",
+    metricEndpoint:
+      "https://youtubeanalytics.googleapis.com/v2/reports?ids=channel==MINE&metrics=likes&dimensions=day&startDate=28daysAgo&endDate=today&filters=video=={VIDEO_ID}",
 
     requiredParams: [
       {
