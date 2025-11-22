@@ -67,32 +67,6 @@ export const templates: MetricTemplate[] = [
       },
     ],
   },
-
-  {
-    templateId: "posthog-active-users",
-    label: "Active Users",
-    description: "Count of active users in a project",
-    integrationId: "posthog",
-    metricType: "number",
-    defaultUnit: "users",
-
-    metricEndpoint: "/api/projects/{PROJECT_ID}/persons/",
-
-    requiredParams: [
-      {
-        name: "PROJECT_ID",
-        label: "Project",
-        description: "Select PostHog project",
-        type: "dynamic-select",
-        required: true,
-        placeholder: "Select a project",
-        dynamicConfig: {
-          endpoint: "/api/projects/",
-          method: "GET",
-        },
-      },
-    ],
-  },
 ];
 
 // =============================================================================

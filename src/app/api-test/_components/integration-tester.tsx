@@ -56,6 +56,8 @@ interface TestResult {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   response?: any;
   error?: string;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  errorDetails?: any; // Complete error object for debugging
 }
 
 const SERVICE_CONFIGS = {
@@ -153,7 +155,20 @@ export function IntegrationTester() {
       });
 
       if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        // Parse error response to get detailed error info
+        const errorJson = await response.json().catch(() => null);
+        const errorMessage = errorJson?.error?.message ?? response.statusText;
+        const errorCause = errorJson?.error?.cause;
+
+        console.error(`[API Test Error] ${endpoint.label}:`, {
+          status: response.status,
+          statusText: response.statusText,
+          errorMessage,
+          errorCause,
+          fullError: errorJson,
+        });
+
+        throw new Error(errorMessage);
       }
 
       const json = await response.json();
@@ -166,9 +181,33 @@ export function IntegrationTester() {
         response: result.data,
       });
     } catch (error) {
+      // Enhanced error handling with full details
+      let errorDetails = null;
+      let errorMessage = "Unknown error";
+
+      if (error instanceof Error) {
+        errorMessage = error.message;
+        // Try to parse additional error details from the message
+        try {
+          const match = /\{.*\}/s.exec(error.message);
+          if (match) {
+            errorDetails = JSON.parse(match[0]);
+          }
+        } catch {
+          // Not JSON, keep as is
+        }
+      }
+
+      console.error(`[API Test] Failed to test ${endpoint.label}:`, {
+        error,
+        errorMessage,
+        errorDetails,
+      });
+
       updateTestResult(endpointKey, {
         status: "fail",
-        error: error instanceof Error ? error.message : "Unknown error",
+        error: errorMessage,
+        errorDetails,
       });
     }
   };
@@ -453,7 +492,22 @@ export function IntegrationTester() {
 
                     {/* Error Message */}
                     {result?.status === "fail" && result.error && (
-                      <p className="text-xs text-red-600">{result.error}</p>
+                      <div className="space-y-2">
+                        <p className="text-xs font-semibold text-red-600">
+                          Error: {result.error}
+                        </p>
+                        {result.errorDetails && (
+                          <div className="min-w-0 overflow-hidden">
+                            <p className="mb-1 text-xs font-semibold text-red-600">
+                              Error Details:
+                            </p>
+                            <JsonViewer
+                              data={result.errorDetails}
+                              maxPreviewHeight="150px"
+                            />
+                          </div>
+                        )}
+                      </div>
                     )}
 
                     {/* Response Preview */}
