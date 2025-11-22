@@ -5,8 +5,12 @@ import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 
 import Nango from "@nangohq/frontend";
-import { CheckCircle2, FileSpreadsheet, Trash2 } from "lucide-react";
+import { CheckCircle2, FileSpreadsheet, Plus, Trash2 } from "lucide-react";
 
+import { GitHubMetricDialog } from "@/app/metric/_components/GitHubMetricDialog";
+import { GoogleSheetsMetricDialog } from "@/app/metric/_components/GoogleSheetsMetricDialog";
+import { PostHogMetricDialog } from "@/app/metric/_components/PostHogMetricDialog";
+import { YouTubeMetricDialog } from "@/app/metric/_components/YouTubeMetricDialog";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -21,14 +25,12 @@ import { useConfirmation } from "@/providers/ConfirmationDialogProvider";
 import type { RouterOutputs } from "@/trpc/react";
 import { api } from "@/trpc/react";
 
-// Infer types from tRPC router
 type IntegrationsWithStats = RouterOutputs["integration"]["listWithStats"];
 
 interface IntegrationClientProps {
   initialData: IntegrationsWithStats;
 }
 
-// Integration logo mapping - using Simple Icons via CDN
 const getIntegrationLogo = (integrationId: string) => {
   const logoMap: Record<
     string,
@@ -108,6 +110,17 @@ const getIntegrationLogo = (integrationId: string) => {
       textColor: "text-white",
     }
   );
+};
+
+const getMetricDialog = (integrationId: string) => {
+  const dialogs = {
+    github: GitHubMetricDialog,
+    posthog: PostHogMetricDialog,
+    youtube: YouTubeMetricDialog,
+    "google-sheet": GoogleSheetsMetricDialog,
+    "google-sheets": GoogleSheetsMetricDialog,
+  };
+  return dialogs[integrationId.toLowerCase() as keyof typeof dialogs];
 };
 
 export function IntegrationClient({ initialData }: IntegrationClientProps) {
@@ -305,64 +318,78 @@ export function IntegrationClient({ initialData }: IntegrationClientProps) {
             <div className="grid grid-cols-2 gap-6">
               {integrations.map((integration) => {
                 const logo = getIntegrationLogo(integration.integrationId);
+                const MetricDialog = getMetricDialog(integration.integrationId);
+
                 return (
-                  <div
-                    key={integration.id}
-                    className="group relative aspect-square"
-                  >
-                    {/* Delete button - shows on hover */}
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => handleRevoke(integration.connectionId)}
-                      disabled={revokeMutation.isPending}
-                      className="absolute top-1 right-1 z-10 h-8 w-8 opacity-0 transition-opacity group-hover:opacity-100"
-                    >
-                      <Trash2 className="h-4 w-4 text-red-600" />
-                    </Button>
+                  <div key={integration.id} className="space-y-3">
+                    <div className="group relative aspect-square">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => handleRevoke(integration.connectionId)}
+                        disabled={revokeMutation.isPending}
+                        className="absolute top-1 right-1 z-10 h-8 w-8 opacity-0 transition-opacity group-hover:opacity-100"
+                      >
+                        <Trash2 className="h-4 w-4 text-red-600" />
+                      </Button>
 
-                    {/* Active badge - shows on hover */}
-                    <div className="absolute top-2 left-2 z-10 opacity-0 transition-opacity group-hover:opacity-100">
-                      <Badge variant="default" className="text-xs">
-                        <CheckCircle2 className="mr-1 h-3 w-3" />
-                        Active
-                      </Badge>
-                    </div>
-
-                    {/* Integration card */}
-                    <div
-                      className={`flex h-full w-full flex-col items-center justify-center rounded-lg border transition-all group-hover:scale-105 group-hover:shadow-lg ${logo.bgColor}`}
-                    >
-                      <div className="relative h-16 w-16">
-                        {logo.useLucide ? (
-                          <FileSpreadsheet className="h-16 w-16 text-white" />
-                        ) : (
-                          <Image
-                            src={logo.url!}
-                            alt={`${integration.integrationId} logo`}
-                            fill
-                            className="object-contain"
-                            unoptimized
-                          />
-                        )}
+                      <div className="absolute top-2 left-2 z-10 opacity-0 transition-opacity group-hover:opacity-100">
+                        <Badge variant="default" className="text-xs">
+                          <CheckCircle2 className="mr-1 h-3 w-3" />
+                          Active
+                        </Badge>
                       </div>
-                      <p
-                        className={`mt-3 text-sm font-medium capitalize ${logo.textColor}`}
+
+                      <div
+                        className={`flex h-full w-full flex-col items-center justify-center rounded-lg border transition-all group-hover:scale-105 group-hover:shadow-lg ${logo.bgColor}`}
                       >
-                        {integration.integrationId}
-                      </p>
-                      <p
-                        className={`mt-1 text-xs opacity-80 ${logo.textColor}`}
-                      >
-                        {new Date(integration.createdAt).toLocaleDateString(
-                          undefined,
-                          {
-                            month: "short",
-                            day: "numeric",
-                          },
-                        )}
-                      </p>
+                        <div className="relative h-16 w-16">
+                          {logo.useLucide ? (
+                            <FileSpreadsheet className="h-16 w-16 text-white" />
+                          ) : (
+                            <Image
+                              src={logo.url!}
+                              alt={`${integration.integrationId} logo`}
+                              fill
+                              className="object-contain"
+                              unoptimized
+                            />
+                          )}
+                        </div>
+                        <p
+                          className={`mt-3 text-sm font-medium capitalize ${logo.textColor}`}
+                        >
+                          {integration.integrationId}
+                        </p>
+                        <p
+                          className={`mt-1 text-xs opacity-80 ${logo.textColor}`}
+                        >
+                          {new Date(integration.createdAt).toLocaleDateString(
+                            undefined,
+                            {
+                              month: "short",
+                              day: "numeric",
+                            },
+                          )}
+                        </p>
+                      </div>
                     </div>
+
+                    {MetricDialog && (
+                      <MetricDialog
+                        trigger={
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="w-full"
+                          >
+                            <Plus className="mr-2 h-4 w-4" />
+                            Create Metric
+                          </Button>
+                        }
+                        onSuccess={() => refetchIntegrations()}
+                      />
+                    )}
                   </div>
                 );
               })}
