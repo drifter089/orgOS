@@ -2,9 +2,15 @@
 
 import { useEffect, useRef, useState } from "react";
 
-import Nango from "@nangohq/frontend";
-import { CheckCircle2, Trash2 } from "lucide-react";
+import Image from "next/image";
 
+import Nango from "@nangohq/frontend";
+import { CheckCircle2, FileSpreadsheet, Plus, Trash2 } from "lucide-react";
+
+import { GitHubMetricDialog } from "@/app/metric/_components/GitHubMetricDialog";
+import { GoogleSheetsMetricDialog } from "@/app/metric/_components/GoogleSheetsMetricDialog";
+import { PostHogMetricDialog } from "@/app/metric/_components/PostHogMetricDialog";
+import { YouTubeMetricDialog } from "@/app/metric/_components/YouTubeMetricDialog";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -19,12 +25,103 @@ import { useConfirmation } from "@/providers/ConfirmationDialogProvider";
 import type { RouterOutputs } from "@/trpc/react";
 import { api } from "@/trpc/react";
 
-// Infer types from tRPC router
 type IntegrationsWithStats = RouterOutputs["integration"]["listWithStats"];
 
 interface IntegrationClientProps {
   initialData: IntegrationsWithStats;
 }
+
+const getIntegrationLogo = (integrationId: string) => {
+  const logoMap: Record<
+    string,
+    { url?: string; useLucide?: boolean; bgColor: string; textColor: string }
+  > = {
+    github: {
+      url: "https://cdn.simpleicons.org/github/FFFFFF",
+      bgColor: "bg-slate-900",
+      textColor: "text-white",
+    },
+    gitlab: {
+      url: "https://cdn.simpleicons.org/gitlab/FFFFFF",
+      bgColor: "bg-orange-600",
+      textColor: "text-white",
+    },
+    linear: {
+      url: "https://cdn.simpleicons.org/linear/FFFFFF",
+      bgColor: "bg-indigo-600",
+      textColor: "text-white",
+    },
+    jira: {
+      url: "https://cdn.simpleicons.org/jira/FFFFFF",
+      bgColor: "bg-blue-600",
+      textColor: "text-white",
+    },
+    notion: {
+      url: "https://cdn.simpleicons.org/notion/FFFFFF",
+      bgColor: "bg-black",
+      textColor: "text-white",
+    },
+    slack: {
+      url: "https://cdn.simpleicons.org/slack/FFFFFF",
+      bgColor: "bg-purple-900",
+      textColor: "text-white",
+    },
+    asana: {
+      url: "https://cdn.simpleicons.org/asana/FFFFFF",
+      bgColor: "bg-red-400",
+      textColor: "text-white",
+    },
+    trello: {
+      url: "https://cdn.simpleicons.org/trello/FFFFFF",
+      bgColor: "bg-blue-500",
+      textColor: "text-white",
+    },
+    posthog: {
+      url: "https://cdn.simpleicons.org/posthog/FFFFFF",
+      bgColor: "bg-yellow-500",
+      textColor: "text-gray-900",
+    },
+    youtube: {
+      url: "https://cdn.simpleicons.org/youtube/FFFFFF",
+      bgColor: "bg-red-600",
+      textColor: "text-white",
+    },
+    "google-sheet": {
+      useLucide: true,
+      bgColor: "bg-green-600",
+      textColor: "text-white",
+    },
+    "google-sheets": {
+      useLucide: true,
+      bgColor: "bg-green-600",
+      textColor: "text-white",
+    },
+    google: {
+      url: "https://cdn.simpleicons.org/google/FFFFFF",
+      bgColor: "bg-blue-500",
+      textColor: "text-white",
+    },
+  };
+
+  return (
+    logoMap[integrationId.toLowerCase()] ?? {
+      url: "https://cdn.simpleicons.org/internetarchive/FFFFFF",
+      bgColor: "bg-gray-600",
+      textColor: "text-white",
+    }
+  );
+};
+
+const getMetricDialog = (integrationId: string) => {
+  const dialogs = {
+    github: GitHubMetricDialog,
+    posthog: PostHogMetricDialog,
+    youtube: YouTubeMetricDialog,
+    "google-sheet": GoogleSheetsMetricDialog,
+    "google-sheets": GoogleSheetsMetricDialog,
+  };
+  return dialogs[integrationId.toLowerCase() as keyof typeof dialogs];
+};
 
 export function IntegrationClient({ initialData }: IntegrationClientProps) {
   const [status, setStatus] = useState<string>("");
@@ -218,37 +315,84 @@ export function IntegrationClient({ initialData }: IntegrationClientProps) {
         </CardHeader>
         <CardContent>
           {integrations && integrations.length > 0 ? (
-            <div className="space-y-3">
-              {integrations.map((integration) => (
-                <div
-                  key={integration.id}
-                  className="flex items-center justify-between rounded-lg border p-4"
-                >
-                  <div className="flex-1 space-y-1">
-                    <div className="flex items-center gap-2">
-                      <h3 className="font-semibold capitalize">
-                        {integration.integrationId}
-                      </h3>
-                      <Badge variant="default">
-                        <CheckCircle2 className="mr-1 h-3 w-3" />
-                        Active
-                      </Badge>
+            <div className="grid grid-cols-2 gap-6">
+              {integrations.map((integration) => {
+                const logo = getIntegrationLogo(integration.integrationId);
+                const MetricDialog = getMetricDialog(integration.integrationId);
+
+                return (
+                  <div key={integration.id} className="space-y-3">
+                    <div className="group relative aspect-square">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => handleRevoke(integration.connectionId)}
+                        disabled={revokeMutation.isPending}
+                        className="absolute top-1 right-1 z-10 h-8 w-8 opacity-0 transition-opacity group-hover:opacity-100"
+                      >
+                        <Trash2 className="h-4 w-4 text-red-600" />
+                      </Button>
+
+                      <div className="absolute top-2 left-2 z-10 opacity-0 transition-opacity group-hover:opacity-100">
+                        <Badge variant="default" className="text-xs">
+                          <CheckCircle2 className="mr-1 h-3 w-3" />
+                          Active
+                        </Badge>
+                      </div>
+
+                      <div
+                        className={`flex h-full w-full flex-col items-center justify-center rounded-lg border transition-all group-hover:scale-105 group-hover:shadow-lg ${logo.bgColor}`}
+                      >
+                        <div className="relative h-16 w-16">
+                          {logo.useLucide ? (
+                            <FileSpreadsheet className="h-16 w-16 text-white" />
+                          ) : (
+                            <Image
+                              src={logo.url!}
+                              alt={`${integration.integrationId} logo`}
+                              fill
+                              className="object-contain"
+                              unoptimized
+                            />
+                          )}
+                        </div>
+                        <p
+                          className={`mt-3 text-sm font-medium capitalize ${logo.textColor}`}
+                        >
+                          {integration.integrationId}
+                        </p>
+                        <p
+                          className={`mt-1 text-xs opacity-80 ${logo.textColor}`}
+                        >
+                          {new Date(integration.createdAt).toLocaleDateString(
+                            undefined,
+                            {
+                              month: "short",
+                              day: "numeric",
+                            },
+                          )}
+                        </p>
+                      </div>
                     </div>
-                    <p className="text-muted-foreground text-sm">
-                      Connected{" "}
-                      {new Date(integration.createdAt).toLocaleDateString()}
-                    </p>
+
+                    {MetricDialog && (
+                      <MetricDialog
+                        trigger={
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="w-full"
+                          >
+                            <Plus className="mr-2 h-4 w-4" />
+                            Create Metric
+                          </Button>
+                        }
+                        onSuccess={() => refetchIntegrations()}
+                      />
+                    )}
                   </div>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => handleRevoke(integration.connectionId)}
-                    disabled={revokeMutation.isPending}
-                  >
-                    <Trash2 className="h-4 w-4 text-red-600" />
-                  </Button>
-                </div>
-              ))}
+                );
+              })}
             </div>
           ) : (
             <div className="text-muted-foreground space-y-2 text-sm">
