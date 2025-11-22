@@ -112,7 +112,7 @@ export const metricRouter = createTRPCRouter({
         body: z.unknown().optional(),
       }),
     )
-    .query(async ({ ctx, input }) => {
+    .mutation(async ({ ctx, input }) => {
       // Verify user has access to this connection
       await getIntegrationAndVerifyAccess(
         ctx.db,

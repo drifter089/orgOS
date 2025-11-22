@@ -142,22 +142,22 @@ export function IntegrationTester() {
         ...(params && Object.keys(params).length > 0 ? { params } : {}),
       };
 
-      const queryParams = new URLSearchParams({
-        input: JSON.stringify({
+      const response = await fetch(`/api/trpc/metric.fetchIntegrationData`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
           json: inputData,
         }),
       });
-
-      const response = await fetch(
-        `/api/trpc/metric.fetchIntegrationData?${queryParams.toString()}`,
-      );
 
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
 
       const json = await response.json();
-      const result = json.result.data;
+      const result = json.result.data.json;
 
       const statusCode = result.status ?? 200;
       updateTestResult(endpointKey, {
