@@ -4,6 +4,15 @@ import { useEffect, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -13,16 +22,21 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { templates } from "@/lib/integrations/posthog";
 import { api } from "@/trpc/react";
 
 // =============================================================================
-// Transform Functions (moved from lib/integrations/posthog.ts)
+// Types
 // =============================================================================
 
-function transformProjects(
-  data: unknown,
-): Array<{ label: string; value: string }> {
+type Project = { label: string; value: string };
+type Event = { label: string; value: string };
+type EventsByProject = Record<string, Event[]>;
+
+// =============================================================================
+// Transform Functions
+// =============================================================================
+
+function transformProjects(data: unknown): Project[] {
   if (!data || typeof data !== "object") return [];
 
   const response = data as {
@@ -37,9 +51,7 @@ function transformProjects(
   );
 }
 
-function transformEvents(
-  data: unknown,
-): Array<{ label: string; value: string }> {
+function transformEvents(data: unknown): Event[] {
   if (!data || typeof data !== "object") return [];
 
   const response = data as {
@@ -59,100 +71,123 @@ function transformEvents(
 // =============================================================================
 
 export default function PostHogMetricsPage() {
-  const [selectedTemplateId, setSelectedTemplateId] = useState<string>("");
+  const [open, setOpen] = useState(false);
   const [metricName, setMetricName] = useState("");
-  const [params, setParams] = useState<Record<string, string>>({});
-  const [projectOptions, setProjectOptions] = useState<
-    Array<{ label: string; value: string }>
-  >([]);
-  const [eventOptions, setEventOptions] = useState<
-    Array<{ label: string; value: string }>
-  >([]);
+  const [selectedProject, setSelectedProject] = useState("");
+  const [selectedEvent, setSelectedEvent] = useState("");
+
+  // Prefetched data
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [eventsByProject, setEventsByProject] = useState<EventsByProject>({});
+  const [isPrefetching, setIsPrefetching] = useState(false);
 
   const utils = api.useUtils();
-  const createMetric = api.metric.create.useMutation({
-    onSuccess: () => {
-      void utils.metric.getAll.invalidate();
-      setSelectedTemplateId("");
-      setMetricName("");
-      setParams({});
-      setProjectOptions([]);
-      setEventOptions([]);
-    },
-  });
-
-  const fetchProjects = api.metric.fetchIntegrationData.useMutation({
-    onSuccess: (data: { data: unknown }) => {
-      const options = transformProjects(data.data);
-      setProjectOptions(options);
-    },
-  });
-
-  const fetchEvents = api.metric.fetchIntegrationData.useMutation({
-    onSuccess: (data: { data: unknown }) => {
-      const options = transformEvents(data.data);
-      setEventOptions(options);
-    },
-  });
-
-  const selectedTemplate = templates.find(
-    (t) => t.templateId === selectedTemplateId,
-  );
-
   const integrationQuery = api.integration.listWithStats.useQuery();
   const connection = integrationQuery.data?.active.find(
     (int) => int.integrationId === "posthog",
   );
 
-  // Fetch projects when template is selected
+  const fetchProjects = api.metric.fetchIntegrationData.useMutation();
+  const fetchEvents = api.metric.fetchIntegrationData.useMutation();
+
+  const createMetric = api.metric.create.useMutation({
+    onSuccess: () => {
+      void utils.metric.getAll.invalidate();
+      setOpen(false);
+      setMetricName("");
+      setSelectedProject("");
+      setSelectedEvent("");
+    },
+  });
+
+  // Prefetch projects and events when connection is available
   useEffect(() => {
-    if (selectedTemplate && connection && projectOptions.length === 0) {
-      fetchProjects.mutate({
+    if (!connection || isPrefetching || projects.length > 0) return;
+
+    setIsPrefetching(true);
+
+    // Step 1: Fetch all projects
+    fetchProjects.mutate(
+      {
         connectionId: connection.connectionId,
         integrationId: "posthog",
         endpoint: "/api/projects/",
         method: "GET",
         params: {},
-      });
-    }
-  }, [selectedTemplate, connection]);
+      },
+      {
+        onSuccess: (data) => {
+          const projectList = transformProjects(data.data);
+          setProjects(projectList);
 
-  // Fetch events when project is selected
-  useEffect(() => {
-    if (
-      params.PROJECT_ID &&
-      connection &&
-      selectedTemplate?.requiredParams.some((p) => p.name === "EVENT_NAME")
-    ) {
-      fetchEvents.mutate({
-        connectionId: connection.connectionId,
-        integrationId: "posthog",
-        endpoint: `/api/projects/${params.PROJECT_ID}/event_definitions/`,
-        method: "GET",
-        params: {},
-      });
-    }
-  }, [params.PROJECT_ID, connection, selectedTemplate]);
+          // Step 2: Fetch events for each project in the background
+          let completedCount = 0;
+          const totalProjects = projectList.length;
 
-  const handleTemplateChange = (templateId: string) => {
-    setSelectedTemplateId(templateId);
-    setMetricName("");
-    setParams({});
-    setProjectOptions([]);
-    setEventOptions([]);
-  };
+          if (totalProjects === 0) {
+            setIsPrefetching(false);
+            return;
+          }
 
-  const handleSave = () => {
-    if (!selectedTemplate || !metricName || !connection) return;
+          projectList.forEach((project) => {
+            fetchEvents.mutate(
+              {
+                connectionId: connection.connectionId,
+                integrationId: "posthog",
+                endpoint: `/api/projects/${project.value}/event_definitions/`,
+                method: "GET",
+                params: {},
+              },
+              {
+                onSuccess: (eventData) => {
+                  const events = transformEvents(eventData.data);
+                  setEventsByProject((prev) => ({
+                    ...prev,
+                    [project.value]: events,
+                  }));
+
+                  completedCount++;
+                  if (completedCount === totalProjects) {
+                    setIsPrefetching(false);
+                  }
+                },
+                onError: () => {
+                  completedCount++;
+                  if (completedCount === totalProjects) {
+                    setIsPrefetching(false);
+                  }
+                },
+              },
+            );
+          });
+        },
+        onError: () => {
+          setIsPrefetching(false);
+        },
+      },
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [connection, isPrefetching, projects.length]);
+
+  const handleCreate = () => {
+    if (!connection || !selectedProject || !selectedEvent || !metricName)
+      return;
 
     createMetric.mutate({
-      templateId: selectedTemplate.templateId,
+      templateId: "posthog-event-count",
       connectionId: connection.connectionId,
       name: metricName,
-      description: selectedTemplate.description,
-      endpointParams: params,
+      description: `Count occurrences of ${selectedEvent} event over time`,
+      endpointParams: {
+        PROJECT_ID: selectedProject,
+        EVENT_NAME: selectedEvent,
+      },
     });
   };
+
+  const selectedProjectEvents = selectedProject
+    ? (eventsByProject[selectedProject] ?? [])
+    : [];
 
   if (!connection) {
     return (
@@ -172,148 +207,115 @@ export default function PostHogMetricsPage() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Create PostHog Metric</CardTitle>
+        <CardTitle>PostHog Event Metrics</CardTitle>
       </CardHeader>
-      <CardContent className="space-y-4">
-        {/* Template Selection */}
-        <div className="space-y-2">
-          <Label htmlFor="template">Template</Label>
-          <Select
-            value={selectedTemplateId}
-            onValueChange={handleTemplateChange}
-          >
-            <SelectTrigger id="template">
-              <SelectValue placeholder="Select a template" />
-            </SelectTrigger>
-            <SelectContent>
-              {templates.map((template) => (
-                <SelectItem
-                  key={template.templateId}
-                  value={template.templateId}
-                >
-                  {template.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          {selectedTemplate && (
-            <p className="text-muted-foreground text-sm">
-              {selectedTemplate.description}
-            </p>
-          )}
-        </div>
+      <CardContent>
+        <Dialog open={open} onOpenChange={setOpen}>
+          <DialogTrigger asChild>
+            <Button disabled={isPrefetching}>
+              {isPrefetching ? "Loading..." : "Create Event Metric"}
+            </Button>
+          </DialogTrigger>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Create Event Metric</DialogTitle>
+              <DialogDescription>
+                Track event occurrences over time from your PostHog project
+              </DialogDescription>
+            </DialogHeader>
 
-        {/* Metric Name */}
-        {selectedTemplate && (
-          <div className="space-y-2">
-            <Label htmlFor="name">Metric Name</Label>
-            <Input
-              id="name"
-              placeholder="e.g., My PostHog Events"
-              value={metricName}
-              onChange={(e) => setMetricName(e.target.value)}
-            />
-          </div>
-        )}
+            <div className="space-y-4">
+              {/* Metric Name */}
+              <div className="space-y-2">
+                <Label htmlFor="name">Metric Name</Label>
+                <Input
+                  id="name"
+                  placeholder="e.g., Login Events"
+                  value={metricName}
+                  onChange={(e) => setMetricName(e.target.value)}
+                />
+              </div>
 
-        {/* Dynamic Parameters */}
-        {selectedTemplate?.requiredParams.map((param) => {
-          if (param.name === "PROJECT_ID") {
-            return (
-              <div key={param.name} className="space-y-2">
-                <Label htmlFor={param.name}>{param.label}</Label>
+              {/* Project Selection */}
+              <div className="space-y-2">
+                <Label htmlFor="project">Project</Label>
                 <Select
-                  value={params[param.name] ?? ""}
-                  onValueChange={(value) =>
-                    setParams((prev) => ({ ...prev, [param.name]: value }))
-                  }
-                  disabled={projectOptions.length === 0}
+                  value={selectedProject}
+                  onValueChange={(value) => {
+                    setSelectedProject(value);
+                    setSelectedEvent(""); // Reset event when project changes
+                  }}
                 >
-                  <SelectTrigger id={param.name}>
+                  <SelectTrigger id="project">
                     <SelectValue
                       placeholder={
-                        fetchProjects.isPending
+                        projects.length === 0
                           ? "Loading projects..."
-                          : param.placeholder
+                          : "Select a project"
                       }
                     />
                   </SelectTrigger>
                   <SelectContent>
-                    {projectOptions.map((option) => (
-                      <SelectItem key={option.value} value={option.value}>
-                        {option.label}
+                    {projects.map((project) => (
+                      <SelectItem key={project.value} value={project.value}>
+                        {project.label}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
-                <p className="text-muted-foreground text-sm">
-                  {param.description}
-                </p>
               </div>
-            );
-          }
 
-          if (param.name === "EVENT_NAME") {
-            return (
-              <div key={param.name} className="space-y-2">
-                <Label htmlFor={param.name}>{param.label}</Label>
+              {/* Event Selection */}
+              <div className="space-y-2">
+                <Label htmlFor="event">Event</Label>
                 <Select
-                  value={params[param.name] ?? ""}
-                  onValueChange={(value) =>
-                    setParams((prev) => ({ ...prev, [param.name]: value }))
-                  }
-                  disabled={!params.PROJECT_ID || eventOptions.length === 0}
+                  value={selectedEvent}
+                  onValueChange={setSelectedEvent}
+                  disabled={!selectedProject}
                 >
-                  <SelectTrigger id={param.name}>
+                  <SelectTrigger id="event">
                     <SelectValue
                       placeholder={
-                        !params.PROJECT_ID
+                        !selectedProject
                           ? "Select project first"
-                          : fetchEvents.isPending
+                          : selectedProjectEvents.length === 0
                             ? "Loading events..."
-                            : param.placeholder
+                            : "Select an event"
                       }
                     />
                   </SelectTrigger>
                   <SelectContent>
-                    {eventOptions.map((option) => (
-                      <SelectItem key={option.value} value={option.value}>
-                        {option.label}
+                    {selectedProjectEvents.map((event) => (
+                      <SelectItem key={event.value} value={event.value}>
+                        {event.label}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
-                <p className="text-muted-foreground text-sm">
-                  {param.description}
-                </p>
               </div>
-            );
-          }
+            </div>
 
-          return null;
-        })}
+            <DialogFooter>
+              <Button
+                onClick={handleCreate}
+                disabled={
+                  !metricName ||
+                  !selectedProject ||
+                  !selectedEvent ||
+                  createMetric.isPending
+                }
+              >
+                {createMetric.isPending ? "Creating..." : "Create Metric"}
+              </Button>
+            </DialogFooter>
 
-        {/* Save Button */}
-        {selectedTemplate && (
-          <Button
-            onClick={handleSave}
-            disabled={
-              !metricName ||
-              createMetric.isPending ||
-              selectedTemplate.requiredParams.some(
-                (p) => p.required && !params[p.name],
-              )
-            }
-          >
-            {createMetric.isPending ? "Creating..." : "Create Metric"}
-          </Button>
-        )}
-
-        {createMetric.isError && (
-          <p className="text-destructive text-sm">
-            Error: {createMetric.error.message}
-          </p>
-        )}
+            {createMetric.isError && (
+              <p className="text-destructive text-sm">
+                Error: {createMetric.error.message}
+              </p>
+            )}
+          </DialogContent>
+        </Dialog>
       </CardContent>
     </Card>
   );
