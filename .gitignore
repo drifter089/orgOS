@@ -56,3 +56,4 @@ yarn-error.log*
 /playwright/.auth/
 /tests/.auth/
 final-metric-plan.md
+duplicate-metrics-code-report.md
