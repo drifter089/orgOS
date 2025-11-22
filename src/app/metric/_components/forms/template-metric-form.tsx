@@ -1,10 +1,15 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 
 import { Loader2 } from "lucide-react";
 
-import { Button } from "@/components/ui/button";
+// Import integration-specific config components
+import { GitHubMetricConfig } from "@/app/metric/github/metric-config";
+import { GoogleSheetsMetricConfig } from "@/app/metric/google-sheets/metric-config";
+import { PostHogMetricConfig } from "@/app/metric/posthog/metric-config";
+import { getTemplatesByIntegration } from "@/app/metric/registry";
+import { YouTubeMetricConfig } from "@/app/metric/youtube/metric-config";
 import {
   Card,
   CardContent,
@@ -12,7 +17,6 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
   Select,
@@ -23,12 +27,6 @@ import {
 } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { api } from "@/trpc/react";
-
-import { GoogleSheetsPreview } from "../previews/google-sheets-preview";
-import { DynamicSelectField } from "./fields/dynamic-select-field";
-import { NumberField } from "./fields/number-field";
-import { SelectField } from "./fields/select-field";
-import { TextField } from "./fields/text-field";
 
 interface TemplateMetricFormProps {
   connectionId: string;
@@ -41,11 +39,11 @@ export function TemplateMetricForm({
   integrationId,
   onSuccess,
 }: TemplateMetricFormProps) {
-  // Fetch templates for this integration
-  const { data: templates, isLoading: loadingTemplates } =
-    api.metric.getTemplatesByIntegration.useQuery({
-      integrationId,
-    });
+  // Get templates from frontend registry (no API call needed)
+  const templates = useMemo(
+    () => getTemplatesByIntegration(integrationId),
+    [integrationId],
+  );
 
   // Template selection
   const [selectedTemplateId, setSelectedTemplateId] = useState<string>("");
@@ -53,61 +51,29 @@ export function TemplateMetricForm({
     (t) => t.templateId === selectedTemplateId,
   );
 
-  // Form state - dynamic based on selected template
-  const [formValues, setFormValues] = useState<Record<string, string>>({});
-  const [metricName, setMetricName] = useState("");
-
-  // Create mutation
-  const createMutation = api.metric.createFromTemplate.useMutation({
+  // Create mutation (renamed from createFromTemplate to create)
+  const createMutation = api.metric.create.useMutation({
     onSuccess: () => {
       // Reset form
       setSelectedTemplateId("");
-      setFormValues({});
-      setMetricName("");
       onSuccess?.();
     },
   });
 
-  // Update form value
-  const updateFormValue = (name: string, value: string) => {
-    setFormValues((prev) => ({
-      ...prev,
-      [name]: value,
-    }));
-  };
-
-  // Handle create
-  const handleCreate = () => {
+  // Handle save from integration-specific config component
+  const handleSave = (config: {
+    name: string;
+    endpointParams: Record<string, string>;
+  }) => {
     if (!selectedTemplate) return;
 
     createMutation.mutate({
       templateId: selectedTemplate.templateId,
       connectionId,
-      name: metricName || selectedTemplate.label,
-      endpointParams: formValues,
+      name: config.name,
+      endpointParams: config.endpointParams,
     });
   };
-
-  // Check if form is valid
-  const isFormValid = () => {
-    if (!selectedTemplate) return false;
-
-    const requiredParams = selectedTemplate.requiredParams.filter(
-      (p) => p.required,
-    );
-    return requiredParams.every((param) => {
-      const value = formValues[param.name];
-      return value && value.length > 0;
-    });
-  };
-
-  if (loadingTemplates) {
-    return (
-      <div className="flex items-center justify-center p-8">
-        <Loader2 className="h-8 w-8 animate-spin" />
-      </div>
-    );
-  }
 
   return (
     <Card>
@@ -146,144 +112,59 @@ export function TemplateMetricForm({
           </Select>
         </div>
 
-        {/* Dynamic Form Fields */}
+        {/* Integration-Specific Configuration */}
         {selectedTemplate && (
           <>
             <Separator />
 
-            {/* Render each required param dynamically */}
-            {selectedTemplate.requiredParams.map((param) => {
-              const value = formValues[param.name] ?? "";
+            {/* Render integration-specific config component */}
+            {integrationId === "github" && (
+              <GitHubMetricConfig
+                connectionId={connectionId}
+                templateId={selectedTemplateId}
+                onSave={handleSave}
+              />
+            )}
 
-              // Handle different field types
-              if (param.type === "text") {
-                return (
-                  <TextField
-                    key={param.name}
-                    label={param.label}
-                    description={param.description}
-                    value={value}
-                    onChange={(v) => updateFormValue(param.name, v)}
-                    placeholder={param.placeholder}
-                    required={param.required}
-                  />
-                );
-              }
+            {integrationId === "posthog" && (
+              <PostHogMetricConfig
+                connectionId={connectionId}
+                templateId={selectedTemplateId}
+                onSave={handleSave}
+              />
+            )}
 
-              if (param.type === "number") {
-                return (
-                  <NumberField
-                    key={param.name}
-                    label={param.label}
-                    description={param.description}
-                    value={value}
-                    onChange={(v) => updateFormValue(param.name, v)}
-                    placeholder={param.placeholder}
-                    required={param.required}
-                  />
-                );
-              }
+            {integrationId === "google-sheet" && (
+              <GoogleSheetsMetricConfig
+                connectionId={connectionId}
+                templateId={selectedTemplateId}
+                onSave={handleSave}
+              />
+            )}
 
-              if (param.type === "select" && param.options) {
-                return (
-                  <SelectField
-                    key={param.name}
-                    label={param.label}
-                    description={param.description}
-                    value={value}
-                    onChange={(v) => updateFormValue(param.name, v)}
-                    options={param.options}
-                    placeholder={param.placeholder}
-                    required={param.required}
-                  />
-                );
-              }
+            {integrationId === "youtube" && (
+              <YouTubeMetricConfig
+                connectionId={connectionId}
+                templateId={selectedTemplateId}
+                onSave={handleSave}
+              />
+            )}
 
-              if (param.type === "dynamic-select" && param.dynamicOptionsKey) {
-                // Check if this field depends on another
-                const dependsOnValue = param.dependsOn
-                  ? formValues[param.dependsOn]
-                  : undefined;
-                const isDisabled = Boolean(
-                  param.dependsOn && !formValues[param.dependsOn],
-                );
-
-                return (
-                  <DynamicSelectField
-                    key={param.name}
-                    label={param.label}
-                    description={param.description}
-                    value={value}
-                    onChange={(v) => {
-                      updateFormValue(param.name, v);
-                      // Clear dependent fields when parent changes
-                      const dependentFields =
-                        selectedTemplate.requiredParams.filter(
-                          (p) => p.dependsOn === param.name,
-                        );
-                      dependentFields.forEach((field) => {
-                        updateFormValue(field.name, "");
-                      });
-                    }}
-                    connectionId={connectionId}
-                    templateId={selectedTemplate.templateId}
-                    dropdownKey={param.dynamicOptionsKey}
-                    dependsOnValue={dependsOnValue}
-                    placeholder={param.placeholder}
-                    required={param.required}
-                    disabled={isDisabled}
-                  />
-                );
-              }
-
-              return null;
-            })}
-
-            {/* Google Sheets Preview (special case) */}
-            {integrationId === "google-sheet" &&
-              formValues.SPREADSHEET_ID &&
-              formValues.SHEET_NAME && (
-                <GoogleSheetsPreview
-                  connectionId={connectionId}
-                  spreadsheetId={formValues.SPREADSHEET_ID}
-                  sheetName={formValues.SHEET_NAME}
-                />
-              )}
-
-            <Separator />
-
-            {/* Metric Configuration */}
-            <div className="space-y-4">
-              <h3 className="font-semibold">Metric Configuration</h3>
-
-              <div className="space-y-2">
-                <Label>Metric Name (Optional)</Label>
-                <Input
-                  value={metricName}
-                  onChange={(e) => setMetricName(e.target.value)}
-                  placeholder={selectedTemplate.label}
-                />
-                <p className="text-muted-foreground text-sm">
-                  Leave blank to use template name
-                </p>
+            {/* Show loading state during creation */}
+            {createMutation.isPending && (
+              <div className="flex items-center justify-center p-4">
+                <Loader2 className="h-6 w-6 animate-spin" />
+                <span className="ml-2">Creating metric...</span>
               </div>
-            </div>
+            )}
 
-            {/* Submit Button */}
-            <Button
-              onClick={handleCreate}
-              disabled={!isFormValid() || createMutation.isPending}
-              className="w-full"
-            >
-              {createMutation.isPending ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Creating...
-                </>
-              ) : (
-                "Create Metric"
-              )}
-            </Button>
+            {/* Show error if creation fails */}
+            {createMutation.isError && (
+              <div className="bg-destructive/10 text-destructive rounded-md p-4">
+                <p className="text-sm font-medium">Failed to create metric</p>
+                <p className="text-sm">{createMutation.error.message}</p>
+              </div>
+            )}
           </>
         )}
       </CardContent>

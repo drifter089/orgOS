@@ -1,4 +1,8 @@
-import type { MetricTemplate } from "../base";
+/**
+ * Google Sheets metric template definitions
+ * Co-locates all Google Sheets-specific metric configurations
+ */
+import type { MetricTemplate } from "@/lib/metrics/types";
 
 export const templates: MetricTemplate[] = [
   {
@@ -37,20 +41,6 @@ export const templates: MetricTemplate[] = [
     integrationId: "google-sheet",
     metricType: "number",
 
-    dropdowns: [
-      {
-        paramName: "SHEET_NAME",
-        endpoint: "/v4/spreadsheets/{SPREADSHEET_ID}",
-        transform: (data: unknown) =>
-          (
-            data as { sheets?: Array<{ properties: { title: string } }> }
-          ).sheets?.map((s) => ({
-            label: s.properties.title,
-            value: s.properties.title,
-          })) ?? [],
-      },
-    ],
-
     previewEndpoint: "/v4/spreadsheets/{SPREADSHEET_ID}/values/{SHEET_NAME}",
     metricEndpoint: "/v4/spreadsheets/{SPREADSHEET_ID}/values/{SHEET_NAME}",
 
@@ -69,7 +59,12 @@ export const templates: MetricTemplate[] = [
         description: "Select sheet",
         type: "dynamic-select",
         required: true,
-        dynamicOptionsKey: "SHEET_NAME",
+        placeholder: "Select a sheet",
+        dynamicConfig: {
+          endpoint: "/v4/spreadsheets/{SPREADSHEET_ID}",
+          method: "GET",
+          dependsOn: "SPREADSHEET_ID",
+        },
       },
       {
         name: "COLUMN_INDEX",

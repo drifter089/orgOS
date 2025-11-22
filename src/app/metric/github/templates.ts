@@ -1,4 +1,8 @@
-import type { MetricTemplate } from "../base";
+/**
+ * GitHub metric template definitions
+ * Co-locates all GitHub-specific metric configurations
+ */
+import type { MetricTemplate } from "@/lib/metrics/types";
 
 export const templates: MetricTemplate[] = [
   // ===== User-Level Metrics (No params) =====
@@ -23,7 +27,7 @@ export const templates: MetricTemplate[] = [
     requiredParams: [],
   },
 
-  // ===== Repository Metrics (With dropdown) =====
+  // ===== Repository Metrics (With dynamic dropdowns) =====
   {
     templateId: "github-repo-stars",
     label: "Repository Stars",
@@ -31,20 +35,6 @@ export const templates: MetricTemplate[] = [
     integrationId: "github",
     metricType: "number",
     defaultUnit: "stars",
-
-    dropdowns: [
-      {
-        paramName: "FULL_REPO",
-        endpoint: "/user/repos?per_page=100&sort=updated",
-        transform: (data: unknown) =>
-          (data as Array<{ full_name: string; private: boolean }>).map(
-            (repo) => ({
-              label: `${repo.full_name}${repo.private ? " (private)" : ""}`,
-              value: repo.full_name,
-            }),
-          ),
-      },
-    ],
 
     metricEndpoint: "/repos/{OWNER}/{REPO}",
 
@@ -61,9 +51,13 @@ export const templates: MetricTemplate[] = [
         name: "REPO",
         label: "Repository Name",
         description: "Repository name",
-        type: "text",
+        type: "dynamic-select",
         required: true,
-        placeholder: "react",
+        placeholder: "Select a repository",
+        dynamicConfig: {
+          endpoint: "/user/repos?per_page=100&sort=updated",
+          method: "GET",
+        },
       },
     ],
   },
@@ -75,20 +69,6 @@ export const templates: MetricTemplate[] = [
     metricType: "number",
     defaultUnit: "forks",
 
-    dropdowns: [
-      {
-        paramName: "FULL_REPO",
-        endpoint: "/user/repos?per_page=100&sort=updated",
-        transform: (data: unknown) =>
-          (data as Array<{ full_name: string; private: boolean }>).map(
-            (repo) => ({
-              label: `${repo.full_name}${repo.private ? " (private)" : ""}`,
-              value: repo.full_name,
-            }),
-          ),
-      },
-    ],
-
     metricEndpoint: "/repos/{OWNER}/{REPO}",
 
     requiredParams: [
@@ -104,9 +84,13 @@ export const templates: MetricTemplate[] = [
         name: "REPO",
         label: "Repository Name",
         description: "Repository name",
-        type: "text",
+        type: "dynamic-select",
         required: true,
-        placeholder: "react",
+        placeholder: "Select a repository",
+        dynamicConfig: {
+          endpoint: "/user/repos?per_page=100&sort=updated",
+          method: "GET",
+        },
       },
     ],
   },
@@ -133,9 +117,13 @@ export const templates: MetricTemplate[] = [
         name: "REPO",
         label: "Repository Name",
         description: "Repository name",
-        type: "text",
+        type: "dynamic-select",
         required: true,
-        placeholder: "react",
+        placeholder: "Select a repository",
+        dynamicConfig: {
+          endpoint: "/user/repos?per_page=100&sort=updated",
+          method: "GET",
+        },
       },
     ],
   },
@@ -158,13 +146,19 @@ export const templates: MetricTemplate[] = [
         description: "GitHub username or organization",
         type: "text",
         required: true,
+        placeholder: "facebook",
       },
       {
         name: "REPO",
         label: "Repository Name",
         description: "Repository name",
-        type: "text",
+        type: "dynamic-select",
         required: true,
+        placeholder: "Select a repository",
+        dynamicConfig: {
+          endpoint: "/user/repos?per_page=100&sort=updated",
+          method: "GET",
+        },
       },
     ],
   },

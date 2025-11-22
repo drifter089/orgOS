@@ -1,4 +1,4 @@
-import type { Endpoint, ServiceConfig } from "../base";
+import type { Endpoint, ServiceConfig } from "@/lib/metrics/types";
 
 export const name = "PostHog";
 export const integrationId = "posthog";

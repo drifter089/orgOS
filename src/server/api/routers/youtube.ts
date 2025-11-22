@@ -7,7 +7,7 @@
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 
-import { fetchData } from "@/server/api/services/base";
+import { fetchData } from "@/server/api/services/integrations/base";
 import { createTRPCRouter, workspaceProcedure } from "@/server/api/trpc";
 import { getIntegrationAndVerifyAccess } from "@/server/api/utils/authorization";
 

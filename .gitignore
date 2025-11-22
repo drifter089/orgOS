@@ -55,3 +55,4 @@ yarn-error.log*
 /playwright/.cache/
 /playwright/.auth/
 /tests/.auth/
+final-metric-plan.md

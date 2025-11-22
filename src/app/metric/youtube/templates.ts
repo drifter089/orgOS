@@ -1,4 +1,8 @@
-import type { MetricTemplate } from "../base";
+/**
+ * YouTube metric template definitions
+ * Co-locates all YouTube-specific metric configurations
+ */
+import type { MetricTemplate } from "@/lib/metrics/types";
 
 export const templates: MetricTemplate[] = [
   // ===== Channel Metrics =====
@@ -48,26 +52,6 @@ export const templates: MetricTemplate[] = [
     metricType: "number",
     defaultUnit: "views",
 
-    dropdowns: [
-      {
-        paramName: "VIDEO_ID",
-        endpoint:
-          "/youtube/v3/search?part=snippet&forMine=true&type=video&maxResults=50",
-        transform: (data: unknown) =>
-          (
-            data as {
-              items?: Array<{
-                snippet: { title: string };
-                id: { videoId: string };
-              }>;
-            }
-          ).items?.map((video) => ({
-            label: video.snippet.title,
-            value: video.id.videoId,
-          })) ?? [],
-      },
-    ],
-
     metricEndpoint: "/youtube/v3/videos?part=statistics&id={VIDEO_ID}",
 
     requiredParams: [
@@ -77,7 +61,12 @@ export const templates: MetricTemplate[] = [
         description: "Select a video from your channel",
         type: "dynamic-select",
         required: true,
-        dynamicOptionsKey: "VIDEO_ID",
+        placeholder: "Select a video",
+        dynamicConfig: {
+          endpoint:
+            "/youtube/v3/search?part=snippet&forMine=true&type=video&maxResults=50",
+          method: "GET",
+        },
       },
     ],
   },

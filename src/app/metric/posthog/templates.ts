@@ -1,4 +1,8 @@
-import type { MetricTemplate } from "../base";
+/**
+ * PostHog metric template definitions
+ * Co-locates all PostHog-specific metric configurations
+ */
+import type { MetricTemplate } from "@/lib/metrics/types";
 
 export const templates: MetricTemplate[] = [
   {
@@ -8,30 +12,6 @@ export const templates: MetricTemplate[] = [
     integrationId: "posthog",
     metricType: "number",
     defaultUnit: "events",
-
-    dropdowns: [
-      {
-        paramName: "PROJECT_ID",
-        endpoint: "/api/projects",
-        transform: (data: unknown) =>
-          (
-            data as { results?: Array<{ name: string; id: number }> }
-          ).results?.map((p) => ({
-            label: p.name,
-            value: p.id.toString(),
-          })) ?? [],
-      },
-      {
-        paramName: "EVENT_NAME",
-        endpoint: "/api/projects/{PROJECT_ID}/event_definitions",
-        dependsOn: "PROJECT_ID",
-        transform: (data: unknown) =>
-          (data as { results?: Array<{ name: string }> }).results?.map((e) => ({
-            label: e.name,
-            value: e.name,
-          })) ?? [],
-      },
-    ],
 
     metricEndpoint: "/api/projects/{PROJECT_ID}/query/",
     method: "POST",
@@ -50,7 +30,11 @@ export const templates: MetricTemplate[] = [
         description: "Select PostHog project",
         type: "dynamic-select",
         required: true,
-        dynamicOptionsKey: "PROJECT_ID",
+        placeholder: "Select a project",
+        dynamicConfig: {
+          endpoint: "/api/projects/",
+          method: "GET",
+        },
       },
       {
         name: "EVENT_NAME",
@@ -58,8 +42,12 @@ export const templates: MetricTemplate[] = [
         description: "Select event to track",
         type: "dynamic-select",
         required: true,
-        dynamicOptionsKey: "EVENT_NAME",
-        dependsOn: "PROJECT_ID",
+        placeholder: "Select an event",
+        dynamicConfig: {
+          endpoint: "/api/projects/{PROJECT_ID}/event_definitions/",
+          method: "GET",
+          dependsOn: "PROJECT_ID",
+        },
       },
     ],
   },
@@ -72,20 +60,6 @@ export const templates: MetricTemplate[] = [
     metricType: "number",
     defaultUnit: "users",
 
-    dropdowns: [
-      {
-        paramName: "PROJECT_ID",
-        endpoint: "/api/projects",
-        transform: (data: unknown) =>
-          (
-            data as { results?: Array<{ name: string; id: number }> }
-          ).results?.map((p) => ({
-            label: p.name,
-            value: p.id.toString(),
-          })) ?? [],
-      },
-    ],
-
     metricEndpoint: "/api/projects/{PROJECT_ID}/persons/",
 
     requiredParams: [
@@ -95,7 +69,11 @@ export const templates: MetricTemplate[] = [
         description: "Select PostHog project",
         type: "dynamic-select",
         required: true,
-        dynamicOptionsKey: "PROJECT_ID",
+        placeholder: "Select a project",
+        dynamicConfig: {
+          endpoint: "/api/projects/",
+          method: "GET",
+        },
       },
     ],
   },
