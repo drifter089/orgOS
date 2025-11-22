@@ -207,10 +207,20 @@ RESPOND WITH ONLY VALID JSON in this exact format:
     if (
       !chartResult.chartType ||
       !chartResult.chartData ||
-      !chartResult.xAxisKey ||
       !chartResult.dataKeys
     ) {
       throw new Error("Invalid chart result: missing required fields");
+    }
+
+    // xAxisKey is required for chart types with axes, but optional for KPI/pie/radial
+    const chartTypesWithoutAxes = ["kpi", "pie", "radial"];
+    if (
+      !chartTypesWithoutAxes.includes(chartResult.chartType) &&
+      !chartResult.xAxisKey
+    ) {
+      throw new Error(
+        `Invalid chart result: ${chartResult.chartType} chart requires xAxisKey`,
+      );
     }
 
     console.info("[AI Transform] Parsed chart type:", chartResult.chartType);
@@ -234,7 +244,7 @@ RESPOND WITH ONLY VALID JSON in this exact format:
     if (!chartResult.description) {
       chartResult.description = metric.description ?? "";
     }
-    if (!chartResult.xAxisLabel) {
+    if (!chartResult.xAxisLabel && chartResult.xAxisKey) {
       chartResult.xAxisLabel = chartResult.xAxisKey;
     }
     if (!chartResult.yAxisLabel) {
