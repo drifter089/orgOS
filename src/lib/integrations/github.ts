@@ -181,6 +181,35 @@ export const templates: MetricTemplate[] = [
       },
     ],
   },
+  {
+    templateId: "github-code-frequency",
+    label: "Code Frequency (Additions/Deletions)",
+    description:
+      "Weekly code additions and deletions - time-series of code changes",
+    integrationId: "github",
+    metricType: "number",
+
+    metricEndpoint: "/repos/{OWNER}/{REPO}/stats/code_frequency",
+
+    requiredParams: [
+      {
+        name: "OWNER",
+        label: "Repository Owner",
+        description: "GitHub username or organization",
+        type: "text",
+        required: true,
+        placeholder: "facebook",
+      },
+      {
+        name: "REPO",
+        label: "Repository Name",
+        description: "Repository name",
+        type: "text",
+        required: true,
+        placeholder: "react",
+      },
+    ],
+  },
 ];
 
 // =============================================================================

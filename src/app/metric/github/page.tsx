@@ -4,6 +4,15 @@ import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -13,44 +22,41 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { templates } from "@/lib/integrations/github";
 import { api } from "@/trpc/react";
-
-// =============================================================================
-// Transform Functions (moved from lib/integrations/github.ts)
-// =============================================================================
 
 function transformRepos(
   data: unknown,
-): Array<{ label: string; value: string }> {
+): Array<{ label: string; value: string; owner: string }> {
   if (!Array.isArray(data)) return [];
   return data.map(
-    (repo: { full_name: string; name: string; private: boolean }) => ({
+    (repo: {
+      full_name: string;
+      name: string;
+      owner: { login: string };
+      private: boolean;
+    }) => ({
       label: `${repo.full_name}${repo.private ? " (private)" : ""}`,
       value: repo.name,
+      owner: repo.owner.login,
     }),
   );
 }
 
-// =============================================================================
-// GitHub Metrics Creation Page
-// =============================================================================
-
 export default function GitHubMetricsPage() {
-  const [selectedTemplateId, setSelectedTemplateId] = useState<string>("");
+  const [isOpen, setIsOpen] = useState(false);
   const [metricName, setMetricName] = useState("");
-  const [params, setParams] = useState<Record<string, string>>({});
+  const [selectedRepo, setSelectedRepo] = useState<string>("");
   const [repoOptions, setRepoOptions] = useState<
-    Array<{ label: string; value: string }>
+    Array<{ label: string; value: string; owner: string }>
   >([]);
 
   const utils = api.useUtils();
   const createMetric = api.metric.create.useMutation({
     onSuccess: () => {
       void utils.metric.getAll.invalidate();
-      setSelectedTemplateId("");
+      setIsOpen(false);
       setMetricName("");
-      setParams({});
+      setSelectedRepo("");
       setRepoOptions([]);
     },
   });
@@ -62,31 +68,14 @@ export default function GitHubMetricsPage() {
     },
   });
 
-  const selectedTemplate = templates.find(
-    (t) => t.templateId === selectedTemplateId,
-  );
-
-  const handleTemplateChange = (templateId: string) => {
-    setSelectedTemplateId(templateId);
-    setMetricName("");
-    setParams({});
-    setRepoOptions([]);
-  };
-
   const integrationQuery = api.integration.listWithStats.useQuery();
   const connection = integrationQuery.data?.active.find(
     (int) => int.integrationId === "github",
   );
 
-  const handleOwnerChange = (owner: string) => {
-    setParams((prev) => ({ ...prev, OWNER: owner }));
-
-    // Fetch repos for this owner if template requires REPO param
-    if (
-      selectedTemplate?.requiredParams.some((p) => p.name === "REPO") &&
-      owner &&
-      connection
-    ) {
+  const handleDialogOpen = (open: boolean) => {
+    setIsOpen(open);
+    if (open && connection && repoOptions.length === 0) {
       fetchRepos.mutate({
         connectionId: connection.connectionId,
         integrationId: "github",
@@ -98,14 +87,25 @@ export default function GitHubMetricsPage() {
   };
 
   const handleSave = () => {
-    if (!selectedTemplate || !metricName || !connection) return;
+    if (!metricName || !selectedRepo || !connection) return;
+
+    const repo = repoOptions.find((r) => r.value === selectedRepo);
+    if (!repo) return;
+
+    const date28DaysAgo = new Date();
+    date28DaysAgo.setDate(date28DaysAgo.getDate() - 28);
 
     createMetric.mutate({
-      templateId: selectedTemplate.templateId,
+      templateId: "github-code-frequency",
       connectionId: connection.connectionId,
       name: metricName,
-      description: selectedTemplate.description,
-      endpointParams: params,
+      description: "Last 28 days of code additions and deletions",
+      endpointParams: {
+        OWNER: repo.owner,
+        REPO: repo.value,
+        DAYS: "28",
+        SINCE: date28DaysAgo.toISOString().split("T")[0]!,
+      },
     });
   };
 
@@ -127,97 +127,45 @@ export default function GitHubMetricsPage() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Create GitHub Metric</CardTitle>
+        <CardTitle>GitHub Commit History</CardTitle>
       </CardHeader>
-      <CardContent className="space-y-4">
-        {/* Template Selection */}
-        <div className="space-y-2">
-          <Label htmlFor="template">Template</Label>
-          <Select
-            value={selectedTemplateId}
-            onValueChange={handleTemplateChange}
-          >
-            <SelectTrigger id="template">
-              <SelectValue placeholder="Select a template" />
-            </SelectTrigger>
-            <SelectContent>
-              {templates.map((template) => (
-                <SelectItem
-                  key={template.templateId}
-                  value={template.templateId}
-                >
-                  {template.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          {selectedTemplate && (
-            <p className="text-muted-foreground text-sm">
-              {selectedTemplate.description}
-            </p>
-          )}
-        </div>
+      <CardContent>
+        <Dialog open={isOpen} onOpenChange={handleDialogOpen}>
+          <DialogTrigger asChild>
+            <Button>Add Metric</Button>
+          </DialogTrigger>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Create Commit History Metric</DialogTitle>
+              <DialogDescription>
+                Track code additions and deletions for the last 28 days
+              </DialogDescription>
+            </DialogHeader>
 
-        {/* Metric Name */}
-        {selectedTemplate && (
-          <div className="space-y-2">
-            <Label htmlFor="name">Metric Name</Label>
-            <Input
-              id="name"
-              placeholder="e.g., My GitHub Stars"
-              value={metricName}
-              onChange={(e) => setMetricName(e.target.value)}
-            />
-          </div>
-        )}
-
-        {/* Dynamic Parameters */}
-        {selectedTemplate?.requiredParams.map((param) => {
-          if (param.type === "text") {
-            return (
-              <div key={param.name} className="space-y-2">
-                <Label htmlFor={param.name}>{param.label}</Label>
+            <div className="space-y-4 py-4">
+              <div className="space-y-2">
+                <Label htmlFor="name">Metric Name</Label>
                 <Input
-                  id={param.name}
-                  placeholder={param.placeholder}
-                  value={params[param.name] ?? ""}
-                  onChange={(e) => {
-                    if (param.name === "OWNER") {
-                      handleOwnerChange(e.target.value);
-                    } else {
-                      setParams((prev) => ({
-                        ...prev,
-                        [param.name]: e.target.value,
-                      }));
-                    }
-                  }}
+                  id="name"
+                  placeholder="e.g., React Repo Activity"
+                  value={metricName}
+                  onChange={(e) => setMetricName(e.target.value)}
                 />
-                <p className="text-muted-foreground text-sm">
-                  {param.description}
-                </p>
               </div>
-            );
-          }
 
-          if (param.type === "dynamic-select" && param.name === "REPO") {
-            return (
-              <div key={param.name} className="space-y-2">
-                <Label htmlFor={param.name}>{param.label}</Label>
+              <div className="space-y-2">
+                <Label htmlFor="repo">Repository</Label>
                 <Select
-                  value={params[param.name] ?? ""}
-                  onValueChange={(value) =>
-                    setParams((prev) => ({ ...prev, [param.name]: value }))
-                  }
-                  disabled={!params.OWNER || repoOptions.length === 0}
+                  value={selectedRepo}
+                  onValueChange={setSelectedRepo}
+                  disabled={repoOptions.length === 0}
                 >
-                  <SelectTrigger id={param.name}>
+                  <SelectTrigger id="repo">
                     <SelectValue
                       placeholder={
-                        !params.OWNER
-                          ? "Enter owner first"
-                          : fetchRepos.isPending
-                            ? "Loading..."
-                            : param.placeholder
+                        fetchRepos.isPending
+                          ? "Loading repositories..."
+                          : "Select a repository"
                       }
                     />
                   </SelectTrigger>
@@ -230,36 +178,29 @@ export default function GitHubMetricsPage() {
                   </SelectContent>
                 </Select>
                 <p className="text-muted-foreground text-sm">
-                  {param.description}
+                  Select the repository to track commit activity
                 </p>
               </div>
-            );
-          }
+            </div>
 
-          return null;
-        })}
+            <DialogFooter>
+              <Button
+                onClick={handleSave}
+                disabled={
+                  !metricName || !selectedRepo || createMetric.isPending
+                }
+              >
+                {createMetric.isPending ? "Creating..." : "Create Metric"}
+              </Button>
+            </DialogFooter>
 
-        {/* Save Button */}
-        {selectedTemplate && (
-          <Button
-            onClick={handleSave}
-            disabled={
-              !metricName ||
-              createMetric.isPending ||
-              selectedTemplate.requiredParams.some(
-                (p) => p.required && !params[p.name],
-              )
-            }
-          >
-            {createMetric.isPending ? "Creating..." : "Create Metric"}
-          </Button>
-        )}
-
-        {createMetric.isError && (
-          <p className="text-destructive text-sm">
-            Error: {createMetric.error.message}
-          </p>
-        )}
+            {createMetric.isError && (
+              <p className="text-destructive text-sm">
+                Error: {createMetric.error.message}
+              </p>
+            )}
+          </DialogContent>
+        </Dialog>
       </CardContent>
     </Card>
   );
