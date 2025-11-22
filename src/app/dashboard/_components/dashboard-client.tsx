@@ -1,15 +1,13 @@
 "use client";
 
-import { useState } from "react";
-
-import { Plus } from "lucide-react";
+import { Download, Loader2 } from "lucide-react";
+import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import type { RouterOutputs } from "@/trpc/react";
 import { api } from "@/trpc/react";
 
 import { DashboardMetricCard } from "./dashboard-metric-card";
-import { MetricSelector } from "./metric-selector";
 
 type DashboardMetrics = RouterOutputs["dashboard"]["getDashboardMetrics"];
 
@@ -22,7 +20,7 @@ export function DashboardClient({
   initialDashboardMetrics,
   autoTrigger = true,
 }: DashboardClientProps) {
-  const [selectorOpen, setSelectorOpen] = useState(false);
+  const utils = api.useUtils();
 
   const { data: dashboardMetrics } = api.dashboard.getDashboardMetrics.useQuery(
     undefined,
@@ -31,19 +29,37 @@ export function DashboardClient({
     },
   );
 
+  const importMutation = api.dashboard.importAllAvailableMetrics.useMutation({
+    onSuccess: async (result) => {
+      await utils.dashboard.getDashboardMetrics.invalidate();
+      toast.success(result.message);
+    },
+    onError: (error) => {
+      toast.error(error.message);
+    },
+  });
+
+  const handleImportAll = () => {
+    importMutation.mutate();
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
           <p className="text-muted-foreground text-sm">
             {dashboardMetrics.length === 0
-              ? "No metrics on dashboard yet. Import your first metric to get started."
+              ? "No metrics on dashboard yet. Import all available metrics to get started."
               : `Showing ${dashboardMetrics.length} metric${dashboardMetrics.length === 1 ? "" : "s"}`}
           </p>
         </div>
-        <Button onClick={() => setSelectorOpen(true)}>
-          <Plus className="mr-2 h-4 w-4" />
-          Import Metrics
+        <Button onClick={handleImportAll} disabled={importMutation.isPending}>
+          {importMutation.isPending ? (
+            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+          ) : (
+            <Download className="mr-2 h-4 w-4" />
+          )}
+          Import New Metrics
         </Button>
       </div>
 
@@ -52,16 +68,21 @@ export function DashboardClient({
           <div className="space-y-2 text-center">
             <h3 className="text-lg font-semibold">No metrics yet</h3>
             <p className="text-muted-foreground max-w-sm text-sm">
-              Import metrics to your dashboard to start tracking and visualizing
-              your data
+              Import all available metrics to your dashboard to start tracking
+              and visualizing your data
             </p>
             <Button
               className="mt-4"
               variant="outline"
-              onClick={() => setSelectorOpen(true)}
+              onClick={handleImportAll}
+              disabled={importMutation.isPending}
             >
-              <Plus className="mr-2 h-4 w-4" />
-              Import Your First Metric
+              {importMutation.isPending ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <Download className="mr-2 h-4 w-4" />
+              )}
+              Import All Metrics
             </Button>
           </div>
         </div>
@@ -76,8 +97,6 @@ export function DashboardClient({
           ))}
         </div>
       )}
-
-      <MetricSelector open={selectorOpen} onOpenChange={setSelectorOpen} />
     </div>
   );
 }

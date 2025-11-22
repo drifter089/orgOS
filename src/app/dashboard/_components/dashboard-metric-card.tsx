@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import { Loader2, RefreshCw, Sparkles, Trash2 } from "lucide-react";
 import {
@@ -109,34 +109,20 @@ export function DashboardMetricCard({
     api.dashboard.removeMetricFromDashboard.useMutation({
       onMutate: async ({ dashboardMetricId }) => {
         await utils.dashboard.getDashboardMetrics.cancel();
-        await utils.dashboard.getAvailableMetrics.cancel();
 
         const previousDashboardMetrics =
           utils.dashboard.getDashboardMetrics.getData();
-        const previousAvailableMetrics =
-          utils.dashboard.getAvailableMetrics.getData();
 
         if (previousDashboardMetrics) {
-          const removedMetric = previousDashboardMetrics.find(
-            (dm) => dm.id === dashboardMetricId,
-          );
-
           utils.dashboard.getDashboardMetrics.setData(
             undefined,
             previousDashboardMetrics.filter(
               (dm) => dm.id !== dashboardMetricId,
             ),
           );
-
-          if (removedMetric && previousAvailableMetrics) {
-            utils.dashboard.getAvailableMetrics.setData(undefined, [
-              ...previousAvailableMetrics,
-              removedMetric.metric,
-            ]);
-          }
         }
 
-        return { previousDashboardMetrics, previousAvailableMetrics };
+        return { previousDashboardMetrics };
       },
       onError: (_err, _variables, context) => {
         if (context?.previousDashboardMetrics) {
@@ -145,21 +131,10 @@ export function DashboardMetricCard({
             context.previousDashboardMetrics,
           );
         }
-        if (context?.previousAvailableMetrics) {
-          utils.dashboard.getAvailableMetrics.setData(
-            undefined,
-            context.previousAvailableMetrics,
-          );
-        }
-      },
-      onSettled: async () => {
-        await utils.dashboard.getAvailableMetrics.invalidate();
       },
     });
 
-  const fetchDataMutation = api.dashboard.fetchMetricData.useMutation();
-  const transformMutation = api.dashboard.transformMetricForChart.useMutation();
-  const updateConfigMutation = api.dashboard.updateGraphConfig.useMutation({
+  const refreshMutation = api.dashboard.refreshMetricChart.useMutation({
     onSuccess: (updatedDashboardMetric) => {
       utils.dashboard.getDashboardMetrics.setData(undefined, (old) =>
         old?.map((dm) =>
@@ -169,36 +144,26 @@ export function DashboardMetricCard({
     },
   });
 
-  const handleFetchAndTransform = async (userHint?: string) => {
-    if (!isIntegrationMetric) return;
+  const handleRefresh = useCallback(
+    async (userHint?: string) => {
+      if (!isIntegrationMetric) return;
 
-    setIsProcessing(true);
-    try {
-      const fetchResult = await fetchDataMutation.mutateAsync({
-        metricId: metric.id,
-      });
-
-      const transformResult = await transformMutation.mutateAsync({
-        metricId: metric.id,
-        rawData: fetchResult.data,
-        userHint: userHint || undefined,
-      });
-
-      if (transformResult.success && transformResult.data) {
-        await updateConfigMutation.mutateAsync({
+      setIsProcessing(true);
+      try {
+        await refreshMutation.mutateAsync({
           dashboardMetricId: dashboardMetric.id,
-          chartTransform: transformResult.data,
+          userHint: userHint ?? undefined,
         });
+      } catch (error) {
+        console.error("Refresh failed:", error);
+      } finally {
+        setIsProcessing(false);
+        setPrompt("");
       }
-    } catch (error) {
-      console.error("Fetch and transform failed:", error);
-    } finally {
-      setIsProcessing(false);
-      setPrompt("");
-    }
-  };
+    },
+    [isIntegrationMetric, refreshMutation, dashboardMetric.id],
+  );
 
-  // Auto-trigger fetch and transform for new metrics
   useEffect(() => {
     if (
       autoTrigger &&
@@ -209,9 +174,16 @@ export function DashboardMetricCard({
       !isProcessing
     ) {
       hasTriggeredRef.current = true;
-      void handleFetchAndTransform();
+      void handleRefresh();
     }
-  }, [autoTrigger, isIntegrationMetric, hasChartData, isPending, isProcessing]);
+  }, [
+    autoTrigger,
+    isIntegrationMetric,
+    hasChartData,
+    isPending,
+    isProcessing,
+    handleRefresh,
+  ]);
 
   const handleRemove = async () => {
     const confirmed = await confirm({
@@ -229,7 +201,7 @@ export function DashboardMetricCard({
   };
 
   const handleRegenerate = () => {
-    void handleFetchAndTransform(prompt);
+    void handleRefresh(prompt);
   };
 
   const renderChart = () => {
@@ -723,7 +695,7 @@ export function DashboardMetricCard({
             <Button
               variant="outline"
               size="icon"
-              onClick={() => handleFetchAndTransform()}
+              onClick={() => handleRefresh()}
               disabled={isProcessing}
               className="h-8 w-8 flex-shrink-0"
               title="Refetch data"
