@@ -1,9 +1,21 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
+
+import { Loader2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -13,103 +25,121 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { templates } from "@/lib/integrations/google-sheets";
 import { api } from "@/trpc/react";
 
-// =============================================================================
-// Transform Functions (moved from lib/integrations/google-sheets.ts)
-// =============================================================================
-
-function transformSheets(
-  data: unknown,
-): Array<{ label: string; value: string }> {
-  if (!data || typeof data !== "object") return [];
-
-  const response = data as {
-    sheets?: Array<{ properties: { title: string } }>;
-  };
-
-  return (
-    response.sheets?.map((s) => ({
-      label: s.properties.title,
-      value: s.properties.title,
-    })) ?? []
-  );
+function extractSpreadsheetId(url: string): string | null {
+  const regex = /\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/;
+  const match = regex.exec(url);
+  return match?.[1] ?? null;
 }
 
-// =============================================================================
-// Google Sheets Metrics Creation Page
-// =============================================================================
-
 export default function GoogleSheetsMetricsPage() {
-  const [selectedTemplateId, setSelectedTemplateId] = useState<string>("");
+  const [open, setOpen] = useState(false);
+  const [step, setStep] = useState<1 | 2 | 3>(1);
+
+  const [spreadsheetUrl, setSpreadsheetUrl] = useState("");
+  const [spreadsheetId, setSpreadsheetId] = useState("");
+
+  const [sheets, setSheets] = useState<Array<{ title: string }>>([]);
+  const [selectedSheet, setSelectedSheet] = useState("");
+  const [previewData, setPreviewData] = useState<string[][]>([]);
+
+  const [selectedColumns, setSelectedColumns] = useState<number[]>([]);
   const [metricName, setMetricName] = useState("");
-  const [params, setParams] = useState<Record<string, string>>({});
-  const [sheetOptions, setSheetOptions] = useState<
-    Array<{ label: string; value: string }>
-  >([]);
-
-  const utils = api.useUtils();
-  const createMetric = api.metric.create.useMutation({
-    onSuccess: () => {
-      void utils.metric.getAll.invalidate();
-      setSelectedTemplateId("");
-      setMetricName("");
-      setParams({});
-      setSheetOptions([]);
-    },
-  });
-
-  const fetchSheets = api.metric.fetchIntegrationData.useMutation({
-    onSuccess: (data: { data: unknown }) => {
-      const options = transformSheets(data.data);
-      setSheetOptions(options);
-    },
-  });
-
-  const selectedTemplate = templates.find(
-    (t) => t.templateId === selectedTemplateId,
-  );
 
   const integrationQuery = api.integration.listWithStats.useQuery();
   const connection = integrationQuery.data?.active.find(
     (int) => int.integrationId === "google-sheet",
   );
 
-  // Fetch sheets when SPREADSHEET_ID is provided
-  useEffect(() => {
-    if (
-      params.SPREADSHEET_ID &&
-      connection &&
-      selectedTemplate?.requiredParams.some((p) => p.name === "SHEET_NAME")
-    ) {
-      fetchSheets.mutate({
-        connectionId: connection.connectionId,
-        integrationId: "google-sheet",
-        endpoint: `/v4/spreadsheets/${params.SPREADSHEET_ID}`,
-        method: "GET",
-        params: {},
-      });
-    }
-  }, [params.SPREADSHEET_ID, connection, selectedTemplate]);
+  const utils = api.useUtils();
 
-  const handleTemplateChange = (templateId: string) => {
-    setSelectedTemplateId(templateId);
+  const fetchMetadata = api.metric.fetchIntegrationData.useMutation({
+    onSuccess: (data: { data: unknown }) => {
+      const response = data.data as {
+        sheets?: Array<{ properties: { title: string } }>;
+      };
+      const sheetList =
+        response.sheets?.map((s) => ({ title: s.properties.title })) ?? [];
+      setSheets(sheetList);
+      setStep(2);
+    },
+  });
+
+  const fetchSheetData = api.metric.fetchIntegrationData.useMutation({
+    onSuccess: (data: { data: unknown }) => {
+      const response = data.data as { values?: string[][] };
+      setPreviewData(response.values?.slice(0, 10) ?? []);
+    },
+  });
+
+  const createMetric = api.metric.create.useMutation({
+    onSuccess: () => {
+      void utils.metric.getAll.invalidate();
+      handleClose();
+    },
+  });
+
+  const handleClose = () => {
+    setOpen(false);
+    setStep(1);
+    setSpreadsheetUrl("");
+    setSpreadsheetId("");
+    setSheets([]);
+    setSelectedSheet("");
+    setPreviewData([]);
+    setSelectedColumns([]);
     setMetricName("");
-    setParams({});
-    setSheetOptions([]);
   };
 
-  const handleSave = () => {
-    if (!selectedTemplate || !metricName || !connection) return;
+  const handleStep1Next = () => {
+    const id = extractSpreadsheetId(spreadsheetUrl);
+    if (!id || !connection) return;
+
+    setSpreadsheetId(id);
+    fetchMetadata.mutate({
+      connectionId: connection.connectionId,
+      integrationId: "google-sheet",
+      endpoint: `/v4/spreadsheets/${id}`,
+      method: "GET",
+      params: {},
+    });
+  };
+
+  const handleStep2Next = () => {
+    if (!selectedSheet || !connection || !spreadsheetId) return;
+
+    fetchSheetData.mutate({
+      connectionId: connection.connectionId,
+      integrationId: "google-sheet",
+      endpoint: `/v4/spreadsheets/${spreadsheetId}/values/${selectedSheet}`,
+      method: "GET",
+      params: {},
+    });
+
+    setStep(3);
+  };
+
+  const handleCreateMetric = () => {
+    if (!connection || !metricName || selectedColumns.length === 0) return;
 
     createMetric.mutate({
-      templateId: selectedTemplate.templateId,
+      templateId: "gsheets-column-data",
       connectionId: connection.connectionId,
       name: metricName,
-      description: selectedTemplate.description,
-      endpointParams: params,
+      description: `Tracking columns from ${selectedSheet} in Google Sheets`,
+      endpointParams: {
+        SPREADSHEET_ID: spreadsheetId,
+        SHEET_NAME: selectedSheet,
+        COLUMNS: selectedColumns.join(","),
+      },
     });
+  };
+
+  const toggleColumn = (index: number) => {
+    setSelectedColumns((prev) =>
+      prev.includes(index) ? prev.filter((i) => i !== index) : [...prev, index],
+    );
   };
 
   if (!connection) {
@@ -127,158 +157,211 @@ export default function GoogleSheetsMetricsPage() {
     );
   }
 
+  const isStep1Valid = spreadsheetUrl.trim() !== "";
+  const isStep2Valid = selectedSheet !== "";
+  const isStep3Valid = metricName.trim() !== "" && selectedColumns.length > 0;
+
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Create Google Sheets Metric</CardTitle>
+        <CardTitle>Google Sheets Metrics</CardTitle>
       </CardHeader>
-      <CardContent className="space-y-4">
-        {/* Template Selection */}
-        <div className="space-y-2">
-          <Label htmlFor="template">Template</Label>
-          <Select
-            value={selectedTemplateId}
-            onValueChange={handleTemplateChange}
-          >
-            <SelectTrigger id="template">
-              <SelectValue placeholder="Select a template" />
-            </SelectTrigger>
-            <SelectContent>
-              {templates.map((template) => (
-                <SelectItem
-                  key={template.templateId}
-                  value={template.templateId}
-                >
-                  {template.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          {selectedTemplate && (
-            <p className="text-muted-foreground text-sm">
-              {selectedTemplate.description}
-            </p>
-          )}
-        </div>
+      <CardContent>
+        <Dialog open={open} onOpenChange={setOpen}>
+          <DialogTrigger asChild>
+            <Button>Create New Metric</Button>
+          </DialogTrigger>
+          <DialogContent className="max-h-[80vh] max-w-2xl overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>
+                Create Google Sheets Metric - Step {step} of 3
+              </DialogTitle>
+              <DialogDescription>
+                {step === 1 && "Enter your Google Sheets link to get started"}
+                {step === 2 &&
+                  "Select a sheet from your spreadsheet to preview"}
+                {step === 3 && "Select the columns you want to track"}
+              </DialogDescription>
+            </DialogHeader>
 
-        {/* Metric Name */}
-        {selectedTemplate && (
-          <div className="space-y-2">
-            <Label htmlFor="name">Metric Name</Label>
-            <Input
-              id="name"
-              placeholder="e.g., Sales Data"
-              value={metricName}
-              onChange={(e) => setMetricName(e.target.value)}
-            />
-          </div>
-        )}
+            <div className="space-y-4 py-4">
+              {step === 1 && (
+                <div className="space-y-2">
+                  <Label htmlFor="spreadsheet-url">Google Sheets Link</Label>
+                  <Input
+                    id="spreadsheet-url"
+                    placeholder="https://docs.google.com/spreadsheets/d/..."
+                    value={spreadsheetUrl}
+                    onChange={(e) => setSpreadsheetUrl(e.target.value)}
+                  />
+                  <p className="text-muted-foreground text-xs">
+                    Paste the full URL from your Google Sheets document
+                  </p>
+                </div>
+              )}
 
-        {/* Dynamic Parameters */}
-        {selectedTemplate?.requiredParams.map((param) => {
-          if (param.type === "text") {
-            return (
-              <div key={param.name} className="space-y-2">
-                <Label htmlFor={param.name}>{param.label}</Label>
-                <Input
-                  id={param.name}
-                  placeholder={param.placeholder}
-                  value={params[param.name] ?? ""}
-                  onChange={(e) =>
-                    setParams((prev) => ({
-                      ...prev,
-                      [param.name]: e.target.value,
-                    }))
-                  }
-                />
-                <p className="text-muted-foreground text-sm">
-                  {param.description}
-                </p>
-              </div>
-            );
-          }
+              {step === 2 && (
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="sheet-select">Select Sheet</Label>
+                    <Select
+                      value={selectedSheet}
+                      onValueChange={setSelectedSheet}
+                    >
+                      <SelectTrigger id="sheet-select">
+                        <SelectValue placeholder="Choose a sheet" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {sheets.map((sheet) => (
+                          <SelectItem key={sheet.title} value={sheet.title}>
+                            {sheet.title}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
 
-          if (param.type === "number") {
-            return (
-              <div key={param.name} className="space-y-2">
-                <Label htmlFor={param.name}>{param.label}</Label>
-                <Input
-                  id={param.name}
-                  type="number"
-                  placeholder={param.placeholder}
-                  value={params[param.name] ?? ""}
-                  onChange={(e) =>
-                    setParams((prev) => ({
-                      ...prev,
-                      [param.name]: e.target.value,
-                    }))
-                  }
-                />
-                <p className="text-muted-foreground text-sm">
-                  {param.description}
-                </p>
-              </div>
-            );
-          }
+                  {selectedSheet && (
+                    <div className="text-muted-foreground rounded-md border p-3 text-sm">
+                      <p className="mb-1 font-medium">Selected:</p>
+                      <p>{selectedSheet}</p>
+                    </div>
+                  )}
+                </div>
+              )}
 
-          if (param.type === "dynamic-select" && param.name === "SHEET_NAME") {
-            return (
-              <div key={param.name} className="space-y-2">
-                <Label htmlFor={param.name}>{param.label}</Label>
-                <Select
-                  value={params[param.name] ?? ""}
-                  onValueChange={(value) =>
-                    setParams((prev) => ({ ...prev, [param.name]: value }))
-                  }
-                  disabled={!params.SPREADSHEET_ID || sheetOptions.length === 0}
-                >
-                  <SelectTrigger id={param.name}>
-                    <SelectValue
-                      placeholder={
-                        !params.SPREADSHEET_ID
-                          ? "Enter spreadsheet ID first"
-                          : fetchSheets.isPending
-                            ? "Loading sheets..."
-                            : param.placeholder
-                      }
+              {step === 3 && (
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="metric-name">Metric Name</Label>
+                    <Input
+                      id="metric-name"
+                      placeholder="e.g., Sales Data"
+                      value={metricName}
+                      onChange={(e) => setMetricName(e.target.value)}
                     />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {sheetOptions.map((option) => (
-                      <SelectItem key={option.value} value={option.value}>
-                        {option.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <p className="text-muted-foreground text-sm">
-                  {param.description}
-                </p>
-              </div>
-            );
-          }
+                  </div>
 
-          return null;
-        })}
+                  <div className="space-y-2">
+                    <Label>Preview & Select Columns</Label>
+                    {fetchSheetData.isPending ? (
+                      <div className="flex items-center justify-center py-8">
+                        <Loader2 className="size-6 animate-spin" />
+                      </div>
+                    ) : previewData.length > 0 ? (
+                      <div className="max-h-64 overflow-auto rounded-md border">
+                        <table className="w-full text-sm">
+                          <thead className="bg-muted sticky top-0">
+                            <tr>
+                              <th className="w-10 p-2"></th>
+                              {previewData[0]?.map((_, index) => (
+                                <th key={index} className="p-2 text-left">
+                                  <div className="flex items-center gap-2">
+                                    <Checkbox
+                                      checked={selectedColumns.includes(index)}
+                                      onCheckedChange={() =>
+                                        toggleColumn(index)
+                                      }
+                                    />
+                                    <span>Col {index + 1}</span>
+                                  </div>
+                                </th>
+                              ))}
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {previewData.map((row, rowIndex) => (
+                              <tr
+                                key={rowIndex}
+                                className="hover:bg-muted/50 border-t"
+                              >
+                                <td className="text-muted-foreground p-2 text-xs">
+                                  {rowIndex + 1}
+                                </td>
+                                {row.map((cell, cellIndex) => (
+                                  <td
+                                    key={cellIndex}
+                                    className={
+                                      selectedColumns.includes(cellIndex)
+                                        ? "bg-primary/10 p-2"
+                                        : "p-2"
+                                    }
+                                  >
+                                    {cell}
+                                  </td>
+                                ))}
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    ) : (
+                      <p className="text-muted-foreground text-sm">
+                        No data available
+                      </p>
+                    )}
+                    <p className="text-muted-foreground text-xs">
+                      Select columns by checking the boxes above. Showing first
+                      10 rows.
+                    </p>
+                  </div>
+                </div>
+              )}
+            </div>
 
-        {/* Save Button */}
-        {selectedTemplate && (
-          <Button
-            onClick={handleSave}
-            disabled={
-              !metricName ||
-              createMetric.isPending ||
-              selectedTemplate.requiredParams.some(
-                (p) => p.required && !params[p.name],
-              )
-            }
-          >
-            {createMetric.isPending ? "Creating..." : "Create Metric"}
-          </Button>
-        )}
+            <DialogFooter>
+              {step > 1 && (
+                <Button
+                  variant="outline"
+                  onClick={() => setStep((step - 1) as 1 | 2)}
+                >
+                  Back
+                </Button>
+              )}
+
+              {step === 1 && (
+                <Button
+                  onClick={handleStep1Next}
+                  disabled={!isStep1Valid || fetchMetadata.isPending}
+                >
+                  {fetchMetadata.isPending ? (
+                    <>
+                      <Loader2 className="mr-2 size-4 animate-spin" />
+                      Loading...
+                    </>
+                  ) : (
+                    "Next"
+                  )}
+                </Button>
+              )}
+
+              {step === 2 && (
+                <Button onClick={handleStep2Next} disabled={!isStep2Valid}>
+                  Next
+                </Button>
+              )}
+
+              {step === 3 && (
+                <Button
+                  onClick={handleCreateMetric}
+                  disabled={!isStep3Valid || createMetric.isPending}
+                >
+                  {createMetric.isPending ? (
+                    <>
+                      <Loader2 className="mr-2 size-4 animate-spin" />
+                      Creating...
+                    </>
+                  ) : (
+                    "Create Metric"
+                  )}
+                </Button>
+              )}
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
 
         {createMetric.isError && (
-          <p className="text-destructive text-sm">
+          <p className="text-destructive mt-4 text-sm">
             Error: {createMetric.error.message}
           </p>
         )}
