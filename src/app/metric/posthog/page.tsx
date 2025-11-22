@@ -13,7 +13,6 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
   Select,
@@ -30,7 +29,6 @@ import { api } from "@/trpc/react";
 
 type Project = { label: string; value: string };
 type Event = { label: string; value: string };
-type EventsByProject = Record<string, Event[]>;
 
 // =============================================================================
 // Transform Functions
@@ -72,14 +70,11 @@ function transformEvents(data: unknown): Event[] {
 
 export default function PostHogMetricsPage() {
   const [open, setOpen] = useState(false);
-  const [metricName, setMetricName] = useState("");
   const [selectedProject, setSelectedProject] = useState("");
   const [selectedEvent, setSelectedEvent] = useState("");
 
-  // Prefetched data
   const [projects, setProjects] = useState<Project[]>([]);
-  const [eventsByProject, setEventsByProject] = useState<EventsByProject>({});
-  const [isPrefetching, setIsPrefetching] = useState(false);
+  const [events, setEvents] = useState<Event[]>([]);
 
   const utils = api.useUtils();
   const integrationQuery = api.integration.listWithStats.useQuery();
@@ -87,91 +82,67 @@ export default function PostHogMetricsPage() {
     (int) => int.integrationId === "posthog",
   );
 
-  const fetchProjects = api.metric.fetchIntegrationData.useMutation();
-  const fetchEvents = api.metric.fetchIntegrationData.useMutation();
+  const fetchProjects = api.metric.fetchIntegrationData.useMutation({
+    onSuccess: (data) => {
+      const projectList = transformProjects(data.data);
+      setProjects(projectList);
+    },
+  });
+
+  const fetchEvents = api.metric.fetchIntegrationData.useMutation({
+    onSuccess: (data) => {
+      const eventList = transformEvents(data.data);
+      setEvents(eventList);
+    },
+  });
 
   const createMetric = api.metric.create.useMutation({
     onSuccess: () => {
       void utils.metric.getAll.invalidate();
       setOpen(false);
-      setMetricName("");
       setSelectedProject("");
       setSelectedEvent("");
+      setProjects([]);
+      setEvents([]);
     },
   });
 
-  // Prefetch projects and events when connection is available
+  // Fetch projects when dialog opens
   useEffect(() => {
-    if (!connection || isPrefetching || projects.length > 0) return;
-
-    setIsPrefetching(true);
-
-    // Step 1: Fetch all projects
-    fetchProjects.mutate(
-      {
+    if (open && connection && projects.length === 0) {
+      fetchProjects.mutate({
         connectionId: connection.connectionId,
         integrationId: "posthog",
         endpoint: "/api/projects/",
         method: "GET",
         params: {},
-      },
-      {
-        onSuccess: (data) => {
-          const projectList = transformProjects(data.data);
-          setProjects(projectList);
-
-          // Step 2: Fetch events for each project in the background
-          let completedCount = 0;
-          const totalProjects = projectList.length;
-
-          if (totalProjects === 0) {
-            setIsPrefetching(false);
-            return;
-          }
-
-          projectList.forEach((project) => {
-            fetchEvents.mutate(
-              {
-                connectionId: connection.connectionId,
-                integrationId: "posthog",
-                endpoint: `/api/projects/${project.value}/event_definitions/`,
-                method: "GET",
-                params: {},
-              },
-              {
-                onSuccess: (eventData) => {
-                  const events = transformEvents(eventData.data);
-                  setEventsByProject((prev) => ({
-                    ...prev,
-                    [project.value]: events,
-                  }));
-
-                  completedCount++;
-                  if (completedCount === totalProjects) {
-                    setIsPrefetching(false);
-                  }
-                },
-                onError: () => {
-                  completedCount++;
-                  if (completedCount === totalProjects) {
-                    setIsPrefetching(false);
-                  }
-                },
-              },
-            );
-          });
-        },
-        onError: () => {
-          setIsPrefetching(false);
-        },
-      },
-    );
+      });
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [connection, isPrefetching, projects.length]);
+  }, [open, connection]);
+
+  // Fetch events when project is selected
+  useEffect(() => {
+    if (selectedProject && connection) {
+      setEvents([]);
+      setSelectedEvent("");
+      fetchEvents.mutate({
+        connectionId: connection.connectionId,
+        integrationId: "posthog",
+        endpoint: `/api/projects/${selectedProject}/event_definitions/`,
+        method: "GET",
+        params: {},
+      });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedProject, connection]);
 
   const handleCreate = () => {
-    if (!connection || !selectedProject || !selectedEvent || !metricName)
-      return;
+    if (!connection || !selectedProject || !selectedEvent) return;
+
+    const selectedProjectName =
+      projects.find((p) => p.value === selectedProject)?.label ?? "Project";
+    const metricName = `${selectedProjectName} - ${selectedEvent}`;
 
     createMetric.mutate({
       templateId: "posthog-event-count",
@@ -184,10 +155,6 @@ export default function PostHogMetricsPage() {
       },
     });
   };
-
-  const selectedProjectEvents = selectedProject
-    ? (eventsByProject[selectedProject] ?? [])
-    : [];
 
   if (!connection) {
     return (
@@ -212,9 +179,7 @@ export default function PostHogMetricsPage() {
       <CardContent>
         <Dialog open={open} onOpenChange={setOpen}>
           <DialogTrigger asChild>
-            <Button disabled={isPrefetching}>
-              {isPrefetching ? "Loading..." : "Create Event Metric"}
-            </Button>
+            <Button>Create Event Metric</Button>
           </DialogTrigger>
           <DialogContent>
             <DialogHeader>
@@ -225,31 +190,17 @@ export default function PostHogMetricsPage() {
             </DialogHeader>
 
             <div className="space-y-4">
-              {/* Metric Name */}
-              <div className="space-y-2">
-                <Label htmlFor="name">Metric Name</Label>
-                <Input
-                  id="name"
-                  placeholder="e.g., Login Events"
-                  value={metricName}
-                  onChange={(e) => setMetricName(e.target.value)}
-                />
-              </div>
-
               {/* Project Selection */}
               <div className="space-y-2">
                 <Label htmlFor="project">Project</Label>
                 <Select
                   value={selectedProject}
-                  onValueChange={(value) => {
-                    setSelectedProject(value);
-                    setSelectedEvent(""); // Reset event when project changes
-                  }}
+                  onValueChange={setSelectedProject}
                 >
                   <SelectTrigger id="project">
                     <SelectValue
                       placeholder={
-                        projects.length === 0
+                        fetchProjects.isPending
                           ? "Loading projects..."
                           : "Select a project"
                       }
@@ -278,14 +229,14 @@ export default function PostHogMetricsPage() {
                       placeholder={
                         !selectedProject
                           ? "Select project first"
-                          : selectedProjectEvents.length === 0
+                          : fetchEvents.isPending
                             ? "Loading events..."
                             : "Select an event"
                       }
                     />
                   </SelectTrigger>
                   <SelectContent>
-                    {selectedProjectEvents.map((event) => (
+                    {events.map((event) => (
                       <SelectItem key={event.value} value={event.value}>
                         {event.label}
                       </SelectItem>
@@ -299,10 +250,7 @@ export default function PostHogMetricsPage() {
               <Button
                 onClick={handleCreate}
                 disabled={
-                  !metricName ||
-                  !selectedProject ||
-                  !selectedEvent ||
-                  createMetric.isPending
+                  !selectedProject || !selectedEvent || createMetric.isPending
                 }
               >
                 {createMetric.isPending ? "Creating..." : "Create Metric"}
