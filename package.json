@@ -70,6 +70,7 @@
     "@workos-inc/authkit-nextjs": "^2.10.0",
     "@xyflow/react": "^12.9.2",
     "ai": "^5.0.93",
+    "axios": "^1.13.2",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "cmdk": "^1.1.1",

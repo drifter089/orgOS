@@ -4,6 +4,7 @@
  */
 import { Nango } from "@nangohq/node";
 import { TRPCError } from "@trpc/server";
+import axios from "axios";
 
 import { env } from "@/env";
 
@@ -11,6 +12,15 @@ interface FetchOptions {
   method?: "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
   params?: Record<string, string>;
   body?: unknown;
+}
+
+/**
+ * Calculate date in YYYY-MM-DD format relative to today
+ */
+function getDateString(daysAgo: number): string {
+  const date = new Date();
+  date.setDate(date.getDate() - daysAgo);
+  return date.toISOString().split("T")[0]!;
 }
 
 export async function fetchData(
@@ -26,8 +36,12 @@ export async function fetchData(
     });
   }
 
+  // Replace date placeholders with actual YYYY-MM-DD dates
+  let finalEndpoint = endpoint
+    .replace(/28daysAgo/g, getDateString(28))
+    .replace(/today/g, getDateString(0));
+
   // Replace {PARAM} placeholders in endpoint
-  let finalEndpoint = endpoint;
   if (options?.params) {
     Object.entries(options.params).forEach(([key, value]) => {
       finalEndpoint = finalEndpoint.replace(`{${key}}`, value);
@@ -53,20 +67,69 @@ export async function fetchData(
   const nango = new Nango({ secretKey: env.NANGO_SECRET_KEY_DEV });
 
   try {
-    const response = await nango.proxy({
-      connectionId,
-      providerConfigKey: integrationId,
-      endpoint: finalEndpoint,
-      method: options?.method ?? "GET",
-      ...(finalBody ? { data: finalBody } : {}),
-    });
+    // Check if this is a full URL (for YouTube Analytics API v2)
+    const isFullUrl =
+      finalEndpoint.startsWith("http://") ||
+      finalEndpoint.startsWith("https://");
 
-    return {
-      data: response.data,
-      status: response.status,
-    };
+    if (isFullUrl) {
+      // For full URLs (like YouTube Analytics API), get the token and make direct request
+      const tokenResponse = await nango.getToken(integrationId, connectionId);
+
+      // Extract access token (supports both string tokens and OAuth2 token objects)
+      const accessToken =
+        typeof tokenResponse === "string"
+          ? tokenResponse
+          : "accessToken" in tokenResponse
+            ? tokenResponse.accessToken
+            : "";
+
+      if (!accessToken) {
+        throw new Error("Failed to retrieve access token from Nango");
+      }
+
+      const response = await axios({
+        method: options?.method ?? "GET",
+        url: finalEndpoint,
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          "Content-Type": "application/json",
+        },
+        ...(finalBody ? { data: finalBody } : {}),
+      });
+
+      return {
+        data: response.data,
+        status: response.status,
+      };
+    } else {
+      // For relative paths, use Nango proxy (existing behavior)
+      const response = await nango.proxy({
+        connectionId,
+        providerConfigKey: integrationId,
+        endpoint: finalEndpoint,
+        method: options?.method ?? "GET",
+        ...(finalBody ? { data: finalBody } : {}),
+      });
+
+      return {
+        data: response.data,
+        status: response.status,
+      };
+    }
   } catch (error) {
     console.error(`[${integrationId} API Fetch]`, error);
+
+    // Log detailed error for debugging
+    if (axios.isAxiosError(error)) {
+      console.error("Request URL:", finalEndpoint);
+      console.error("Response status:", error.response?.status);
+      console.error(
+        "Response data:",
+        JSON.stringify(error.response?.data, null, 2),
+      );
+    }
+
     throw new TRPCError({
       code: "INTERNAL_SERVER_ERROR",
       message:
