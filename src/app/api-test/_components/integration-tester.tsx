@@ -133,13 +133,18 @@ export function IntegrationTester() {
       const params = endpointParams.get(endpointKey);
 
       // Call tRPC endpoint using fetch (imperative call)
+      // tRPC expects input wrapped in { json: {...}, meta: {...} } format
+      const inputData = {
+        connectionId,
+        integrationId,
+        endpoint: endpoint.path,
+        method: endpoint.method,
+        ...(params && Object.keys(params).length > 0 ? { params } : {}),
+      };
+
       const queryParams = new URLSearchParams({
         input: JSON.stringify({
-          connectionId,
-          integrationId,
-          endpoint: endpoint.path,
-          method: endpoint.method,
-          params: params && Object.keys(params).length > 0 ? params : undefined,
+          json: inputData,
         }),
       });
 
