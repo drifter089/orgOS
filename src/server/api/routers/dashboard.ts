@@ -292,8 +292,27 @@ export const dashboardRouter = createTRPCRouter({
         },
       );
 
+      let processedData = result.data;
+
+      if (
+        template.templateId === "github-code-frequency" &&
+        params.DAYS &&
+        Array.isArray(result.data)
+      ) {
+        const daysToKeep = parseInt(params.DAYS, 10);
+        if (!isNaN(daysToKeep)) {
+          const cutoffDate = new Date();
+          cutoffDate.setDate(cutoffDate.getDate() - daysToKeep);
+          const cutoffTimestamp = Math.floor(cutoffDate.getTime() / 1000);
+
+          processedData = (result.data as Array<[number, number, number]>)
+            .filter(([timestamp]) => timestamp >= cutoffTimestamp)
+            .slice(-Math.ceil(daysToKeep / 7));
+        }
+      }
+
       return {
-        data: result.data,
+        data: processedData,
         status: result.status,
         metricId: metric.id,
         integrationId: metric.integration.integrationId,
@@ -378,10 +397,28 @@ export const dashboardRouter = createTRPCRouter({
               },
             );
 
-            // Create metric with fresh data in endpointConfig for AI
+            let processedData = result.data;
+
+            if (
+              template.templateId === "github-code-frequency" &&
+              params.DAYS &&
+              Array.isArray(result.data)
+            ) {
+              const daysToKeep = parseInt(params.DAYS, 10);
+              if (!isNaN(daysToKeep)) {
+                const cutoffDate = new Date();
+                cutoffDate.setDate(cutoffDate.getDate() - daysToKeep);
+                const cutoffTimestamp = Math.floor(cutoffDate.getTime() / 1000);
+
+                processedData = (result.data as Array<[number, number, number]>)
+                  .filter(([timestamp]) => timestamp >= cutoffTimestamp)
+                  .slice(-Math.ceil(daysToKeep / 7));
+              }
+            }
+
             metricWithFreshData = {
               ...metric,
-              endpointConfig: result.data as Prisma.JsonValue,
+              endpointConfig: processedData as Prisma.JsonValue,
             };
           } catch {
             // Continue with existing endpointConfig on fetch failure

@@ -100,6 +100,10 @@ RESPOND WITH ONLY VALID JSON in this exact format:
 - Group arrays by date/category and count
 - Convert timestamps to readable dates
 - Extract nested values (e.g., user.login)
+- Code frequency format: [[timestamp, additions, deletions], ...]
+  - Convert Unix timestamps to readable dates
+  - Create separate dataKeys for "additions" and "deletions"
+  - Use AREA or LINE chart for time-series visualization
 
 ## Styling Configuration:
 
