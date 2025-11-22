@@ -236,8 +236,11 @@ export default function PostHogMetricsPage() {
                     />
                   </SelectTrigger>
                   <SelectContent>
-                    {events.map((event) => (
-                      <SelectItem key={event.value} value={event.value}>
+                    {events.map((event, index) => (
+                      <SelectItem
+                        key={`${event.value}-${index}`}
+                        value={event.value}
+                      >
                         {event.label}
                       </SelectItem>
                     ))}

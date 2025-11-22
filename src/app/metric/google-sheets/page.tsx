@@ -212,8 +212,11 @@ export default function GoogleSheetsMetricsPage() {
                         <SelectValue placeholder="Choose a sheet" />
                       </SelectTrigger>
                       <SelectContent>
-                        {sheets.map((sheet) => (
-                          <SelectItem key={sheet.title} value={sheet.title}>
+                        {sheets.map((sheet, index) => (
+                          <SelectItem
+                            key={`${sheet.title}-${index}`}
+                            value={sheet.title}
+                          >
                             {sheet.title}
                           </SelectItem>
                         ))}

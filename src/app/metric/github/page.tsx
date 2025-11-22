@@ -26,7 +26,7 @@ import { api } from "@/trpc/react";
 
 function transformRepos(
   data: unknown,
-): Array<{ label: string; value: string; owner: string }> {
+): Array<{ label: string; value: string; owner: string; name: string }> {
   if (!Array.isArray(data)) return [];
   return data.map(
     (repo: {
@@ -36,8 +36,9 @@ function transformRepos(
       private: boolean;
     }) => ({
       label: `${repo.full_name}${repo.private ? " (private)" : ""}`,
-      value: repo.name,
+      value: repo.full_name, // Use full_name for uniqueness
       owner: repo.owner.login,
+      name: repo.name,
     }),
   );
 }
@@ -47,7 +48,7 @@ export default function GitHubMetricsPage() {
   const [metricName, setMetricName] = useState("");
   const [selectedRepo, setSelectedRepo] = useState<string>("");
   const [repoOptions, setRepoOptions] = useState<
-    Array<{ label: string; value: string; owner: string }>
+    Array<{ label: string; value: string; owner: string; name: string }>
   >([]);
 
   const utils = api.useUtils();
@@ -102,7 +103,7 @@ export default function GitHubMetricsPage() {
       description: "Last 28 days of code additions and deletions",
       endpointParams: {
         OWNER: repo.owner,
-        REPO: repo.value,
+        REPO: repo.name,
         DAYS: "28",
         SINCE: date28DaysAgo.toISOString().split("T")[0]!,
       },

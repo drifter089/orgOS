@@ -161,6 +161,16 @@ export const dashboardRouter = createTRPCRouter({
         },
       );
 
+      console.info(
+        `[Dashboard] Fetched data for ${metric.name}:`,
+        Array.isArray(result.data)
+          ? `Array with ${result.data.length} items`
+          : typeof result.data,
+      );
+      if (Array.isArray(result.data) && result.data.length > 0) {
+        console.info("[Dashboard] First few items:", result.data.slice(0, 3));
+      }
+
       let processedData = result.data;
 
       if (
@@ -174,9 +184,17 @@ export const dashboardRouter = createTRPCRouter({
           cutoffDate.setDate(cutoffDate.getDate() - daysToKeep);
           const cutoffTimestamp = Math.floor(cutoffDate.getTime() / 1000);
 
+          console.info(
+            `[Dashboard] Filtering github-code-frequency data: DAYS=${daysToKeep}, cutoffTimestamp=${cutoffTimestamp}`,
+          );
+
           processedData = (result.data as Array<[number, number, number]>)
             .filter(([timestamp]) => timestamp >= cutoffTimestamp)
             .slice(-Math.ceil(daysToKeep / 7));
+
+          console.info(
+            `[Dashboard] After filtering: ${Array.isArray(processedData) ? processedData.length : "not array"} items`,
+          );
         }
       }
 
@@ -184,6 +202,10 @@ export const dashboardRouter = createTRPCRouter({
         ...metric,
         endpointConfig: processedData as Prisma.JsonValue,
       };
+
+      console.info(
+        `[Dashboard] Sending to AI transformer: ${Array.isArray(processedData) ? `Array[${processedData.length}]` : typeof processedData}`,
+      );
 
       const transformResult = await transformMetricWithAI(
         metricWithFreshData,
