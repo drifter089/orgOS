@@ -32,11 +32,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-// Import service configs directly (no API call needed)
-import { serviceConfig as githubService } from "@/server/api/services/endpoints/github";
-import { serviceConfig as googleSheetsService } from "@/server/api/services/endpoints/google-sheets";
-import { serviceConfig as posthogService } from "@/server/api/services/endpoints/posthog";
-import { serviceConfig as youtubeService } from "@/server/api/services/endpoints/youtube";
+// Import service configs from shared integration registry
+import { serviceConfig as githubService } from "@/lib/integrations/github";
+import { serviceConfig as googleSheetsService } from "@/lib/integrations/google-sheets";
+import { serviceConfig as posthogService } from "@/lib/integrations/posthog";
+import { serviceConfig as youtubeService } from "@/lib/integrations/youtube";
 import { api } from "@/trpc/react";
 
 interface ServiceEndpoint {
