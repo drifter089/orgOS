@@ -2,11 +2,12 @@ import type { Metric, Prisma } from "@prisma/client";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 
-import { fetchData, getMetricTemplate } from "@/server/api/services/base";
+import { getTemplate } from "@/app/metric/registry";
 import {
   type ChartTransformResult,
   transformMetricWithAI,
 } from "@/server/api/services/chart-tools/ai-transformer";
+import { fetchData } from "@/server/api/services/nango";
 import { createTRPCRouter, workspaceProcedure } from "@/server/api/trpc";
 
 // ============================================================================
@@ -269,7 +270,7 @@ export const dashboardRouter = createTRPCRouter({
         });
       }
 
-      const template = getMetricTemplate(metric.metricTemplate);
+      const template = getTemplate(metric.metricTemplate);
       if (!template) {
         throw new TRPCError({
           code: "NOT_FOUND",
@@ -358,7 +359,7 @@ export const dashboardRouter = createTRPCRouter({
         metric.integration
       ) {
         // Fetch fresh data from integration
-        const template = getMetricTemplate(metric.metricTemplate);
+        const template = getTemplate(metric.metricTemplate);
 
         if (template) {
           // Fetch fresh data using new base function

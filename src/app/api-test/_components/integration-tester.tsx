@@ -32,6 +32,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+// Import service configs from shared integration registry
+import { serviceConfig as githubService } from "@/lib/integrations/github";
+import { serviceConfig as googleSheetsService } from "@/lib/integrations/google-sheets";
+import { serviceConfig as posthogService } from "@/lib/integrations/posthog";
+import { serviceConfig as youtubeService } from "@/lib/integrations/youtube";
 import { api } from "@/trpc/react";
 
 interface ServiceEndpoint {
@@ -53,6 +58,13 @@ interface TestResult {
   error?: string;
 }
 
+const SERVICE_CONFIGS = {
+  github: githubService,
+  "google-sheet": googleSheetsService,
+  posthog: posthogService,
+  youtube: youtubeService,
+};
+
 export function IntegrationTester() {
   const [selectedIntegrationConnectionId, setSelectedIntegrationConnectionId] =
     useState<string | null>(null);
@@ -73,38 +85,11 @@ export function IntegrationTester() {
     (i) => i.connectionId === selectedIntegrationConnectionId,
   );
 
-  // Fetch service configs for all supported services
-  const { data: githubService } = api.metric.getServiceEndpoints.useQuery(
-    { integrationId: "github" },
-    { enabled: selectedIntegration?.integrationId === "github" },
-  );
-  const { data: googleSheetsService } = api.metric.getServiceEndpoints.useQuery(
-    { integrationId: "google-sheet" },
-    { enabled: selectedIntegration?.integrationId === "google-sheet" },
-  );
-  const { data: posthogService } = api.metric.getServiceEndpoints.useQuery(
-    { integrationId: "posthog" },
-    { enabled: selectedIntegration?.integrationId === "posthog" },
-  );
-  const { data: youtubeService } = api.metric.getServiceEndpoints.useQuery(
-    { integrationId: "youtube" },
-    { enabled: selectedIntegration?.integrationId === "youtube" },
-  );
-
-  // Test endpoint mutation
-  const testMutation = api.metric.testIntegrationEndpoint.useMutation();
-
-  // Get service config based on selected integration
+  // Get service config based on selected integration (no API call - direct import)
   const serviceConfig = selectedIntegration?.integrationId
-    ? selectedIntegration.integrationId === "github"
-      ? githubService
-      : selectedIntegration.integrationId === "google-sheet"
-        ? googleSheetsService
-        : selectedIntegration.integrationId === "posthog"
-          ? posthogService
-          : selectedIntegration.integrationId === "youtube"
-            ? youtubeService
-            : null
+    ? SERVICE_CONFIGS[
+        selectedIntegration.integrationId as keyof typeof SERVICE_CONFIGS
+      ]
     : null;
 
   const handleIntegrationChange = (connectionId: string) => {
@@ -146,19 +131,38 @@ export function IntegrationTester() {
 
     try {
       const params = endpointParams.get(endpointKey);
-      const result = await testMutation.mutateAsync({
+
+      // Call tRPC endpoint using fetch (imperative call)
+      // tRPC expects input wrapped in { json: {...}, meta: {...} } format
+      const inputData = {
         connectionId,
         integrationId,
         endpoint: endpoint.path,
         method: endpoint.method,
-        params: params && Object.keys(params).length > 0 ? params : undefined,
+        ...(params && Object.keys(params).length > 0 ? { params } : {}),
+      };
+
+      const queryParams = new URLSearchParams({
+        input: JSON.stringify({
+          json: inputData,
+        }),
       });
+
+      const response = await fetch(
+        `/api/trpc/metric.fetchIntegrationData?${queryParams.toString()}`,
+      );
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+
+      const json = await response.json();
+      const result = json.result.data;
 
       const statusCode = result.status ?? 200;
       updateTestResult(endpointKey, {
         status: statusCode >= 200 && statusCode < 300 ? "success" : "fail",
         statusCode,
-
         response: result.data,
       });
     } catch (error) {
@@ -188,7 +192,7 @@ export function IntegrationTester() {
 
     setIsRunningAll(true);
 
-    // Sequential execution - easy to convert to parallel later
+    // Sequential execution
     for (const endpoint of serviceConfig.endpoints as ServiceEndpoint[]) {
       await testEndpoint(
         endpoint,

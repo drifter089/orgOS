@@ -1,14 +1,7 @@
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 
-import {
-  fetchData,
-  getAllMetricTemplates,
-  getAllServices,
-  getMetricTemplate,
-  getTemplatesByIntegration,
-  renderEndpoints,
-} from "@/server/api/services/base";
+import { fetchData } from "@/server/api/services/nango";
 import { createTRPCRouter, workspaceProcedure } from "@/server/api/trpc";
 import { getIntegrationAndVerifyAccess } from "@/server/api/utils/authorization";
 
@@ -23,6 +16,47 @@ export const metricRouter = createTRPCRouter({
       orderBy: { name: "asc" },
     });
   }),
+
+  getById: workspaceProcedure
+    .input(z.object({ id: z.string() }))
+    .query(async ({ ctx, input }) => {
+      return ctx.db.metric.findUnique({
+        where: { id: input.id },
+      });
+    }),
+
+  create: workspaceProcedure
+    .input(
+      z.object({
+        templateId: z.string(),
+        connectionId: z.string(),
+        name: z.string().min(1).max(100),
+        description: z.string().optional(),
+        endpointParams: z.record(z.string()),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      // Verify user has access to this connection
+      await getIntegrationAndVerifyAccess(
+        ctx.db,
+        input.connectionId,
+        ctx.user.id,
+        ctx.workspace,
+      );
+
+      // No template validation here - trust frontend
+      // Just save the configuration
+      return ctx.db.metric.create({
+        data: {
+          name: input.name,
+          description: input.description,
+          organizationId: ctx.workspace.organizationId,
+          integrationId: input.connectionId,
+          metricTemplate: input.templateId,
+          endpointConfig: input.endpointParams,
+        },
+      });
+    }),
 
   update: workspaceProcedure
     .input(
@@ -62,92 +96,10 @@ export const metricRouter = createTRPCRouter({
     }),
 
   // ===========================================================================
-  // Template Operations
+  // Generic Integration Data Fetching
   // ===========================================================================
 
-  getAllTemplates: workspaceProcedure.query(() => {
-    return getAllMetricTemplates();
-  }),
-
-  getTemplatesByIntegration: workspaceProcedure
-    .input(z.object({ integrationId: z.string() }))
-    .query(({ input }) => {
-      return getTemplatesByIntegration(input.integrationId);
-    }),
-
-  createFromTemplate: workspaceProcedure
-    .input(
-      z.object({
-        templateId: z.string(),
-        connectionId: z.string(),
-        name: z.string().min(1).max(100).optional(),
-        description: z.string().optional(),
-        endpointParams: z.record(z.string()).optional(),
-      }),
-    )
-    .mutation(async ({ ctx, input }) => {
-      const template = getMetricTemplate(input.templateId);
-
-      const integration = await getIntegrationAndVerifyAccess(
-        ctx.db,
-        input.connectionId,
-        ctx.user.id,
-        ctx.workspace,
-      );
-
-      if (integration.integrationId !== template.integrationId) {
-        throw new TRPCError({
-          code: "BAD_REQUEST",
-          message: `Template ${input.templateId} requires ${template.integrationId} integration`,
-        });
-      }
-
-      // Validate required parameters
-      const missingParams = template.requiredParams
-        .filter((p) => p.required)
-        .filter((p) => !input.endpointParams?.[p.name]);
-
-      if (missingParams.length > 0) {
-        throw new TRPCError({
-          code: "BAD_REQUEST",
-          message: `Missing required parameters: ${missingParams.map((p) => p.label).join(", ")}`,
-        });
-      }
-
-      return ctx.db.metric.create({
-        data: {
-          name: input.name ?? template.label,
-          description: input.description ?? template.description,
-          organizationId: ctx.workspace.organizationId,
-          integrationId: input.connectionId,
-          metricTemplate: template.templateId,
-          endpointConfig: input.endpointParams ?? {},
-        },
-      });
-    }),
-
-  // ===========================================================================
-  // Metric Refresh
-  // ===========================================================================
-
-  // ===========================================================================
-  // Integration Operations
-  // ===========================================================================
-
-  // Get all services for API testing
-  listServices: workspaceProcedure.query(() => {
-    return getAllServices();
-  }),
-
-  // Get endpoints for a specific service
-  getServiceEndpoints: workspaceProcedure
-    .input(z.object({ integrationId: z.string() }))
-    .query(({ input }) => {
-      return renderEndpoints(input.integrationId);
-    }),
-
-  // Test any integration endpoint
-  testIntegrationEndpoint: workspaceProcedure
+  fetchIntegrationData: workspaceProcedure
     .input(
       z.object({
         connectionId: z.string(),
@@ -157,39 +109,19 @@ export const metricRouter = createTRPCRouter({
           .enum(["GET", "POST", "PUT", "PATCH", "DELETE"])
           .default("GET"),
         params: z.record(z.string()).optional(),
+        body: z.unknown().optional(),
       }),
     )
-    .mutation(async ({ ctx, input }) => {
-      const integration = await getIntegrationAndVerifyAccess(
+    .query(async ({ ctx, input }) => {
+      // Verify user has access to this connection
+      await getIntegrationAndVerifyAccess(
         ctx.db,
         input.connectionId,
         ctx.user.id,
         ctx.workspace,
       );
 
-      if (integration.status !== "active") {
-        throw new TRPCError({
-          code: "BAD_REQUEST",
-          message: `Integration is ${integration.status}. Please reconnect.`,
-        });
-      }
-
-      // Special test query for PostHog Query API
-      let testRequestBody = undefined;
-      if (
-        input.integrationId === "posthog" &&
-        input.method === "POST" &&
-        input.endpoint.includes("/query/")
-      ) {
-        testRequestBody = {
-          query: {
-            kind: "HogQLQuery",
-            query:
-              "SELECT event, count() as count FROM events WHERE timestamp > now() - INTERVAL 7 DAY GROUP BY event ORDER BY count DESC LIMIT 10",
-          },
-        };
-      }
-
+      // Fetch data from third-party API via Nango
       return await fetchData(
         input.integrationId,
         input.connectionId,
@@ -197,142 +129,8 @@ export const metricRouter = createTRPCRouter({
         {
           method: input.method,
           params: input.params,
-          body: testRequestBody,
+          body: input.body,
         },
       );
-    }),
-
-  // Fetch dynamic options for dropdowns
-  fetchDynamicOptions: workspaceProcedure
-    .input(
-      z.object({
-        connectionId: z.string(),
-        templateId: z.string(),
-        dropdownKey: z.string(),
-        dependsOnValue: z.string().optional(),
-      }),
-    )
-    .query(async ({ ctx, input }) => {
-      await getIntegrationAndVerifyAccess(
-        ctx.db,
-        input.connectionId,
-        ctx.user.id,
-        ctx.workspace,
-      );
-
-      const template = getMetricTemplate(input.templateId);
-      const dropdown = template.dropdowns?.find(
-        (d) => d.paramName === input.dropdownKey,
-      );
-
-      if (!dropdown) {
-        throw new TRPCError({
-          code: "NOT_FOUND",
-          message: `Dropdown not found: ${input.dropdownKey}`,
-        });
-      }
-
-      // Build params for dependent dropdowns
-      const params: Record<string, string> = {};
-      if (dropdown.dependsOn && input.dependsOnValue) {
-        params[dropdown.dependsOn] = input.dependsOnValue;
-      }
-
-      const result = await fetchData(
-        template.integrationId,
-        input.connectionId,
-        dropdown.endpoint,
-        {
-          method: dropdown.method ?? "GET",
-          params,
-          body: dropdown.body,
-        },
-      );
-
-      return dropdown.transform(result.data);
-    }),
-
-  // Google Sheets specific: Get sheet structure
-  getSheetStructure: workspaceProcedure
-    .input(
-      z.object({
-        connectionId: z.string(),
-        spreadsheetId: z.string(),
-      }),
-    )
-    .query(async ({ ctx, input }) => {
-      await getIntegrationAndVerifyAccess(
-        ctx.db,
-        input.connectionId,
-        ctx.user.id,
-        ctx.workspace,
-      );
-
-      const response = await fetchData(
-        "google-sheet",
-        input.connectionId,
-        `/v4/spreadsheets/${input.spreadsheetId}`,
-      );
-
-      const responseData = response.data as {
-        sheets?: Array<{
-          properties: {
-            title: string;
-            gridProperties: {
-              rowCount: number;
-              columnCount: number;
-            };
-          };
-        }>;
-      };
-
-      const sheets =
-        responseData.sheets?.map((sheet) => ({
-          title: sheet.properties.title,
-          rowCount: sheet.properties.gridProperties.rowCount,
-          columnCount: sheet.properties.gridProperties.columnCount,
-        })) ?? [];
-
-      return { sheets };
-    }),
-
-  // Google Sheets specific: Get sheet preview
-  getSheetPreview: workspaceProcedure
-    .input(
-      z.object({
-        connectionId: z.string(),
-        spreadsheetId: z.string(),
-        sheetName: z.string(),
-        maxRows: z.number().optional().default(10),
-      }),
-    )
-    .query(async ({ ctx, input }) => {
-      await getIntegrationAndVerifyAccess(
-        ctx.db,
-        input.connectionId,
-        ctx.user.id,
-        ctx.workspace,
-      );
-
-      const response = await fetchData(
-        "google-sheet",
-        input.connectionId,
-        `/v4/spreadsheets/${input.spreadsheetId}/values/${input.sheetName}`,
-      );
-
-      const responseData = response.data as {
-        values?: string[][];
-      };
-
-      const allRows = responseData.values ?? [];
-      const headers = allRows.length > 0 ? allRows[0] : [];
-      const dataRows = allRows.slice(1, input.maxRows + 1);
-
-      return {
-        headers: headers ?? [],
-        rows: dataRows,
-        totalRows: allRows.length - 1,
-        totalColumns: (headers ?? []).length,
-      };
     }),
 });
