@@ -38,6 +38,12 @@ export function NavWrapper({
     return null;
   }, [pathname]);
 
+  // Fetch organization data when on org pages
+  const { data: orgData } = api.organization.getCurrent.useQuery(undefined, {
+    enabled: isOrgPage,
+    retry: false,
+  });
+
   // Only fetch team data when on team detail page and user is authenticated
   // org routes are already protected by middleware, so if we're here, user is authenticated
   const { data: team } = api.team.getById.useQuery(
@@ -52,8 +58,12 @@ export function NavWrapper({
   // Generate breadcrumbs based on current pathname
   const breadcrumbs = useMemo(() => {
     if (!isOrgPage) return undefined;
-    return generateBreadcrumbs(pathname, team?.name);
-  }, [isOrgPage, pathname, team?.name]);
+    return generateBreadcrumbs(
+      pathname,
+      team?.name,
+      orgData?.organization.name,
+    );
+  }, [isOrgPage, pathname, team?.name, orgData?.organization.name]);
 
   return (
     <FancyNav
