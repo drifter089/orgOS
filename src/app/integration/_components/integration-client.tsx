@@ -378,7 +378,7 @@ export function IntegrationClient({ initialData }: IntegrationClientProps) {
                             className="w-full"
                           >
                             <Plus className="mr-2 h-4 w-4" />
-                            Create Metric
+                            KPI
                           </Button>
                         }
                         onSuccess={() => refetchIntegrations()}
