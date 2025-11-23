@@ -284,7 +284,7 @@ export function IntegrationClient({ initialData }: IntegrationClientProps) {
   return (
     <>
       <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-bold tracking-tight">KPIs</h2>
+        <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">KPIs</h2>
         <Button onClick={handleConnect} disabled={isLoading}>
           <Plus className="mr-2 h-4 w-4" />
           {isLoading ? "Connecting..." : "Platform"}
@@ -309,7 +309,7 @@ export function IntegrationClient({ initialData }: IntegrationClientProps) {
         </CardHeader>
         <CardContent>
           {integrations && integrations.length > 0 ? (
-            <div className="grid grid-cols-2 gap-6">
+            <div className="grid grid-cols-4 gap-4">
               {integrations.map((integration) => {
                 const logo = getIntegrationLogo(integration.integrationId);
                 const MetricDialog = getMetricDialog(integration.integrationId);

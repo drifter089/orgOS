@@ -59,24 +59,26 @@ export default async function OrganizationPage() {
           </div>
 
           {/* Organization Details Section */}
-          <section className="animate-in fade-in slide-in-from-bottom-4 mb-8 space-y-6 delay-100 duration-500 sm:mb-12">
+          <section className="animate-in fade-in slide-in-from-bottom-4 mb-12 space-y-6 delay-100 duration-500">
             <Suspense fallback={<OrganizationDetailsLoading />}>
               <OrganizationDetails />
             </Suspense>
           </section>
 
-          {/* Integrations Section */}
-          <section className="animate-in fade-in slide-in-from-bottom-4 mb-8 space-y-6 delay-200 duration-500 sm:mb-12">
-            <IntegrationClient initialData={integrations} />
-          </section>
-
           {/* Roles Section */}
-          <section className="animate-in fade-in slide-in-from-bottom-4 space-y-6 delay-300 duration-500">
+          <section className="animate-in fade-in slide-in-from-bottom-4 mb-12 space-y-6 delay-200 duration-500">
             <div className="flex items-center justify-between">
-              <h2 className="text-2xl font-bold tracking-tight">Roles</h2>
+              <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">
+                Roles
+              </h2>
               <CreateTeamDialog />
             </div>
             <TeamsList />
+          </section>
+
+          {/* Integrations Section */}
+          <section className="animate-in fade-in slide-in-from-bottom-4 space-y-6 delay-300 duration-500">
+            <IntegrationClient initialData={integrations} />
           </section>
         </div>
       </div>
