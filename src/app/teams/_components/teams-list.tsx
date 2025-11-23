@@ -68,9 +68,9 @@ export function TeamsList() {
           <EmptyMedia variant="icon">
             <Users className="text-muted-foreground" />
           </EmptyMedia>
-          <EmptyTitle>No teams yet</EmptyTitle>
+          <EmptyTitle>No role charts yet</EmptyTitle>
           <EmptyDescription>
-            Create your first team to start building role structures and
+            Create your first role chart to start building role structures and
             workflows
           </EmptyDescription>
         </EmptyHeader>

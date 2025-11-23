@@ -284,10 +284,10 @@ export function IntegrationClient({ initialData }: IntegrationClientProps) {
   return (
     <>
       <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-bold tracking-tight">Integrations</h2>
+        <h2 className="text-2xl font-bold tracking-tight">KPIs</h2>
         <Button onClick={handleConnect} disabled={isLoading}>
           <Plus className="mr-2 h-4 w-4" />
-          {isLoading ? "Connecting..." : "New Integration"}
+          {isLoading ? "Connecting..." : "Platform"}
         </Button>
       </div>
 
@@ -297,14 +297,14 @@ export function IntegrationClient({ initialData }: IntegrationClientProps) {
         </Alert>
       )}
 
-      {/* Connected Integrations */}
+      {/* Connected Platforms */}
       <Card>
         <CardHeader>
-          <CardTitle>Connected Integrations</CardTitle>
+          <CardTitle>Connected Platforms</CardTitle>
           <CardDescription>
             {integrations?.length
-              ? `${integrations.length} active integration${integrations.length > 1 ? "s" : ""}`
-              : "No integrations connected yet"}
+              ? `${integrations.length} active platform${integrations.length > 1 ? "s" : ""}`
+              : "No platforms connected yet"}
           </CardDescription>
         </CardHeader>
         <CardContent>

@@ -103,14 +103,14 @@ export function CreateTeamDialog() {
       <DialogTrigger asChild>
         <Button size="default" className="gap-2">
           <Plus className="h-4 w-4" />
-          New Team
+          Role Chart
         </Button>
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Create New Team</DialogTitle>
+          <DialogTitle>Create New Role Chart</DialogTitle>
           <DialogDescription>
-            Create a new team to organize roles and workflows
+            Create a new role chart to organize roles and workflows
           </DialogDescription>
         </DialogHeader>
 
@@ -161,7 +161,7 @@ export function CreateTeamDialog() {
                 Cancel
               </Button>
               <Button type="submit" disabled={createTeam.isPending}>
-                {createTeam.isPending ? "Creating..." : "Create Team"}
+                {createTeam.isPending ? "Creating..." : "Create Role Chart"}
               </Button>
             </DialogFooter>
           </form>

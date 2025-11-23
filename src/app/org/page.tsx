@@ -70,10 +70,10 @@ export default async function OrganizationPage() {
             <IntegrationClient initialData={integrations} />
           </section>
 
-          {/* Teams Section */}
+          {/* Roles Section */}
           <section className="animate-in fade-in slide-in-from-bottom-4 space-y-6 delay-300 duration-500">
             <div className="flex items-center justify-between">
-              <h2 className="text-2xl font-bold tracking-tight">Teams</h2>
+              <h2 className="text-2xl font-bold tracking-tight">Roles</h2>
               <CreateTeamDialog />
             </div>
             <TeamsList />
