@@ -335,7 +335,7 @@ export function IntegrationClient({ initialData }: IntegrationClientProps) {
                       </div>
 
                       <div
-                        className={`flex h-full w-full flex-col items-center justify-center rounded-lg border transition-all group-hover:scale-105 group-hover:shadow-lg ${logo.bgColor}`}
+                        className={`flex h-full w-full flex-col items-center justify-center rounded-lg border ${logo.bgColor}`}
                       >
                         <div className="relative h-16 w-16">
                           {logo.useLucide ? (
