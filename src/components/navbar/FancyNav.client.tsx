@@ -92,24 +92,28 @@ const menuSections: MenuSection[] = [
         title: "Teams",
         description: "Browse & manage teams",
         icon: <Users className="size-4" />,
+        devOnly: true,
       },
       {
         href: "/dashboard",
         title: "Dashboard",
         description: "Monitor key metrics",
         icon: <LayoutDashboard className="size-4" />,
+        devOnly: true,
       },
       {
         href: "/integration",
         title: "Integrations",
         description: "Connect 3rd party services",
         icon: <Plug className="size-4" />,
+        devOnly: true,
       },
       {
         href: "/metric",
         title: "Metrics",
         description: "Track KPIs",
         icon: <TrendingUp className="size-4" />,
+        devOnly: true,
       },
       {
         href: "/api-test",
@@ -609,99 +613,94 @@ export function FancyNav({
 
           {/* Menu sections */}
           <div ref={menuItemsRef} className="col-span-full">
-            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-              {/* Column 1: General Navigation */}
-              <div className="space-y-4">
-                {/* Home link */}
-                <div className="menu-item">
-                  <Link
-                    href="/"
-                    className={cn(
-                      "bg-muted/50 hover:bg-muted flex items-center gap-3 rounded-lg p-3 transition-colors",
-                      isActivePath("/") &&
-                        "bg-primary/10 border-primary border",
-                    )}
-                  >
-                    <div className="bg-primary/10 text-primary flex size-8 items-center justify-center rounded-lg">
-                      <span className="text-sm font-bold">H</span>
+            <div
+              className={cn(
+                "grid gap-6",
+                showDevItems ? "md:grid-cols-2 lg:grid-cols-3" : "grid-cols-3",
+              )}
+            >
+              {/* Column 1: Home */}
+              <div className="menu-item">
+                <Link
+                  href="/"
+                  className={cn(
+                    "bg-muted/50 hover:bg-muted flex items-center gap-3 rounded-lg p-3 transition-colors",
+                    isActivePath("/") && "bg-primary/10 border-primary border",
+                  )}
+                >
+                  <div className="bg-primary/10 text-primary flex size-8 items-center justify-center rounded-lg">
+                    <Home className="size-4" />
+                  </div>
+                  <div>
+                    <div className="font-medium">Home</div>
+                    <div className="text-muted-foreground text-xs">
+                      Welcome page
                     </div>
-                    <div>
-                      <div className="font-medium">Home</div>
-                      <div className="text-muted-foreground text-xs">
-                        Welcome page
-                      </div>
-                    </div>
-                  </Link>
-                </div>
-
-                {/* Docs link */}
-                <div className="menu-item">
-                  <Link
-                    href="/docs"
-                    className={cn(
-                      "bg-muted/50 hover:bg-muted flex items-center gap-3 rounded-lg p-3 transition-colors",
-                      isActivePath("/docs") &&
-                        "bg-primary/10 border-primary border",
-                    )}
-                  >
-                    <div className="bg-primary/10 text-primary flex size-8 items-center justify-center rounded-lg">
-                      <Code2 className="size-4" />
-                    </div>
-                    <div>
-                      <div className="font-medium">Docs</div>
-                      <div className="text-muted-foreground text-xs">
-                        Documentation
-                      </div>
-                    </div>
-                  </Link>
-                </div>
+                  </div>
+                </Link>
               </div>
 
-              {/* Column 2: Organization Tree */}
-              <div className="space-y-2">
-                <h3 className="text-muted-foreground px-3 text-xs font-semibold tracking-wider uppercase">
-                  Organization
-                </h3>
-                <div className="space-y-1">
-                  {/* Org */}
-                  <div className="menu-item">
-                    <Link
-                      href="/org"
-                      className={cn(
-                        "hover:bg-muted flex items-center gap-3 rounded-lg p-2 transition-colors",
-                        isActivePath("/org") && "bg-primary/10 text-primary",
-                      )}
-                    >
-                      <div
+              {/* Column 2: Docs */}
+              <div className="menu-item">
+                <Link
+                  href="/docs"
+                  className={cn(
+                    "bg-muted/50 hover:bg-muted flex items-center gap-3 rounded-lg p-3 transition-colors",
+                    isActivePath("/docs") &&
+                      "bg-primary/10 border-primary border",
+                  )}
+                >
+                  <div className="bg-primary/10 text-primary flex size-8 items-center justify-center rounded-lg">
+                    <Code2 className="size-4" />
+                  </div>
+                  <div>
+                    <div className="font-medium">Docs</div>
+                    <div className="text-muted-foreground text-xs">
+                      Documentation
+                    </div>
+                  </div>
+                </Link>
+              </div>
+
+              {/* Column 3: Organization */}
+              <div className="menu-item">
+                <Link
+                  href="/org"
+                  className={cn(
+                    "bg-muted/50 hover:bg-muted flex items-center gap-3 rounded-lg p-3 transition-colors",
+                    isActivePath("/org") &&
+                      "bg-primary/10 border-primary border",
+                  )}
+                >
+                  <div className="bg-primary/10 text-primary flex size-8 items-center justify-center rounded-lg">
+                    <Building2 className="size-4" />
+                  </div>
+                  <div>
+                    <div className="font-medium">Organization</div>
+                    <div className="text-muted-foreground text-xs">
+                      Manage settings & members
+                    </div>
+                  </div>
+                </Link>
+              </div>
+
+              {/* Dev-only: Organization Tree */}
+              {showDevItems && (
+                <div className="space-y-2">
+                  <h3 className="text-muted-foreground px-3 text-xs font-semibold tracking-wider uppercase">
+                    Organization <span className="text-green-500">(Dev)</span>
+                  </h3>
+                  <div className="space-y-1">
+                    {/* Team (Indented) */}
+                    <div className="menu-item">
+                      <Link
+                        href="/teams"
                         className={cn(
-                          "text-muted-foreground flex size-6 items-center justify-center",
-                          isActivePath("/org") && "text-primary",
+                          "hover:bg-muted flex items-center gap-3 rounded-lg border-l-2 border-green-500 p-2 transition-colors",
+                          isActivePath("/teams") &&
+                            "bg-primary/10 text-primary",
                         )}
                       >
-                        <Building2 className="size-4" />
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <div className="truncate text-sm font-medium">
-                          Organization
-                        </div>
-                        <div className="text-muted-foreground truncate text-xs">
-                          Manage settings & members
-                        </div>
-                      </div>
-                    </Link>
-                  </div>
-
-                  {/* Team (Indented) */}
-                  <div className="menu-item">
-                    <Link
-                      href="/teams"
-                      className={cn(
-                        "hover:bg-muted flex items-center gap-3 rounded-lg p-2 transition-colors",
-                        isActivePath("/teams") && "bg-primary/10 text-primary",
-                      )}
-                    >
-                      <div className="border-muted-foreground/30 flex items-center pl-3">
-                        <div className="border-muted-foreground/30 mr-3 h-full border-l-2" />
                         <div
                           className={cn(
                             "text-muted-foreground flex size-6 items-center justify-center",
@@ -710,30 +709,27 @@ export function FancyNav({
                         >
                           <Users className="size-4" />
                         </div>
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <div className="truncate text-sm font-medium">
-                          Teams
+                        <div className="min-w-0 flex-1">
+                          <div className="truncate text-sm font-medium">
+                            Teams
+                          </div>
+                          <div className="text-muted-foreground truncate text-xs">
+                            Browse & manage teams
+                          </div>
                         </div>
-                        <div className="text-muted-foreground truncate text-xs">
-                          Browse & manage teams
-                        </div>
-                      </div>
-                    </Link>
-                  </div>
+                      </Link>
+                    </div>
 
-                  {/* Integration (Indented) */}
-                  <div className="menu-item">
-                    <Link
-                      href="/integration"
-                      className={cn(
-                        "hover:bg-muted flex items-center gap-3 rounded-lg p-2 transition-colors",
-                        isActivePath("/integration") &&
-                          "bg-primary/10 text-primary",
-                      )}
-                    >
-                      <div className="border-muted-foreground/30 flex items-center pl-3">
-                        <div className="border-muted-foreground/30 mr-3 h-full border-l-2" />
+                    {/* Integration (Indented) */}
+                    <div className="menu-item">
+                      <Link
+                        href="/integration"
+                        className={cn(
+                          "hover:bg-muted flex items-center gap-3 rounded-lg border-l-2 border-green-500 p-2 transition-colors",
+                          isActivePath("/integration") &&
+                            "bg-primary/10 text-primary",
+                        )}
+                      >
                         <div
                           className={cn(
                             "text-muted-foreground flex size-6 items-center justify-center",
@@ -742,29 +738,27 @@ export function FancyNav({
                         >
                           <Plug className="size-4" />
                         </div>
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <div className="truncate text-sm font-medium">
-                          Integrations
+                        <div className="min-w-0 flex-1">
+                          <div className="truncate text-sm font-medium">
+                            Integrations
+                          </div>
+                          <div className="text-muted-foreground truncate text-xs">
+                            Connect 3rd party services
+                          </div>
                         </div>
-                        <div className="text-muted-foreground truncate text-xs">
-                          Connect 3rd party services
-                        </div>
-                      </div>
-                    </Link>
-                  </div>
+                      </Link>
+                    </div>
 
-                  {/* Metric (Double indented under Integration) */}
-                  <div className="menu-item">
-                    <Link
-                      href="/metric"
-                      className={cn(
-                        "hover:bg-muted flex items-center gap-3 rounded-lg p-2 transition-colors",
-                        isActivePath("/metric") && "bg-primary/10 text-primary",
-                      )}
-                    >
-                      <div className="border-muted-foreground/30 flex items-center pl-6">
-                        <div className="border-muted-foreground/30 mr-3 h-full border-l-2" />
+                    {/* Metric (Indented) */}
+                    <div className="menu-item">
+                      <Link
+                        href="/metric"
+                        className={cn(
+                          "hover:bg-muted flex items-center gap-3 rounded-lg border-l-2 border-green-500 p-2 transition-colors",
+                          isActivePath("/metric") &&
+                            "bg-primary/10 text-primary",
+                        )}
+                      >
                         <div
                           className={cn(
                             "text-muted-foreground flex size-6 items-center justify-center",
@@ -773,30 +767,27 @@ export function FancyNav({
                         >
                           <TrendingUp className="size-4" />
                         </div>
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <div className="truncate text-sm font-medium">
-                          Metrics
+                        <div className="min-w-0 flex-1">
+                          <div className="truncate text-sm font-medium">
+                            Metrics
+                          </div>
+                          <div className="text-muted-foreground truncate text-xs">
+                            Track KPIs
+                          </div>
                         </div>
-                        <div className="text-muted-foreground truncate text-xs">
-                          Track KPIs
-                        </div>
-                      </div>
-                    </Link>
-                  </div>
+                      </Link>
+                    </div>
 
-                  {/* Dashboard (Double indented under Integration) */}
-                  <div className="menu-item">
-                    <Link
-                      href="/dashboard"
-                      className={cn(
-                        "hover:bg-muted flex items-center gap-3 rounded-lg p-2 transition-colors",
-                        isActivePath("/dashboard") &&
-                          "bg-primary/10 text-primary",
-                      )}
-                    >
-                      <div className="border-muted-foreground/30 flex items-center pl-6">
-                        <div className="border-muted-foreground/30 mr-3 h-full border-l-2" />
+                    {/* Dashboard */}
+                    <div className="menu-item">
+                      <Link
+                        href="/dashboard"
+                        className={cn(
+                          "hover:bg-muted flex items-center gap-3 rounded-lg border-l-2 border-green-500 p-2 transition-colors",
+                          isActivePath("/dashboard") &&
+                            "bg-primary/10 text-primary",
+                        )}
+                      >
                         <div
                           className={cn(
                             "text-muted-foreground flex size-6 items-center justify-center",
@@ -805,28 +796,25 @@ export function FancyNav({
                         >
                           <LayoutDashboard className="size-4" />
                         </div>
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <div className="truncate text-sm font-medium">
-                          Dashboard
+                        <div className="min-w-0 flex-1">
+                          <div className="truncate text-sm font-medium">
+                            Dashboard
+                          </div>
+                          <div className="text-muted-foreground truncate text-xs">
+                            Monitor key metrics
+                          </div>
                         </div>
-                        <div className="text-muted-foreground truncate text-xs">
-                          Monitor key metrics
-                        </div>
-                      </div>
-                    </Link>
-                  </div>
+                      </Link>
+                    </div>
 
-                  {/* API Testing (dev-only) */}
-                  {showDevItems && (
+                    {/* API Testing */}
                     <div className="menu-item">
                       <Link
                         href="/api-test"
                         className={cn(
-                          "hover:bg-muted flex items-center gap-3 rounded-lg p-2 transition-colors",
+                          "hover:bg-muted flex items-center gap-3 rounded-lg border-l-2 border-green-500 p-2 transition-colors",
                           isActivePath("/api-test") &&
                             "bg-primary/10 text-primary",
-                          "border-l-2 border-green-500",
                         )}
                       >
                         <div
@@ -847,11 +835,11 @@ export function FancyNav({
                         </div>
                       </Link>
                     </div>
-                  )}
+                  </div>
                 </div>
-              </div>
+              )}
 
-              {/* Column 3: Dev-only Features */}
+              {/* Dev-only: Features Section */}
               {showDevItems && (
                 <div className="space-y-2">
                   <h3 className="text-muted-foreground px-3 text-xs font-semibold tracking-wider uppercase">
