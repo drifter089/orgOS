@@ -160,6 +160,7 @@ export function FancyNav({
   const [isExpanded, setIsExpanded] = useState(false);
   const [isProdMode, setIsProdMode] = useState(false);
   const [mounted, setMounted] = useState(false);
+  const [openDropdownId, setOpenDropdownId] = useState<string | null>(null);
   const pathname = usePathname();
   const router = useTransitionRouter();
 
@@ -392,20 +393,52 @@ export function FancyNav({
                   {breadcrumbs.map((item, index) => (
                     <div key={item.id} className="flex items-center gap-1.5">
                       {/* Breadcrumb Item */}
-                      <BreadcrumbItemUI>
-                        {item.dropdown ? (
-                          <DropdownMenu>
-                            <DropdownMenuTrigger className="hover:text-foreground flex items-center gap-1 transition-colors">
+                      {item.dropdown ? (
+                        <BreadcrumbItemUI
+                          onMouseEnter={() => setOpenDropdownId(item.id)}
+                          onMouseLeave={() => setOpenDropdownId(null)}
+                        >
+                          {/* Clickable link for navigation */}
+                          <BreadcrumbLink asChild>
+                            <Link
+                              href={item.path}
+                              className="text-sm"
+                              onClick={(e) => {
+                                // Allow opening in new tab with cmd/ctrl+click
+                                if (e.metaKey || e.ctrlKey) return;
+                                // Use transition router for normal clicks
+                                e.preventDefault();
+                                router.push(item.path);
+                              }}
+                            >
                               {item.icon === "home" ? (
                                 <Home className="size-3.5" />
                               ) : (
-                                <span className="text-sm">{item.label}</span>
+                                item.label
                               )}
-                              {!item.isCurrentPage && (
+                            </Link>
+                          </BreadcrumbLink>
+
+                          {/* Dropdown for team switcher */}
+                          <DropdownMenu
+                            open={openDropdownId === item.id}
+                            onOpenChange={(open) =>
+                              setOpenDropdownId(open ? item.id : null)
+                            }
+                          >
+                            <DropdownMenuTrigger asChild>
+                              <button
+                                className="hover:text-foreground transition-colors"
+                                aria-label="Switch team"
+                              >
                                 <ChevronDown className="size-3" />
-                              )}
+                              </button>
                             </DropdownMenuTrigger>
-                            <DropdownMenuContent align="start">
+                            <DropdownMenuContent
+                              align="start"
+                              onMouseEnter={() => setOpenDropdownId(item.id)}
+                              onMouseLeave={() => setOpenDropdownId(null)}
+                            >
                               {item.dropdown.type === "teams" && teams ? (
                                 <>
                                   {teams.map((team) => (
@@ -418,6 +451,7 @@ export function FancyNav({
                                           // Use transition router for normal clicks
                                           e.preventDefault();
                                           router.push(`/teams/${team.id}`);
+                                          setOpenDropdownId(null);
                                         }}
                                       >
                                         {team.name}
@@ -440,6 +474,7 @@ export function FancyNav({
                                           // Use transition router for normal clicks
                                           e.preventDefault();
                                           router.push(dropdownItem.path);
+                                          setOpenDropdownId(null);
                                         }}
                                       >
                                         {dropdownItem.label}
@@ -450,29 +485,30 @@ export function FancyNav({
                               )}
                             </DropdownMenuContent>
                           </DropdownMenu>
-                        ) : item.isCurrentPage ? (
-                          <BreadcrumbPage className="text-sm">
-                            {item.icon === "home" ? (
-                              <Home className="size-3.5" />
-                            ) : (
-                              item.label
-                            )}
-                          </BreadcrumbPage>
-                        ) : (
-                          <BreadcrumbLink asChild>
-                            <Link
-                              href={item.path}
-                              className="flex items-center text-sm"
-                            >
+                        </BreadcrumbItemUI>
+                      ) : (
+                        <BreadcrumbItemUI>
+                          {item.isCurrentPage ? (
+                            <BreadcrumbPage className="text-sm">
                               {item.icon === "home" ? (
                                 <Home className="size-3.5" />
                               ) : (
                                 item.label
                               )}
-                            </Link>
-                          </BreadcrumbLink>
-                        )}
-                      </BreadcrumbItemUI>
+                            </BreadcrumbPage>
+                          ) : (
+                            <BreadcrumbLink asChild>
+                              <Link href={item.path} className="text-sm">
+                                {item.icon === "home" ? (
+                                  <Home className="size-3.5" />
+                                ) : (
+                                  item.label
+                                )}
+                              </Link>
+                            </BreadcrumbLink>
+                          )}
+                        </BreadcrumbItemUI>
+                      )}
 
                       {/* Separator */}
                       {index < breadcrumbs.length - 1 && (

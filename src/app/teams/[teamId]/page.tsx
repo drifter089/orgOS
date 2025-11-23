@@ -4,7 +4,6 @@ import { api } from "@/trpc/server";
 
 import { TeamCanvasWrapper } from "./_components/team-canvas-wrapper";
 import { TeamSheetSidebar } from "./_components/team-sheet-sidebar";
-import { TeamSwitcher } from "./_components/team-switcher";
 import { TeamStoreProvider } from "./store/team-store";
 import { type StoredEdge, type StoredNode } from "./types/canvas";
 import { enrichNodesWithRoleData } from "./utils/canvas-serialization";
@@ -39,13 +38,6 @@ export default async function TeamPage({
       <div className="flex h-screen w-full overflow-hidden">
         {/* Main Canvas Area */}
         <div className="relative h-full w-full flex-1 overflow-hidden">
-          {/* Team Switcher - Bottom-left floating control, offset from zoom slider */}
-          <TeamSwitcher
-            currentTeamId={team.id}
-            currentTeamName={team.name}
-            className="absolute bottom-4 left-64 z-20"
-          />
-
           {/* Canvas */}
           <TeamCanvasWrapper initialNodes={nodes} initialEdges={edges} />
         </div>

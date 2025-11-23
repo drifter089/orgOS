@@ -27,11 +27,13 @@ export interface DropdownItem {
  * Generate breadcrumb items for the current pathname
  * @param pathname - Current route pathname
  * @param teamName - Optional team name for /teams/:id routes
+ * @param organizationName - Optional organization name
  * @returns Array of breadcrumb items
  */
 export function generateBreadcrumbs(
   pathname: string,
   teamName?: string,
+  organizationName?: string,
 ): BreadcrumbItem[] {
   const breadcrumbs: BreadcrumbItem[] = [];
 
@@ -48,7 +50,7 @@ export function generateBreadcrumbs(
   if (pathname === "/org") {
     breadcrumbs.push({
       id: "org",
-      label: "Org",
+      label: organizationName ?? "Org",
       path: "/org",
       isCurrentPage: true,
     });
@@ -58,7 +60,7 @@ export function generateBreadcrumbs(
   // Always add Org as second item for nested routes
   breadcrumbs.push({
     id: "org",
-    label: "Org",
+    label: organizationName ?? "Org",
     path: "/org",
     isCurrentPage: false,
   });
@@ -67,16 +69,9 @@ export function generateBreadcrumbs(
   if (pathname === "/teams") {
     breadcrumbs.push({
       id: "teams",
-      label: "Team",
+      label: "Roles",
       path: "/teams",
       isCurrentPage: true,
-      dropdown: {
-        type: "navigation",
-        items: [
-          { label: "Team", path: "/teams" },
-          { label: "Integration", path: "/integration" },
-        ],
-      },
     });
     return breadcrumbs;
   }
@@ -85,16 +80,9 @@ export function generateBreadcrumbs(
   if (pathname.startsWith("/teams/")) {
     breadcrumbs.push({
       id: "teams",
-      label: "Team",
+      label: "Roles",
       path: "/teams",
       isCurrentPage: false,
-      dropdown: {
-        type: "navigation",
-        items: [
-          { label: "Team", path: "/teams" },
-          { label: "Integration", path: "/integration" },
-        ],
-      },
     });
 
     breadcrumbs.push({
@@ -114,16 +102,9 @@ export function generateBreadcrumbs(
   if (pathname === "/integration") {
     breadcrumbs.push({
       id: "integration",
-      label: "Integration",
+      label: "KPI's",
       path: "/integration",
       isCurrentPage: true,
-      dropdown: {
-        type: "navigation",
-        items: [
-          { label: "Team", path: "/teams" },
-          { label: "Integration", path: "/integration" },
-        ],
-      },
     });
     return breadcrumbs;
   }
@@ -132,16 +113,9 @@ export function generateBreadcrumbs(
   if (pathname === "/metric" || pathname === "/dashboard") {
     breadcrumbs.push({
       id: "integration",
-      label: "Integration",
+      label: "KPI's",
       path: "/integration",
       isCurrentPage: false,
-      dropdown: {
-        type: "navigation",
-        items: [
-          { label: "Team", path: "/teams" },
-          { label: "Integration", path: "/integration" },
-        ],
-      },
     });
 
     if (pathname === "/metric") {
