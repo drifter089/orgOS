@@ -67,7 +67,6 @@ export default async function OrganizationPage() {
 
           {/* Integrations Section */}
           <section className="animate-in fade-in slide-in-from-bottom-4 mb-8 space-y-6 delay-200 duration-500 sm:mb-12">
-            <h2 className="text-2xl font-bold tracking-tight">Integrations</h2>
             <IntegrationClient initialData={integrations} />
           </section>
 

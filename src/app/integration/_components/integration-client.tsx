@@ -283,25 +283,19 @@ export function IntegrationClient({ initialData }: IntegrationClientProps) {
 
   return (
     <>
-      <Card>
-        <CardHeader>
-          <CardTitle>Connect 3rd Party Services</CardTitle>
-          <CardDescription>
-            Manage your organization&apos;s integrations with external APIs
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <Button onClick={handleConnect} disabled={isLoading} size="lg">
-            {isLoading ? "Connecting..." : "Connect New Integration"}
-          </Button>
+      <div className="flex items-center justify-between">
+        <h2 className="text-2xl font-bold tracking-tight">Integrations</h2>
+        <Button onClick={handleConnect} disabled={isLoading}>
+          <Plus className="mr-2 h-4 w-4" />
+          {isLoading ? "Connecting..." : "New Integration"}
+        </Button>
+      </div>
 
-          {status && (
-            <Alert>
-              <AlertDescription>{status}</AlertDescription>
-            </Alert>
-          )}
-        </CardContent>
-      </Card>
+      {status && (
+        <Alert>
+          <AlertDescription>{status}</AlertDescription>
+        </Alert>
+      )}
 
       {/* Connected Integrations */}
       <Card>
