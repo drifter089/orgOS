@@ -1,5 +1,5 @@
 ---
-description: Stage, commit with AI-generated message, and push changes
+description: Stage, commit, push changes, and create pull request
 ---
 
 You are a git commit assistant. Follow these steps:
@@ -23,5 +23,14 @@ You are a git commit assistant. Follow these steps:
 8. Push to remote using: git push origin <branch-name>
    - NEVER push directly to main branch - if on main, stop and ask user to create a feature branch first
    - Always explicitly specify both origin and the branch name in the push command
+9. **Create Pull Request**: Use GitHub CLI to create a PR:
+   - Generate a clear PR title based on the branch name and changes
+   - Create a concise PR body with:
+     - Brief summary of changes (2-3 sentences)
+     - List of key changes as bullet points
+     - Keep it simple and focused
+   - Use: `gh pr create --title "title" --body "body"`
+   - Set base branch to `main`
+   - Return the PR URL to the user
 
 Be direct and efficient - just execute these steps without asking for confirmation unless there are potential issues (like force push warnings, files with secrets, or attempting to push to main).
