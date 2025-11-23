@@ -4,6 +4,9 @@ import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { HydrateClient, api } from "@/trpc/server";
 
+import { IntegrationClient } from "../integration/_components/integration-client";
+import { CreateTeamDialog } from "../teams/_components/create-team-dialog";
+import { TeamsList } from "../teams/_components/teams-list";
 import { OrganizationDetails } from "./_components/OrganizationDetails";
 
 // Loading skeleton for organization details
@@ -35,7 +38,8 @@ function OrganizationDetailsLoading() {
 export default async function OrganizationPage() {
   // Prefetch all organization data on the server
   // This will populate the TanStack Query cache before hydration
-  await Promise.all([
+  const [integrations] = await Promise.all([
+    api.integration.listWithStats(),
     api.organization.getCurrent.prefetch(),
     api.organization.getCurrentOrgMembers.prefetch(),
   ]);
@@ -43,7 +47,7 @@ export default async function OrganizationPage() {
   return (
     <HydrateClient>
       <div className="min-h-screen">
-        <div className="container mx-auto max-w-7xl px-6 py-8 sm:px-8 sm:py-12 lg:px-12 lg:py-16">
+        <div className="container mx-auto max-w-7xl px-6 pt-16 pb-8 sm:px-8 sm:pt-20 sm:pb-12 lg:px-12 lg:pt-24 lg:pb-16">
           {/* Page Header with animation */}
           <div className="animate-in fade-in slide-in-from-bottom-4 mb-8 space-y-2 duration-500 sm:mb-12">
             <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">
@@ -55,10 +59,24 @@ export default async function OrganizationPage() {
           </div>
 
           {/* Organization Details Section */}
-          <section className="animate-in fade-in slide-in-from-bottom-4 delay-100 duration-500">
+          <section className="animate-in fade-in slide-in-from-bottom-4 mb-8 space-y-6 delay-100 duration-500 sm:mb-12">
             <Suspense fallback={<OrganizationDetailsLoading />}>
               <OrganizationDetails />
             </Suspense>
+          </section>
+
+          {/* Integrations Section */}
+          <section className="animate-in fade-in slide-in-from-bottom-4 mb-8 space-y-6 delay-200 duration-500 sm:mb-12">
+            <IntegrationClient initialData={integrations} />
+          </section>
+
+          {/* Roles Section */}
+          <section className="animate-in fade-in slide-in-from-bottom-4 space-y-6 delay-300 duration-500">
+            <div className="flex items-center justify-between">
+              <h2 className="text-2xl font-bold tracking-tight">Roles</h2>
+              <CreateTeamDialog />
+            </div>
+            <TeamsList />
           </section>
         </div>
       </div>

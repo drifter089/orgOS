@@ -283,34 +283,28 @@ export function IntegrationClient({ initialData }: IntegrationClientProps) {
 
   return (
     <>
+      <div className="flex items-center justify-between">
+        <h2 className="text-2xl font-bold tracking-tight">KPIs</h2>
+        <Button onClick={handleConnect} disabled={isLoading}>
+          <Plus className="mr-2 h-4 w-4" />
+          {isLoading ? "Connecting..." : "Platform"}
+        </Button>
+      </div>
+
+      {status && (
+        <Alert>
+          <AlertDescription>{status}</AlertDescription>
+        </Alert>
+      )}
+
+      {/* Connected Platforms */}
       <Card>
         <CardHeader>
-          <CardTitle>Connect 3rd Party Services</CardTitle>
-          <CardDescription>
-            Manage your organization&apos;s integrations with external APIs
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <Button onClick={handleConnect} disabled={isLoading} size="lg">
-            {isLoading ? "Connecting..." : "Connect New Integration"}
-          </Button>
-
-          {status && (
-            <Alert>
-              <AlertDescription>{status}</AlertDescription>
-            </Alert>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Connected Integrations */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Connected Integrations</CardTitle>
+          <CardTitle>Connected Platforms</CardTitle>
           <CardDescription>
             {integrations?.length
-              ? `${integrations.length} active integration${integrations.length > 1 ? "s" : ""}`
-              : "No integrations connected yet"}
+              ? `${integrations.length} active platform${integrations.length > 1 ? "s" : ""}`
+              : "No platforms connected yet"}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -341,7 +335,7 @@ export function IntegrationClient({ initialData }: IntegrationClientProps) {
                       </div>
 
                       <div
-                        className={`flex h-full w-full flex-col items-center justify-center rounded-lg border transition-all group-hover:scale-105 group-hover:shadow-lg ${logo.bgColor}`}
+                        className={`flex h-full w-full flex-col items-center justify-center rounded-lg border ${logo.bgColor}`}
                       >
                         <div className="relative h-16 w-16">
                           {logo.useLucide ? (
@@ -384,7 +378,7 @@ export function IntegrationClient({ initialData }: IntegrationClientProps) {
                             className="w-full"
                           >
                             <Plus className="mr-2 h-4 w-4" />
-                            Create Metric
+                            KPI
                           </Button>
                         }
                         onSuccess={() => refetchIntegrations()}
