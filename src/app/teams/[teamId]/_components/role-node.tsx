@@ -216,12 +216,12 @@ function RoleNodeComponent({ data, selected }: NodeProps<RoleNode>) {
         {data.metricName && (
           <div className="flex items-center gap-2 text-xs">
             <TrendingUp className="text-muted-foreground h-3 w-3" />
-            <span className="text-muted-foreground">{data.metricName}:</span>
-            <Badge variant="secondary" className="text-xs">
-              {data.metricValue !== undefined && data.metricValue !== null
-                ? `${data.metricValue.toFixed(1)} ${data.metricUnit ?? ""}`
-                : "N/A"}
-            </Badge>
+            <span className="font-medium">{data.metricName}</span>
+            {data.metricValue !== undefined && data.metricValue !== null && (
+              <Badge variant="secondary" className="text-xs">
+                {data.metricValue.toFixed(1)} {data.metricUnit ?? ""}
+              </Badge>
+            )}
           </div>
         )}
 

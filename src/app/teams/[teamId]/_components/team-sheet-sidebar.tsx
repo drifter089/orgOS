@@ -4,7 +4,7 @@ import { useState } from "react";
 
 import * as SheetPrimitive from "@radix-ui/react-dialog";
 import type { User } from "@workos-inc/node";
-import { Loader2, Mail, Trash2 } from "lucide-react";
+import { ChevronDown, ChevronRight, Loader2, Mail, Trash2 } from "lucide-react";
 
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -16,7 +16,8 @@ import { useConfirmation } from "@/providers/ConfirmationDialogProvider";
 import { api } from "@/trpc/react";
 
 import { useTeamStore } from "../store/team-store";
-import { CreateRoleDialog } from "./role-dialog";
+import { CreateRoleDialog, RoleDialog } from "./role-dialog";
+import { type RoleNodeData } from "./role-node";
 import { TeamSheetEdgeTrigger } from "./team-sheet-edge-trigger";
 
 /**
@@ -111,7 +112,13 @@ function MemberCard({
   );
 }
 
-function RolesList({ teamId }: { teamId: string }) {
+function RolesList({
+  teamId,
+  onRoleClick,
+}: {
+  teamId: string;
+  onRoleClick?: (roleId: string) => void;
+}) {
   const [deletingRoleId, setDeletingRoleId] = useState<string | null>(null);
 
   const nodes = useTeamStore((state) => state.nodes);
@@ -181,9 +188,10 @@ function RolesList({ teamId }: { teamId: string }) {
           <div
             key={role.id}
             className={cn(
-              "group bg-card hover:bg-accent/50 relative flex items-start gap-3 overflow-hidden rounded-lg border p-3 shadow-sm transition-all hover:shadow",
+              "group bg-card hover:bg-accent/50 relative flex cursor-pointer items-start gap-3 overflow-hidden rounded-lg border p-3 shadow-sm transition-all hover:shadow",
               isPending && "opacity-60",
             )}
+            onClick={() => !isPending && onRoleClick?.(role.id)}
           >
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-2">
@@ -234,7 +242,8 @@ function RolesList({ teamId }: { teamId: string }) {
                 variant="ghost"
                 size="icon"
                 className="text-muted-foreground hover:text-destructive hover:bg-destructive/10 h-8 w-8 flex-shrink-0 opacity-0 transition-all group-hover:opacity-100"
-                onClick={async () => {
+                onClick={async (e) => {
+                  e.stopPropagation();
                   const confirmed = await confirm({
                     title: "Delete role",
                     description: `Are you sure you want to delete "${role.title}"? This will also remove it from the canvas.`,
@@ -276,11 +285,32 @@ export function TeamSheetSidebar({
 }: TeamSheetSidebarProps) {
   // Closed by default to allow data prefetching
   const [isOpen, setIsOpen] = useState(false);
+  const [teamMembersExpanded, setTeamMembersExpanded] = useState(false);
+  const [selectedRoleId, setSelectedRoleId] = useState<string | null>(null);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
 
   const { data: members, isLoading: membersLoading } =
     api.organization.getCurrentOrgMembers.useQuery();
 
   const { data: teamRoles } = api.role.getByTeam.useQuery({ teamId });
+  const nodes = useTeamStore((state) => state.nodes);
+
+  const handleRoleClick = (roleId: string) => {
+    setSelectedRoleId(roleId);
+    setEditDialogOpen(true);
+  };
+
+  const selectedRole = teamRoles?.find((role) => role.id === selectedRoleId);
+  const selectedNode = nodes.find(
+    (node) => node.data.roleId === selectedRoleId,
+  );
+  const selectedRoleData =
+    selectedRole && selectedNode
+      ? ({
+          ...selectedNode.data,
+          nodeId: selectedNode.id,
+        } as RoleNodeData & { nodeId: string })
+      : null;
 
   const roleCountByUser = (teamRoles ?? []).reduce(
     (acc, role) => {
@@ -309,17 +339,8 @@ export function TeamSheetSidebar({
           <div className="flex h-full flex-col">
             {/* Header */}
             <div className="flex-shrink-0 border-b px-6 py-4">
-              <div className="space-y-3">
-                <div>
-                  <h2 className="text-xl font-bold tracking-tight">
-                    {teamName}
-                  </h2>
-                  {teamDescription && (
-                    <p className="text-muted-foreground mt-1 line-clamp-2 text-sm leading-relaxed">
-                      {teamDescription}
-                    </p>
-                  )}
-                </div>
+              <div className="flex items-center justify-between">
+                <h2 className="text-2xl font-bold tracking-tight">Roles</h2>
                 <CreateRoleDialog teamId={teamId} />
               </div>
             </div>
@@ -341,55 +362,91 @@ export function TeamSheetSidebar({
                 </div>
               </div>
 
+              {/* Roles List */}
+              <div>
+                <h3 className="text-muted-foreground mb-2 text-xs font-semibold tracking-wider uppercase">
+                  Roles
+                </h3>
+                <RolesList teamId={teamId} onRoleClick={handleRoleClick} />
+              </div>
+
               {/* Organization Members */}
               <div>
                 <div className="mb-2 flex items-center justify-between">
                   <h3 className="text-muted-foreground text-xs font-semibold tracking-wider uppercase">
                     Team Members
                   </h3>
-                  {members && (
-                    <Badge
-                      variant="secondary"
-                      className="text-xs font-semibold"
+                  <div className="flex items-center gap-2">
+                    {members && (
+                      <Badge
+                        variant="secondary"
+                        className="text-xs font-semibold"
+                      >
+                        {members.length}
+                      </Badge>
+                    )}
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-6 w-6"
+                      onClick={() =>
+                        setTeamMembersExpanded(!teamMembersExpanded)
+                      }
+                      aria-label={
+                        teamMembersExpanded
+                          ? "Collapse team members"
+                          : "Expand team members"
+                      }
                     >
-                      {members.length}
-                    </Badge>
-                  )}
+                      {teamMembersExpanded ? (
+                        <ChevronDown className="h-4 w-4" />
+                      ) : (
+                        <ChevronRight className="h-4 w-4" />
+                      )}
+                    </Button>
+                  </div>
                 </div>
-                <div className="space-y-2">
-                  {membersLoading ? (
-                    <>
-                      {[1, 2, 3].map((i) => (
-                        <Skeleton key={i} className="h-16 w-full" />
-                      ))}
-                    </>
-                  ) : !members || members.length === 0 ? (
-                    <div className="text-muted-foreground flex flex-col items-center justify-center rounded-lg border border-dashed py-6 text-center">
-                      <p className="text-xs">No members found</p>
-                    </div>
-                  ) : (
-                    members.map((member) => (
-                      <MemberCard
-                        key={member.membership.id}
-                        user={member.user}
-                        roleCount={roleCountByUser[member.user.id] ?? 0}
-                      />
-                    ))
-                  )}
-                </div>
-              </div>
-
-              {/* Roles List */}
-              <div>
-                <h3 className="text-muted-foreground mb-2 text-xs font-semibold tracking-wider uppercase">
-                  Roles
-                </h3>
-                <RolesList teamId={teamId} />
+                {teamMembersExpanded && (
+                  <div className="space-y-2">
+                    {membersLoading ? (
+                      <>
+                        {[1, 2, 3].map((i) => (
+                          <Skeleton key={i} className="h-16 w-full" />
+                        ))}
+                      </>
+                    ) : !members || members.length === 0 ? (
+                      <div className="text-muted-foreground flex flex-col items-center justify-center rounded-lg border border-dashed py-6 text-center">
+                        <p className="text-xs">No members found</p>
+                      </div>
+                    ) : (
+                      members.map((member) => (
+                        <MemberCard
+                          key={member.membership.id}
+                          user={member.user}
+                          roleCount={roleCountByUser[member.user.id] ?? 0}
+                        />
+                      ))
+                    )}
+                  </div>
+                )}
               </div>
             </div>
           </div>
         </NonModalSheetContent>
       </Sheet>
+
+      {/* Edit Role Dialog */}
+      {selectedRoleData && (
+        <RoleDialog
+          teamId={teamId}
+          roleData={selectedRoleData}
+          open={editDialogOpen}
+          onOpenChange={(open) => {
+            setEditDialogOpen(open);
+            if (!open) setSelectedRoleId(null);
+          }}
+        />
+      )}
     </>
   );
 }

@@ -306,8 +306,13 @@ export function RoleDialog({
         id: roleData.roleId,
         title: data.title,
         purpose: data.purpose,
+        metricId:
+          data.metricId === "__none__" || !data.metricId
+            ? undefined
+            : data.metricId,
         assignedUserId:
           data.assignedUserId === "__none__" ? null : data.assignedUserId,
+        color: data.color,
       });
     } else {
       const nodeId = `role-node-${nanoid(8)}`;
