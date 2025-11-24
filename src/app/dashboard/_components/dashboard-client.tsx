@@ -11,14 +11,20 @@ import { DashboardMetricCard } from "./dashboard-metric-card";
 
 type DashboardMetrics = RouterOutputs["dashboard"]["getDashboardMetrics"];
 
+export interface DashboardClientHandle {
+  triggerImport: () => void;
+}
+
 interface DashboardClientProps {
   initialDashboardMetrics: DashboardMetrics;
   autoTrigger?: boolean;
+  onImportRef?: (handle: DashboardClientHandle) => void;
 }
 
 export function DashboardClient({
   initialDashboardMetrics,
   autoTrigger = true,
+  onImportRef,
 }: DashboardClientProps) {
   const utils = api.useUtils();
 
@@ -42,6 +48,10 @@ export function DashboardClient({
   const handleImportAll = () => {
     importMutation.mutate();
   };
+
+  if (onImportRef) {
+    onImportRef({ triggerImport: handleImportAll });
+  }
 
   return (
     <div className="space-y-6">
