@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef } from "react";
+import { useCallback, useRef } from "react";
 
 import { api } from "@/trpc/react";
 
@@ -17,6 +17,10 @@ export default function DashboardPage() {
   const handleMetricCreated = () => {
     importTriggerRef.current?.triggerImport();
   };
+
+  const handleImportRef = useCallback((handle: DashboardClientHandle) => {
+    importTriggerRef.current = handle;
+  }, []);
 
   if (!dashboardMetrics.data || !integrations.data) {
     return (
@@ -40,9 +44,7 @@ export default function DashboardPage() {
 
       <DashboardClient
         initialDashboardMetrics={dashboardMetrics.data}
-        onImportRef={(handle) => {
-          importTriggerRef.current = handle;
-        }}
+        onImportRef={handleImportRef}
       />
       <DashboardSidebar
         initialIntegrations={integrations.data}

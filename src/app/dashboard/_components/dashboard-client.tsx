@@ -1,5 +1,7 @@
 "use client";
 
+import { useEffect } from "react";
+
 import { Download, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -49,9 +51,12 @@ export function DashboardClient({
     importMutation.mutate();
   };
 
-  if (onImportRef) {
-    onImportRef({ triggerImport: handleImportAll });
-  }
+  useEffect(() => {
+    if (onImportRef) {
+      onImportRef({ triggerImport: handleImportAll });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [onImportRef]);
 
   return (
     <div className="space-y-6">
