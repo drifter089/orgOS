@@ -89,7 +89,12 @@ export const roleRouter = createTRPCRouter({
         id: z.string(),
         title: z.string().min(1).max(100).optional(),
         purpose: z.string().optional(),
+        metricId: z.string().optional(),
         assignedUserId: z.string().optional().nullable(),
+        color: z
+          .string()
+          .regex(/^#[0-9A-F]{6}$/i)
+          .optional(),
       }),
     )
     .mutation(async ({ ctx, input }) => {
@@ -113,14 +118,21 @@ export const roleRouter = createTRPCRouter({
       const data: {
         title?: string;
         purpose?: string;
+        metricId?: string | null;
         assignedUserId?: string | null;
+        color?: string;
       } = {
         title: input.title,
         purpose: input.purpose,
+        color: input.color,
       };
 
       if (Object.prototype.hasOwnProperty.call(input, "assignedUserId")) {
         data.assignedUserId = input.assignedUserId;
+      }
+
+      if (Object.prototype.hasOwnProperty.call(input, "metricId")) {
+        data.metricId = input.metricId ?? null;
       }
 
       return ctx.db.role.update({

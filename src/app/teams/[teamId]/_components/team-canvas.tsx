@@ -94,7 +94,10 @@ export function TeamCanvas() {
         nodeTypes={nodeTypes}
         edgeTypes={edgeTypes}
         fitView
-        defaultViewport={{ x: 0, y: 0, zoom: 0.7 }}
+        fitViewOptions={{
+          maxZoom: 0.65,
+          minZoom: 0.65,
+        }}
         className={cn(
           "bg-background",
           "transition-opacity duration-200",

@@ -22,14 +22,19 @@ export function TeamCanvasControls() {
   return (
     <Panel
       position="bottom-left"
-      className="bg-card text-foreground ml-4 rounded-md"
-      style={{ marginBottom: "64px" }} // Offset above ZoomSlider
+      className="ml-4"
+      style={{ marginBottom: "80px" }} // Offset above ZoomSlider
     >
       <TooltipProvider>
         <Tooltip>
           <TooltipTrigger asChild>
-            <Button onClick={runLayout} variant="ghost" size="icon">
-              <Route className="h-4 w-4" />
+            <Button
+              onClick={runLayout}
+              variant="default"
+              size="lg"
+              className="h-12 w-12 shadow-lg transition-all duration-200 hover:shadow-xl"
+            >
+              <Route className="h-5 w-5" />
             </Button>
           </TooltipTrigger>
           <TooltipContent side="right">
