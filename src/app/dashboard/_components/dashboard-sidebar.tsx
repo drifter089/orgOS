@@ -17,6 +17,7 @@ type IntegrationsWithStats = RouterOutputs["integration"]["listWithStats"];
 
 interface DashboardSidebarProps {
   initialIntegrations: IntegrationsWithStats;
+  onMetricCreated?: () => void;
 }
 
 function NonModalSheetContent({
@@ -51,6 +52,7 @@ function NonModalSheetContent({
 
 export function DashboardSidebar({
   initialIntegrations,
+  onMetricCreated,
 }: DashboardSidebarProps) {
   const [isOpen, setIsOpen] = useState(false);
 
@@ -111,6 +113,7 @@ export function DashboardSidebar({
               <IntegrationClient
                 initialData={initialIntegrations}
                 gridCols={2}
+                onMetricCreated={onMetricCreated}
               />
               <Separator />
               <DashboardMetricsList />

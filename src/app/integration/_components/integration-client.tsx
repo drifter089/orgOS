@@ -30,6 +30,7 @@ type IntegrationsWithStats = RouterOutputs["integration"]["listWithStats"];
 interface IntegrationClientProps {
   initialData: IntegrationsWithStats;
   gridCols?: 2 | 4; // Number of columns for the integration grid
+  onMetricCreated?: () => void;
 }
 
 const getIntegrationLogo = (integrationId: string) => {
@@ -127,6 +128,7 @@ const getMetricDialog = (integrationId: string) => {
 export function IntegrationClient({
   initialData,
   gridCols = 4,
+  onMetricCreated,
 }: IntegrationClientProps) {
   const [status, setStatus] = useState<string>("");
   const [isLoading, setIsLoading] = useState(false);
@@ -387,7 +389,10 @@ export function IntegrationClient({
                             KPI
                           </Button>
                         }
-                        onSuccess={() => refetchIntegrations()}
+                        onSuccess={() => {
+                          void refetchIntegrations();
+                          onMetricCreated?.();
+                        }}
                       />
                     )}
                   </div>
