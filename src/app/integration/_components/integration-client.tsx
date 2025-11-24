@@ -29,6 +29,7 @@ type IntegrationsWithStats = RouterOutputs["integration"]["listWithStats"];
 
 interface IntegrationClientProps {
   initialData: IntegrationsWithStats;
+  gridCols?: 2 | 4; // Number of columns for the integration grid
 }
 
 const getIntegrationLogo = (integrationId: string) => {
@@ -123,7 +124,10 @@ const getMetricDialog = (integrationId: string) => {
   return dialogs[integrationId.toLowerCase() as keyof typeof dialogs];
 };
 
-export function IntegrationClient({ initialData }: IntegrationClientProps) {
+export function IntegrationClient({
+  initialData,
+  gridCols = 4,
+}: IntegrationClientProps) {
   const [status, setStatus] = useState<string>("");
   const [isLoading, setIsLoading] = useState(false);
   const pollingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -309,7 +313,9 @@ export function IntegrationClient({ initialData }: IntegrationClientProps) {
         </CardHeader>
         <CardContent>
           {integrations && integrations.length > 0 ? (
-            <div className="grid grid-cols-4 gap-4">
+            <div
+              className={`grid gap-4 ${gridCols === 2 ? "grid-cols-2" : "grid-cols-4"}`}
+            >
               {integrations.map((integration) => {
                 const logo = getIntegrationLogo(integration.integrationId);
                 const MetricDialog = getMetricDialog(integration.integrationId);

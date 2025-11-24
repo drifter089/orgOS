@@ -1,10 +1,11 @@
 import { api } from "@/trpc/server";
 
 import { DashboardClient } from "./_components/dashboard-client";
+import { DashboardSidebar } from "./_components/dashboard-sidebar";
 
 export default async function DashboardPage() {
-  // Prefetch dashboard metrics from server
   const dashboardMetrics = await api.dashboard.getDashboardMetrics();
+  const integrations = await api.integration.listWithStats();
 
   return (
     <div className="container mx-auto py-8">
@@ -16,6 +17,7 @@ export default async function DashboardPage() {
       </div>
 
       <DashboardClient initialDashboardMetrics={dashboardMetrics} />
+      <DashboardSidebar initialIntegrations={integrations} />
     </div>
   );
 }
