@@ -13,6 +13,9 @@ export const metricRouter = createTRPCRouter({
   getAll: workspaceProcedure.query(async ({ ctx }) => {
     return ctx.db.metric.findMany({
       where: { organizationId: ctx.workspace.organizationId },
+      include: {
+        integration: true,
+      },
       orderBy: { name: "asc" },
     });
   }),
