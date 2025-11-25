@@ -44,7 +44,7 @@ export function MetricTabsDisplay({
     const grouped = new Map<string, typeof metrics>();
 
     metrics.forEach((metric) => {
-      const platformId = metric.integrationId ?? "other";
+      const platformId = metric.integration?.integrationId ?? "other";
       const existing = grouped.get(platformId) ?? [];
       grouped.set(platformId, [...existing, metric]);
     });
