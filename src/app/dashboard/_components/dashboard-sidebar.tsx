@@ -148,8 +148,8 @@ export function DashboardSidebar({
                 <h3 className="font-semibold">Your Metrics</h3>
                 <MetricTabsDisplay
                   className="w-full"
-                  tabsListClassName="grid grid-cols-4 gap-2 bg-transparent"
-                  tabTriggerClassName="text-xs border"
+                  tabsListClassName="flex gap-2 bg-transparent overflow-x-auto [&::-webkit-scrollbar]:h-2 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-border/40 hover:[&::-webkit-scrollbar-thumb]:bg-border/60 [&::-webkit-scrollbar-track]:bg-transparent"
+                  tabTriggerClassName="text-xs border shrink-0"
                   renderMetricCard={(metric) => (
                     <div
                       key={metric.id}
