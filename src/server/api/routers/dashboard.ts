@@ -1,4 +1,4 @@
-import type { Metric, Prisma } from "@prisma/client";
+import type { Prisma } from "@prisma/client";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 
@@ -167,48 +167,11 @@ export const dashboardRouter = createTRPCRouter({
           ? `Array with ${result.data.length} items`
           : typeof result.data,
       );
-      if (Array.isArray(result.data) && result.data.length > 0) {
-        console.info("[Dashboard] First few items:", result.data.slice(0, 3));
-      }
 
-      let processedData = result.data;
-
-      if (
-        template.templateId === "github-code-frequency" &&
-        params.DAYS &&
-        Array.isArray(result.data)
-      ) {
-        const daysToKeep = parseInt(params.DAYS, 10);
-        if (!isNaN(daysToKeep)) {
-          const cutoffDate = new Date();
-          cutoffDate.setDate(cutoffDate.getDate() - daysToKeep);
-          const cutoffTimestamp = Math.floor(cutoffDate.getTime() / 1000);
-
-          console.info(
-            `[Dashboard] Filtering github-code-frequency data: DAYS=${daysToKeep}, cutoffTimestamp=${cutoffTimestamp}`,
-          );
-
-          processedData = (result.data as Array<[number, number, number]>)
-            .filter(([timestamp]) => timestamp >= cutoffTimestamp)
-            .slice(-Math.ceil(daysToKeep / 7));
-
-          console.info(
-            `[Dashboard] After filtering: ${Array.isArray(processedData) ? processedData.length : "not array"} items`,
-          );
-        }
-      }
-
-      const metricWithFreshData: Metric = {
-        ...metric,
-        endpointConfig: processedData as Prisma.JsonValue,
-      };
-
-      console.info(
-        `[Dashboard] Sending to AI transformer: ${Array.isArray(processedData) ? `Array[${processedData.length}]` : typeof processedData}`,
-      );
-
+      // Transform raw data with AI (no preprocessing!)
       const transformResult = await transformMetricWithAI(
-        metricWithFreshData,
+        metric,
+        result.data,
         input.userHint,
       );
 
