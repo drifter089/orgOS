@@ -20,6 +20,7 @@ export interface MetricCreateInput {
   name: string;
   description: string;
   endpointParams: Record<string, string>;
+  teamId: string;
 }
 
 export interface ContentProps {
@@ -29,7 +30,7 @@ export interface ContentProps {
     integrationId: string;
     createdAt: Date;
   };
-  onSubmit: (data: MetricCreateInput) => void;
+  onSubmit: (data: Omit<MetricCreateInput, "teamId">) => void;
   isCreating: boolean;
   error: string | null;
 }
@@ -38,6 +39,7 @@ interface MetricDialogBaseProps {
   integrationId: string;
   title: string;
   description?: string;
+  teamId: string;
   trigger?: React.ReactNode;
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
@@ -50,6 +52,7 @@ export function MetricDialogBase({
   integrationId,
   title,
   description,
+  teamId,
   trigger,
   open: controlledOpen,
   onOpenChange,
@@ -73,7 +76,8 @@ export function MetricDialogBase({
 
   const createMetric = api.metric.create.useMutation({
     onSuccess: () => {
-      void utils.metric.getAll.invalidate();
+      void utils.metric.getByTeam.invalidate({ teamId });
+      void utils.dashboard.getByTeam.invalidate({ teamId });
       setOpen?.(false);
       setError(null);
       onSuccess?.();
@@ -83,9 +87,16 @@ export function MetricDialogBase({
     },
   });
 
-  const handleSubmit = (data: MetricCreateInput) => {
+  const handleSubmit = (data: Omit<MetricCreateInput, "teamId">) => {
     setError(null);
-    createMetric.mutate(data);
+    createMetric.mutate({
+      teamId,
+      name: data.name,
+      description: data.description,
+      integrationId: data.connectionId,
+      metricTemplate: data.templateId,
+      endpointConfig: data.endpointParams,
+    });
   };
 
   if (!connection) {

@@ -60,14 +60,14 @@ export function PostHogMetricContent({
   const [projects, setProjects] = useState<Project[]>([]);
   const [events, setEvents] = useState<Event[]>([]);
 
-  const fetchProjects = api.metric.fetchIntegrationData.useMutation({
+  const fetchProjects = api.metric.fetchIntegrationOptions.useMutation({
     onSuccess: (data) => {
       const projectList = transformProjects(data.data);
       setProjects(projectList);
     },
   });
 
-  const fetchEvents = api.metric.fetchIntegrationData.useMutation({
+  const fetchEvents = api.metric.fetchIntegrationOptions.useMutation({
     onSuccess: (data) => {
       const eventList = transformEvents(data.data);
       setEvents(eventList);

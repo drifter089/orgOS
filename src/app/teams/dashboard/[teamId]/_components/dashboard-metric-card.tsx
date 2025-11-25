@@ -44,8 +44,7 @@ import { useConfirmation } from "@/providers/ConfirmationDialogProvider";
 import type { RouterOutputs } from "@/trpc/react";
 import { api } from "@/trpc/react";
 
-type DashboardMetrics = RouterOutputs["dashboard"]["getDashboardMetrics"];
-type DashboardMetricWithRelations = DashboardMetrics[number];
+type DashboardMetric = RouterOutputs["dashboard"]["getByTeam"][number];
 
 export type ChartType =
   | "line"
@@ -80,12 +79,14 @@ export interface DisplayedChart {
 }
 
 interface DashboardMetricCardProps {
-  dashboardMetric: DashboardMetricWithRelations;
+  dashboardMetric: DashboardMetric;
+  teamId: string;
   autoTrigger?: boolean;
 }
 
 export function DashboardMetricCard({
   dashboardMetric,
+  teamId,
   autoTrigger = true,
 }: DashboardMetricCardProps) {
   const [prompt, setPrompt] = useState("");
@@ -105,38 +106,34 @@ export function DashboardMetricCard({
     chartTransform?.chartData && chartTransform.chartData.length > 0
   );
 
-  const removeMetricMutation =
-    api.dashboard.removeMetricFromDashboard.useMutation({
-      onMutate: async ({ dashboardMetricId }) => {
-        await utils.dashboard.getDashboardMetrics.cancel();
+  const deleteMutation = api.metric.delete.useMutation({
+    onMutate: async (variables) => {
+      // Optimistic update: remove from dashboard
+      await utils.dashboard.getByTeam.cancel({ teamId });
 
-        const previousDashboardMetrics =
-          utils.dashboard.getDashboardMetrics.getData();
+      const previous = utils.dashboard.getByTeam.getData({ teamId });
 
-        if (previousDashboardMetrics) {
-          utils.dashboard.getDashboardMetrics.setData(
-            undefined,
-            previousDashboardMetrics.filter(
-              (dm) => dm.id !== dashboardMetricId,
-            ),
-          );
-        }
+      utils.dashboard.getByTeam.setData({ teamId }, (old) =>
+        old?.filter((dm) => dm.metricId !== variables.id),
+      );
 
-        return { previousDashboardMetrics };
-      },
-      onError: (_err, _variables, context) => {
-        if (context?.previousDashboardMetrics) {
-          utils.dashboard.getDashboardMetrics.setData(
-            undefined,
-            context.previousDashboardMetrics,
-          );
-        }
-      },
-    });
+      return { previous };
+    },
+    onError: (_err, _variables, context) => {
+      // Rollback on error
+      if (context?.previous) {
+        utils.dashboard.getByTeam.setData({ teamId }, context.previous);
+      }
+    },
+    onSuccess: () => {
+      void utils.dashboard.getByTeam.invalidate({ teamId });
+      void utils.metric.getByTeam.invalidate({ teamId });
+    },
+  });
 
   const refreshMutation = api.dashboard.refreshMetricChart.useMutation({
     onSuccess: (updatedDashboardMetric) => {
-      utils.dashboard.getDashboardMetrics.setData(undefined, (old) =>
+      utils.dashboard.getByTeam.setData({ teamId }, (old) =>
         old?.map((dm) =>
           dm.id === updatedDashboardMetric.id ? updatedDashboardMetric : dm,
         ),
@@ -194,9 +191,7 @@ export function DashboardMetricCard({
     });
 
     if (confirmed) {
-      removeMetricMutation.mutate({
-        dashboardMetricId: dashboardMetric.id,
-      });
+      deleteMutation.mutate({ id: dashboardMetric.metricId });
     }
   };
 
@@ -630,10 +625,10 @@ export function DashboardMetricCard({
             variant="ghost"
             size="icon"
             onClick={handleRemove}
-            disabled={isPending || removeMetricMutation.isPending}
+            disabled={isPending || deleteMutation.isPending}
             className="h-8 w-8 flex-shrink-0"
           >
-            {removeMetricMutation.isPending ? (
+            {deleteMutation.isPending ? (
               <Loader2 className="h-4 w-4 animate-spin" />
             ) : (
               <Trash2 className="text-muted-foreground hover:text-destructive h-4 w-4" />

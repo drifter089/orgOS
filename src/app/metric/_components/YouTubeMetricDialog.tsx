@@ -4,6 +4,7 @@ import { MetricDialogBase } from "./MetricDialogBase";
 import { YouTubeMetricContent } from "./YouTubeMetricContent";
 
 interface YouTubeMetricDialogProps {
+  teamId: string;
   trigger?: React.ReactNode;
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
@@ -11,6 +12,7 @@ interface YouTubeMetricDialogProps {
 }
 
 export function YouTubeMetricDialog({
+  teamId,
   trigger,
   open,
   onOpenChange,
@@ -21,6 +23,7 @@ export function YouTubeMetricDialog({
       integrationId="youtube"
       title="Create YouTube Metric"
       description="Track views, likes, and subscribers over time for your channel or specific videos."
+      teamId={teamId}
       trigger={trigger}
       open={open}
       onOpenChange={onOpenChange}

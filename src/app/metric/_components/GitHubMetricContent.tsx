@@ -50,7 +50,7 @@ export function GitHubMetricContent({
   const [selectedRepo, setSelectedRepo] = useState<string>("");
   const [repoOptions, setRepoOptions] = useState<RepoOption[]>([]);
 
-  const fetchRepos = api.metric.fetchIntegrationData.useMutation({
+  const fetchRepos = api.metric.fetchIntegrationOptions.useMutation({
     onSuccess: (data: { data: unknown }) => {
       const options = transformRepos(data.data);
       setRepoOptions(options);

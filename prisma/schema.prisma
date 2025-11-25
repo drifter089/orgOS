@@ -49,7 +49,9 @@ model Team {
     reactFlowEdges Json     @default("[]") // Array of RF edges
     viewport       Json?    // { x, y, zoom } for canvas position
 
-    roles          Role[]
+    roles             Role[]
+    metrics           Metric[]          // Team-scoped metrics
+    dashboardMetrics  DashboardMetric[] // Team dashboard configuration
 
     createdAt      DateTime @default(now())
     updatedAt      DateTime @updatedAt
@@ -89,7 +91,7 @@ model Metric {
     id             String   @id @default(cuid())
     name           String   // e.g., "GitHub Stars", "YouTube Views"
     description    String?
-    organizationId String   // WorkOS organization ID
+    teamId         String   // Team that owns this metric
 
     // Integration-backed metrics
     integrationId  String?  // Reference to Integration connectionId
@@ -97,6 +99,7 @@ model Metric {
     endpointConfig Json?    // Endpoint parameters (e.g., {videoId: "abc123"})
     lastFetchedAt  DateTime? // Last data refresh timestamp
 
+    team              Team              @relation(fields: [teamId], references: [id], onDelete: Cascade)
     integration       Integration?      @relation(fields: [integrationId], references: [connectionId], onDelete: Cascade)
     roles             Role[]            // One metric can be used by many roles
     dashboardMetrics  DashboardMetric[] // Dashboard configurations using this metric
@@ -104,7 +107,7 @@ model Metric {
     createdAt      DateTime @default(now())
     updatedAt      DateTime @updatedAt
 
-    @@index([organizationId])
+    @@index([teamId])
     @@index([name])
     @@index([integrationId])
 }
@@ -148,7 +151,7 @@ model Integration {
 
 model DashboardMetric {
     id             String   @id @default(cuid())
-    organizationId String   // WorkOS organization ID
+    teamId         String   // Team that owns this dashboard metric
     metricId       String   // Metric being displayed
 
     // Graph configuration
@@ -159,12 +162,13 @@ model DashboardMetric {
     position       Int      @default(0) // Display order
     size           String   @default("medium") // "small", "medium", "large"
 
+    team           Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
     metric         Metric   @relation(fields: [metricId], references: [id], onDelete: Cascade)
 
     createdAt      DateTime @default(now())
     updatedAt      DateTime @updatedAt
 
-    @@index([organizationId])
+    @@index([teamId])
     @@index([metricId])
     @@index([position])
 }

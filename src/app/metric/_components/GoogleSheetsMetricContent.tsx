@@ -52,7 +52,7 @@ export function GoogleSheetsMetricContent({
   const [selectedColumns, setSelectedColumns] = useState<number[]>([]);
   const [metricName, setMetricName] = useState("");
 
-  const fetchMetadata = api.metric.fetchIntegrationData.useMutation({
+  const fetchMetadata = api.metric.fetchIntegrationOptions.useMutation({
     onSuccess: (data: { data: unknown }) => {
       const response = data.data as {
         sheets?: Array<{ properties: { title: string } }>;
@@ -64,7 +64,7 @@ export function GoogleSheetsMetricContent({
     },
   });
 
-  const fetchSheetData = api.metric.fetchIntegrationData.useMutation({
+  const fetchSheetData = api.metric.fetchIntegrationOptions.useMutation({
     onSuccess: (data: { data: unknown }) => {
       const response = data.data as { values?: string[][] };
       setPreviewData(response.values?.slice(0, 10) ?? []);

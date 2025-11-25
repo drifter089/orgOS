@@ -67,7 +67,7 @@ export function TeamSwitcher({
           teams?.map((team) => (
             <DropdownMenuItem key={team.id} asChild>
               <Link
-                href={`/teams/${team.id}`}
+                href={`/teams/roles/${team.id}`}
                 className="flex items-center justify-between"
                 onClick={(e) => {
                   // Allow opening in new tab with cmd/ctrl+click
@@ -75,7 +75,7 @@ export function TeamSwitcher({
 
                   // Use transition router for normal clicks
                   e.preventDefault();
-                  router.push(`/teams/${team.id}`);
+                  router.push(`/teams/roles/${team.id}`);
                 }}
               >
                 <div className="flex flex-col gap-1">

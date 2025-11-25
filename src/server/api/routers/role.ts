@@ -69,6 +69,23 @@ export const roleRouter = createTRPCRouter({
         });
       }
 
+      // If metricId provided, verify it belongs to the same team
+      if (input.metricId) {
+        const metric = await ctx.db.metric.findFirst({
+          where: {
+            id: input.metricId,
+            teamId: input.teamId,
+          },
+        });
+
+        if (!metric) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "Metric must belong to the same team as the role",
+          });
+        }
+      }
+
       return ctx.db.role.create({
         data: {
           title: input.title,
@@ -98,7 +115,7 @@ export const roleRouter = createTRPCRouter({
       }),
     )
     .mutation(async ({ ctx, input }) => {
-      await getRoleAndVerifyAccess(
+      const role = await getRoleAndVerifyAccess(
         ctx.db,
         input.id,
         ctx.user.id,
@@ -113,6 +130,23 @@ export const roleRouter = createTRPCRouter({
           code: "BAD_REQUEST",
           message: "User cannot be assigned to this role",
         });
+      }
+
+      // If metricId provided, verify it belongs to the same team as the role
+      if (input.metricId) {
+        const metric = await ctx.db.metric.findFirst({
+          where: {
+            id: input.metricId,
+            teamId: role.teamId,
+          },
+        });
+
+        if (!metric) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "Metric must belong to the same team as the role",
+          });
+        }
       }
 
       const data: {

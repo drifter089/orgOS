@@ -2,9 +2,10 @@
 
 import Link from "next/link";
 
-import { Clock, Loader2, Users } from "lucide-react";
+import { BarChart3, Clock, LayoutGrid, Loader2, Users } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import {
   Card,
   CardDescription,
@@ -118,12 +119,12 @@ export function TeamsList() {
         }
 
         return (
-          <Link key={team.id} href={`/teams/${team.id}`}>
-            <Card className="group hover:border-primary/20 cursor-pointer transition-all hover:shadow-lg">
-              <CardHeader className="p-4">
+          <Card key={team.id} className="group transition-all hover:shadow-lg">
+            <CardHeader className="p-4">
+              <div className="space-y-3">
                 <div className="flex items-center justify-between gap-4">
                   <div className="min-w-0 flex-1 space-y-1">
-                    <CardTitle className="group-hover:text-primary line-clamp-1 text-lg transition-colors">
+                    <CardTitle className="line-clamp-1 text-lg">
                       {team.name}
                     </CardTitle>
                     <CardDescription className="line-clamp-1">
@@ -145,9 +146,33 @@ export function TeamsList() {
                     </div>
                   </div>
                 </div>
-              </CardHeader>
-            </Card>
-          </Link>
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    asChild
+                    className="flex-1"
+                  >
+                    <Link href={`/teams/roles/${team.id}`}>
+                      <LayoutGrid className="mr-2 h-4 w-4" />
+                      Roles
+                    </Link>
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    asChild
+                    className="flex-1"
+                  >
+                    <Link href={`/teams/dashboard/${team.id}`}>
+                      <BarChart3 className="mr-2 h-4 w-4" />
+                      Dashboard
+                    </Link>
+                  </Button>
+                </div>
+              </div>
+            </CardHeader>
+          </Card>
         );
       })}
     </div>

@@ -1,9 +1,3 @@
-import {
-  GitHubMetricDialog,
-  GoogleSheetsMetricDialog,
-  PostHogMetricDialog,
-  YouTubeMetricDialog,
-} from "@/app/metric/_components";
 import { api } from "@/trpc/server";
 
 import { AddPlatformButton, IntegrationGrid } from "./_components";
@@ -29,13 +23,7 @@ export default async function IntegrationPage() {
       <IntegrationGrid
         initialData={integrations}
         gridCols={4}
-        showMetricDialogs={true}
-        MetricDialogs={{
-          github: GitHubMetricDialog,
-          posthog: PostHogMetricDialog,
-          youtube: YouTubeMetricDialog,
-          "google-sheet": GoogleSheetsMetricDialog,
-        }}
+        showMetricDialogs={false}
       />
     </div>
   );

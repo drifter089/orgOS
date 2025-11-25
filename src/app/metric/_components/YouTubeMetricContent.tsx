@@ -103,7 +103,7 @@ export function YouTubeMetricContent({
   const [metricName, setMetricName] = useState("");
   const [videoOptions, setVideoOptions] = useState<VideoOption[]>([]);
 
-  const fetchVideos = api.metric.fetchIntegrationData.useMutation({
+  const fetchVideos = api.metric.fetchIntegrationOptions.useMutation({
     onSuccess: (data: { data: unknown }) => {
       const options = transformVideos(data.data);
       setVideoOptions(options);
