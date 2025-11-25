@@ -11,6 +11,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import { cn } from "@/lib/utils";
 import { api } from "@/trpc/react";
 
 export interface MetricCreateInput {
@@ -41,6 +42,7 @@ interface MetricDialogBaseProps {
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
   onSuccess?: () => void;
+  maxWidth?: string;
   children: (props: ContentProps) => React.ReactNode;
 }
 
@@ -52,6 +54,7 @@ export function MetricDialogBase({
   open: controlledOpen,
   onOpenChange,
   onSuccess,
+  maxWidth = "sm:max-w-[600px]",
   children,
 }: MetricDialogBaseProps) {
   const [internalOpen, setInternalOpen] = useState(false);
@@ -103,7 +106,7 @@ export function MetricDialogBase({
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       {trigger && <DialogTrigger asChild>{trigger}</DialogTrigger>}
-      <DialogContent className="max-h-[80vh] overflow-y-auto sm:max-w-[600px]">
+      <DialogContent className={cn("max-h-[90vh] overflow-y-auto", maxWidth)}>
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
           {description && <DialogDescription>{description}</DialogDescription>}
