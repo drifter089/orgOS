@@ -34,12 +34,14 @@ export interface TransformResult {
 /**
  * Transform metric data into chart-ready format using AI
  *
- * @param metric - Prisma Metric model with data
+ * @param metric - Prisma Metric model with configuration metadata
+ * @param rawData - Raw API response data to transform
  * @param userHint - Optional hint from user about desired visualization
  * @returns TransformResult with chart data or error
  */
 export async function transformMetricWithAI(
   metric: Metric,
+  rawData: unknown,
   userHint?: string,
 ): Promise<TransformResult> {
   try {
@@ -85,25 +87,45 @@ RESPOND WITH ONLY VALID JSON in this exact format:
 
 ## Data Transformation Rules:
 
-### Google Sheets Format:
-- First row in "values" array is headers
-- Subsequent rows are data
-- Convert string numbers to actual numbers
-- Use header names as keys
+You will receive raw API data in various formats. Your job is to intelligently transform ANY data structure into the required chart format.
 
-### PostHog Format:
-- "columns" array contains field names
-- "results" array contains data rows
-- Map columns to row values
+### Common Data Patterns:
+- **Tabular Data** (like Google Sheets): First row = headers, subsequent rows = data
+  - Convert string numbers to actual numbers
+  - Use header names as keys in chartData objects
 
-### GitHub Data:
-- Group arrays by date/category and count
-- Convert timestamps to readable dates
-- Extract nested values (e.g., user.login)
-- Code frequency format: [[timestamp, additions, deletions], ...]
-  - Convert Unix timestamps to readable dates
-  - Create separate dataKeys for "additions" and "deletions"
-  - Use AREA or LINE chart for time-series visualization
+- **Query Results** (like PostHog): "columns" array + "results" array
+  - Map column names to row values
+
+- **Time-Series Arrays** (like GitHub stats): [[timestamp, value1, value2], ...]
+  - Convert Unix timestamps to readable dates (YYYY-MM-DD format)
+  - Create separate dataKeys for each value column
+  - Sort chronologically
+
+- **Nested Objects**: Extract relevant values from nested structures
+  - Flatten nested data (e.g., user.login → login)
+  - Group and aggregate as needed
+
+### Metadata-Based Filtering:
+The metric may include an "endpointConfig" object with user selections:
+
+- **Column Selection** (e.g., LABEL_COLUMN_INDEX, DATA_COLUMN_INDICES):
+  - Use specified columns only
+  - LABEL_COLUMN_INDEX: Which column to use as chart labels/x-axis
+  - DATA_COLUMN_INDICES: Array of column indices to chart (e.g., [1,3] means only columns 1 and 3)
+
+- **Date Range** (e.g., DAYS parameter):
+  - Filter data to specified time range
+  - DAYS=30 means only include last 30 days of data
+
+- **Other Filters**: Apply any filtering logic specified in endpointConfig
+
+### Generic Transformation Steps:
+1. Analyze raw data structure
+2. Check endpointConfig for user preferences/filters
+3. Apply filtering based on metadata (date ranges, column selections, etc.)
+4. Convert to appropriate chart format
+5. Generate meaningful labels from context
 
 ## Styling Configuration:
 
@@ -165,7 +187,7 @@ RESPOND WITH ONLY VALID JSON in this exact format:
 - Provide meaningful labels derived from the data context`;
 
     // Build the user message with full context
-    const userMessage = buildMetricPrompt(metric, userHint);
+    const userMessage = buildMetricPrompt(metric, rawData, userHint);
 
     console.info(
       "[AI Transform] Starting transformation for metric:",
@@ -271,7 +293,11 @@ RESPOND WITH ONLY VALID JSON in this exact format:
 /**
  * Build the prompt for the AI with metric context
  */
-function buildMetricPrompt(metric: Metric, userHint?: string): string {
+function buildMetricPrompt(
+  metric: Metric,
+  rawData: unknown,
+  userHint?: string,
+): string {
   const parts: string[] = [];
 
   parts.push(`## Metric Information`);
@@ -281,61 +307,24 @@ function buildMetricPrompt(metric: Metric, userHint?: string): string {
     parts.push(`- Description: ${metric.description}`);
   }
 
-  // Add integration and template context - crucial for understanding data format
-  if (metric.integrationId || metric.metricTemplate) {
+  // Pass metadata (user selections from endpointConfig)
+  if (metric.endpointConfig) {
     parts.push("");
-    parts.push(`## Data Source Context`);
-
-    if (metric.metricTemplate) {
-      parts.push(`- Template: ${metric.metricTemplate}`);
-
-      // Provide specific guidance based on template
-      if (metric.metricTemplate.includes("gsheets")) {
-        parts.push(`- Source: Google Sheets`);
-        parts.push(
-          `- Data Format: Sheets API returns { range, majorDimension: "ROWS", values: [[header], [row1], [row2], ...] }`,
-        );
-      } else if (metric.metricTemplate.includes("github")) {
-        parts.push(`- Source: GitHub API`);
-      } else if (metric.metricTemplate.includes("posthog")) {
-        parts.push(`- Source: PostHog Analytics`);
-      } else if (metric.metricTemplate.includes("youtube")) {
-        parts.push(`- Source: YouTube Analytics`);
-      }
-    }
-
-    // Include endpoint params which contain user's selections
-    const params = metric.endpointConfig as Record<string, unknown> | null;
-    if (params) {
-      // Extract configuration params (not the actual data)
-      const configKeys = [
-        "SPREADSHEET_ID",
-        "SHEET_NAME",
-        "LABEL_COLUMN_INDEX",
-        "DATA_COLUMN_INDICES",
-        "COLUMN_INDEX",
-        "PROJECT_ID",
-        "OWNER",
-        "REPO",
-      ];
-      const configParams: Record<string, unknown> = {};
-
-      configKeys.forEach((key) => {
-        if (params[key] !== undefined) {
-          configParams[key] = params[key];
-        }
-      });
-
-      if (Object.keys(configParams).length > 0) {
-        parts.push(`- Configuration: ${JSON.stringify(configParams)}`);
-      }
-    }
+    parts.push(`## Metadata (User Selections)`);
+    parts.push("```json");
+    parts.push(JSON.stringify(metric.endpointConfig, null, 2));
+    parts.push("```");
+    parts.push("");
+    parts.push(
+      "Use this metadata to filter and transform the raw data below (e.g., select specific columns, filter date ranges).",
+    );
   }
 
+  // Pass raw API data separately
   parts.push("");
-  parts.push(`## Raw Data`);
+  parts.push(`## Raw API Data`);
   parts.push("```json");
-  parts.push(JSON.stringify(metric.endpointConfig ?? {}, null, 2));
+  parts.push(JSON.stringify(rawData, null, 2));
   parts.push("```");
 
   parts.push("");
