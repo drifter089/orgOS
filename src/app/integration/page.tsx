@@ -1,14 +1,18 @@
+import {
+  GitHubMetricDialog,
+  GoogleSheetsMetricDialog,
+  PostHogMetricDialog,
+  YouTubeMetricDialog,
+} from "@/app/metric/_components";
 import { api } from "@/trpc/server";
 
-import { IntegrationClient } from "./_components/integration-client";
+import { AddPlatformButton, IntegrationGrid } from "./_components";
 
 export default async function IntegrationPage() {
-  // Prefetch data on server for instant page load
   const integrations = await api.integration.listWithStats();
 
   return (
     <div className="container mx-auto max-w-4xl space-y-6 p-8">
-      {/* Page Header */}
       <div>
         <h1 className="text-3xl font-bold">Integrations</h1>
         <p className="text-muted-foreground mt-1">
@@ -17,7 +21,22 @@ export default async function IntegrationPage() {
         </p>
       </div>
 
-      <IntegrationClient initialData={integrations} />
+      <div className="flex items-center justify-between">
+        <h2 className="text-xl font-semibold">Connected Platforms</h2>
+        <AddPlatformButton />
+      </div>
+
+      <IntegrationGrid
+        initialData={integrations}
+        gridCols={4}
+        showMetricDialogs={true}
+        MetricDialogs={{
+          github: GitHubMetricDialog,
+          posthog: PostHogMetricDialog,
+          youtube: YouTubeMetricDialog,
+          "google-sheet": GoogleSheetsMetricDialog,
+        }}
+      />
     </div>
   );
 }
