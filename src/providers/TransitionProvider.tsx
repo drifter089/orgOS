@@ -10,8 +10,8 @@ export function TransitionProvider({
 }: {
   children: React.ReactNode;
 }) {
-  const firstLayer = useRef<HTMLDivElement | null>(null);
-  const secondLayer = useRef<HTMLDivElement | null>(null);
+  const transitionLayer = useRef<HTMLDivElement | null>(null);
+  const loadingText = useRef<HTMLDivElement | null>(null);
 
   return (
     <TransitionRouter
@@ -22,28 +22,29 @@ export function TransitionProvider({
             onComplete: next,
           })
           .fromTo(
-            firstLayer.current,
-            { x: "-100%", opacity: 0 },
+            transitionLayer.current,
             {
-              x: 0,
-              opacity: 1,
-              duration: 0.4,
-              ease: "power2.inOut",
+              clipPath: "circle(0% at 50% 50%)",
+            },
+            {
+              clipPath: "circle(150% at 50% 50%)",
+              duration: 0.5,
+              ease: "power4.inOut",
             },
           )
           .fromTo(
-            secondLayer.current,
+            loadingText.current,
             {
-              x: "-100%",
               opacity: 0,
+              scale: 0.8,
             },
             {
-              x: 0,
               opacity: 1,
-              duration: 0.4,
-              ease: "power2.inOut",
+              scale: 1,
+              duration: 0.3,
+              ease: "power2.out",
             },
-            "<40%",
+            "<0.2",
           );
 
         return () => {
@@ -53,28 +54,22 @@ export function TransitionProvider({
       enter={(next) => {
         const tl = gsap
           .timeline()
-          .fromTo(
-            secondLayer.current,
-            { x: 0, opacity: 1 },
+          .to(loadingText.current, {
+            opacity: 0,
+            scale: 0.8,
+            duration: 0.2,
+            ease: "power2.in",
+          })
+          .to(
+            transitionLayer.current,
             {
-              x: "100%",
-              opacity: 0,
-              duration: 0.4,
-              ease: "power2.inOut",
+              clipPath: "circle(0% at 50% 50%)",
+              duration: 0.5,
+              ease: "power4.inOut",
             },
+            "<",
           )
-          .fromTo(
-            firstLayer.current,
-            { x: 0, opacity: 1 },
-            {
-              x: "100%",
-              opacity: 0,
-              duration: 0.4,
-              ease: "power2.inOut",
-            },
-            "<40%",
-          )
-          .call(next, undefined, "<40%");
+          .call(next, undefined, "<0.25");
 
         return () => {
           tl.kill();
@@ -84,13 +79,26 @@ export function TransitionProvider({
       <main>{children}</main>
 
       <div
-        ref={firstLayer}
-        className="bg-primary/80 fixed inset-0 z-999 -translate-x-full backdrop-blur-xl"
-      />
-      <div
-        ref={secondLayer}
-        className="bg-accent/90 fixed inset-0 z-999 -translate-x-full backdrop-blur-2xl"
-      />
+        ref={transitionLayer}
+        className="from-background via-muted to-background fixed inset-0 z-999 bg-gradient-to-br"
+        style={{ clipPath: "circle(0% at 50% 50%)" }}
+      >
+        <div
+          ref={loadingText}
+          className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 opacity-0"
+        >
+          <div className="flex flex-col items-center gap-3">
+            <h1 className="text-foreground font-mono text-4xl font-bold tracking-tighter">
+              ORG-OS
+            </h1>
+            <div className="flex gap-1">
+              <div className="bg-foreground size-2 animate-pulse rounded-full delay-0" />
+              <div className="bg-foreground size-2 animate-pulse rounded-full delay-150" />
+              <div className="bg-foreground size-2 animate-pulse rounded-full delay-300" />
+            </div>
+          </div>
+        </div>
+      </div>
     </TransitionRouter>
   );
 }
