@@ -25,6 +25,7 @@ export function GoogleSheetsMetricDialog({
       open={open}
       onOpenChange={onOpenChange}
       onSuccess={onSuccess}
+      maxWidth="sm:max-w-[900px]"
     >
       {(props) => <GoogleSheetsMetricContent {...props} />}
     </MetricDialogBase>

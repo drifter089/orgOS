@@ -9,6 +9,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { DialogFooter } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   Select,
   SelectContent,
@@ -16,6 +17,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { api } from "@/trpc/react";
 
 import type { ContentProps } from "./MetricDialogBase";
@@ -183,49 +192,52 @@ export function GoogleSheetsMetricContent({
                   <Loader2 className="size-6 animate-spin" />
                 </div>
               ) : previewData.length > 0 ? (
-                <div className="max-h-64 overflow-auto rounded-md border">
-                  <table className="w-full text-sm">
-                    <thead className="bg-muted sticky top-0">
-                      <tr>
-                        <th className="w-10 p-2"></th>
-                        {previewData[0]?.map((_, index) => (
-                          <th key={index} className="p-2 text-left">
-                            <div className="flex items-center gap-2">
-                              <Checkbox
-                                checked={selectedColumns.includes(index)}
-                                onCheckedChange={() => toggleColumn(index)}
-                              />
-                              <span>Col {index + 1}</span>
-                            </div>
-                          </th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {previewData.map((row, rowIndex) => (
-                        <tr
-                          key={rowIndex}
-                          className="hover:bg-muted/50 border-t"
-                        >
-                          <td className="text-muted-foreground p-2 text-xs">
-                            {rowIndex + 1}
-                          </td>
-                          {row.map((cell, cellIndex) => (
-                            <td
-                              key={cellIndex}
-                              className={
-                                selectedColumns.includes(cellIndex)
-                                  ? "bg-primary/10 p-2"
-                                  : "p-2"
-                              }
-                            >
-                              {cell}
-                            </td>
+                <div className="rounded-md border">
+                  <ScrollArea className="h-[400px] w-full">
+                    <div className="p-4">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead className="w-12 text-center">
+                              #
+                            </TableHead>
+                            {previewData[0]?.map((_, index) => (
+                              <TableHead key={index}>
+                                <div className="flex items-center gap-2">
+                                  <Checkbox
+                                    checked={selectedColumns.includes(index)}
+                                    onCheckedChange={() => toggleColumn(index)}
+                                  />
+                                  <span>Col {index + 1}</span>
+                                </div>
+                              </TableHead>
+                            ))}
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {previewData.map((row, rowIndex) => (
+                            <TableRow key={rowIndex}>
+                              <TableCell className="text-muted-foreground text-center text-xs font-medium">
+                                {rowIndex + 1}
+                              </TableCell>
+                              {row.map((cell, cellIndex) => (
+                                <TableCell
+                                  key={cellIndex}
+                                  className={
+                                    selectedColumns.includes(cellIndex)
+                                      ? "bg-primary/10"
+                                      : ""
+                                  }
+                                >
+                                  {cell}
+                                </TableCell>
+                              ))}
+                            </TableRow>
                           ))}
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                        </TableBody>
+                      </Table>
+                    </div>
+                  </ScrollArea>
                 </div>
               ) : (
                 <p className="text-muted-foreground text-sm">
