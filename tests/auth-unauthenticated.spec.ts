@@ -16,9 +16,9 @@ test.describe("Unauthenticated Access", () => {
     // 1. Navigate to home page
     await page.goto("/");
 
-    // 2. Verify page loads successfully
+    // 2. Verify page loads successfully (use .first() to handle multiple ORG-OS headings)
     await expect(
-      page.getByRole("heading", { name: "ORG-OS" }),
+      page.getByRole("heading", { name: "ORG-OS" }).first(),
     ).toBeVisible();
 
     // 3. Check that content is visible
