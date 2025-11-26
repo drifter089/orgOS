@@ -8,21 +8,28 @@ import { fetchData } from "@/server/api/services/nango";
 import { createTRPCRouter, workspaceProcedure } from "@/server/api/trpc";
 
 export const dashboardRouter = createTRPCRouter({
-  getDashboardMetrics: workspaceProcedure.query(async ({ ctx }) => {
-    const dashboardMetrics = await ctx.db.dashboardMetric.findMany({
-      where: { organizationId: ctx.workspace.organizationId },
-      include: {
-        metric: {
-          include: {
-            integration: true,
+  getDashboardMetrics: workspaceProcedure
+    .input(z.object({ teamId: z.string().optional() }).optional())
+    .query(async ({ ctx, input }) => {
+      const dashboardMetrics = await ctx.db.dashboardMetric.findMany({
+        where: {
+          organizationId: ctx.workspace.organizationId,
+          ...(input?.teamId && {
+            metric: { teamId: input.teamId },
+          }),
+        },
+        include: {
+          metric: {
+            include: {
+              integration: true,
+            },
           },
         },
-      },
-      orderBy: { position: "asc" },
-    });
+        orderBy: { position: "asc" },
+      });
 
-    return dashboardMetrics;
-  }),
+      return dashboardMetrics;
+    }),
 
   refreshMetricChart: workspaceProcedure
     .input(
@@ -158,46 +165,60 @@ export const dashboardRouter = createTRPCRouter({
       });
     }),
 
-  importAllAvailableMetrics: workspaceProcedure.mutation(async ({ ctx }) => {
-    const allMetrics = await ctx.db.metric.findMany({
-      where: { organizationId: ctx.workspace.organizationId },
-      select: { id: true },
-    });
+  importAllAvailableMetrics: workspaceProcedure
+    .input(z.object({ teamId: z.string().optional() }).optional())
+    .mutation(async ({ ctx, input }) => {
+      const allMetrics = await ctx.db.metric.findMany({
+        where: {
+          organizationId: ctx.workspace.organizationId,
+          ...(input?.teamId && { teamId: input.teamId }),
+        },
+        select: { id: true },
+      });
 
-    const dashboardMetrics = await ctx.db.dashboardMetric.findMany({
-      where: { organizationId: ctx.workspace.organizationId },
-      select: { metricId: true, position: true },
-    });
+      const dashboardMetrics = await ctx.db.dashboardMetric.findMany({
+        where: {
+          organizationId: ctx.workspace.organizationId,
+          ...(input?.teamId && {
+            metric: { teamId: input.teamId },
+          }),
+        },
+        select: { metricId: true, position: true },
+      });
 
-    const dashboardMetricIds = new Set(
-      dashboardMetrics.map((dm) => dm.metricId),
-    );
+      const dashboardMetricIds = new Set(
+        dashboardMetrics.map((dm) => dm.metricId),
+      );
 
-    const maxPosition =
-      dashboardMetrics.reduce((max, dm) => Math.max(max, dm.position), -1) + 1;
+      const maxPosition =
+        dashboardMetrics.reduce((max, dm) => Math.max(max, dm.position), -1) +
+        1;
 
-    const metricsToAdd = allMetrics.filter(
-      (metric) => !dashboardMetricIds.has(metric.id),
-    );
+      const metricsToAdd = allMetrics.filter(
+        (metric) => !dashboardMetricIds.has(metric.id),
+      );
 
-    if (metricsToAdd.length === 0) {
-      return { added: 0, message: "All metrics are already on the dashboard" };
-    }
+      if (metricsToAdd.length === 0) {
+        return {
+          added: 0,
+          message: "All metrics are already on the dashboard",
+        };
+      }
 
-    await ctx.db.dashboardMetric.createMany({
-      data: metricsToAdd.map((metric, index) => ({
-        organizationId: ctx.workspace.organizationId,
-        metricId: metric.id,
-        graphType: "bar",
-        graphConfig: {},
-        size: "medium",
-        position: maxPosition + index,
-      })),
-    });
+      await ctx.db.dashboardMetric.createMany({
+        data: metricsToAdd.map((metric, index) => ({
+          organizationId: ctx.workspace.organizationId,
+          metricId: metric.id,
+          graphType: "bar",
+          graphConfig: {},
+          size: "medium",
+          position: maxPosition + index,
+        })),
+      });
 
-    return {
-      added: metricsToAdd.length,
-      message: `Added ${metricsToAdd.length} metric${metricsToAdd.length === 1 ? "" : "s"} to dashboard`,
-    };
-  }),
+      return {
+        added: metricsToAdd.length,
+        message: `Added ${metricsToAdd.length} metric${metricsToAdd.length === 1 ? "" : "s"} to dashboard`,
+      };
+    }),
 });

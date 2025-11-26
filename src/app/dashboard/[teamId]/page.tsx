@@ -15,7 +15,9 @@ export default function DashboardPage({
 }) {
   const { teamId } = use(params);
 
-  const dashboardMetrics = api.dashboard.getDashboardMetrics.useQuery();
+  const dashboardMetrics = api.dashboard.getDashboardMetrics.useQuery({
+    teamId,
+  });
   const integrations = api.integration.listWithStats.useQuery();
 
   const importTriggerRef = useRef<DashboardClientHandle | null>(null);
@@ -49,6 +51,7 @@ export default function DashboardPage({
       </div>
 
       <DashboardClient
+        teamId={teamId}
         initialDashboardMetrics={dashboardMetrics.data}
         onImportRef={handleImportRef}
       />
