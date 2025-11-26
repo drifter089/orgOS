@@ -1,6 +1,6 @@
 "use client";
 
-import { Loader2, Settings, Trash2 } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import {
   Area,
   AreaChart,
@@ -22,7 +22,6 @@ import {
 } from "recharts";
 
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   ChartContainer,
@@ -41,9 +40,6 @@ interface DashboardMetricChartProps {
   isIntegrationMetric: boolean;
   isPending: boolean;
   isProcessing: boolean;
-  isRemoving: boolean;
-  onFlip: () => void;
-  onRemove: () => void;
 }
 
 export function DashboardMetricChart({
@@ -53,9 +49,6 @@ export function DashboardMetricChart({
   isIntegrationMetric,
   isPending,
   isProcessing,
-  isRemoving,
-  onFlip,
-  onRemove,
 }: DashboardMetricChartProps) {
   const renderChart = () => {
     if (!chartTransform) return null;
@@ -444,53 +437,21 @@ export function DashboardMetricChart({
 
   return (
     <Card
-      className={`absolute inset-0 flex flex-col ${isPending ? "animate-pulse opacity-70" : ""}`}
-      style={{ backfaceVisibility: "hidden" }}
+      className={`flex h-full flex-col ${isPending ? "animate-pulse opacity-70" : ""}`}
     >
-      <CardHeader className="pb-2">
-        <div className="flex items-center justify-between gap-2">
+      <CardHeader className="flex-shrink-0 pb-2">
+        <div className="flex items-center justify-between gap-2 pr-24">
           <CardTitle className="truncate text-lg">{title}</CardTitle>
-          <div className="flex items-center gap-1">
-            {(isPending || isProcessing) && (
-              <Badge
-                variant="outline"
-                className="text-muted-foreground text-xs"
-              >
-                <Loader2 className="mr-1 h-3 w-3 animate-spin" />
-                {isPending ? "Saving..." : "Processing..."}
-              </Badge>
-            )}
-            {isIntegrationMetric && (
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={onFlip}
-                disabled={isPending}
-                className="h-8 w-8 flex-shrink-0"
-                title="Settings"
-              >
-                <Settings className="text-muted-foreground hover:text-foreground h-4 w-4" />
-              </Button>
-            )}
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={onRemove}
-              disabled={isPending || isRemoving}
-              className="h-8 w-8 flex-shrink-0"
-              title="Remove from dashboard"
-            >
-              {isRemoving ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <Trash2 className="text-muted-foreground hover:text-destructive h-4 w-4" />
-              )}
-            </Button>
-          </div>
+          {(isPending || isProcessing) && (
+            <Badge variant="outline" className="text-muted-foreground text-xs">
+              <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+              {isPending ? "Saving..." : "Processing..."}
+            </Badge>
+          )}
         </div>
       </CardHeader>
 
-      <CardContent className="flex flex-1 flex-col">
+      <CardContent className="flex flex-1 flex-col overflow-hidden">
         {hasChartData && renderChart()}
 
         {!hasChartData && !isProcessing && (

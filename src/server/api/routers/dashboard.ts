@@ -22,6 +22,7 @@ export const dashboardRouter = createTRPCRouter({
           metric: {
             include: {
               integration: true,
+              roles: true,
             },
           },
         },
@@ -45,6 +46,7 @@ export const dashboardRouter = createTRPCRouter({
           metric: {
             include: {
               integration: true,
+              roles: true,
             },
           },
         },
@@ -133,6 +135,7 @@ export const dashboardRouter = createTRPCRouter({
           metric: {
             include: {
               integration: true,
+              roles: true,
             },
           },
         },
@@ -203,6 +206,7 @@ export const dashboardRouter = createTRPCRouter({
             metric: {
               include: {
                 integration: true,
+                roles: true,
               },
             },
           },
