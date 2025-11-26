@@ -514,13 +514,6 @@ export function FancyNav({
             </>
           ) : (
             <>
-              {/* Pill Mode (Home/Docs pages) */}
-              {/* Status indicator - Dynamic Island style */}
-              <div className="relative flex items-center">
-                <div className="bg-primary/80 absolute -left-1 size-2 animate-pulse rounded-full" />
-                <div className="bg-primary/40 absolute -left-1 size-2 animate-ping rounded-full" />
-              </div>
-
               {/* Logo */}
               <Link
                 href="/"
@@ -543,12 +536,22 @@ export function FancyNav({
               {/* Separator */}
               <div className="bg-border h-5 w-px" />
 
-              {/* Quick actions in pill */}
-              <div className="flex items-center gap-1.5">
-                {/* Theme toggle */}
-                <ThemeToggle className="size-8 transition-transform hover:scale-110" />
+              {user ? (
+                <span className="text-muted-foreground text-sm">
+                  Hi, {user.firstName ?? "there"}
+                </span>
+              ) : (
+                <Button variant="ghost" size="sm" asChild className="h-7 px-2">
+                  <Link href="/login" prefetch={false}>
+                    Sign in
+                  </Link>
+                </Button>
+              )}
 
-                {/* Menu toggle */}
+              <div className="bg-border h-5 w-px" />
+
+              <div className="flex items-center gap-1.5">
+                <ThemeToggle className="size-8 transition-transform hover:scale-110" />
                 <Button
                   variant="ghost"
                   size="icon"
