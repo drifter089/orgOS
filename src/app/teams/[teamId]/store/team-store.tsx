@@ -159,3 +159,17 @@ export function useTeamStore<T>(selector: (state: TeamStore) => T): T {
 
   return useStore(store, selector);
 }
+
+/**
+ * Hook to get direct access to the store API for imperative state access
+ * Use this when you need to get current state in callbacks (avoids stale closures)
+ */
+export function useTeamStoreApi() {
+  const store = useContext(TeamStoreContext);
+
+  if (!store) {
+    throw new Error("useTeamStoreApi must be used within TeamStoreProvider");
+  }
+
+  return store;
+}

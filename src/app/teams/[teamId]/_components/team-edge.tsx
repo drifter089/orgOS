@@ -17,7 +17,7 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { api } from "@/trpc/react";
 
-import { useTeamStore } from "../store/team-store";
+import { useTeamStore, useTeamStoreApi } from "../store/team-store";
 import { type RoleNodeData } from "./role-node";
 
 export type TeamEdge = Edge;
@@ -45,9 +45,8 @@ export function TeamEdge({
     targetPosition,
   });
 
+  const storeApi = useTeamStoreApi();
   const teamId = useTeamStore((state) => state.teamId);
-  const nodes = useTeamStore((state) => state.nodes);
-  const edges = useTeamStore((state) => state.edges);
   const setNodes = useTeamStore((state) => state.setNodes);
   const setEdges = useTeamStore((state) => state.setEdges);
   const markDirty = useTeamStore((state) => state.markDirty);
@@ -59,8 +58,10 @@ export function TeamEdge({
       await utils.role.getByTeam.cancel({ teamId });
 
       const previousRoles = utils.role.getByTeam.getData({ teamId });
-      const previousNodes = [...nodes];
-      const previousEdges = [...edges];
+      // Get current state from store to avoid stale closures
+      const { nodes: currentNodes, edges: currentEdges } = storeApi.getState();
+      const previousNodes = [...currentNodes];
+      const previousEdges = [...currentEdges];
 
       const tempRoleId = `temp-role-${nanoid(8)}`;
       const nodeId = variables.nodeId;
@@ -81,8 +82,8 @@ export function TeamEdge({
       };
 
       // Find the edge we're adding the node to
-      const edgeIndex = edges.findIndex((e) => e.id === id);
-      const edge = edges[edgeIndex];
+      const edgeIndex = currentEdges.findIndex((e) => e.id === id);
+      const edge = currentEdges[edgeIndex];
       if (!edge) return { previousRoles, previousNodes, previousEdges };
 
       // Calculate position between source and target
@@ -103,8 +104,8 @@ export function TeamEdge({
 
       // Remove the old edge and add two new edges
       const newEdges = [
-        ...edges.slice(0, edgeIndex),
-        ...edges.slice(edgeIndex + 1),
+        ...currentEdges.slice(0, edgeIndex),
+        ...currentEdges.slice(edgeIndex + 1),
         {
           id: `edge-${edge.source}-${nodeId}`,
           source: edge.source,
@@ -121,7 +122,7 @@ export function TeamEdge({
         },
       ];
 
-      setNodes([...nodes, optimisticNode]);
+      setNodes([...currentNodes, optimisticNode]);
       setEdges(newEdges);
       markDirty();
 
@@ -143,10 +144,12 @@ export function TeamEdge({
         nodeId,
       };
     },
-    onSuccess: (newRole, variables, context) => {
+    onSuccess: (newRole, _variables, context) => {
       if (!context) return;
 
-      const updatedNodes = nodes.map((node) => {
+      // Use fresh state to preserve user's node position changes during mutation
+      const currentNodes = storeApi.getState().nodes;
+      const updatedNodes = currentNodes.map((node) => {
         if (node.id === context.nodeId) {
           return {
             ...node,
@@ -196,10 +199,11 @@ export function TeamEdge({
   }, [teamId, createRole]);
 
   const handleDeleteEdge = useCallback(() => {
-    const newEdges = edges.filter((e) => e.id !== id);
+    const currentEdges = storeApi.getState().edges;
+    const newEdges = currentEdges.filter((e) => e.id !== id);
     setEdges(newEdges);
     markDirty();
-  }, [edges, id, setEdges, markDirty]);
+  }, [storeApi, id, setEdges, markDirty]);
 
   const isPending = createRole.isPending;
 
