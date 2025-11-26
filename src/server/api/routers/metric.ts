@@ -116,8 +116,14 @@ export const metricRouter = createTRPCRouter({
       return { success: true };
     }),
 
-  getGitHubRepos: workspaceProcedure
-    .input(z.object({ connectionId: z.string() }))
+  fetchIntegrationOptions: workspaceProcedure
+    .input(
+      z.object({
+        connectionId: z.string(),
+        integrationId: z.string(),
+        endpoint: z.string(),
+      }),
+    )
     .query(async ({ ctx, input }) => {
       await getIntegrationAndVerifyAccess(
         ctx.db,
@@ -127,27 +133,9 @@ export const metricRouter = createTRPCRouter({
       );
 
       return await fetchData(
-        "github",
+        input.integrationId,
         input.connectionId,
-        "/user/repos?per_page=100&sort=updated",
-        { method: "GET", params: {} },
-      );
-    }),
-
-  getYouTubeVideos: workspaceProcedure
-    .input(z.object({ connectionId: z.string() }))
-    .query(async ({ ctx, input }) => {
-      await getIntegrationAndVerifyAccess(
-        ctx.db,
-        input.connectionId,
-        ctx.user.id,
-        ctx.workspace,
-      );
-
-      return await fetchData(
-        "youtube",
-        input.connectionId,
-        "/youtube/v3/search?part=snippet&forMine=true&type=video&maxResults=50",
+        input.endpoint,
         { method: "GET", params: {} },
       );
     }),

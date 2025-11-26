@@ -96,18 +96,20 @@ export function IntegrationGrid({
     }
   };
 
+  const integrationEndpoints: Record<string, string> = {
+    github: "/user/repos?per_page=100&sort=updated",
+    youtube:
+      "/youtube/v3/search?part=snippet&forMine=true&type=video&maxResults=50",
+  };
+
   const handleIntegrationHover = (
     integrationId: string,
     connectionId: string,
   ) => {
-    if (integrationId === "github") {
-      void utils.metric.getGitHubRepos.prefetch(
-        { connectionId },
-        { staleTime: 5 * 60 * 1000 },
-      );
-    } else if (integrationId === "youtube") {
-      void utils.metric.getYouTubeVideos.prefetch(
-        { connectionId },
+    const endpoint = integrationEndpoints[integrationId];
+    if (endpoint) {
+      void utils.metric.fetchIntegrationOptions.prefetch(
+        { connectionId, integrationId, endpoint },
         { staleTime: 5 * 60 * 1000 },
       );
     }
