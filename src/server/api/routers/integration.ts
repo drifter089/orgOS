@@ -1,10 +1,10 @@
-import { Nango } from "@nangohq/node";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 
 import { env } from "@/env";
 import { createTRPCRouter, workspaceProcedure } from "@/server/api/trpc";
 import { getIntegrationAndVerifyAccess } from "@/server/api/utils/authorization";
+import { nango } from "@/server/nango";
 
 export const integrationRouter = createTRPCRouter({
   listWithStats: workspaceProcedure.query(async ({ ctx }) => {
@@ -45,8 +45,6 @@ export const integrationRouter = createTRPCRouter({
           message: "Nango secret key not configured",
         });
       }
-
-      const nango = new Nango({ secretKey: env.NANGO_SECRET_KEY_DEV });
 
       // Try to delete from Nango (triggers webhook that deletes from DB)
       try {
