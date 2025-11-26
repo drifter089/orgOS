@@ -150,7 +150,7 @@ export const dashboardRouter = createTRPCRouter({
         select: { id: true },
       });
 
-      const dashboardMetrics = await ctx.db.dashboardMetric.findMany({
+      const existingDashboardMetrics = await ctx.db.dashboardMetric.findMany({
         where: {
           organizationId: ctx.workspace.organizationId,
           ...(input?.teamId && {
@@ -161,12 +161,14 @@ export const dashboardRouter = createTRPCRouter({
       });
 
       const dashboardMetricIds = new Set(
-        dashboardMetrics.map((dm) => dm.metricId),
+        existingDashboardMetrics.map((dm) => dm.metricId),
       );
 
       const maxPosition =
-        dashboardMetrics.reduce((max, dm) => Math.max(max, dm.position), -1) +
-        1;
+        existingDashboardMetrics.reduce(
+          (max, dm) => Math.max(max, dm.position),
+          -1,
+        ) + 1;
 
       const metricsToAdd = allMetrics.filter(
         (metric) => !dashboardMetricIds.has(metric.id),
@@ -176,23 +178,42 @@ export const dashboardRouter = createTRPCRouter({
         return {
           added: 0,
           message: "All metrics are already on the dashboard",
+          newDashboardMetrics: [],
         };
       }
 
-      await ctx.db.dashboardMetric.createMany({
-        data: metricsToAdd.map((metric, index) => ({
-          organizationId: ctx.workspace.organizationId,
-          metricId: metric.id,
-          graphType: "bar",
-          graphConfig: {},
-          size: "medium",
-          position: maxPosition + index,
-        })),
+      const newDashboardMetrics = await ctx.db.$transaction(async (tx) => {
+        await tx.dashboardMetric.createMany({
+          data: metricsToAdd.map((metric, index) => ({
+            organizationId: ctx.workspace.organizationId,
+            metricId: metric.id,
+            graphType: "bar",
+            graphConfig: {},
+            size: "medium",
+            position: maxPosition + index,
+          })),
+        });
+
+        return tx.dashboardMetric.findMany({
+          where: {
+            organizationId: ctx.workspace.organizationId,
+            metricId: { in: metricsToAdd.map((m) => m.id) },
+          },
+          include: {
+            metric: {
+              include: {
+                integration: true,
+              },
+            },
+          },
+          orderBy: { position: "asc" },
+        });
       });
 
       return {
         added: metricsToAdd.length,
         message: `Added ${metricsToAdd.length} metric${metricsToAdd.length === 1 ? "" : "s"} to dashboard`,
+        newDashboardMetrics,
       };
     }),
 });

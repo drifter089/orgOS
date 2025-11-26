@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useMemo, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { DialogFooter } from "@/components/ui/dialog";
@@ -48,27 +48,20 @@ export function GitHubMetricContent({
 }: ContentProps) {
   const [metricName, setMetricName] = useState("");
   const [selectedRepo, setSelectedRepo] = useState<string>("");
-  const [repoOptions, setRepoOptions] = useState<RepoOption[]>([]);
 
-  const fetchRepos = api.metric.fetchIntegrationData.useMutation({
-    onSuccess: (data: { data: unknown }) => {
-      const options = transformRepos(data.data);
-      setRepoOptions(options);
-    },
-  });
+  const { data: reposData, isLoading: isLoadingRepos } =
+    api.metric.getGitHubRepos.useQuery(
+      { connectionId: connection.connectionId },
+      {
+        enabled: !!connection,
+        staleTime: 5 * 60 * 1000,
+      },
+    );
 
-  useEffect(() => {
-    if (connection && repoOptions.length === 0) {
-      fetchRepos.mutate({
-        connectionId: connection.connectionId,
-        integrationId: "github",
-        endpoint: "/user/repos?per_page=100&sort=updated",
-        method: "GET",
-        params: {},
-      });
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [connection]);
+  const repoOptions = useMemo(() => {
+    if (!reposData?.data) return [];
+    return transformRepos(reposData.data);
+  }, [reposData]);
 
   const handleSave = () => {
     if (!metricName || !selectedRepo) return;
@@ -111,12 +104,12 @@ export function GitHubMetricContent({
           <Select
             value={selectedRepo}
             onValueChange={setSelectedRepo}
-            disabled={repoOptions.length === 0}
+            disabled={repoOptions.length === 0 && !isLoadingRepos}
           >
             <SelectTrigger id="repo">
               <SelectValue
                 placeholder={
-                  fetchRepos.isPending
+                  isLoadingRepos
                     ? "Loading repositories..."
                     : "Select a repository"
                 }

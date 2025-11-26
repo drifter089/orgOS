@@ -96,6 +96,18 @@ export function IntegrationGrid({
     }
   };
 
+  const handleIntegrationHover = (
+    integrationId: string,
+    connectionId: string,
+  ) => {
+    if (integrationId === "github") {
+      void utils.metric.getGitHubRepos.prefetch(
+        { connectionId },
+        { staleTime: 5 * 60 * 1000 },
+      );
+    }
+  };
+
   if (!integrations || integrations.length === 0) {
     return (
       <div className="text-muted-foreground space-y-2 py-8 text-center">
@@ -114,7 +126,16 @@ export function IntegrationGrid({
         const MetricDialog = MetricDialogs?.[integration.integrationId];
 
         return (
-          <div key={integration.id} className="space-y-3">
+          <div
+            key={integration.id}
+            className="space-y-3"
+            onMouseEnter={() =>
+              handleIntegrationHover(
+                integration.integrationId,
+                integration.connectionId,
+              )
+            }
+          >
             {/* Platform Card */}
             <div className="group relative aspect-square">
               {/* Delete button (hover) */}

@@ -75,25 +75,46 @@ export function DashboardMetricCard({
 
   const deleteMetricMutation = api.metric.delete.useMutation({
     onMutate: async ({ id }) => {
+      const teamId = metric.teamId;
+
       await utils.dashboard.getDashboardMetrics.cancel();
+      if (teamId) {
+        await utils.dashboard.getDashboardMetrics.cancel({ teamId });
+      }
 
-      const previousDashboardMetrics =
+      const previousUnscopedMetrics =
         utils.dashboard.getDashboardMetrics.getData();
+      const previousTeamMetrics = teamId
+        ? utils.dashboard.getDashboardMetrics.getData({ teamId })
+        : undefined;
 
-      if (previousDashboardMetrics) {
+      if (previousUnscopedMetrics) {
         utils.dashboard.getDashboardMetrics.setData(
           undefined,
-          previousDashboardMetrics.filter((dm) => dm.metric.id !== id),
+          previousUnscopedMetrics.filter((dm) => dm.metric.id !== id),
         );
       }
 
-      return { previousDashboardMetrics };
+      if (teamId && previousTeamMetrics) {
+        utils.dashboard.getDashboardMetrics.setData(
+          { teamId },
+          previousTeamMetrics.filter((dm) => dm.metric.id !== id),
+        );
+      }
+
+      return { previousUnscopedMetrics, previousTeamMetrics, teamId };
     },
     onError: (err, _variables, context) => {
-      if (context?.previousDashboardMetrics) {
+      if (context?.previousUnscopedMetrics) {
         utils.dashboard.getDashboardMetrics.setData(
           undefined,
-          context.previousDashboardMetrics,
+          context.previousUnscopedMetrics,
+        );
+      }
+      if (context?.teamId && context?.previousTeamMetrics) {
+        utils.dashboard.getDashboardMetrics.setData(
+          { teamId: context.teamId },
+          context.previousTeamMetrics,
         );
       }
       toast.info(err.message);
@@ -102,11 +123,21 @@ export function DashboardMetricCard({
 
   const refreshMutation = api.dashboard.refreshMetricChart.useMutation({
     onSuccess: (updatedDashboardMetric) => {
+      const teamId = updatedDashboardMetric.metric.teamId;
+
       utils.dashboard.getDashboardMetrics.setData(undefined, (old) =>
         old?.map((dm) =>
           dm.id === updatedDashboardMetric.id ? updatedDashboardMetric : dm,
         ),
       );
+
+      if (teamId) {
+        utils.dashboard.getDashboardMetrics.setData({ teamId }, (old) =>
+          old?.map((dm) =>
+            dm.id === updatedDashboardMetric.id ? updatedDashboardMetric : dm,
+          ),
+        );
+      }
     },
   });
 
