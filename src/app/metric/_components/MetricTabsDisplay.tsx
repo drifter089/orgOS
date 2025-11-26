@@ -10,19 +10,13 @@ import { type RouterOutputs, api } from "@/trpc/react";
 type Metric = RouterOutputs["metric"]["getAll"][number];
 
 interface MetricTabsDisplayProps {
-  // Styling props for flexibility
   className?: string;
   tabsListClassName?: string;
   tabTriggerClassName?: string;
-
-  // Render function for metric cards (different in dashboard vs page)
   renderMetricCard: (metric: Metric) => React.ReactNode;
-
-  // Optional: for SSR/initial data
   initialMetrics?: Metric[];
-
-  // Optional: empty state message
   emptyMessage?: string;
+  teamId?: string;
 }
 
 export function MetricTabsDisplay({
@@ -32,10 +26,22 @@ export function MetricTabsDisplay({
   renderMetricCard,
   initialMetrics,
   emptyMessage = "No metrics yet",
+  teamId,
 }: MetricTabsDisplayProps) {
-  const { data: metrics, isLoading } = api.metric.getAll.useQuery(undefined, {
+  const allMetricsQuery = api.metric.getAll.useQuery(undefined, {
     initialData: initialMetrics,
+    enabled: !teamId,
   });
+
+  const teamMetricsQuery = api.metric.getByTeamId.useQuery(
+    { teamId: teamId! },
+    { enabled: !!teamId },
+  );
+
+  const metrics = teamId ? teamMetricsQuery.data : allMetricsQuery.data;
+  const isLoading = teamId
+    ? teamMetricsQuery.isLoading
+    : allMetricsQuery.isLoading;
 
   // Group metrics by integration
   const { platformTabs, totalCount } = useMemo(() => {

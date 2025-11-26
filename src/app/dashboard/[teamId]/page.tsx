@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useRef } from "react";
+import { use, useCallback, useRef } from "react";
 
 import { api } from "@/trpc/react";
 
@@ -9,10 +9,12 @@ import { DashboardClient } from "./_components/dashboard-client";
 import { DashboardSidebar } from "./_components/dashboard-sidebar";
 
 export default function DashboardPage({
-  params: _params,
+  params,
 }: {
   params: Promise<{ teamId: string }>;
 }) {
+  const { teamId } = use(params);
+
   const dashboardMetrics = api.dashboard.getDashboardMetrics.useQuery();
   const integrations = api.integration.listWithStats.useQuery();
 
@@ -51,6 +53,7 @@ export default function DashboardPage({
         onImportRef={handleImportRef}
       />
       <DashboardSidebar
+        teamId={teamId}
         initialIntegrations={integrations.data}
         onMetricCreated={handleMetricCreated}
       />

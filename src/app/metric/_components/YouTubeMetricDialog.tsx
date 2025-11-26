@@ -8,6 +8,7 @@ interface YouTubeMetricDialogProps {
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
   onSuccess?: () => void;
+  teamId?: string;
 }
 
 export function YouTubeMetricDialog({
@@ -15,6 +16,7 @@ export function YouTubeMetricDialog({
   open,
   onOpenChange,
   onSuccess,
+  teamId,
 }: YouTubeMetricDialogProps) {
   return (
     <MetricDialogBase
@@ -25,6 +27,7 @@ export function YouTubeMetricDialog({
       open={open}
       onOpenChange={onOpenChange}
       onSuccess={onSuccess}
+      teamId={teamId}
     >
       {(props) => <YouTubeMetricContent {...props} />}
     </MetricDialogBase>

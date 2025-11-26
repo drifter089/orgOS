@@ -8,6 +8,7 @@ interface GitHubMetricDialogProps {
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
   onSuccess?: () => void;
+  teamId?: string;
 }
 
 export function GitHubMetricDialog({
@@ -15,6 +16,7 @@ export function GitHubMetricDialog({
   open,
   onOpenChange,
   onSuccess,
+  teamId,
 }: GitHubMetricDialogProps) {
   return (
     <MetricDialogBase
@@ -25,6 +27,7 @@ export function GitHubMetricDialog({
       open={open}
       onOpenChange={onOpenChange}
       onSuccess={onSuccess}
+      teamId={teamId}
     >
       {(props) => <GitHubMetricContent {...props} />}
     </MetricDialogBase>

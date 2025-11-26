@@ -8,6 +8,7 @@ interface PostHogMetricDialogProps {
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
   onSuccess?: () => void;
+  teamId?: string;
 }
 
 export function PostHogMetricDialog({
@@ -15,6 +16,7 @@ export function PostHogMetricDialog({
   open,
   onOpenChange,
   onSuccess,
+  teamId,
 }: PostHogMetricDialogProps) {
   return (
     <MetricDialogBase
@@ -25,6 +27,7 @@ export function PostHogMetricDialog({
       open={open}
       onOpenChange={onOpenChange}
       onSuccess={onSuccess}
+      teamId={teamId}
     >
       {(props) => <PostHogMetricContent {...props} />}
     </MetricDialogBase>

@@ -18,12 +18,13 @@ interface IntegrationGridProps {
   gridCols?: 2 | 4;
   showMetricDialogs?: boolean;
   onMetricCreated?: () => void;
-  // Pass dialog components from outside
+  teamId?: string;
   MetricDialogs?: Record<
     string,
     React.ComponentType<{
       trigger?: React.ReactNode;
       onSuccess?: () => void;
+      teamId?: string;
     }>
   >;
 }
@@ -33,6 +34,7 @@ export function IntegrationGrid({
   gridCols = 4,
   showMetricDialogs = false,
   onMetricCreated,
+  teamId,
   MetricDialogs,
 }: IntegrationGridProps) {
   const { confirm } = useConfirmation();
@@ -179,6 +181,7 @@ export function IntegrationGrid({
                     KPI
                   </Button>
                 }
+                teamId={teamId}
                 onSuccess={() => {
                   void refetch();
                   onMetricCreated?.();
