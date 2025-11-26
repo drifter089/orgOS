@@ -2,17 +2,12 @@
 
 import Link from "next/link";
 
-import { BarChart3, Clock, Loader2, Network, Users } from "lucide-react";
+import { AnimatePresence, motion } from "framer-motion";
+import { BarChart3, Loader2, Network, Target, Users } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardTitle } from "@/components/ui/card";
 import {
   Empty,
   EmptyContent,
@@ -28,30 +23,52 @@ import { CreateTeamDialog } from "./create-team-dialog";
 
 function TeamCardSkeleton() {
   return (
-    <Card>
-      <CardHeader className="p-4">
-        <div className="flex items-center justify-between gap-4">
-          <div className="min-w-0 flex-1 space-y-2">
-            <Skeleton className="h-5 w-3/4" />
-            <Skeleton className="h-4 w-full" />
-          </div>
-          <div className="flex shrink-0 items-center gap-4">
-            <Skeleton className="h-5 w-20 rounded-md" />
-            <Skeleton className="h-4 w-16" />
-          </div>
+    <Card className="gap-0 overflow-hidden py-0">
+      <div className="flex flex-col gap-3 p-4">
+        <Skeleton className="h-8 w-3/4" />
+        <div className="flex gap-2">
+          <Skeleton className="h-5 w-20 rounded-full" />
+          <Skeleton className="h-5 w-20 rounded-full" />
         </div>
-      </CardHeader>
+      </div>
+      <div className="grid grid-cols-2">
+        <Skeleton className="h-12 rounded-none" />
+        <Skeleton className="h-12 rounded-none" />
+      </div>
     </Card>
   );
 }
+
+const containerVariants = {
+  hidden: { opacity: 0 },
+  show: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.08,
+    },
+  },
+};
+
+const cardVariants = {
+  hidden: { opacity: 0, y: 12 },
+  show: {
+    opacity: 1,
+    y: 0,
+    transition: {
+      type: "spring" as const,
+      stiffness: 400,
+      damping: 30,
+    },
+  },
+};
 
 export function TeamsList() {
   const { data: teams, isLoading } = api.team.getAll.useQuery();
 
   if (isLoading) {
     return (
-      <div className="grid gap-4 sm:grid-cols-2">
-        {[1, 2, 3, 4].map((i) => (
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        {[1, 2, 3].map((i) => (
           <TeamCardSkeleton key={i} />
         ))}
       </div>
@@ -65,9 +82,9 @@ export function TeamsList() {
           <EmptyMedia variant="icon">
             <Users className="text-muted-foreground" />
           </EmptyMedia>
-          <EmptyTitle>No role charts yet</EmptyTitle>
+          <EmptyTitle>No teams yet</EmptyTitle>
           <EmptyDescription>
-            Create your first role chart to start building role structures and
+            Create your first team to start building role structures and
             workflows
           </EmptyDescription>
         </EmptyHeader>
@@ -79,21 +96,28 @@ export function TeamsList() {
   }
 
   return (
-    <div className="grid gap-4 sm:grid-cols-2">
-      {teams.map((team) => {
-        const isPending = "isPending" in team && team.isPending;
+    <motion.div
+      className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3"
+      variants={containerVariants}
+      initial="hidden"
+      animate="show"
+    >
+      <AnimatePresence mode="popLayout">
+        {teams.map((team) => {
+          const isPending = "isPending" in team && team.isPending;
 
-        if (isPending) {
-          return (
-            <Card
-              key={team.id}
-              className="ring-primary/20 cursor-not-allowed opacity-70 ring-2"
-            >
-              <CardHeader className="p-4">
-                <div className="flex items-center justify-between gap-4">
-                  <div className="min-w-0 flex-1 space-y-1">
+          if (isPending) {
+            return (
+              <motion.div
+                key={team.id}
+                variants={cardVariants}
+                layout
+                exit={{ opacity: 0, scale: 0.95 }}
+              >
+                <Card className="ring-primary/20 cursor-not-allowed gap-0 overflow-hidden py-0 opacity-70 ring-2">
+                  <div className="flex flex-col gap-3 p-4">
                     <div className="flex items-center gap-2">
-                      <CardTitle className="line-clamp-1 text-lg">
+                      <CardTitle className="line-clamp-1 flex-1 text-2xl font-bold">
                         {team.name}
                       </CardTitle>
                       <Badge variant="outline" className="shrink-0 gap-1.5">
@@ -101,69 +125,84 @@ export function TeamsList() {
                         Creating
                       </Badge>
                     </div>
-                    <CardDescription className="line-clamp-1">
-                      {team.description ?? "No description"}
-                    </CardDescription>
+                    <div className="flex gap-2">
+                      <Badge variant="secondary" className="gap-1.5">
+                        <Users className="h-3 w-3" />0 roles
+                      </Badge>
+                      <Badge variant="secondary" className="gap-1.5">
+                        <Target className="h-3 w-3" />0 KPIs
+                      </Badge>
+                    </div>
                   </div>
-                  <div className="flex shrink-0 items-center gap-4 text-sm">
-                    <Badge variant="secondary" className="gap-1.5">
-                      <Users className="h-3 w-3" />0 roles
-                    </Badge>
-                    <span className="text-muted-foreground text-xs">
-                      Just now
-                    </span>
+                  <div className="grid grid-cols-2">
+                    <div className="bg-muted/50 flex h-12 items-center justify-center border-t">
+                      <Network className="mr-2 h-4 w-4 opacity-50" />
+                      <span className="opacity-50">Roles</span>
+                    </div>
+                    <div className="bg-muted/50 flex h-12 items-center justify-center border-t border-l">
+                      <BarChart3 className="mr-2 h-4 w-4 opacity-50" />
+                      <span className="opacity-50">Dashboard</span>
+                    </div>
                   </div>
-                </div>
-              </CardHeader>
-            </Card>
-          );
-        }
+                </Card>
+              </motion.div>
+            );
+          }
 
-        return (
-          <Card key={team.id} className="transition-all hover:shadow-lg">
-            <CardHeader className="p-4 pb-2">
-              <div className="flex items-center justify-between gap-4">
-                <div className="min-w-0 flex-1 space-y-1">
-                  <CardTitle className="line-clamp-1 text-lg">
+          return (
+            <motion.div
+              key={team.id}
+              variants={cardVariants}
+              layout
+              exit={{ opacity: 0, scale: 0.95 }}
+            >
+              <Card className="group hover:border-border/80 gap-0 overflow-hidden py-0 transition-colors">
+                <div className="flex flex-col gap-3 p-4">
+                  <CardTitle className="line-clamp-1 text-2xl font-bold">
                     {team.name}
                   </CardTitle>
-                  <CardDescription className="line-clamp-1">
-                    {team.description ?? "No description"}
-                  </CardDescription>
-                </div>
-                <div className="flex shrink-0 items-center gap-4 text-sm">
-                  <Badge variant="secondary" className="gap-1.5">
-                    <Users className="h-3 w-3" />
-                    {team._count.roles}{" "}
-                    {team._count.roles !== 1 ? "roles" : "role"}
-                  </Badge>
-                  <div className="text-muted-foreground flex items-center gap-1.5 text-xs">
-                    <Clock className="h-3 w-3" />
-                    {new Date(team.updatedAt).toLocaleDateString("en-US", {
-                      month: "short",
-                      day: "numeric",
-                    })}
+
+                  <div className="flex gap-2">
+                    <Badge variant="secondary" className="gap-1.5">
+                      <Users className="h-3 w-3" />
+                      {team._count.roles}{" "}
+                      {team._count.roles !== 1 ? "roles" : "role"}
+                    </Badge>
+                    <Badge variant="secondary" className="gap-1.5">
+                      <Target className="h-3 w-3" />
+                      {team._count.metrics}{" "}
+                      {team._count.metrics !== 1 ? "KPIs" : "KPI"}
+                    </Badge>
                   </div>
                 </div>
-              </div>
-            </CardHeader>
-            <CardContent className="flex gap-2 p-4 pt-2">
-              <Button asChild variant="outline" size="sm" className="flex-1">
-                <Link href={`/teams/${team.id}`}>
-                  <Network className="mr-2 h-4 w-4" />
-                  Roles
-                </Link>
-              </Button>
-              <Button asChild variant="outline" size="sm" className="flex-1">
-                <Link href={`/dashboard/${team.id}`}>
-                  <BarChart3 className="mr-2 h-4 w-4" />
-                  Dashboard
-                </Link>
-              </Button>
-            </CardContent>
-          </Card>
-        );
-      })}
-    </div>
+
+                <div className="grid grid-cols-2">
+                  <Button
+                    asChild
+                    variant="ghost"
+                    className="hover:bg-primary/10 hover:text-primary h-12 rounded-none border-t transition-colors"
+                  >
+                    <Link href={`/teams/${team.id}`}>
+                      <Network className="mr-2 h-4 w-4" />
+                      Roles
+                    </Link>
+                  </Button>
+                  <Button
+                    asChild
+                    variant="ghost"
+                    className="hover:bg-primary/10 hover:text-primary h-12 rounded-none border-t border-l transition-colors"
+                  >
+                    <Link href={`/dashboard/${team.id}`}>
+                      <BarChart3 className="mr-2 h-4 w-4" />
+                      Dashboard
+                    </Link>
+                  </Button>
+                </div>
+              </Card>
+            </motion.div>
+          );
+        })}
+      </AnimatePresence>
+    </motion.div>
   );
 }
