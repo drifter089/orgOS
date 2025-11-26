@@ -15,8 +15,9 @@ import { cn } from "@/lib/utils";
 import { useConfirmation } from "@/providers/ConfirmationDialogProvider";
 import { api } from "@/trpc/react";
 
+import { useDeleteRole } from "../hooks/use-delete-role";
 import { useTeamStore } from "../store/team-store";
-import { CreateRoleDialog, RoleDialog } from "./role-dialog";
+import { RoleDialog } from "./role-dialog";
 import { type RoleNodeData } from "./role-node";
 import { TeamSheetEdgeTrigger } from "./team-sheet-edge-trigger";
 
@@ -121,40 +122,8 @@ function RolesList({
 }) {
   const [deletingRoleId, setDeletingRoleId] = useState<string | null>(null);
 
-  const nodes = useTeamStore((state) => state.nodes);
-  const setNodes = useTeamStore((state) => state.setNodes);
-  const markDirty = useTeamStore((state) => state.markDirty);
-
   const { confirm } = useConfirmation();
-  const utils = api.useUtils();
-  const deleteRole = api.role.delete.useMutation({
-    onMutate: async (variables) => {
-      await utils.role.getByTeam.cancel({ teamId });
-
-      const previousRoles = utils.role.getByTeam.getData({ teamId });
-
-      utils.role.getByTeam.setData({ teamId }, (old) => {
-        if (!old) return [];
-        return old.filter((role) => role.id !== variables.id);
-      });
-
-      const updatedNodes = nodes.filter(
-        (node) => node.data.roleId !== variables.id,
-      );
-      setNodes(updatedNodes);
-      markDirty();
-
-      return { previousRoles };
-    },
-    onError: (error, variables, context) => {
-      if (context?.previousRoles) {
-        utils.role.getByTeam.setData({ teamId }, context.previousRoles);
-      }
-    },
-    onSettled: () => {
-      setDeletingRoleId(null);
-    },
-  });
+  const deleteRoleMutation = useDeleteRole(teamId);
 
   const { data: roles, isLoading } = api.role.getByTeam.useQuery({ teamId });
 
@@ -253,7 +222,10 @@ function RolesList({
 
                   if (confirmed) {
                     setDeletingRoleId(role.id);
-                    deleteRole.mutate({ id: role.id });
+                    deleteRoleMutation.mutate(
+                      { id: role.id },
+                      { onSettled: () => setDeletingRoleId(null) },
+                    );
                   }
                 }}
                 disabled={deletingRoleId === role.id}
@@ -279,8 +251,8 @@ function RolesList({
  */
 export function TeamSheetSidebar({
   teamId,
-  teamName,
-  teamDescription,
+  teamName: _teamName,
+  teamDescription: _teamDescription,
   roleCount,
 }: TeamSheetSidebarProps) {
   // Closed by default to allow data prefetching
@@ -341,7 +313,7 @@ export function TeamSheetSidebar({
             <div className="flex-shrink-0 border-b px-6 py-4">
               <div className="flex items-center justify-between">
                 <h2 className="text-2xl font-bold tracking-tight">Roles</h2>
-                <CreateRoleDialog teamId={teamId} />
+                <RoleDialog teamId={teamId} />
               </div>
             </div>
 

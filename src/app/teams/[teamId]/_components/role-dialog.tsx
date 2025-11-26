@@ -38,7 +38,7 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { api } from "@/trpc/react";
 
-import { useTeamStore } from "../store/team-store";
+import { useTeamStore, useTeamStoreApi } from "../store/team-store";
 import { type RoleNodeData } from "./role-node";
 
 const roleSchema = z.object({
@@ -85,7 +85,7 @@ export function RoleDialog({
   const setOpen = isControlled ? onOpenChange! : setInternalOpen;
 
   const isEditMode = !!roleData;
-  const nodes = useTeamStore((state) => state.nodes);
+  const storeApi = useTeamStoreApi();
   const setNodes = useTeamStore((state) => state.setNodes);
   const markDirty = useTeamStore((state) => state.markDirty);
 
@@ -140,7 +140,8 @@ export function RoleDialog({
       await utils.role.getByTeam.cancel({ teamId });
 
       const previousRoles = utils.role.getByTeam.getData({ teamId });
-      const previousNodes = [...nodes];
+      const currentNodes = storeApi.getState().nodes;
+      const previousNodes = [...currentNodes];
 
       const tempRoleId = `temp-role-${nanoid(8)}`;
       const nodeId = variables.nodeId;
@@ -201,7 +202,7 @@ export function RoleDialog({
         },
       };
 
-      setNodes([...nodes, optimisticNode]);
+      setNodes([...currentNodes, optimisticNode]);
       markDirty();
 
       utils.role.getByTeam.setData({ teamId }, (old) => {
@@ -216,10 +217,12 @@ export function RoleDialog({
 
       return { previousRoles, previousNodes, tempRoleId, nodeId };
     },
-    onSuccess: (newRole, variables, context) => {
+    onSuccess: (newRole, _variables, context) => {
       if (!context) return;
 
-      const updatedNodes = nodes.map((node) => {
+      // Use fresh state to preserve user's node position changes during mutation
+      const currentNodes = storeApi.getState().nodes;
+      const updatedNodes = currentNodes.map((node) => {
         if (node.id === context.nodeId) {
           return {
             ...node,
@@ -257,8 +260,8 @@ export function RoleDialog({
 
   const updateRole = api.role.update.useMutation({
     onSuccess: (updatedRole) => {
-      // Update node on canvas
-      const updatedNodes = nodes.map((node) => {
+      const currentNodes = storeApi.getState().nodes;
+      const updatedNodes = currentNodes.map((node) => {
         if (node.data.roleId === updatedRole.id) {
           return {
             ...node,
@@ -511,6 +514,3 @@ export function RoleDialog({
     </Dialog>
   );
 }
-
-// Re-export for backward compatibility
-export { RoleDialog as CreateRoleDialog };

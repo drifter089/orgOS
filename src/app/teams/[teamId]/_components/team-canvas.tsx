@@ -10,12 +10,13 @@ import {
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import { Loader2, Save } from "lucide-react";
+import { useShallow } from "zustand/react/shallow";
 
 import { ZoomSlider } from "@/components/zoom-slider";
 import { cn } from "@/lib/utils";
 
 import { useAutoSave } from "../hooks/use-auto-save";
-import { useTeamStore } from "../store/team-store";
+import { type TeamStore, useTeamStore } from "../store/team-store";
 import { RoleDialog } from "./role-dialog";
 import { type RoleNodeData, RoleNodeMemo } from "./role-node";
 import { TeamCanvasControls } from "./team-canvas-controls";
@@ -29,14 +30,26 @@ const edgeTypes = {
   "team-edge": TeamEdge,
 };
 
+const selector = (state: TeamStore) => ({
+  nodes: state.nodes,
+  edges: state.edges,
+  teamId: state.teamId,
+  onNodesChange: state.onNodesChange,
+  onEdgesChange: state.onEdgesChange,
+  onConnect: state.onConnect,
+  isDirty: state.isDirty,
+});
+
 export function TeamCanvas() {
-  const nodes = useTeamStore((state) => state.nodes);
-  const edges = useTeamStore((state) => state.edges);
-  const teamId = useTeamStore((state) => state.teamId);
-  const onNodesChange = useTeamStore((state) => state.onNodesChange);
-  const onEdgesChange = useTeamStore((state) => state.onEdgesChange);
-  const onConnect = useTeamStore((state) => state.onConnect);
-  const isDirty = useTeamStore((state) => state.isDirty);
+  const {
+    nodes,
+    edges,
+    teamId,
+    onNodesChange,
+    onEdgesChange,
+    onConnect,
+    isDirty,
+  } = useTeamStore(useShallow(selector));
 
   const { isSaving, lastSaved } = useAutoSave();
 

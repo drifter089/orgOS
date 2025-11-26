@@ -4,7 +4,6 @@ import { memo, useCallback, useState } from "react";
 
 import { Handle, type Node, type NodeProps, Position } from "@xyflow/react";
 import { Loader2, Trash2, TrendingUp, User } from "lucide-react";
-import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -16,8 +15,8 @@ import {
 } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import { useConfirmation } from "@/providers/ConfirmationDialogProvider";
-import { api } from "@/trpc/react";
 
+import { useDeleteRole } from "../hooks/use-delete-role";
 import { useTeamStore } from "../store/team-store";
 
 export type RoleNodeData = {
@@ -40,67 +39,8 @@ function RoleNodeComponent({ data, selected }: NodeProps<RoleNode>) {
   const [isDeleting, setIsDeleting] = useState(false);
 
   const teamId = useTeamStore((state) => state.teamId);
-  const nodes = useTeamStore((state) => state.nodes);
-  const edges = useTeamStore((state) => state.edges);
-  const setNodes = useTeamStore((state) => state.setNodes);
-  const setEdges = useTeamStore((state) => state.setEdges);
-  const markDirty = useTeamStore((state) => state.markDirty);
-
   const { confirm } = useConfirmation();
-  const utils = api.useUtils();
-
-  const deleteRole = api.role.delete.useMutation({
-    onMutate: async (variables) => {
-      setIsDeleting(true);
-      await utils.role.getByTeam.cancel({ teamId });
-
-      const previousRoles = utils.role.getByTeam.getData({ teamId });
-      const previousNodes = nodes;
-      const previousEdges = edges;
-
-      utils.role.getByTeam.setData({ teamId }, (old) => {
-        if (!old) return [];
-        return old.filter((role) => role.id !== variables.id);
-      });
-
-      // Find the node ID for this role
-      const nodeToRemove = nodes.find(
-        (node) => node.data.roleId === data.roleId,
-      );
-      if (nodeToRemove) {
-        // Remove the node and its connected edges
-        const updatedNodes = nodes.filter(
-          (node) => node.id !== nodeToRemove.id,
-        );
-        const updatedEdges = edges.filter(
-          (edge) =>
-            edge.source !== nodeToRemove.id && edge.target !== nodeToRemove.id,
-        );
-        setNodes(updatedNodes);
-        setEdges(updatedEdges);
-        markDirty();
-      }
-
-      return { previousRoles, previousNodes, previousEdges };
-    },
-    onError: (error, _variables, context) => {
-      toast.error("Failed to delete role", {
-        description: error.message ?? "An unexpected error occurred",
-      });
-      if (context?.previousRoles !== undefined) {
-        utils.role.getByTeam.setData({ teamId }, context.previousRoles);
-      }
-      if (context?.previousNodes && context?.previousEdges) {
-        setNodes(context.previousNodes);
-        setEdges(context.previousEdges);
-      }
-      setIsDeleting(false);
-    },
-    onSettled: () => {
-      void utils.role.getByTeam.invalidate({ teamId });
-      setIsDeleting(false);
-    },
-  });
+  const deleteRoleMutation = useDeleteRole(teamId);
 
   const handleDelete = useCallback(async () => {
     const confirmed = await confirm({
@@ -111,9 +51,13 @@ function RoleNodeComponent({ data, selected }: NodeProps<RoleNode>) {
     });
 
     if (confirmed) {
-      deleteRole.mutate({ id: data.roleId });
+      setIsDeleting(true);
+      deleteRoleMutation.mutate(
+        { id: data.roleId },
+        { onSettled: () => setIsDeleting(false) },
+      );
     }
-  }, [data.roleId, data.title, deleteRole, confirm]);
+  }, [data.roleId, data.title, deleteRoleMutation, confirm]);
 
   const color = data.color ?? "#3b82f6";
   const truncatedPurpose =
