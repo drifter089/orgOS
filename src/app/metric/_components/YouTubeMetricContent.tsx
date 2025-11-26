@@ -98,8 +98,13 @@ export function YouTubeMetricContent({
   const [metricName, setMetricName] = useState("");
 
   const { data: videosData, isLoading: isLoadingVideos } =
-    api.metric.getYouTubeVideos.useQuery(
-      { connectionId: connection.connectionId },
+    api.metric.fetchIntegrationOptions.useQuery(
+      {
+        connectionId: connection.connectionId,
+        integrationId: "youtube",
+        endpoint:
+          "/youtube/v3/search?part=snippet&forMine=true&type=video&maxResults=50",
+      },
       {
         enabled: !!connection && scopeType === "video",
         staleTime: 5 * 60 * 1000,

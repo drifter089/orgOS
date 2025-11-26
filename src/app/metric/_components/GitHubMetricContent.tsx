@@ -50,8 +50,12 @@ export function GitHubMetricContent({
   const [selectedRepo, setSelectedRepo] = useState<string>("");
 
   const { data: reposData, isLoading: isLoadingRepos } =
-    api.metric.getGitHubRepos.useQuery(
-      { connectionId: connection.connectionId },
+    api.metric.fetchIntegrationOptions.useQuery(
+      {
+        connectionId: connection.connectionId,
+        integrationId: "github",
+        endpoint: "/user/repos?per_page=100&sort=updated",
+      },
       {
         enabled: !!connection,
         staleTime: 5 * 60 * 1000,

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useMemo, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { DialogFooter } from "@/components/ui/dialog";
@@ -57,52 +57,46 @@ export function PostHogMetricContent({
   const [selectedProject, setSelectedProject] = useState("");
   const [selectedEvent, setSelectedEvent] = useState("");
 
-  const [projects, setProjects] = useState<Project[]>([]);
-  const [events, setEvents] = useState<Event[]>([]);
-
-  const fetchProjects = api.metric.fetchIntegrationData.useMutation({
-    onSuccess: (data) => {
-      const projectList = transformProjects(data.data);
-      setProjects(projectList);
-    },
-  });
-
-  const fetchEvents = api.metric.fetchIntegrationData.useMutation({
-    onSuccess: (data) => {
-      const eventList = transformEvents(data.data);
-      setEvents(eventList);
-    },
-  });
-
-  // Fetch projects when component mounts
-  useEffect(() => {
-    if (connection && projects.length === 0) {
-      fetchProjects.mutate({
+  const { data: projectsData, isLoading: isLoadingProjects } =
+    api.metric.fetchIntegrationOptions.useQuery(
+      {
         connectionId: connection.connectionId,
         integrationId: "posthog",
         endpoint: "/api/projects/",
-        method: "GET",
-        params: {},
-      });
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [connection]);
+      },
+      {
+        enabled: !!connection,
+        staleTime: 5 * 60 * 1000,
+      },
+    );
 
-  // Fetch events when project is selected
-  useEffect(() => {
-    if (selectedProject && connection) {
-      setEvents([]);
-      setSelectedEvent("");
-      fetchEvents.mutate({
+  const { data: eventsData, isLoading: isLoadingEvents } =
+    api.metric.fetchIntegrationOptions.useQuery(
+      {
         connectionId: connection.connectionId,
         integrationId: "posthog",
         endpoint: `/api/projects/${selectedProject}/event_definitions/`,
-        method: "GET",
-        params: {},
-      });
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedProject, connection]);
+      },
+      {
+        enabled: !!connection && !!selectedProject,
+        staleTime: 5 * 60 * 1000,
+      },
+    );
+
+  const projects = useMemo(() => {
+    if (!projectsData?.data) return [];
+    return transformProjects(projectsData.data);
+  }, [projectsData]);
+
+  const events = useMemo(() => {
+    if (!eventsData?.data) return [];
+    return transformEvents(eventsData.data);
+  }, [eventsData]);
+
+  const handleProjectChange = (value: string) => {
+    setSelectedProject(value);
+    setSelectedEvent("");
+  };
 
   const handleCreate = () => {
     if (!selectedProject || !selectedEvent) return;
@@ -129,13 +123,15 @@ export function PostHogMetricContent({
         {/* Project Selection */}
         <div className="space-y-2">
           <Label htmlFor="project">Project</Label>
-          <Select value={selectedProject} onValueChange={setSelectedProject}>
+          <Select
+            value={selectedProject}
+            onValueChange={handleProjectChange}
+            disabled={isLoadingProjects || projects.length === 0}
+          >
             <SelectTrigger id="project">
               <SelectValue
                 placeholder={
-                  fetchProjects.isPending
-                    ? "Loading projects..."
-                    : "Select a project"
+                  isLoadingProjects ? "Loading projects..." : "Select a project"
                 }
               />
             </SelectTrigger>
@@ -155,14 +151,14 @@ export function PostHogMetricContent({
           <Select
             value={selectedEvent}
             onValueChange={setSelectedEvent}
-            disabled={!selectedProject}
+            disabled={!selectedProject || isLoadingEvents}
           >
             <SelectTrigger id="event">
               <SelectValue
                 placeholder={
                   !selectedProject
                     ? "Select project first"
-                    : fetchEvents.isPending
+                    : isLoadingEvents
                       ? "Loading events..."
                       : "Select an event"
                 }
