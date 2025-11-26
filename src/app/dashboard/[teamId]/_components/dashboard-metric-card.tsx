@@ -2,13 +2,17 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 
+import { BarChart3, Loader2, Settings, Trash2, Users } from "lucide-react";
 import { toast } from "sonner";
 
+import { Button } from "@/components/ui/button";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useConfirmation } from "@/providers/ConfirmationDialogProvider";
 import type { RouterOutputs } from "@/trpc/react";
 import { api } from "@/trpc/react";
 
 import { DashboardMetricChart } from "./dashboard-metric-chart";
+import { DashboardMetricRoles } from "./dashboard-metric-roles";
 import { DashboardMetricSettings } from "./dashboard-metric-settings";
 
 type DashboardMetrics = RouterOutputs["dashboard"]["getDashboardMetrics"];
@@ -57,7 +61,7 @@ export function DashboardMetricCard({
 }: DashboardMetricCardProps) {
   const [prompt, setPrompt] = useState("");
   const [isProcessing, setIsProcessing] = useState(false);
-  const [isFlipped, setIsFlipped] = useState(false);
+  const [activeTab, setActiveTab] = useState("chart");
   const hasTriggeredRef = useRef(false);
 
   const utils = api.useUtils();
@@ -66,6 +70,7 @@ export function DashboardMetricCard({
   const isPending = dashboardMetric.id.startsWith("temp-");
   const { metric } = dashboardMetric;
   const isIntegrationMetric = !!metric.integrationId;
+  const roles = metric.roles ?? [];
 
   const chartTransform =
     dashboardMetric.graphConfig as unknown as ChartTransformResult | null;
@@ -199,48 +204,86 @@ export function DashboardMetricCard({
     void handleRefresh(prompt);
   };
 
-  const title = chartTransform?.title || metric.name;
-  const description = chartTransform?.description || metric.description;
+  const title = chartTransform?.title ?? metric.name;
+  const description = chartTransform?.description ?? metric.description;
 
   return (
-    <div className="relative h-[380px]" style={{ perspective: "1000px" }}>
-      <div
-        className="relative h-full w-full transition-transform duration-500"
-        style={{
-          transformStyle: "preserve-3d",
-          transform: isFlipped ? "rotateY(180deg)" : "rotateY(0deg)",
-        }}
-      >
-        <DashboardMetricChart
-          title={title}
-          chartTransform={chartTransform}
-          hasChartData={hasChartData}
-          isIntegrationMetric={isIntegrationMetric}
-          isPending={isPending}
-          isProcessing={isProcessing}
-          isRemoving={deleteMetricMutation.isPending}
-          onFlip={() => setIsFlipped(true)}
-          onRemove={handleRemove}
-        />
+    <Tabs
+      value={activeTab}
+      onValueChange={setActiveTab}
+      className="relative h-[380px]"
+    >
+      <TabsList className="bg-muted/80 absolute top-4 right-3 z-10 h-7 backdrop-blur-sm">
+        <TabsTrigger value="chart" className="h-6 px-2 text-xs">
+          <BarChart3 className="h-3 w-3" />
+        </TabsTrigger>
+        <TabsTrigger value="roles" className="h-6 px-2 text-xs">
+          <Users className="h-3 w-3" />
+        </TabsTrigger>
+        {isIntegrationMetric && (
+          <TabsTrigger value="settings" className="h-6 px-2 text-xs">
+            <Settings className="h-3 w-3" />
+          </TabsTrigger>
+        )}
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={handleRemove}
+          disabled={isPending || deleteMetricMutation.isPending}
+          className="ml-1 h-6 w-6 flex-shrink-0 rounded-md"
+          title="Remove from dashboard"
+        >
+          {deleteMetricMutation.isPending ? (
+            <Loader2 className="h-3 w-3 animate-spin" />
+          ) : (
+            <Trash2 className="text-muted-foreground hover:text-destructive h-3 w-3" />
+          )}
+        </Button>
+      </TabsList>
 
-        <DashboardMetricSettings
-          title={title}
-          description={description}
-          chartTransform={chartTransform}
-          hasChartData={hasChartData}
-          integrationId={metric.integration?.integrationId ?? null}
-          lastFetchedAt={metric.lastFetchedAt}
-          isPending={isPending}
-          isProcessing={isProcessing}
-          isRemoving={deleteMetricMutation.isPending}
-          prompt={prompt}
-          onPromptChange={setPrompt}
-          onFlip={() => setIsFlipped(false)}
-          onRemove={handleRemove}
-          onRegenerate={handleRegenerate}
-          onRefresh={() => handleRefresh()}
-        />
+      <div className="relative h-full w-full overflow-hidden">
+        <TabsContent
+          value="chart"
+          className="animate-tab-slide-in absolute inset-0 m-0 data-[state=inactive]:hidden"
+        >
+          <DashboardMetricChart
+            title={title}
+            chartTransform={chartTransform}
+            hasChartData={hasChartData}
+            isIntegrationMetric={isIntegrationMetric}
+            isPending={isPending}
+            isProcessing={isProcessing}
+          />
+        </TabsContent>
+
+        <TabsContent
+          value="roles"
+          className="animate-tab-slide-in absolute inset-0 m-0 data-[state=inactive]:hidden"
+        >
+          <DashboardMetricRoles title={title} roles={roles} />
+        </TabsContent>
+
+        {isIntegrationMetric && (
+          <TabsContent
+            value="settings"
+            className="animate-tab-slide-in absolute inset-0 m-0 data-[state=inactive]:hidden"
+          >
+            <DashboardMetricSettings
+              title={title}
+              description={description}
+              chartTransform={chartTransform}
+              hasChartData={hasChartData}
+              integrationId={metric.integration?.integrationId ?? null}
+              lastFetchedAt={metric.lastFetchedAt}
+              isProcessing={isProcessing}
+              prompt={prompt}
+              onPromptChange={setPrompt}
+              onRegenerate={handleRegenerate}
+              onRefresh={() => handleRefresh()}
+            />
+          </TabsContent>
+        )}
       </div>
-    </div>
+    </Tabs>
   );
 }
