@@ -17,10 +17,6 @@ interface NavWrapperProps {
   signOutAction: () => Promise<void>;
 }
 
-/**
- * Wrapper component that detects route context and provides
- * breadcrumb data to FancyNav
- */
 export function NavWrapper({
   user,
   signUpUrl,
@@ -29,11 +25,15 @@ export function NavWrapper({
   const pathname = usePathname();
   const isOrgPage = isOrganizationPage(pathname);
 
-  // Extract team ID from pathname if on team detail page
+  // Extract team ID from pathname for both /teams/:id and /dashboard/:teamId
   const teamId = useMemo(() => {
     if (pathname.startsWith("/teams/")) {
       const segments = pathname.split("/");
-      return segments[2]; // /teams/:id
+      return segments[2] ?? null;
+    }
+    if (pathname.startsWith("/dashboard/")) {
+      const segments = pathname.split("/");
+      return segments[2] ?? null;
     }
     return null;
   }, [pathname]);
@@ -44,13 +44,11 @@ export function NavWrapper({
     retry: false,
   });
 
-  // Only fetch team data when on team detail page and user is authenticated
-  // org routes are already protected by middleware, so if we're here, user is authenticated
+  // Fetch team data when on team or dashboard pages
   const { data: team } = api.team.getById.useQuery(
     { id: teamId! },
     {
       enabled: !!teamId && isOrgPage,
-      // Show placeholder on error
       retry: false,
     },
   );
@@ -60,10 +58,11 @@ export function NavWrapper({
     if (!isOrgPage) return undefined;
     return generateBreadcrumbs(
       pathname,
+      teamId,
       team?.name,
       orgData?.organization.name,
     );
-  }, [isOrgPage, pathname, team?.name, orgData?.organization.name]);
+  }, [isOrgPage, pathname, teamId, team?.name, orgData?.organization.name]);
 
   return (
     <FancyNav

@@ -2,10 +2,10 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 
-import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 import { useGSAP } from "@gsap/react";
+import { motion } from "framer-motion";
 import gsap from "gsap";
 import {
   Building2,
@@ -23,7 +23,7 @@ import {
   Workflow,
   X,
 } from "lucide-react";
-import { useTransitionRouter } from "next-transition-router";
+import { Link } from "next-transition-router";
 
 import {
   Breadcrumb,
@@ -36,20 +36,80 @@ import {
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
+  DropdownMenuContentNoPortal,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import {
-  ThemeToggleButton,
-  useThemeToggle,
-} from "@/components/ui/skiper-ui/skiper26";
+import { useThemeToggle } from "@/components/ui/skiper-ui/skiper26";
 import type { BreadcrumbItem } from "@/lib/nav-tree";
 import { cn } from "@/lib/utils";
 import { api } from "@/trpc/react";
 
 // Register GSAP plugins
 gsap.registerPlugin();
+
+// Sun/moon theme toggle based on ThemeToggleButton2 from skiper4
+function ThemeToggle({ className = "" }: { className?: string }) {
+  const { isDark, toggleTheme } = useThemeToggle({
+    variant: "circle",
+    start: "top-right",
+  });
+
+  return (
+    <button
+      type="button"
+      className={cn(
+        "rounded-full p-2 transition-all duration-300 active:scale-95",
+        isDark ? "bg-black text-white" : "bg-white text-black",
+        className,
+      )}
+      onClick={toggleTheme}
+      aria-label="Toggle theme"
+    >
+      <svg
+        xmlns="http://www.w3.org/2000/svg"
+        aria-hidden="true"
+        fill="currentColor"
+        strokeLinecap="round"
+        viewBox="0 0 32 32"
+      >
+        <clipPath id="theme-toggle-clip">
+          <motion.path
+            animate={{ y: isDark ? 10 : 0, x: isDark ? -12 : 0 }}
+            transition={{ ease: "easeInOut", duration: 0.35 }}
+            d="M0-5h30a1 1 0 0 0 9 13v24H0Z"
+          />
+        </clipPath>
+        <g clipPath="url(#theme-toggle-clip)">
+          <motion.circle
+            animate={{ r: isDark ? 10 : 8 }}
+            transition={{ ease: "easeInOut", duration: 0.35 }}
+            cx="16"
+            cy="16"
+          />
+          <motion.g
+            animate={{
+              rotate: isDark ? -100 : 0,
+              scale: isDark ? 0.5 : 1,
+              opacity: isDark ? 0 : 1,
+            }}
+            transition={{ ease: "easeInOut", duration: 0.35 }}
+            stroke="currentColor"
+            strokeWidth="1.5"
+          >
+            <path d="M16 5.5v-4" />
+            <path d="M16 30.5v-4" />
+            <path d="M1.5 16h4" />
+            <path d="M26.5 16h4" />
+            <path d="m23.4 8.6 2.8-2.8" />
+            <path d="m5.7 26.3 2.9-2.9" />
+            <path d="m5.8 5.8 2.8 2.8" />
+            <path d="m23.4 23.4 2.9 2.9" />
+          </motion.g>
+        </g>
+      </svg>
+    </button>
+  );
+}
 
 interface FancyNavProps {
   user: {
@@ -61,95 +121,6 @@ interface FancyNavProps {
   breadcrumbs?: BreadcrumbItem[];
 }
 
-// Menu item types
-interface MenuItem {
-  href: string;
-  title: string;
-  description: string;
-  icon: React.ReactNode;
-  devOnly?: boolean;
-}
-
-interface MenuSection {
-  title: string;
-  items: MenuItem[];
-  devOnly?: boolean;
-}
-
-// Define menu structure
-const menuSections: MenuSection[] = [
-  {
-    title: "Organization",
-    items: [
-      {
-        href: "/org",
-        title: "Organization",
-        description: "Manage settings & members",
-        icon: <Building2 className="size-4" />,
-      },
-      {
-        href: "/teams",
-        title: "Teams",
-        description: "Browse & manage teams",
-        icon: <Users className="size-4" />,
-        devOnly: true,
-      },
-      {
-        href: "/dashboard",
-        title: "Dashboard",
-        description: "Monitor key metrics",
-        icon: <LayoutDashboard className="size-4" />,
-        devOnly: true,
-      },
-      {
-        href: "/integration",
-        title: "Integrations",
-        description: "Connect 3rd party services",
-        icon: <Plug className="size-4" />,
-        devOnly: true,
-      },
-      {
-        href: "/metric",
-        title: "Metrics",
-        description: "Track KPIs",
-        icon: <TrendingUp className="size-4" />,
-        devOnly: true,
-      },
-      {
-        href: "/api-test",
-        title: "API Testing",
-        description: "Test endpoints",
-        icon: <FlaskConical className="size-4" />,
-        devOnly: true,
-      },
-    ],
-  },
-  {
-    title: "Features",
-    devOnly: true,
-    items: [
-      {
-        href: "/design-strategy",
-        title: "Design Strategy",
-        description: "Design patterns & components",
-        icon: <Palette className="size-4" />,
-      },
-      {
-        href: "/render-strategy",
-        title: "Render Strategy",
-        description: "Server/client rendering",
-        icon: <Code2 className="size-4" />,
-      },
-      {
-        href: "/workflow",
-        title: "Workflow Builder",
-        description: "Visual workflow builder",
-        icon: <Workflow className="size-4" />,
-      },
-    ],
-  },
-];
-
 export function FancyNav({
   user,
   signUpUrl,
@@ -160,9 +131,8 @@ export function FancyNav({
   const [isExpanded, setIsExpanded] = useState(false);
   const [isProdMode, setIsProdMode] = useState(false);
   const [mounted, setMounted] = useState(false);
-  const [openDropdownId, setOpenDropdownId] = useState<string | null>(null);
+  const [openDropdown, setOpenDropdown] = useState<string | null>(null);
   const pathname = usePathname();
-  const router = useTransitionRouter();
 
   // Refs for GSAP animations
   const containerRef = useRef<HTMLDivElement>(null);
@@ -179,12 +149,6 @@ export function FancyNav({
   // In production: always hide dev items
   // In development: show dev items unless "Prod Mode" is toggled on
   const showDevItems = isDev && !isProdMode;
-
-  // Theme toggle hook (using the hook for potential future use)
-  useThemeToggle({
-    variant: "circle",
-    start: "top-right",
-  });
 
   // Mount effect
   useEffect(() => {
@@ -365,7 +329,7 @@ export function FancyNav({
   if (!mounted) {
     return (
       <div className="fixed top-4 left-1/2 z-50 -translate-x-1/2">
-        <div className="bg-background/80 border-border h-12 w-32 animate-pulse rounded-full border backdrop-blur-md" />
+        <div className="bg-background/80 border-border h-10 w-32 animate-pulse rounded-md border backdrop-blur-md" />
       </div>
     );
   }
@@ -373,149 +337,157 @@ export function FancyNav({
   return (
     <div
       ref={containerRef}
-      className="group fixed top-4 left-1/2 z-50 -translate-x-1/2"
+      className="fixed top-4 left-1/2 z-50 -translate-x-1/2"
     >
       {/* Main pill/expanded container */}
       <div
         ref={pillRef}
         className={cn(
-          "bg-background/95 border-border relative origin-top overflow-hidden rounded-2xl border shadow-lg backdrop-blur-md transition-shadow",
-          isExpanded ? "shadow-2xl" : "shadow-lg hover:shadow-xl",
+          "bg-background/95 border-border relative origin-top rounded-md border shadow-lg backdrop-blur-md transition-shadow",
+          isExpanded
+            ? "overflow-hidden shadow-2xl"
+            : "overflow-visible shadow-lg hover:shadow-xl",
         )}
       >
         {/* Collapsed pill content */}
-        <div className="pill-content flex items-center gap-3 px-5 py-3">
+        <div className="pill-content flex items-center gap-3 px-4 py-2">
           {isOrgPage ? (
             <>
               {/* Breadcrumb Navigation Mode */}
               <Breadcrumb>
                 <BreadcrumbList className="flex-nowrap gap-1.5">
-                  {breadcrumbs.map((item, index) => (
-                    <div key={item.id} className="flex items-center gap-1.5">
-                      {/* Breadcrumb Item */}
-                      {item.dropdown ? (
-                        <BreadcrumbItemUI
-                          onMouseEnter={() => setOpenDropdownId(item.id)}
-                          onMouseLeave={() => setOpenDropdownId(null)}
-                        >
-                          {/* Clickable link for navigation */}
-                          <BreadcrumbLink asChild>
-                            <Link
-                              href={item.path}
-                              className="text-sm"
-                              onClick={(e) => {
-                                // Allow opening in new tab with cmd/ctrl+click
-                                if (e.metaKey || e.ctrlKey) return;
-                                // Use transition router for normal clicks
-                                e.preventDefault();
-                                router.push(item.path);
-                              }}
-                            >
-                              {item.icon === "home" ? (
-                                <Home className="size-3.5" />
-                              ) : (
-                                item.label
-                              )}
-                            </Link>
-                          </BreadcrumbLink>
+                  {breadcrumbs.map((item, index) => {
+                    const isOnDashboard = pathname.startsWith("/dashboard/");
+                    const dropdownId = `dropdown-${item.id}`;
 
-                          {/* Dropdown for team switcher */}
-                          <DropdownMenu
-                            open={openDropdownId === item.id}
-                            onOpenChange={(open) =>
-                              setOpenDropdownId(open ? item.id : null)
-                            }
+                    return (
+                      <div key={item.id} className="flex items-center gap-1.5">
+                        {item.dropdown ? (
+                          <BreadcrumbItemUI
+                            className="flex items-center gap-0.5"
+                            onMouseEnter={() => setOpenDropdown(dropdownId)}
+                            onMouseLeave={() => setOpenDropdown(null)}
                           >
-                            <DropdownMenuTrigger asChild>
-                              <button
-                                className="hover:text-foreground transition-colors"
-                                aria-label="Switch team"
-                              >
-                                <ChevronDown className="size-3" />
-                              </button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent
-                              align="start"
-                              onMouseEnter={() => setOpenDropdownId(item.id)}
-                              onMouseLeave={() => setOpenDropdownId(null)}
+                            {/* Label - navigable or static */}
+                            {item.isNavigable !== false ? (
+                              <BreadcrumbLink asChild>
+                                <Link href={item.path} className="text-sm">
+                                  {item.icon === "home" ? (
+                                    <Home className="size-3.5" />
+                                  ) : (
+                                    item.label
+                                  )}
+                                </Link>
+                              </BreadcrumbLink>
+                            ) : (
+                              <span className="text-foreground text-sm font-medium">
+                                {item.label}
+                              </span>
+                            )}
+
+                            {/* Dropdown with hover */}
+                            <DropdownMenu
+                              open={openDropdown === dropdownId}
+                              onOpenChange={(open) =>
+                                setOpenDropdown(open ? dropdownId : null)
+                              }
                             >
-                              {item.dropdown.type === "teams" && teams ? (
-                                <>
-                                  {teams.map((team) => (
-                                    <DropdownMenuItem key={team.id} asChild>
+                              <DropdownMenuTrigger asChild>
+                                <button
+                                  className="text-muted-foreground hover:text-foreground hover:bg-accent rounded p-0.5 transition-colors"
+                                  aria-label={
+                                    item.dropdown.type === "teams"
+                                      ? "Switch team"
+                                      : "Switch view"
+                                  }
+                                >
+                                  <ChevronDown className="size-3.5" />
+                                </button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContentNoPortal
+                                align="start"
+                                sideOffset={8}
+                                onMouseEnter={() => setOpenDropdown(dropdownId)}
+                                onMouseLeave={() => setOpenDropdown(null)}
+                              >
+                                {item.dropdown.type === "teams" && teams
+                                  ? teams.map((team) => {
+                                      const teamPath = isOnDashboard
+                                        ? `/dashboard/${team.id}`
+                                        : `/teams/${team.id}`;
+                                      const isCurrentTeam = pathname.includes(
+                                        team.id,
+                                      );
+                                      return (
+                                        <Link
+                                          key={team.id}
+                                          href={teamPath}
+                                          className={cn(
+                                            "hover:bg-accent hover:text-accent-foreground relative flex cursor-pointer items-center rounded-sm px-2 py-1.5 text-sm transition-colors outline-none select-none",
+                                            isCurrentTeam && "bg-accent",
+                                          )}
+                                          onClick={() => setOpenDropdown(null)}
+                                        >
+                                          {team.name}
+                                        </Link>
+                                      );
+                                    })
+                                  : item.dropdown.items.map((dropdownItem) => (
                                       <Link
-                                        href={`/teams/${team.id}`}
-                                        onClick={(e) => {
-                                          // Allow opening in new tab with cmd/ctrl+click
-                                          if (e.metaKey || e.ctrlKey) return;
-                                          // Use transition router for normal clicks
-                                          e.preventDefault();
-                                          router.push(`/teams/${team.id}`);
-                                          setOpenDropdownId(null);
-                                        }}
-                                      >
-                                        {team.name}
-                                      </Link>
-                                    </DropdownMenuItem>
-                                  ))}
-                                </>
-                              ) : (
-                                <>
-                                  {item.dropdown.items.map((dropdownItem) => (
-                                    <DropdownMenuItem
-                                      key={dropdownItem.path}
-                                      asChild
-                                    >
-                                      <Link
+                                        key={dropdownItem.path}
                                         href={dropdownItem.path}
-                                        onClick={(e) => {
-                                          // Allow opening in new tab with cmd/ctrl+click
-                                          if (e.metaKey || e.ctrlKey) return;
-                                          // Use transition router for normal clicks
-                                          e.preventDefault();
-                                          router.push(dropdownItem.path);
-                                          setOpenDropdownId(null);
-                                        }}
+                                        className={cn(
+                                          "hover:bg-accent hover:text-accent-foreground relative flex cursor-pointer items-center rounded-sm px-2 py-1.5 text-sm transition-colors outline-none select-none",
+                                          dropdownItem.path === pathname &&
+                                            "bg-accent",
+                                        )}
+                                        onClick={() => setOpenDropdown(null)}
                                       >
                                         {dropdownItem.label}
                                       </Link>
-                                    </DropdownMenuItem>
-                                  ))}
-                                </>
-                              )}
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-                        </BreadcrumbItemUI>
-                      ) : (
-                        <BreadcrumbItemUI>
-                          {item.isCurrentPage ? (
-                            <BreadcrumbPage className="text-sm">
-                              {item.icon === "home" ? (
-                                <Home className="size-3.5" />
-                              ) : (
-                                item.label
-                              )}
-                            </BreadcrumbPage>
-                          ) : (
-                            <BreadcrumbLink asChild>
-                              <Link href={item.path} className="text-sm">
+                                    ))}
+                              </DropdownMenuContentNoPortal>
+                            </DropdownMenu>
+                          </BreadcrumbItemUI>
+                        ) : (
+                          <BreadcrumbItemUI>
+                            {item.isCurrentPage ? (
+                              <BreadcrumbPage className="text-sm">
                                 {item.icon === "home" ? (
                                   <Home className="size-3.5" />
                                 ) : (
                                   item.label
                                 )}
-                              </Link>
-                            </BreadcrumbLink>
-                          )}
-                        </BreadcrumbItemUI>
-                      )}
+                              </BreadcrumbPage>
+                            ) : item.isNavigable !== false ? (
+                              <BreadcrumbLink asChild>
+                                <Link href={item.path} className="text-sm">
+                                  {item.icon === "home" ? (
+                                    <Home className="size-3.5" />
+                                  ) : (
+                                    item.label
+                                  )}
+                                </Link>
+                              </BreadcrumbLink>
+                            ) : (
+                              <span className="text-muted-foreground text-sm">
+                                {item.icon === "home" ? (
+                                  <Home className="size-3.5" />
+                                ) : (
+                                  item.label
+                                )}
+                              </span>
+                            )}
+                          </BreadcrumbItemUI>
+                        )}
 
-                      {/* Separator */}
-                      {index < breadcrumbs.length - 1 && (
-                        <BreadcrumbSeparator />
-                      )}
-                    </div>
-                  ))}
+                        {/* Separator */}
+                        {index < breadcrumbs.length - 1 && (
+                          <BreadcrumbSeparator />
+                        )}
+                      </div>
+                    );
+                  })}
                 </BreadcrumbList>
               </Breadcrumb>
 
@@ -524,15 +496,11 @@ export function FancyNav({
 
               {/* Quick actions */}
               <div className="flex items-center gap-1.5">
-                <ThemeToggleButton
-                  variant="circle"
-                  start="top-right"
-                  className="size-8 transition-transform hover:scale-110"
-                />
+                <ThemeToggle className="size-8 transition-transform hover:scale-110" />
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="size-7 transition-transform hover:scale-110"
+                  className="size-8 transition-transform hover:scale-110"
                   onClick={handleToggle}
                   aria-label={isExpanded ? "Close menu" : "Open menu"}
                 >
@@ -546,13 +514,6 @@ export function FancyNav({
             </>
           ) : (
             <>
-              {/* Pill Mode (Home/Docs pages) */}
-              {/* Status indicator - Dynamic Island style */}
-              <div className="relative flex items-center">
-                <div className="bg-primary/80 absolute -left-1 size-2 animate-pulse rounded-full" />
-                <div className="bg-primary/40 absolute -left-1 size-2 animate-ping rounded-full" />
-              </div>
-
               {/* Logo */}
               <Link
                 href="/"
@@ -575,20 +536,26 @@ export function FancyNav({
               {/* Separator */}
               <div className="bg-border h-5 w-px" />
 
-              {/* Quick actions in pill */}
-              <div className="flex items-center gap-1.5">
-                {/* Theme toggle */}
-                <ThemeToggleButton
-                  variant="circle"
-                  start="top-right"
-                  className="size-8 transition-transform hover:scale-110"
-                />
+              {user ? (
+                <span className="text-muted-foreground text-sm">
+                  Hi, {user.firstName ?? "there"}
+                </span>
+              ) : (
+                <Button variant="ghost" size="sm" asChild className="h-7 px-2">
+                  <Link href="/login" prefetch={false}>
+                    Sign in
+                  </Link>
+                </Button>
+              )}
 
-                {/* Menu toggle */}
+              <div className="bg-border h-5 w-px" />
+
+              <div className="flex items-center gap-1.5">
+                <ThemeToggle className="size-8 transition-transform hover:scale-110" />
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="size-7 transition-transform hover:scale-110"
+                  className="size-8 transition-transform hover:scale-110"
                   onClick={handleToggle}
                   aria-label={isExpanded ? "Close menu" : "Open menu"}
                 >
@@ -978,11 +945,7 @@ export function FancyNav({
           >
             <div className="flex items-center gap-3">
               {/* Theme toggle */}
-              <ThemeToggleButton
-                variant="circle"
-                start="top-right"
-                className="size-10"
-              />
+              <ThemeToggle className="size-10" />
 
               {/* GitHub */}
               <Button variant="ghost" size="icon" asChild>
@@ -1026,38 +989,6 @@ export function FancyNav({
           </div>
         </div>
       </div>
-
-      {/* Floating decorative elements */}
-      <div
-        className={cn(
-          "pointer-events-none absolute -z-10 transition-all duration-700",
-          isExpanded ? "scale-100 opacity-100" : "scale-90 opacity-0",
-        )}
-      >
-        {/* Glow effects */}
-        <div className="bg-primary/30 absolute -top-32 -left-32 size-64 animate-pulse rounded-full blur-3xl" />
-        <div className="bg-primary/20 absolute -right-20 -bottom-20 size-48 rounded-full blur-2xl" />
-        <div className="absolute -bottom-16 -left-16 size-32 rounded-full bg-blue-500/10 blur-2xl" />
-
-        {/* Grid pattern overlay */}
-        <div
-          className="absolute -top-40 -left-40 size-[600px] opacity-20"
-          style={{
-            backgroundImage: `
-              linear-gradient(rgba(var(--primary-rgb, 0, 0, 0), 0.1) 1px, transparent 1px),
-              linear-gradient(90deg, rgba(var(--primary-rgb, 0, 0, 0), 0.1) 1px, transparent 1px)
-            `,
-            backgroundSize: "40px 40px",
-          }}
-        />
-      </div>
-
-      {/* Pill hover glow effect when collapsed */}
-      {!isExpanded && (
-        <div className="pointer-events-none absolute inset-0 -z-10">
-          <div className="bg-primary/10 absolute top-1/2 left-1/2 size-24 -translate-x-1/2 -translate-y-1/2 rounded-full opacity-0 blur-xl transition-opacity duration-300 group-hover:opacity-100" />
-        </div>
-      )}
     </div>
   );
 }
