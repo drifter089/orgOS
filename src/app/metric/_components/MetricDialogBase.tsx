@@ -20,6 +20,7 @@ export interface MetricCreateInput {
   name: string;
   description: string;
   endpointParams: Record<string, string>;
+  teamId?: string;
 }
 
 export interface ContentProps {
@@ -43,6 +44,7 @@ interface MetricDialogBaseProps {
   onOpenChange?: (open: boolean) => void;
   onSuccess?: () => void;
   maxWidth?: string;
+  teamId?: string;
   children: (props: ContentProps) => React.ReactNode;
 }
 
@@ -55,6 +57,7 @@ export function MetricDialogBase({
   onOpenChange,
   onSuccess,
   maxWidth = "sm:max-w-[600px]",
+  teamId,
   children,
 }: MetricDialogBaseProps) {
   const [internalOpen, setInternalOpen] = useState(false);
@@ -74,6 +77,9 @@ export function MetricDialogBase({
   const createMetric = api.metric.create.useMutation({
     onSuccess: () => {
       void utils.metric.getAll.invalidate();
+      if (teamId) {
+        void utils.metric.getByTeamId.invalidate({ teamId });
+      }
       setOpen?.(false);
       setError(null);
       onSuccess?.();
@@ -85,7 +91,7 @@ export function MetricDialogBase({
 
   const handleSubmit = (data: MetricCreateInput) => {
     setError(null);
-    createMetric.mutate(data);
+    createMetric.mutate({ ...data, teamId });
   };
 
   if (!connection) {

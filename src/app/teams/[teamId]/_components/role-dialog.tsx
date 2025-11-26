@@ -123,8 +123,8 @@ export function RoleDialog({
     }
   }, [open, roleData, form]);
 
-  // Fetch metrics for dropdown
-  const { data: metrics = [] } = api.metric.getAll.useQuery();
+  // Fetch metrics for dropdown (only metrics belonging to this team)
+  const { data: metrics = [] } = api.metric.getByTeamId.useQuery({ teamId });
 
   // Fetch organization members for assignment
   const { data: members = [] } =

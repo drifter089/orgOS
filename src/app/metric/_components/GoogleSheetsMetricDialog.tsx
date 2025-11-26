@@ -8,6 +8,7 @@ interface GoogleSheetsMetricDialogProps {
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
   onSuccess?: () => void;
+  teamId?: string;
 }
 
 export function GoogleSheetsMetricDialog({
@@ -15,6 +16,7 @@ export function GoogleSheetsMetricDialog({
   open,
   onOpenChange,
   onSuccess,
+  teamId,
 }: GoogleSheetsMetricDialogProps) {
   return (
     <MetricDialogBase
@@ -25,6 +27,7 @@ export function GoogleSheetsMetricDialog({
       open={open}
       onOpenChange={onOpenChange}
       onSuccess={onSuccess}
+      teamId={teamId}
       maxWidth="sm:max-w-[900px]"
     >
       {(props) => <GoogleSheetsMetricContent {...props} />}

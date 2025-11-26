@@ -18,12 +18,14 @@ export interface DashboardClientHandle {
 }
 
 interface DashboardClientProps {
+  teamId: string;
   initialDashboardMetrics: DashboardMetrics;
   autoTrigger?: boolean;
   onImportRef?: (handle: DashboardClientHandle) => void;
 }
 
 export function DashboardClient({
+  teamId,
   initialDashboardMetrics,
   autoTrigger = true,
   onImportRef,
@@ -31,7 +33,7 @@ export function DashboardClient({
   const utils = api.useUtils();
 
   const { data: dashboardMetrics } = api.dashboard.getDashboardMetrics.useQuery(
-    undefined,
+    { teamId },
     {
       initialData: initialDashboardMetrics,
     },
@@ -39,7 +41,7 @@ export function DashboardClient({
 
   const importMutation = api.dashboard.importAllAvailableMetrics.useMutation({
     onSuccess: async (result) => {
-      await utils.dashboard.getDashboardMetrics.invalidate();
+      await utils.dashboard.getDashboardMetrics.invalidate({ teamId });
       toast.success(result.message);
     },
     onError: (error) => {
@@ -48,7 +50,7 @@ export function DashboardClient({
   });
 
   const handleImportAll = () => {
-    importMutation.mutate();
+    importMutation.mutate({ teamId });
   };
 
   useEffect(() => {

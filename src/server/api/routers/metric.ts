@@ -20,6 +20,21 @@ export const metricRouter = createTRPCRouter({
     });
   }),
 
+  getByTeamId: workspaceProcedure
+    .input(z.object({ teamId: z.string() }))
+    .query(async ({ ctx, input }) => {
+      return ctx.db.metric.findMany({
+        where: {
+          organizationId: ctx.workspace.organizationId,
+          teamId: input.teamId,
+        },
+        include: {
+          integration: true,
+        },
+        orderBy: { name: "asc" },
+      });
+    }),
+
   getById: workspaceProcedure
     .input(z.object({ id: z.string() }))
     .query(async ({ ctx, input }) => {
@@ -36,6 +51,7 @@ export const metricRouter = createTRPCRouter({
         name: z.string().min(1).max(100),
         description: z.string().optional(),
         endpointParams: z.record(z.string()),
+        teamId: z.string().optional(),
       }),
     )
     .mutation(async ({ ctx, input }) => {
@@ -47,8 +63,6 @@ export const metricRouter = createTRPCRouter({
         ctx.workspace,
       );
 
-      // No template validation here - trust frontend
-      // Just save the configuration
       return ctx.db.metric.create({
         data: {
           name: input.name,
@@ -57,6 +71,7 @@ export const metricRouter = createTRPCRouter({
           integrationId: input.connectionId,
           metricTemplate: input.templateId,
           endpointConfig: input.endpointParams,
+          teamId: input.teamId,
         },
       });
     }),

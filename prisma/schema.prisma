@@ -50,6 +50,7 @@ model Team {
     viewport       Json?    // { x, y, zoom } for canvas position
 
     roles          Role[]
+    metrics        Metric[]
 
     createdAt      DateTime @default(now())
     updatedAt      DateTime @updatedAt
@@ -90,6 +91,7 @@ model Metric {
     name           String   // e.g., "GitHub Stars", "YouTube Views"
     description    String?
     organizationId String   // WorkOS organization ID
+    teamId         String?  // Optional team association
 
     // Integration-backed metrics
     integrationId  String?  // Reference to Integration connectionId
@@ -97,6 +99,7 @@ model Metric {
     endpointConfig Json?    // Endpoint parameters (e.g., {videoId: "abc123"})
     lastFetchedAt  DateTime? // Last data refresh timestamp
 
+    team              Team?             @relation(fields: [teamId], references: [id], onDelete: SetNull)
     integration       Integration?      @relation(fields: [integrationId], references: [connectionId], onDelete: Cascade)
     roles             Role[]            // One metric can be used by many roles
     dashboardMetrics  DashboardMetric[] // Dashboard configurations using this metric
@@ -105,6 +108,7 @@ model Metric {
     updatedAt      DateTime @updatedAt
 
     @@index([organizationId])
+    @@index([teamId])
     @@index([name])
     @@index([integrationId])
 }

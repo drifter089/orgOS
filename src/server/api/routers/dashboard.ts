@@ -8,82 +8,15 @@ import { fetchData } from "@/server/api/services/nango";
 import { createTRPCRouter, workspaceProcedure } from "@/server/api/trpc";
 
 export const dashboardRouter = createTRPCRouter({
-  getDashboardMetrics: workspaceProcedure.query(async ({ ctx }) => {
-    const dashboardMetrics = await ctx.db.dashboardMetric.findMany({
-      where: { organizationId: ctx.workspace.organizationId },
-      include: {
-        metric: {
-          include: {
-            integration: true,
-          },
-        },
-      },
-      orderBy: { position: "asc" },
-    });
-
-    return dashboardMetrics;
-  }),
-
-  addMetricToDashboard: workspaceProcedure
-    .input(
-      z.object({
-        metricId: z.string(),
-        size: z.enum(["small", "medium", "large"]).optional(),
-      }),
-    )
-    .mutation(async ({ ctx, input }) => {
-      const metric = await ctx.db.metric.findUnique({
-        where: { id: input.metricId },
-      });
-
-      if (!metric) {
-        throw new TRPCError({
-          code: "NOT_FOUND",
-          message: "Metric not found",
-        });
-      }
-
-      if (metric.organizationId !== ctx.workspace.organizationId) {
-        throw new TRPCError({
-          code: "FORBIDDEN",
-          message: "Access denied to this metric",
-        });
-      }
-
-      const existing = await ctx.db.dashboardMetric.findFirst({
+  getDashboardMetrics: workspaceProcedure
+    .input(z.object({ teamId: z.string().optional() }).optional())
+    .query(async ({ ctx, input }) => {
+      const dashboardMetrics = await ctx.db.dashboardMetric.findMany({
         where: {
           organizationId: ctx.workspace.organizationId,
-          metricId: input.metricId,
-        },
-      });
-
-      if (existing) {
-        return ctx.db.dashboardMetric.findUnique({
-          where: { id: existing.id },
-          include: {
-            metric: {
-              include: {
-                integration: true,
-              },
-            },
-          },
-        });
-      }
-
-      const maxPosition = await ctx.db.dashboardMetric.findFirst({
-        where: { organizationId: ctx.workspace.organizationId },
-        orderBy: { position: "desc" },
-        select: { position: true },
-      });
-
-      return ctx.db.dashboardMetric.create({
-        data: {
-          organizationId: ctx.workspace.organizationId,
-          metricId: input.metricId,
-          graphType: "bar",
-          graphConfig: {},
-          size: input.size ?? "medium",
-          position: (maxPosition?.position ?? -1) + 1,
+          ...(input?.teamId && {
+            metric: { teamId: input.teamId },
+          }),
         },
         include: {
           metric: {
@@ -92,7 +25,10 @@ export const dashboardRouter = createTRPCRouter({
             },
           },
         },
+        orderBy: { position: "asc" },
       });
+
+      return dashboardMetrics;
     }),
 
   refreshMetricChart: workspaceProcedure
@@ -228,105 +164,61 @@ export const dashboardRouter = createTRPCRouter({
         where: { id: input.dashboardMetricId },
       });
     }),
-  updatePositions: workspaceProcedure
-    .input(
-      z.object({
-        updates: z.array(
-          z.object({
-            dashboardMetricId: z.string(),
-            position: z.number().int().min(0),
-          }),
-        ),
-      }),
-    )
+
+  importAllAvailableMetrics: workspaceProcedure
+    .input(z.object({ teamId: z.string().optional() }).optional())
     .mutation(async ({ ctx, input }) => {
-      const dashboardMetrics = await ctx.db.dashboardMetric.findMany({
+      const allMetrics = await ctx.db.metric.findMany({
         where: {
-          id: { in: input.updates.map((u) => u.dashboardMetricId) },
           organizationId: ctx.workspace.organizationId,
+          ...(input?.teamId && { teamId: input.teamId }),
         },
+        select: { id: true },
       });
 
-      if (dashboardMetrics.length !== input.updates.length) {
-        throw new TRPCError({
-          code: "FORBIDDEN",
-          message: "Access denied to one or more dashboard metrics",
-        });
-      }
-
-      await ctx.db.$transaction(
-        input.updates.map((update) =>
-          ctx.db.dashboardMetric.update({
-            where: { id: update.dashboardMetricId },
-            data: { position: update.position },
+      const dashboardMetrics = await ctx.db.dashboardMetric.findMany({
+        where: {
+          organizationId: ctx.workspace.organizationId,
+          ...(input?.teamId && {
+            metric: { teamId: input.teamId },
           }),
-        ),
+        },
+        select: { metricId: true, position: true },
+      });
+
+      const dashboardMetricIds = new Set(
+        dashboardMetrics.map((dm) => dm.metricId),
       );
 
-      return { success: true };
+      const maxPosition =
+        dashboardMetrics.reduce((max, dm) => Math.max(max, dm.position), -1) +
+        1;
+
+      const metricsToAdd = allMetrics.filter(
+        (metric) => !dashboardMetricIds.has(metric.id),
+      );
+
+      if (metricsToAdd.length === 0) {
+        return {
+          added: 0,
+          message: "All metrics are already on the dashboard",
+        };
+      }
+
+      await ctx.db.dashboardMetric.createMany({
+        data: metricsToAdd.map((metric, index) => ({
+          organizationId: ctx.workspace.organizationId,
+          metricId: metric.id,
+          graphType: "bar",
+          graphConfig: {},
+          size: "medium",
+          position: maxPosition + index,
+        })),
+      });
+
+      return {
+        added: metricsToAdd.length,
+        message: `Added ${metricsToAdd.length} metric${metricsToAdd.length === 1 ? "" : "s"} to dashboard`,
+      };
     }),
-
-  getAvailableMetrics: workspaceProcedure.query(async ({ ctx }) => {
-    const allMetrics = await ctx.db.metric.findMany({
-      where: { organizationId: ctx.workspace.organizationId },
-      include: {
-        integration: true,
-      },
-      orderBy: { name: "asc" },
-    });
-
-    const dashboardMetrics = await ctx.db.dashboardMetric.findMany({
-      where: { organizationId: ctx.workspace.organizationId },
-      select: { metricId: true },
-    });
-
-    const dashboardMetricIds = new Set(
-      dashboardMetrics.map((dm) => dm.metricId),
-    );
-
-    return allMetrics.filter((metric) => !dashboardMetricIds.has(metric.id));
-  }),
-
-  importAllAvailableMetrics: workspaceProcedure.mutation(async ({ ctx }) => {
-    const allMetrics = await ctx.db.metric.findMany({
-      where: { organizationId: ctx.workspace.organizationId },
-      select: { id: true },
-    });
-
-    const dashboardMetrics = await ctx.db.dashboardMetric.findMany({
-      where: { organizationId: ctx.workspace.organizationId },
-      select: { metricId: true, position: true },
-    });
-
-    const dashboardMetricIds = new Set(
-      dashboardMetrics.map((dm) => dm.metricId),
-    );
-
-    const maxPosition =
-      dashboardMetrics.reduce((max, dm) => Math.max(max, dm.position), -1) + 1;
-
-    const metricsToAdd = allMetrics.filter(
-      (metric) => !dashboardMetricIds.has(metric.id),
-    );
-
-    if (metricsToAdd.length === 0) {
-      return { added: 0, message: "All metrics are already on the dashboard" };
-    }
-
-    await ctx.db.dashboardMetric.createMany({
-      data: metricsToAdd.map((metric, index) => ({
-        organizationId: ctx.workspace.organizationId,
-        metricId: metric.id,
-        graphType: "bar",
-        graphConfig: {},
-        size: "medium",
-        position: maxPosition + index,
-      })),
-    });
-
-    return {
-      added: metricsToAdd.length,
-      message: `Added ${metricsToAdd.length} metric${metricsToAdd.length === 1 ? "" : "s"} to dashboard`,
-    };
-  }),
 });

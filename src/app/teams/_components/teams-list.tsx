@@ -2,11 +2,13 @@
 
 import Link from "next/link";
 
-import { Clock, Loader2, Users } from "lucide-react";
+import { BarChart3, Clock, Loader2, Network, Users } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import {
   Card,
+  CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
@@ -118,36 +120,48 @@ export function TeamsList() {
         }
 
         return (
-          <Link key={team.id} href={`/teams/${team.id}`}>
-            <Card className="group hover:border-primary/20 cursor-pointer transition-all hover:shadow-lg">
-              <CardHeader className="p-4">
-                <div className="flex items-center justify-between gap-4">
-                  <div className="min-w-0 flex-1 space-y-1">
-                    <CardTitle className="group-hover:text-primary line-clamp-1 text-lg transition-colors">
-                      {team.name}
-                    </CardTitle>
-                    <CardDescription className="line-clamp-1">
-                      {team.description ?? "No description"}
-                    </CardDescription>
-                  </div>
-                  <div className="flex shrink-0 items-center gap-4 text-sm">
-                    <Badge variant="secondary" className="gap-1.5">
-                      <Users className="h-3 w-3" />
-                      {team._count.roles}{" "}
-                      {team._count.roles !== 1 ? "roles" : "role"}
-                    </Badge>
-                    <div className="text-muted-foreground flex items-center gap-1.5 text-xs">
-                      <Clock className="h-3 w-3" />
-                      {new Date(team.updatedAt).toLocaleDateString("en-US", {
-                        month: "short",
-                        day: "numeric",
-                      })}
-                    </div>
+          <Card key={team.id} className="transition-all hover:shadow-lg">
+            <CardHeader className="p-4 pb-2">
+              <div className="flex items-center justify-between gap-4">
+                <div className="min-w-0 flex-1 space-y-1">
+                  <CardTitle className="line-clamp-1 text-lg">
+                    {team.name}
+                  </CardTitle>
+                  <CardDescription className="line-clamp-1">
+                    {team.description ?? "No description"}
+                  </CardDescription>
+                </div>
+                <div className="flex shrink-0 items-center gap-4 text-sm">
+                  <Badge variant="secondary" className="gap-1.5">
+                    <Users className="h-3 w-3" />
+                    {team._count.roles}{" "}
+                    {team._count.roles !== 1 ? "roles" : "role"}
+                  </Badge>
+                  <div className="text-muted-foreground flex items-center gap-1.5 text-xs">
+                    <Clock className="h-3 w-3" />
+                    {new Date(team.updatedAt).toLocaleDateString("en-US", {
+                      month: "short",
+                      day: "numeric",
+                    })}
                   </div>
                 </div>
-              </CardHeader>
-            </Card>
-          </Link>
+              </div>
+            </CardHeader>
+            <CardContent className="flex gap-2 p-4 pt-2">
+              <Button asChild variant="outline" size="sm" className="flex-1">
+                <Link href={`/teams/${team.id}`}>
+                  <Network className="mr-2 h-4 w-4" />
+                  Roles
+                </Link>
+              </Button>
+              <Button asChild variant="outline" size="sm" className="flex-1">
+                <Link href={`/dashboard/${team.id}`}>
+                  <BarChart3 className="mr-2 h-4 w-4" />
+                  Dashboard
+                </Link>
+              </Button>
+            </CardContent>
+          </Card>
         );
       })}
     </div>

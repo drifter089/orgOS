@@ -26,6 +26,7 @@ import { DashboardSheetEdgeTrigger } from "./dashboard-sheet-edge-trigger";
 type IntegrationsWithStats = RouterOutputs["integration"]["listWithStats"];
 
 interface DashboardSidebarProps {
+  teamId: string;
   initialIntegrations: IntegrationsWithStats;
   onMetricCreated?: () => void;
 }
@@ -61,6 +62,7 @@ function NonModalSheetContent({
 }
 
 export function DashboardSidebar({
+  teamId,
   initialIntegrations,
   onMetricCreated,
 }: DashboardSidebarProps) {
@@ -132,6 +134,7 @@ export function DashboardSidebar({
                   gridCols={2}
                   showMetricDialogs={true}
                   onMetricCreated={onMetricCreated}
+                  teamId={teamId}
                   MetricDialogs={{
                     github: GitHubMetricDialog,
                     posthog: PostHogMetricDialog,
@@ -147,6 +150,7 @@ export function DashboardSidebar({
               <div className="space-y-4">
                 <h3 className="font-semibold">Your Metrics</h3>
                 <MetricTabsDisplay
+                  teamId={teamId}
                   className="w-full"
                   tabsListClassName="flex gap-2 bg-transparent overflow-x-auto [&::-webkit-scrollbar]:h-2 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-border/40 hover:[&::-webkit-scrollbar-thumb]:bg-border/60 [&::-webkit-scrollbar-track]:bg-transparent"
                   tabTriggerClassName="text-xs border shrink-0"
