@@ -105,6 +105,11 @@ export function IntegrationGrid({
         { connectionId },
         { staleTime: 5 * 60 * 1000 },
       );
+    } else if (integrationId === "youtube") {
+      void utils.metric.getYouTubeVideos.prefetch(
+        { connectionId },
+        { staleTime: 5 * 60 * 1000 },
+      );
     }
   };
 

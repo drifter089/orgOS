@@ -134,6 +134,24 @@ export const metricRouter = createTRPCRouter({
       );
     }),
 
+  getYouTubeVideos: workspaceProcedure
+    .input(z.object({ connectionId: z.string() }))
+    .query(async ({ ctx, input }) => {
+      await getIntegrationAndVerifyAccess(
+        ctx.db,
+        input.connectionId,
+        ctx.user.id,
+        ctx.workspace,
+      );
+
+      return await fetchData(
+        "youtube",
+        input.connectionId,
+        "/youtube/v3/search?part=snippet&forMine=true&type=video&maxResults=50",
+        { method: "GET", params: {} },
+      );
+    }),
+
   // ===========================================================================
   // Generic Integration Data Fetching
   // ===========================================================================
