@@ -7,7 +7,7 @@ export const teamRouter = createTRPCRouter({
   getAll: workspaceProcedure.query(async ({ ctx }) => {
     return ctx.db.team.findMany({
       where: { organizationId: ctx.workspace.organizationId },
-      include: { _count: { select: { roles: true } } },
+      include: { _count: { select: { roles: true, metrics: true } } },
       orderBy: { updatedAt: "desc" },
     });
   }),

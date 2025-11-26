@@ -71,7 +71,7 @@ export function CreateTeamDialog() {
         reactFlowNodes: [],
         reactFlowEdges: [],
         viewport: null,
-        _count: { roles: 0 },
+        _count: { roles: 0, metrics: 0 },
         isPending: true,
       };
 
