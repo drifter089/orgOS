@@ -40,8 +40,14 @@ export function DashboardClient({
   );
 
   const importMutation = api.dashboard.importAllAvailableMetrics.useMutation({
-    onSuccess: async (result) => {
-      await utils.dashboard.getDashboardMetrics.invalidate({ teamId });
+    onSuccess: (result) => {
+      if (result.newDashboardMetrics.length > 0) {
+        utils.dashboard.getDashboardMetrics.setData({ teamId }, (old) =>
+          old
+            ? [...old, ...result.newDashboardMetrics]
+            : result.newDashboardMetrics,
+        );
+      }
       toast.success(result.message);
     },
     onError: (error) => {

@@ -12,6 +12,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
+import type { RouterOutputs } from "@/trpc/react";
 import { api } from "@/trpc/react";
 
 export interface MetricCreateInput {
@@ -48,6 +49,8 @@ interface MetricDialogBaseProps {
   children: (props: ContentProps) => React.ReactNode;
 }
 
+type MetricWithIntegration = RouterOutputs["metric"]["getAll"][number];
+
 export function MetricDialogBase({
   integrationId,
   title,
@@ -75,17 +78,98 @@ export function MetricDialogBase({
   );
 
   const createMetric = api.metric.create.useMutation({
-    onSuccess: () => {
-      void utils.metric.getAll.invalidate();
+    onMutate: async (newMetric) => {
+      await utils.metric.getAll.cancel();
       if (teamId) {
-        void utils.metric.getByTeamId.invalidate({ teamId });
+        await utils.metric.getByTeamId.cancel({ teamId });
       }
+
+      const previousAll = utils.metric.getAll.getData();
+      const previousTeam = teamId
+        ? utils.metric.getByTeamId.getData({ teamId })
+        : undefined;
+
+      const optimisticMetric: MetricWithIntegration = {
+        id: `temp-${Date.now()}`,
+        name: newMetric.name,
+        description: newMetric.description ?? null,
+        organizationId: "",
+        integrationId: newMetric.connectionId,
+        metricTemplate: newMetric.templateId,
+        endpointConfig: newMetric.endpointParams,
+        teamId: teamId ?? null,
+        lastFetchedAt: null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        integration: connection
+          ? {
+              id: connection.id,
+              connectionId: connection.connectionId,
+              integrationId: connection.integrationId,
+              organizationId: "",
+              connectedBy: "",
+              status: "active",
+              metadata: null,
+              lastSyncAt: null,
+              errorMessage: null,
+              createdAt: connection.createdAt,
+              updatedAt: connection.createdAt,
+            }
+          : null,
+      };
+
+      utils.metric.getAll.setData(undefined, (old) =>
+        old ? [...old, optimisticMetric] : [optimisticMetric],
+      );
+
+      if (teamId) {
+        utils.metric.getByTeamId.setData({ teamId }, (old) =>
+          old ? [...old, optimisticMetric] : [optimisticMetric],
+        );
+      }
+
+      return { previousAll, previousTeam };
+    },
+
+    onError: (err, _variables, context) => {
+      if (context?.previousAll) {
+        utils.metric.getAll.setData(undefined, context.previousAll);
+      }
+      if (context?.previousTeam && teamId) {
+        utils.metric.getByTeamId.setData({ teamId }, context.previousTeam);
+      }
+      setError(err.message);
+    },
+
+    onSuccess: (createdMetric, variables) => {
+      utils.metric.getAll.setData(undefined, (old) =>
+        old?.map((m) =>
+          m.id.startsWith("temp-") && m.name === variables.name
+            ? createdMetric
+            : m,
+        ),
+      );
+
+      if (teamId) {
+        utils.metric.getByTeamId.setData({ teamId }, (old) =>
+          old?.map((m) =>
+            m.id.startsWith("temp-") && m.name === variables.name
+              ? createdMetric
+              : m,
+          ),
+        );
+      }
+
       setOpen?.(false);
       setError(null);
       onSuccess?.();
     },
-    onError: (err) => {
-      setError(err.message);
+
+    onSettled: () => {
+      void utils.metric.getAll.invalidate();
+      if (teamId) {
+        void utils.metric.getByTeamId.invalidate({ teamId });
+      }
     },
   });
 

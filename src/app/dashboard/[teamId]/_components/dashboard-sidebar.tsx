@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 
 import * as SheetPrimitive from "@radix-ui/react-dialog";
+import { Loader2 } from "lucide-react";
 
 import {
   AddPlatformButton,
@@ -15,6 +16,7 @@ import {
   PostHogMetricDialog,
   YouTubeMetricDialog,
 } from "@/app/metric/_components";
+import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Sheet } from "@/components/ui/sheet";
 import { getPlatformConfig } from "@/lib/platform-config";
@@ -154,29 +156,46 @@ export function DashboardSidebar({
                   className="w-full"
                   tabsListClassName="flex gap-2 bg-transparent overflow-x-auto [&::-webkit-scrollbar]:h-2 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-border/40 hover:[&::-webkit-scrollbar-thumb]:bg-border/60 [&::-webkit-scrollbar-track]:bg-transparent"
                   tabTriggerClassName="text-xs border shrink-0"
-                  renderMetricCard={(metric) => (
-                    <div
-                      key={metric.id}
-                      className="group hover:bg-accent/50 relative flex items-center gap-3 rounded-lg border p-3"
-                    >
+                  renderMetricCard={(metric) => {
+                    const isSyncing = metric.id.startsWith("temp-");
+                    return (
                       <div
+                        key={metric.id}
                         className={cn(
-                          "h-8 w-1 rounded-full",
-                          getPlatformConfig(
-                            metric.integration?.integrationId ?? "unknown",
-                          ).bgColor,
+                          "group hover:bg-accent/50 relative flex items-center gap-3 rounded-lg border p-3",
+                          isSyncing && "opacity-70",
                         )}
-                      />
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate text-sm font-medium">
-                          {metric.name}
-                        </p>
-                        <p className="text-muted-foreground text-xs capitalize">
-                          {metric.integration?.integrationId ?? "unknown"}
-                        </p>
+                      >
+                        <div
+                          className={cn(
+                            "h-8 w-1 rounded-full",
+                            getPlatformConfig(
+                              metric.integration?.integrationId ?? "unknown",
+                            ).bgColor,
+                          )}
+                        />
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-2">
+                            <p className="truncate text-sm font-medium">
+                              {metric.name}
+                            </p>
+                            {isSyncing && (
+                              <Badge
+                                variant="secondary"
+                                className="shrink-0 text-xs"
+                              >
+                                <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                                Syncing
+                              </Badge>
+                            )}
+                          </div>
+                          <p className="text-muted-foreground text-xs capitalize">
+                            {metric.integration?.integrationId ?? "unknown"}
+                          </p>
+                        </div>
                       </div>
-                    </div>
-                  )}
+                    );
+                  }}
                 />
               </div>
             </div>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { DialogFooter } from "@/components/ui/dialog";
@@ -19,11 +19,6 @@ import type { ContentProps } from "./MetricDialogBase";
 
 type ScopeType = "channel" | "video";
 type MetricType = "views" | "likes" | "subscribers";
-
-interface VideoOption {
-  label: string;
-  value: string;
-}
 
 function transformVideos(
   data: unknown,
@@ -101,29 +96,20 @@ export function YouTubeMetricContent({
   const [selectedVideoId, setSelectedVideoId] = useState("");
   const [metricType, setMetricType] = useState<MetricType | "">("");
   const [metricName, setMetricName] = useState("");
-  const [videoOptions, setVideoOptions] = useState<VideoOption[]>([]);
 
-  const fetchVideos = api.metric.fetchIntegrationData.useMutation({
-    onSuccess: (data: { data: unknown }) => {
-      const options = transformVideos(data.data);
-      setVideoOptions(options);
-    },
-  });
+  const { data: videosData, isLoading: isLoadingVideos } =
+    api.metric.getYouTubeVideos.useQuery(
+      { connectionId: connection.connectionId },
+      {
+        enabled: !!connection && scopeType === "video",
+        staleTime: 5 * 60 * 1000,
+      },
+    );
 
-  // Fetch videos when "video" scope is selected
-  useEffect(() => {
-    if (scopeType === "video" && connection && videoOptions.length === 0) {
-      fetchVideos.mutate({
-        connectionId: connection.connectionId,
-        integrationId: "youtube",
-        endpoint:
-          "/youtube/v3/search?part=snippet&forMine=true&type=video&maxResults=50",
-        method: "GET",
-        params: {},
-      });
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [scopeType, connection]);
+  const videoOptions = useMemo(() => {
+    if (!videosData?.data) return [];
+    return transformVideos(videosData.data);
+  }, [videosData]);
 
   // Reset selections when scope changes
   const handleScopeChange = (value: ScopeType) => {
@@ -204,14 +190,12 @@ export function YouTubeMetricContent({
             <Select
               value={selectedVideoId}
               onValueChange={setSelectedVideoId}
-              disabled={videoOptions.length === 0}
+              disabled={isLoadingVideos || videoOptions.length === 0}
             >
               <SelectTrigger id="video">
                 <SelectValue
                   placeholder={
-                    fetchVideos.isPending
-                      ? "Loading videos..."
-                      : "Choose a video"
+                    isLoadingVideos ? "Loading videos..." : "Choose a video"
                   }
                 />
               </SelectTrigger>
