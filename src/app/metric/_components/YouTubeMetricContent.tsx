@@ -190,7 +190,7 @@ export function YouTubeMetricContent({
             <Select
               value={selectedVideoId}
               onValueChange={setSelectedVideoId}
-              disabled={videoOptions.length === 0 && !isLoadingVideos}
+              disabled={isLoadingVideos || videoOptions.length === 0}
             >
               <SelectTrigger id="video">
                 <SelectValue

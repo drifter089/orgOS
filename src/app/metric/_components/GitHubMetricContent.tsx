@@ -104,7 +104,7 @@ export function GitHubMetricContent({
           <Select
             value={selectedRepo}
             onValueChange={setSelectedRepo}
-            disabled={repoOptions.length === 0 && !isLoadingRepos}
+            disabled={isLoadingRepos || repoOptions.length === 0}
           >
             <SelectTrigger id="repo">
               <SelectValue
