@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 
+import { toast } from "sonner";
+
 import { useConfirmation } from "@/providers/ConfirmationDialogProvider";
 import type { RouterOutputs } from "@/trpc/react";
 import { api } from "@/trpc/react";
@@ -71,34 +73,32 @@ export function DashboardMetricCard({
     chartTransform?.chartData && chartTransform.chartData.length > 0
   );
 
-  const removeMetricMutation =
-    api.dashboard.removeMetricFromDashboard.useMutation({
-      onMutate: async ({ dashboardMetricId }) => {
-        await utils.dashboard.getDashboardMetrics.cancel();
+  const deleteMetricMutation = api.metric.delete.useMutation({
+    onMutate: async ({ id }) => {
+      await utils.dashboard.getDashboardMetrics.cancel();
 
-        const previousDashboardMetrics =
-          utils.dashboard.getDashboardMetrics.getData();
+      const previousDashboardMetrics =
+        utils.dashboard.getDashboardMetrics.getData();
 
-        if (previousDashboardMetrics) {
-          utils.dashboard.getDashboardMetrics.setData(
-            undefined,
-            previousDashboardMetrics.filter(
-              (dm) => dm.id !== dashboardMetricId,
-            ),
-          );
-        }
+      if (previousDashboardMetrics) {
+        utils.dashboard.getDashboardMetrics.setData(
+          undefined,
+          previousDashboardMetrics.filter((dm) => dm.metric.id !== id),
+        );
+      }
 
-        return { previousDashboardMetrics };
-      },
-      onError: (_err, _variables, context) => {
-        if (context?.previousDashboardMetrics) {
-          utils.dashboard.getDashboardMetrics.setData(
-            undefined,
-            context.previousDashboardMetrics,
-          );
-        }
-      },
-    });
+      return { previousDashboardMetrics };
+    },
+    onError: (err, _variables, context) => {
+      if (context?.previousDashboardMetrics) {
+        utils.dashboard.getDashboardMetrics.setData(
+          undefined,
+          context.previousDashboardMetrics,
+        );
+      }
+      toast.info(err.message);
+    },
+  });
 
   const refreshMutation = api.dashboard.refreshMetricChart.useMutation({
     onSuccess: (updatedDashboardMetric) => {
@@ -153,16 +153,14 @@ export function DashboardMetricCard({
 
   const handleRemove = async () => {
     const confirmed = await confirm({
-      title: "Remove metric from dashboard",
-      description: `Are you sure you want to remove "${metric.name}" from your dashboard? The metric will still be available to add again later.`,
-      confirmText: "Remove",
+      title: "Delete metric",
+      description: `Are you sure you want to delete "${metric.name}"? This action cannot be undone.`,
+      confirmText: "Delete",
       variant: "destructive",
     });
 
     if (confirmed) {
-      removeMetricMutation.mutate({
-        dashboardMetricId: dashboardMetric.id,
-      });
+      deleteMetricMutation.mutate({ id: metric.id });
     }
   };
 
@@ -189,7 +187,7 @@ export function DashboardMetricCard({
           isIntegrationMetric={isIntegrationMetric}
           isPending={isPending}
           isProcessing={isProcessing}
-          isRemoving={removeMetricMutation.isPending}
+          isRemoving={deleteMetricMutation.isPending}
           onFlip={() => setIsFlipped(true)}
           onRemove={handleRemove}
         />
@@ -203,7 +201,7 @@ export function DashboardMetricCard({
           lastFetchedAt={metric.lastFetchedAt}
           isPending={isPending}
           isProcessing={isProcessing}
-          isRemoving={removeMetricMutation.isPending}
+          isRemoving={deleteMetricMutation.isPending}
           prompt={prompt}
           onPromptChange={setPrompt}
           onFlip={() => setIsFlipped(false)}

@@ -2,11 +2,11 @@
  * Universal Nango data fetcher
  * This is the ONLY function for fetching data from third-party APIs
  */
-import { Nango } from "@nangohq/node";
 import { TRPCError } from "@trpc/server";
 import axios from "axios";
 
 import { env } from "@/env";
+import { nango } from "@/server/nango";
 
 interface FetchOptions {
   method?: "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
@@ -63,8 +63,6 @@ export async function fetchData(
       // Keep as string if not valid JSON
     }
   }
-
-  const nango = new Nango({ secretKey: env.NANGO_SECRET_KEY_DEV });
 
   try {
     // Check if this is a full URL (for YouTube Analytics API v2)
