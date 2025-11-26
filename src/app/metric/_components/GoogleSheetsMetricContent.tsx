@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { Loader2 } from "lucide-react";
 
@@ -44,58 +44,66 @@ export function GoogleSheetsMetricContent({
 
   const [spreadsheetUrl, setSpreadsheetUrl] = useState("");
   const [spreadsheetId, setSpreadsheetId] = useState("");
-
-  const [sheets, setSheets] = useState<Array<{ title: string }>>([]);
   const [selectedSheet, setSelectedSheet] = useState("");
-  const [previewData, setPreviewData] = useState<string[][]>([]);
 
   const [selectedColumns, setSelectedColumns] = useState<number[]>([]);
   const [metricName, setMetricName] = useState("");
 
-  const fetchMetadata = api.metric.fetchIntegrationData.useMutation({
-    onSuccess: (data: { data: unknown }) => {
-      const response = data.data as {
-        sheets?: Array<{ properties: { title: string } }>;
-      };
-      const sheetList =
-        response.sheets?.map((s) => ({ title: s.properties.title })) ?? [];
-      setSheets(sheetList);
-      setStep(2);
-    },
-  });
+  const { data: metadataData, isLoading: isLoadingMetadata } =
+    api.metric.fetchIntegrationOptions.useQuery(
+      {
+        connectionId: connection.connectionId,
+        integrationId: "google-sheet",
+        endpoint: `/v4/spreadsheets/${spreadsheetId}`,
+      },
+      {
+        enabled: !!connection && !!spreadsheetId,
+        staleTime: 5 * 60 * 1000,
+      },
+    );
 
-  const fetchSheetData = api.metric.fetchIntegrationData.useMutation({
-    onSuccess: (data: { data: unknown }) => {
-      const response = data.data as { values?: string[][] };
-      setPreviewData(response.values?.slice(0, 10) ?? []);
-    },
-  });
+  const { data: sheetData, isLoading: isLoadingSheetData } =
+    api.metric.fetchIntegrationOptions.useQuery(
+      {
+        connectionId: connection.connectionId,
+        integrationId: "google-sheet",
+        endpoint: `/v4/spreadsheets/${spreadsheetId}/values/${selectedSheet}`,
+      },
+      {
+        enabled: !!connection && !!spreadsheetId && !!selectedSheet,
+        staleTime: 5 * 60 * 1000,
+      },
+    );
+
+  const sheets = useMemo(() => {
+    if (!metadataData?.data) return [];
+    const response = metadataData.data as {
+      sheets?: Array<{ properties: { title: string } }>;
+    };
+    return response.sheets?.map((s) => ({ title: s.properties.title })) ?? [];
+  }, [metadataData]);
+
+  const previewData = useMemo(() => {
+    if (!sheetData?.data) return [];
+    const response = sheetData.data as { values?: string[][] };
+    return response.values?.slice(0, 10) ?? [];
+  }, [sheetData]);
+
+  // Move to step 2 when metadata is loaded
+  useEffect(() => {
+    if (sheets.length > 0 && step === 1 && spreadsheetId) {
+      setStep(2);
+    }
+  }, [sheets, step, spreadsheetId]);
 
   const handleStep1Next = () => {
     const id = extractSpreadsheetId(spreadsheetUrl);
     if (!id || !connection) return;
-
     setSpreadsheetId(id);
-    fetchMetadata.mutate({
-      connectionId: connection.connectionId,
-      integrationId: "google-sheet",
-      endpoint: `/v4/spreadsheets/${id}`,
-      method: "GET",
-      params: {},
-    });
   };
 
   const handleStep2Next = () => {
     if (!selectedSheet || !connection || !spreadsheetId) return;
-
-    fetchSheetData.mutate({
-      connectionId: connection.connectionId,
-      integrationId: "google-sheet",
-      endpoint: `/v4/spreadsheets/${spreadsheetId}/values/${selectedSheet}`,
-      method: "GET",
-      params: {},
-    });
-
     setStep(3);
   };
 
@@ -187,7 +195,7 @@ export function GoogleSheetsMetricContent({
 
             <div className="space-y-2">
               <Label>Preview & Select Columns</Label>
-              {fetchSheetData.isPending ? (
+              {isLoadingSheetData ? (
                 <div className="flex items-center justify-center py-8">
                   <Loader2 className="size-6 animate-spin" />
                 </div>
@@ -266,9 +274,9 @@ export function GoogleSheetsMetricContent({
         {step === 1 && (
           <Button
             onClick={handleStep1Next}
-            disabled={!isStep1Valid || fetchMetadata.isPending}
+            disabled={!isStep1Valid || isLoadingMetadata}
           >
-            {fetchMetadata.isPending ? (
+            {isLoadingMetadata ? (
               <>
                 <Loader2 className="mr-2 size-4 animate-spin" />
                 Loading...

@@ -100,6 +100,7 @@ export function IntegrationGrid({
     github: "/user/repos?per_page=100&sort=updated",
     youtube:
       "/youtube/v3/search?part=snippet&forMine=true&type=video&maxResults=50",
+    posthog: "/api/projects/",
   };
 
   const handleIntegrationHover = (
