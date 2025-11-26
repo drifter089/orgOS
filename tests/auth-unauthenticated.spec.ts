@@ -28,8 +28,8 @@ test.describe("Unauthenticated Access", () => {
     await expandNav(page);
 
     // 5. Verify "Sign in" and "Sign up" buttons are visible in expanded NavBar
-    await expect(page.getByRole("link", { name: "Sign in" })).toBeVisible();
-    await expect(page.getByRole("link", { name: "Sign up" })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Sign in" }).first()).toBeVisible();
+    await expect(page.getByRole("link", { name: "Sign up" }).first()).toBeVisible();
 
     // 6. Navigate to docs page
     await page.goto("/docs");
@@ -68,7 +68,7 @@ test.describe("Unauthenticated Access", () => {
     await expandNav(page);
 
     // 3. Click "Sign in" button in NavBar
-    await page.getByRole("link", { name: "Sign in" }).click();
+    await page.getByRole("link", { name: "Sign in" }).first().click();
 
     // 4. Wait for redirect to WorkOS authentication page
     await page.waitForURL(/authkit\.app/);
@@ -89,7 +89,7 @@ test.describe("WorkOS Authentication Flow", () => {
     // 1. Navigate to sign-in page
     await page.goto("/");
     await expandNav(page);
-    await page.getByRole("link", { name: "Sign in" }).click();
+    await page.getByRole("link", { name: "Sign in" }).first().click();
 
     // 2. Wait for WorkOS authentication page
     await page.waitForURL(/authkit\.app/);
@@ -128,7 +128,7 @@ test.describe("WorkOS Authentication Flow", () => {
 
     await page.goto("/");
     await expandNav(page);
-    await page.getByRole("link", { name: "Sign in" }).click();
+    await page.getByRole("link", { name: "Sign in" }).first().click();
 
     // Fill in email
     await page
