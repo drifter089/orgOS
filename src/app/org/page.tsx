@@ -4,8 +4,9 @@ import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { HydrateClient, api } from "@/trpc/server";
 
+import { CreateTeamDialog } from "../teams/_components/create-team-dialog";
+import { TeamsList } from "../teams/_components/teams-list";
 import { OrganizationDetails } from "./_components/OrganizationDetails";
-import { NavigationCards } from "./_components/navigation-cards";
 
 // Loading skeleton for organization details
 function OrganizationDetailsLoading() {
@@ -37,6 +38,7 @@ export default async function OrganizationPage() {
   await Promise.all([
     api.organization.getCurrent.prefetch(),
     api.organization.getCurrentOrgMembers.prefetch(),
+    api.team.getAll.prefetch(),
   ]);
 
   return (
@@ -60,12 +62,17 @@ export default async function OrganizationPage() {
             </Suspense>
           </section>
 
-          {/* Navigation Cards Section */}
+          {/* Teams Section */}
           <section className="animate-in fade-in slide-in-from-bottom-4 space-y-6 delay-200 duration-500">
-            <h2 className="mb-8 text-center text-3xl font-bold tracking-tight sm:text-4xl">
-              Quick Access
-            </h2>
-            <NavigationCards />
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between sm:gap-6">
+              <h2 className="text-2xl font-bold tracking-tight sm:text-3xl">
+                Teams
+              </h2>
+              <div className="shrink-0">
+                <CreateTeamDialog />
+              </div>
+            </div>
+            <TeamsList />
           </section>
         </div>
       </div>
