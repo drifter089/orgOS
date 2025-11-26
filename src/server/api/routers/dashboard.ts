@@ -139,32 +139,6 @@ export const dashboardRouter = createTRPCRouter({
       });
     }),
 
-  removeMetricFromDashboard: workspaceProcedure
-    .input(z.object({ dashboardMetricId: z.string() }))
-    .mutation(async ({ ctx, input }) => {
-      const dashboardMetric = await ctx.db.dashboardMetric.findUnique({
-        where: { id: input.dashboardMetricId },
-      });
-
-      if (!dashboardMetric) {
-        throw new TRPCError({
-          code: "NOT_FOUND",
-          message: "Dashboard metric not found",
-        });
-      }
-
-      if (dashboardMetric.organizationId !== ctx.workspace.organizationId) {
-        throw new TRPCError({
-          code: "FORBIDDEN",
-          message: "Access denied to this dashboard metric",
-        });
-      }
-
-      return ctx.db.dashboardMetric.delete({
-        where: { id: input.dashboardMetricId },
-      });
-    }),
-
   importAllAvailableMetrics: workspaceProcedure
     .input(z.object({ teamId: z.string().optional() }).optional())
     .mutation(async ({ ctx, input }) => {
