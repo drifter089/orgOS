@@ -239,6 +239,26 @@ export const dashboardRouter = createTRPCRouter({
       }),
     )
     .mutation(async ({ ctx, input }) => {
+      // Verify metric belongs to current organization
+      const metric = await ctx.db.metric.findUnique({
+        where: { id: input.metricId },
+        select: { organizationId: true },
+      });
+
+      if (!metric) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Metric not found",
+        });
+      }
+
+      if (metric.organizationId !== ctx.workspace.organizationId) {
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "Access denied to this metric",
+        });
+      }
+
       // Use count + 1 for position - faster than aggregate MAX
       const count = await ctx.db.dashboardMetric.count({
         where: { organizationId: ctx.workspace.organizationId },

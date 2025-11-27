@@ -106,14 +106,14 @@ export function GoogleSheetsMetricContent({
     return response.values?.slice(0, 10) ?? [];
   }, [sheetData]);
 
-  // Build endpoint params
+  // Build endpoint params - template requires COLUMN_INDEX (single numeric index)
   const endpointParams = useMemo((): Record<string, string> => {
     if (!spreadsheetId || !selectedSheet || selectedColumns.length === 0)
       return {};
     return {
       SPREADSHEET_ID: spreadsheetId,
       SHEET_NAME: selectedSheet,
-      COLUMNS: selectedColumns.join(","),
+      COLUMN_INDEX: selectedColumns[0]!.toString(),
     };
   }, [spreadsheetId, selectedSheet, selectedColumns]);
 
