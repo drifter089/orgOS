@@ -1,10 +1,7 @@
 "use client";
 
-import { useCallback, useRef } from "react";
-
 import { api } from "@/trpc/react";
 
-import type { DashboardClientHandle } from "./dashboard-client";
 import { DashboardClient } from "./dashboard-client";
 import { DashboardSidebar } from "./dashboard-sidebar";
 
@@ -18,16 +15,6 @@ export function DashboardPageClient({ teamId }: DashboardPageClientProps) {
     { teamId },
   );
   const { data: integrations } = api.integration.listWithStats.useQuery();
-
-  const importTriggerRef = useRef<DashboardClientHandle | null>(null);
-
-  const handleMetricCreated = () => {
-    importTriggerRef.current?.triggerImport();
-  };
-
-  const handleImportRef = useCallback((handle: DashboardClientHandle) => {
-    importTriggerRef.current = handle;
-  }, []);
 
   // Data should be available from server prefetch
   // Fallback loading state in case of edge cases
@@ -54,13 +41,8 @@ export function DashboardPageClient({ teamId }: DashboardPageClientProps) {
       <DashboardClient
         teamId={teamId}
         initialDashboardMetrics={dashboardMetrics}
-        onImportRef={handleImportRef}
       />
-      <DashboardSidebar
-        teamId={teamId}
-        initialIntegrations={integrations}
-        onMetricCreated={handleMetricCreated}
-      />
+      <DashboardSidebar teamId={teamId} initialIntegrations={integrations} />
     </div>
   );
 }

@@ -43,6 +43,10 @@ export const metricRouter = createTRPCRouter({
       });
     }),
 
+  /**
+   * Create a metric AND its dashboard metric entry in a single transaction.
+   * Like cascade delete, but for create - they live and die together.
+   */
   create: workspaceProcedure
     .input(
       z.object({
@@ -63,20 +67,51 @@ export const metricRouter = createTRPCRouter({
         ctx.workspace,
       );
 
-      return ctx.db.metric.create({
-        data: {
-          name: input.name,
-          description: input.description,
-          organizationId: ctx.workspace.organizationId,
-          integrationId: input.connectionId,
-          metricTemplate: input.templateId,
-          endpointConfig: input.endpointParams,
-          teamId: input.teamId,
-        },
-        include: {
-          integration: true,
-        },
+      // Get position for dashboard metric
+      const count = await ctx.db.dashboardMetric.count({
+        where: { organizationId: ctx.workspace.organizationId },
       });
+
+      // Create metric + dashboard metric in transaction
+      // Increase timeout since first-time queries can be slow
+      return ctx.db.$transaction(
+        async (tx) => {
+          const metric = await tx.metric.create({
+            data: {
+              name: input.name,
+              description: input.description,
+              organizationId: ctx.workspace.organizationId,
+              integrationId: input.connectionId,
+              metricTemplate: input.templateId,
+              endpointConfig: input.endpointParams,
+              teamId: input.teamId,
+            },
+          });
+
+          // Auto-create dashboard metric entry (empty graphConfig, AI fills later)
+          const dashboardMetric = await tx.dashboardMetric.create({
+            data: {
+              organizationId: ctx.workspace.organizationId,
+              metricId: metric.id,
+              graphType: "bar",
+              graphConfig: {},
+              size: "medium",
+              position: count,
+            },
+            include: {
+              metric: {
+                include: {
+                  integration: true,
+                  roles: true,
+                },
+              },
+            },
+          });
+
+          return dashboardMetric;
+        },
+        { timeout: 15000 },
+      ); // 15s timeout for slow first-time queries
     }),
 
   update: workspaceProcedure

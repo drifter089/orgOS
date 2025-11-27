@@ -1,10 +1,9 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { Check, Loader2, Sparkles } from "lucide-react";
 
-import type { ChartTransformResult } from "@/app/dashboard/[teamId]/_components/dashboard-metric-card";
 import { getTemplate } from "@/app/metric/registry";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -29,7 +28,7 @@ import {
 } from "@/components/ui/table";
 import { api } from "@/trpc/react";
 
-import { useMetricDataPrefetch } from "../_hooks/use-metric-data-prefetch";
+import { useApiToChartTransformer } from "../_hooks/use-api-to-chart-transformer";
 import type { ContentProps } from "./MetricDialogBase";
 
 function extractSpreadsheetId(url: string): string | null {
@@ -54,13 +53,7 @@ export function GoogleSheetsMetricContent({
   const [selectedColumns, setSelectedColumns] = useState<number[]>([]);
   const [metricName, setMetricName] = useState("");
 
-  // AI transform state
-  const [chartData, setChartData] = useState<ChartTransformResult | null>(null);
-  const [isAiTransforming, setIsAiTransforming] = useState(false);
-  const aiTriggeredForDataRef = useRef<string | null>(null);
-
   const template = getTemplate(TEMPLATE_ID);
-  const transformAIMutation = api.dashboard.transformChartWithAI.useMutation();
 
   // Fetch spreadsheet metadata
   const { data: metadataData, isLoading: isLoadingMetadata } =
@@ -106,7 +99,6 @@ export function GoogleSheetsMetricContent({
     return response.values?.slice(0, 10) ?? [];
   }, [sheetData]);
 
-  // Build endpoint params - template requires COLUMN_INDEX (single numeric index)
   const endpointParams = useMemo((): Record<string, string> => {
     if (!spreadsheetId || !selectedSheet || selectedColumns.length === 0)
       return {};
@@ -117,17 +109,21 @@ export function GoogleSheetsMetricContent({
     };
   }, [spreadsheetId, selectedSheet, selectedColumns]);
 
-  // Pre-fetch raw data when all options are selected
-  const prefetch = useMetricDataPrefetch({
+  // Use unified transform hook
+  const transformer = useApiToChartTransformer({
     connectionId: connection.connectionId,
     integrationId: "google-sheet",
     template: template ?? null,
     endpointParams,
+    metricName,
+    metricDescription: selectedSheet
+      ? `Tracking columns from ${selectedSheet} in Google Sheets`
+      : undefined,
     enabled:
       !!spreadsheetId &&
       !!selectedSheet &&
       selectedColumns.length > 0 &&
-      !!template,
+      !!metricName,
   });
 
   // Move to step 2 when metadata is loaded
@@ -136,64 +132,6 @@ export function GoogleSheetsMetricContent({
       setStep(2);
     }
   }, [sheets, step, spreadsheetId]);
-
-  // Auto-trigger AI transform when raw data becomes ready
-  useEffect(() => {
-    const dataKey = JSON.stringify({
-      data: prefetch.data ? "exists" : null,
-      spreadsheetId,
-      selectedSheet,
-      columns: selectedColumns,
-      name: metricName,
-    });
-
-    if (
-      prefetch.status === "ready" &&
-      prefetch.data &&
-      !chartData &&
-      !isAiTransforming &&
-      metricName &&
-      spreadsheetId &&
-      selectedSheet &&
-      selectedColumns.length > 0 &&
-      aiTriggeredForDataRef.current !== dataKey
-    ) {
-      aiTriggeredForDataRef.current = dataKey;
-      setIsAiTransforming(true);
-
-      transformAIMutation.mutate(
-        {
-          metricConfig: {
-            name: metricName,
-            description: `Tracking columns from ${selectedSheet} in Google Sheets`,
-            metricTemplate: TEMPLATE_ID,
-            endpointConfig: endpointParams,
-          },
-          rawData: prefetch.data,
-        },
-        {
-          onSuccess: (result) => {
-            setChartData(result as ChartTransformResult);
-            setIsAiTransforming(false);
-          },
-          onError: () => {
-            setIsAiTransforming(false);
-          },
-        },
-      );
-    }
-  }, [
-    prefetch.status,
-    prefetch.data,
-    chartData,
-    isAiTransforming,
-    metricName,
-    spreadsheetId,
-    selectedSheet,
-    selectedColumns,
-    endpointParams,
-    transformAIMutation,
-  ]);
 
   const handleStep1Next = () => {
     const id = extractSpreadsheetId(spreadsheetUrl);
@@ -209,42 +147,32 @@ export function GoogleSheetsMetricContent({
   const handleCreateMetric = () => {
     if (!connection || !metricName || selectedColumns.length === 0) return;
 
-    // Reset the AI mutation to prevent duplicate calls if it's still running
-    // The card will handle refreshing if chartData isn't ready
-    transformAIMutation.reset();
-
-    // Pass both raw data AND pre-computed chart data
-    onSubmit(
-      {
-        templateId: TEMPLATE_ID,
-        connectionId: connection.connectionId,
-        name: metricName,
-        description: `Tracking columns from ${selectedSheet} in Google Sheets`,
-        endpointParams,
-      },
-      {
-        rawData: prefetch.status === "ready" ? prefetch.data : undefined,
-        chartData,
-      },
-    );
+    onSubmit({
+      templateId: TEMPLATE_ID,
+      connectionId: connection.connectionId,
+      name: metricName,
+      description: `Tracking columns from ${selectedSheet} in Google Sheets`,
+      endpointParams,
+    });
   };
 
   const toggleColumn = (index: number) => {
     setSelectedColumns((prev) =>
       prev.includes(index) ? prev.filter((i) => i !== index) : [...prev, index],
     );
-    // Reset AI state when columns change
-    setChartData(null);
-    aiTriggeredForDataRef.current = null;
+    transformer.reset();
   };
 
   const isStep1Valid = spreadsheetUrl.trim() !== "";
   const isStep2Valid = selectedSheet !== "";
   const isStep3Valid = metricName.trim() !== "" && selectedColumns.length > 0;
 
-  const isPrefetching = prefetch.status === "fetching";
-  const isPrefetchReady = prefetch.status === "ready";
-  const isChartReady = !!chartData;
+  const isFetching = transformer.status === "fetching" || transformer.isLoading;
+  const isTransforming =
+    transformer.status === "transforming" || transformer.isTransforming;
+  const isChartReady = !!transformer.chartData;
+  const isDataReady =
+    transformer.status === "ready" && transformer.rawData && !isChartReady;
 
   return (
     <>
@@ -371,22 +299,21 @@ export function GoogleSheetsMetricContent({
               </p>
             </div>
 
-            {/* Status indicator */}
             {isStep3Valid && (
               <div className="text-muted-foreground flex items-center gap-2 text-xs">
-                {isPrefetching && (
+                {isFetching && (
                   <>
                     <Loader2 className="h-3 w-3 animate-spin" />
                     <span>Fetching data...</span>
                   </>
                 )}
-                {isPrefetchReady && !isChartReady && !isAiTransforming && (
+                {isDataReady && !isTransforming && (
                   <>
                     <Check className="h-3 w-3 text-green-600" />
                     <span className="text-green-600">Data ready</span>
                   </>
                 )}
-                {isAiTransforming && (
+                {isTransforming && (
                   <>
                     <Sparkles className="h-3 w-3 animate-pulse text-blue-500" />
                     <span className="text-blue-500">AI analyzing...</span>
@@ -400,7 +327,7 @@ export function GoogleSheetsMetricContent({
                     </span>
                   </>
                 )}
-                {prefetch.status === "error" && (
+                {transformer.status === "error" && (
                   <span className="text-amber-600">Will fetch on create</span>
                 )}
               </div>

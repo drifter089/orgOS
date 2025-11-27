@@ -1,10 +1,9 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { Check, Loader2, Sparkles } from "lucide-react";
 
-import type { ChartTransformResult } from "@/app/dashboard/[teamId]/_components/dashboard-metric-card";
 import { getTemplate } from "@/app/metric/registry";
 import { Button } from "@/components/ui/button";
 import { DialogFooter } from "@/components/ui/dialog";
@@ -19,7 +18,7 @@ import {
 } from "@/components/ui/select";
 import { api } from "@/trpc/react";
 
-import { useMetricDataPrefetch } from "../_hooks/use-metric-data-prefetch";
+import { useApiToChartTransformer } from "../_hooks/use-api-to-chart-transformer";
 import type { ContentProps } from "./MetricDialogBase";
 
 type MetricType = "code-frequency" | "commit-activity" | "pull-requests";
@@ -78,9 +77,6 @@ function getMetricDescription(metricType: MetricType): string {
   return METRIC_OPTIONS.find((m) => m.value === metricType)?.description ?? "";
 }
 
-/**
- * Calculate date N days ago in YYYY-MM-DD format
- */
 function getDateDaysAgo(days: number): string {
   const date = new Date();
   date.setDate(date.getDate() - days);
@@ -95,13 +91,6 @@ export function GitHubMetricContent({
   const [metricType, setMetricType] = useState<MetricType | "">("");
   const [selectedRepo, setSelectedRepo] = useState<string>("");
   const [metricName, setMetricName] = useState("");
-
-  // AI transform state
-  const [chartData, setChartData] = useState<ChartTransformResult | null>(null);
-  const [isAiTransforming, setIsAiTransforming] = useState(false);
-  const aiTriggeredForDataRef = useRef<string | null>(null);
-
-  const transformAIMutation = api.dashboard.transformChartWithAI.useMutation();
 
   // Fetch repos for dropdown
   const { data: reposData, isLoading: isLoadingRepos } =
@@ -123,16 +112,13 @@ export function GitHubMetricContent({
     return transformRepos(reposData.data);
   }, [reposData]);
 
-  // Get selected repo details
   const selectedRepoDetails = useMemo(() => {
     return repoOptions.find((r) => r.value === selectedRepo);
   }, [repoOptions, selectedRepo]);
 
-  // Build template ID and get template
   const templateId = metricType ? getTemplateId(metricType) : null;
   const template = templateId ? getTemplate(templateId) : null;
 
-  // Build endpoint params - use dynamic dates
   const endpointParams = useMemo((): Record<string, string> => {
     if (!selectedRepoDetails) return {};
 
@@ -141,7 +127,6 @@ export function GitHubMetricContent({
       REPO: selectedRepoDetails.name,
     };
 
-    // For pull requests, add SINCE date (90 days ago)
     if (metricType === "pull-requests") {
       params.SINCE = getDateDaysAgo(90);
     }
@@ -149,34 +134,35 @@ export function GitHubMetricContent({
     return params;
   }, [selectedRepoDetails, metricType]);
 
-  // Check if ready for prefetch
-  const isReadyForPrefetch = !!metricType && !!selectedRepo;
+  const isReadyForPrefetch = !!metricType && !!selectedRepo && !!metricName;
 
-  // Pre-fetch raw data when repo and metric type are selected
-  const prefetch = useMetricDataPrefetch({
+  // Use unified transform hook
+  const transformer = useApiToChartTransformer({
     connectionId: connection.connectionId,
     integrationId: "github",
     template: template ?? null,
     endpointParams,
-    enabled: isReadyForPrefetch && !!template,
+    metricName,
+    metricDescription: metricType
+      ? getMetricDescription(metricType)
+      : undefined,
+    enabled: isReadyForPrefetch,
   });
 
-  // Reset states when selections change
+  // Reset transform on dropdown changes
   const handleMetricTypeChange = (value: MetricType) => {
     setMetricType(value);
     setMetricName("");
-    setChartData(null);
-    aiTriggeredForDataRef.current = null;
+    transformer.reset();
   };
 
   const handleRepoChange = (value: string) => {
     setSelectedRepo(value);
     setMetricName("");
-    setChartData(null);
-    aiTriggeredForDataRef.current = null;
+    transformer.reset();
   };
 
-  // Auto-generate metric name when both are selected
+  // Auto-generate metric name
   useEffect(() => {
     if (metricType && selectedRepoDetails) {
       const metricLabel =
@@ -185,93 +171,30 @@ export function GitHubMetricContent({
     }
   }, [metricType, selectedRepoDetails]);
 
-  // Auto-trigger AI transform when raw data becomes ready
-  useEffect(() => {
-    // Create a unique key for this data fetch
-    const dataKey = JSON.stringify({
-      data: prefetch.data ? "exists" : null,
-      template: templateId,
-      params: endpointParams,
-    });
-
-    if (
-      prefetch.status === "ready" &&
-      prefetch.data &&
-      !chartData &&
-      !isAiTransforming &&
-      metricName &&
-      templateId &&
-      aiTriggeredForDataRef.current !== dataKey
-    ) {
-      aiTriggeredForDataRef.current = dataKey;
-      setIsAiTransforming(true);
-
-      transformAIMutation.mutate(
-        {
-          metricConfig: {
-            name: metricName,
-            description: getMetricDescription(metricType as MetricType),
-            metricTemplate: templateId,
-            endpointConfig: endpointParams,
-          },
-          rawData: prefetch.data,
-        },
-        {
-          onSuccess: (result) => {
-            setChartData(result as ChartTransformResult);
-            setIsAiTransforming(false);
-          },
-          onError: () => {
-            setIsAiTransforming(false);
-          },
-        },
-      );
-    }
-  }, [
-    prefetch.status,
-    prefetch.data,
-    chartData,
-    isAiTransforming,
-    metricName,
-    templateId,
-    metricType,
-    endpointParams,
-    transformAIMutation,
-  ]);
-
   const handleSave = () => {
     if (!metricName || !selectedRepo || !selectedRepoDetails || !templateId)
       return;
 
-    // Reset the AI mutation to prevent duplicate calls if it's still running
-    // The card will handle refreshing if chartData isn't ready
-    transformAIMutation.reset();
-
-    // Pass both raw data AND pre-computed chart data
-    onSubmit(
-      {
-        templateId,
-        connectionId: connection.connectionId,
-        name: metricName,
-        description: getMetricDescription(metricType as MetricType),
-        endpointParams,
-      },
-      {
-        rawData: prefetch.status === "ready" ? prefetch.data : undefined,
-        chartData,
-      },
-    );
+    onSubmit({
+      templateId,
+      connectionId: connection.connectionId,
+      name: metricName,
+      description: getMetricDescription(metricType as MetricType),
+      endpointParams,
+    });
   };
 
   const isFormValid = !!metricType && !!selectedRepo && !!metricName;
-  const isPrefetching = prefetch.status === "fetching";
-  const isPrefetchReady = prefetch.status === "ready";
-  const isChartReady = !!chartData;
+  const isFetching = transformer.status === "fetching" || transformer.isLoading;
+  const isTransforming =
+    transformer.status === "transforming" || transformer.isTransforming;
+  const isChartReady = !!transformer.chartData;
+  const isDataReady =
+    transformer.status === "ready" && transformer.rawData && !isChartReady;
 
   return (
     <>
       <div className="space-y-4 py-4">
-        {/* Metric Type Selection */}
         <div className="space-y-2">
           <Label htmlFor="metric-type">Metric Type</Label>
           <Select
@@ -298,7 +221,6 @@ export function GitHubMetricContent({
           )}
         </div>
 
-        {/* Repository Selection */}
         <div className="space-y-2">
           <Label htmlFor="repo">Repository</Label>
           <Select
@@ -325,7 +247,6 @@ export function GitHubMetricContent({
           </Select>
         </div>
 
-        {/* Metric Name */}
         {metricType && selectedRepo && (
           <div className="space-y-2">
             <Label htmlFor="name">Metric Name</Label>
@@ -338,22 +259,21 @@ export function GitHubMetricContent({
           </div>
         )}
 
-        {/* Status indicator */}
         {isFormValid && (
           <div className="text-muted-foreground flex items-center gap-2 text-xs">
-            {isPrefetching && (
+            {isFetching && (
               <>
                 <Loader2 className="h-3 w-3 animate-spin" />
                 <span>Fetching data...</span>
               </>
             )}
-            {isPrefetchReady && !isChartReady && !isAiTransforming && (
+            {isDataReady && !isTransforming && (
               <>
                 <Check className="h-3 w-3 text-green-600" />
                 <span className="text-green-600">Data ready</span>
               </>
             )}
-            {isAiTransforming && (
+            {isTransforming && (
               <>
                 <Sparkles className="h-3 w-3 animate-pulse text-blue-500" />
                 <span className="text-blue-500">AI analyzing...</span>
@@ -367,7 +287,7 @@ export function GitHubMetricContent({
                 </span>
               </>
             )}
-            {prefetch.status === "error" && (
+            {transformer.status === "error" && (
               <span className="text-amber-600">Will fetch on create</span>
             )}
           </div>
