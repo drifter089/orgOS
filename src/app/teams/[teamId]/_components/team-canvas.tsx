@@ -6,6 +6,7 @@ import {
   Background,
   BackgroundVariant,
   type NodeMouseHandler,
+  type ProOptions,
   ReactFlow,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
@@ -29,6 +30,8 @@ const nodeTypes = {
 const edgeTypes = {
   "team-edge": TeamEdge,
 };
+
+const proOptions: ProOptions = { hideAttribution: true };
 
 const selector = (state: TeamStore) => ({
   nodes: state.nodes,
@@ -106,6 +109,7 @@ export function TeamCanvas() {
         onNodeDoubleClick={handleNodeDoubleClick}
         nodeTypes={nodeTypes}
         edgeTypes={edgeTypes}
+        proOptions={proOptions}
         fitView
         fitViewOptions={{
           maxZoom: 0.65,
