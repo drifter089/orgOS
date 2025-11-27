@@ -33,6 +33,12 @@ import {
 
 import type { ChartTransformResult } from "./dashboard-metric-card";
 
+export type LoadingPhase =
+  | "fetching-api"
+  | "ai-transforming"
+  | "loading-chart"
+  | null;
+
 interface DashboardMetricChartProps {
   title: string;
   chartTransform: ChartTransformResult | null;
@@ -40,6 +46,7 @@ interface DashboardMetricChartProps {
   isIntegrationMetric: boolean;
   isPending: boolean;
   isProcessing: boolean;
+  loadingPhase?: LoadingPhase;
 }
 
 export function DashboardMetricChart({
@@ -49,6 +56,7 @@ export function DashboardMetricChart({
   isIntegrationMetric,
   isPending,
   isProcessing,
+  loadingPhase,
 }: DashboardMetricChartProps) {
   const renderChart = () => {
     if (!chartTransform) return null;
@@ -442,10 +450,18 @@ export function DashboardMetricChart({
       <CardHeader className="flex-shrink-0 pb-2">
         <div className="flex items-center justify-between gap-2 pr-24">
           <CardTitle className="truncate text-lg">{title}</CardTitle>
-          {(isPending || isProcessing) && (
+          {(isPending || isProcessing || loadingPhase) && (
             <Badge variant="outline" className="text-muted-foreground text-xs">
               <Loader2 className="mr-1 h-3 w-3 animate-spin" />
-              {isPending ? "Saving..." : "Processing..."}
+              {isPending
+                ? "Saving..."
+                : loadingPhase === "fetching-api"
+                  ? "Fetching..."
+                  : loadingPhase === "ai-transforming"
+                    ? "AI analyzing..."
+                    : loadingPhase === "loading-chart"
+                      ? "Loading..."
+                      : "Processing..."}
             </Badge>
           )}
         </div>
@@ -462,12 +478,18 @@ export function DashboardMetricChart({
           </div>
         )}
 
-        {isProcessing && (
+        {(isProcessing || loadingPhase) && (
           <div className="flex flex-1 items-center justify-center rounded-md border border-dashed">
             <div className="text-center">
               <Loader2 className="text-muted-foreground mx-auto h-6 w-6 animate-spin" />
               <p className="text-muted-foreground mt-2 text-sm">
-                Generating chart...
+                {loadingPhase === "fetching-api"
+                  ? "Fetching data from API..."
+                  : loadingPhase === "ai-transforming"
+                    ? "AI is analyzing your data..."
+                    : loadingPhase === "loading-chart"
+                      ? "Rendering chart..."
+                      : "Generating chart..."}
               </p>
             </div>
           </div>

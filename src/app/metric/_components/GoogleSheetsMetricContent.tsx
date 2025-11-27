@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 
 import { Loader2 } from "lucide-react";
 
+import { getTemplate } from "@/app/metric/registry";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { DialogFooter } from "@/components/ui/dialog";
@@ -27,6 +28,7 @@ import {
 } from "@/components/ui/table";
 import { api } from "@/trpc/react";
 
+import { useMetricDataPrefetch } from "../_hooks/use-metric-data-prefetch";
 import type { ContentProps } from "./MetricDialogBase";
 
 function extractSpreadsheetId(url: string): string | null {
@@ -34,6 +36,8 @@ function extractSpreadsheetId(url: string): string | null {
   const match = regex.exec(url);
   return match?.[1] ?? null;
 }
+
+const TEMPLATE_ID = "gsheets-column-data";
 
 export function GoogleSheetsMetricContent({
   connection,
@@ -49,12 +53,16 @@ export function GoogleSheetsMetricContent({
   const [selectedColumns, setSelectedColumns] = useState<number[]>([]);
   const [metricName, setMetricName] = useState("");
 
+  const template = getTemplate(TEMPLATE_ID);
+
+  // Fetch spreadsheet metadata
   const { data: metadataData, isLoading: isLoadingMetadata } =
-    api.metric.fetchIntegrationOptions.useQuery(
+    api.metric.fetchIntegrationData.useQuery(
       {
         connectionId: connection.connectionId,
         integrationId: "google-sheet",
         endpoint: `/v4/spreadsheets/${spreadsheetId}`,
+        method: "GET",
       },
       {
         enabled: !!connection && !!spreadsheetId,
@@ -62,12 +70,14 @@ export function GoogleSheetsMetricContent({
       },
     );
 
+  // Fetch sheet data for preview
   const { data: sheetData, isLoading: isLoadingSheetData } =
-    api.metric.fetchIntegrationOptions.useQuery(
+    api.metric.fetchIntegrationData.useQuery(
       {
         connectionId: connection.connectionId,
         integrationId: "google-sheet",
         endpoint: `/v4/spreadsheets/${spreadsheetId}/values/${selectedSheet}`,
+        method: "GET",
       },
       {
         enabled: !!connection && !!spreadsheetId && !!selectedSheet,
@@ -88,6 +98,30 @@ export function GoogleSheetsMetricContent({
     const response = sheetData.data as { values?: string[][] };
     return response.values?.slice(0, 10) ?? [];
   }, [sheetData]);
+
+  // Build endpoint params
+  const endpointParams = useMemo((): Record<string, string> => {
+    if (!spreadsheetId || !selectedSheet || selectedColumns.length === 0)
+      return {};
+    return {
+      SPREADSHEET_ID: spreadsheetId,
+      SHEET_NAME: selectedSheet,
+      COLUMNS: selectedColumns.join(","),
+    };
+  }, [spreadsheetId, selectedSheet, selectedColumns]);
+
+  // Pre-fetch raw data when all options are selected
+  const prefetch = useMetricDataPrefetch({
+    connectionId: connection.connectionId,
+    integrationId: "google-sheet",
+    template: template ?? null,
+    endpointParams,
+    enabled:
+      !!spreadsheetId &&
+      !!selectedSheet &&
+      selectedColumns.length > 0 &&
+      !!template,
+  });
 
   // Move to step 2 when metadata is loaded
   useEffect(() => {
@@ -110,17 +144,16 @@ export function GoogleSheetsMetricContent({
   const handleCreateMetric = () => {
     if (!connection || !metricName || selectedColumns.length === 0) return;
 
-    onSubmit({
-      templateId: "gsheets-column-data",
-      connectionId: connection.connectionId,
-      name: metricName,
-      description: `Tracking columns from ${selectedSheet} in Google Sheets`,
-      endpointParams: {
-        SPREADSHEET_ID: spreadsheetId,
-        SHEET_NAME: selectedSheet,
-        COLUMNS: selectedColumns.join(","),
+    void onSubmit(
+      {
+        templateId: TEMPLATE_ID,
+        connectionId: connection.connectionId,
+        name: metricName,
+        description: `Tracking columns from ${selectedSheet} in Google Sheets`,
+        endpointParams,
       },
-    });
+      prefetch.status === "ready" ? prefetch.data : undefined,
+    );
   };
 
   const toggleColumn = (index: number) => {
@@ -132,6 +165,9 @@ export function GoogleSheetsMetricContent({
   const isStep1Valid = spreadsheetUrl.trim() !== "";
   const isStep2Valid = selectedSheet !== "";
   const isStep3Valid = metricName.trim() !== "" && selectedColumns.length > 0;
+
+  const isPrefetching = prefetch.status === "fetching";
+  const isPrefetchReady = prefetch.status === "ready";
 
   return (
     <>
@@ -257,6 +293,24 @@ export function GoogleSheetsMetricContent({
                 rows.
               </p>
             </div>
+
+            {/* Prefetch status indicator */}
+            {isStep3Valid && (
+              <div className="text-muted-foreground flex items-center gap-2 text-xs">
+                {isPrefetching && (
+                  <>
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                    <span>Pre-loading data...</span>
+                  </>
+                )}
+                {isPrefetchReady && (
+                  <span className="text-green-600">Data ready</span>
+                )}
+                {prefetch.status === "error" && (
+                  <span className="text-amber-600">Will fetch on create</span>
+                )}
+              </div>
+            )}
           </div>
         )}
       </div>

@@ -109,8 +109,8 @@ export function IntegrationGrid({
   ) => {
     const endpoint = integrationEndpoints[integrationId];
     if (endpoint) {
-      void utils.metric.fetchIntegrationOptions.prefetch(
-        { connectionId, integrationId, endpoint },
+      void utils.metric.fetchIntegrationData.prefetch(
+        { connectionId, integrationId, endpoint, method: "GET" },
         { staleTime: 5 * 60 * 1000 },
       );
     }

@@ -2,6 +2,9 @@
 
 import { useMemo, useState } from "react";
 
+import { Loader2 } from "lucide-react";
+
+import { getTemplate } from "@/app/metric/registry";
 import { Button } from "@/components/ui/button";
 import { DialogFooter } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -15,6 +18,7 @@ import {
 } from "@/components/ui/select";
 import { api } from "@/trpc/react";
 
+import { useMetricDataPrefetch } from "../_hooks/use-metric-data-prefetch";
 import type { ContentProps } from "./MetricDialogBase";
 
 interface RepoOption {
@@ -41,6 +45,8 @@ function transformRepos(data: unknown): RepoOption[] {
   );
 }
 
+const TEMPLATE_ID = "github-code-frequency";
+
 export function GitHubMetricContent({
   connection,
   onSubmit,
@@ -49,12 +55,16 @@ export function GitHubMetricContent({
   const [metricName, setMetricName] = useState("");
   const [selectedRepo, setSelectedRepo] = useState<string>("");
 
+  const template = getTemplate(TEMPLATE_ID);
+
+  // Fetch repos for dropdown
   const { data: reposData, isLoading: isLoadingRepos } =
-    api.metric.fetchIntegrationOptions.useQuery(
+    api.metric.fetchIntegrationData.useQuery(
       {
         connectionId: connection.connectionId,
         integrationId: "github",
         endpoint: "/user/repos?per_page=100&sort=updated",
+        method: "GET",
       },
       {
         enabled: !!connection,
@@ -67,28 +77,50 @@ export function GitHubMetricContent({
     return transformRepos(reposData.data);
   }, [reposData]);
 
-  const handleSave = () => {
-    if (!metricName || !selectedRepo) return;
+  // Get selected repo details
+  const selectedRepoDetails = useMemo(() => {
+    return repoOptions.find((r) => r.value === selectedRepo);
+  }, [repoOptions, selectedRepo]);
 
-    const repo = repoOptions.find((r) => r.value === selectedRepo);
-    if (!repo) return;
-
+  // Build endpoint params
+  const endpointParams = useMemo((): Record<string, string> => {
+    if (!selectedRepoDetails) return {};
     const date28DaysAgo = new Date();
     date28DaysAgo.setDate(date28DaysAgo.getDate() - 28);
+    return {
+      OWNER: selectedRepoDetails.owner,
+      REPO: selectedRepoDetails.name,
+      DAYS: "28",
+      SINCE: date28DaysAgo.toISOString().split("T")[0]!,
+    };
+  }, [selectedRepoDetails]);
 
-    onSubmit({
-      templateId: "github-code-frequency",
-      connectionId: connection.connectionId,
-      name: metricName,
-      description: "Last 28 days of code additions and deletions",
-      endpointParams: {
-        OWNER: repo.owner,
-        REPO: repo.name,
-        DAYS: "28",
-        SINCE: date28DaysAgo.toISOString().split("T")[0]!,
+  // Pre-fetch raw data when repo is selected
+  const prefetch = useMetricDataPrefetch({
+    connectionId: connection.connectionId,
+    integrationId: "github",
+    template: template ?? null,
+    endpointParams,
+    enabled: !!selectedRepo && !!template,
+  });
+
+  const handleSave = () => {
+    if (!metricName || !selectedRepo || !selectedRepoDetails) return;
+
+    void onSubmit(
+      {
+        templateId: TEMPLATE_ID,
+        connectionId: connection.connectionId,
+        name: metricName,
+        description: "Last 28 days of code additions and deletions",
+        endpointParams,
       },
-    });
+      prefetch.status === "ready" ? prefetch.data : undefined,
+    );
   };
+
+  const isPrefetching = prefetch.status === "fetching";
+  const isPrefetchReady = prefetch.status === "ready";
 
   return (
     <>
@@ -131,6 +163,24 @@ export function GitHubMetricContent({
             Select the repository to track commit activity
           </p>
         </div>
+
+        {/* Prefetch status indicator */}
+        {selectedRepo && (
+          <div className="text-muted-foreground flex items-center gap-2 text-xs">
+            {isPrefetching && (
+              <>
+                <Loader2 className="h-3 w-3 animate-spin" />
+                <span>Pre-loading data...</span>
+              </>
+            )}
+            {isPrefetchReady && (
+              <span className="text-green-600">Data ready</span>
+            )}
+            {prefetch.status === "error" && (
+              <span className="text-amber-600">Will fetch on create</span>
+            )}
+          </div>
+        )}
       </div>
 
       <DialogFooter>

@@ -2,6 +2,9 @@
 
 import { useMemo, useState } from "react";
 
+import { Loader2 } from "lucide-react";
+
+import { getTemplate } from "@/app/metric/registry";
 import { Button } from "@/components/ui/button";
 import { DialogFooter } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
@@ -14,6 +17,7 @@ import {
 } from "@/components/ui/select";
 import { api } from "@/trpc/react";
 
+import { useMetricDataPrefetch } from "../_hooks/use-metric-data-prefetch";
 import type { ContentProps } from "./MetricDialogBase";
 
 type Project = { label: string; value: string };
@@ -49,6 +53,8 @@ function transformEvents(data: unknown): Event[] {
   );
 }
 
+const TEMPLATE_ID = "posthog-event-count";
+
 export function PostHogMetricContent({
   connection,
   onSubmit,
@@ -57,12 +63,16 @@ export function PostHogMetricContent({
   const [selectedProject, setSelectedProject] = useState("");
   const [selectedEvent, setSelectedEvent] = useState("");
 
+  const template = getTemplate(TEMPLATE_ID);
+
+  // Fetch projects for dropdown
   const { data: projectsData, isLoading: isLoadingProjects } =
-    api.metric.fetchIntegrationOptions.useQuery(
+    api.metric.fetchIntegrationData.useQuery(
       {
         connectionId: connection.connectionId,
         integrationId: "posthog",
         endpoint: "/api/projects/",
+        method: "GET",
       },
       {
         enabled: !!connection,
@@ -70,12 +80,14 @@ export function PostHogMetricContent({
       },
     );
 
+  // Fetch events for dropdown (depends on project)
   const { data: eventsData, isLoading: isLoadingEvents } =
-    api.metric.fetchIntegrationOptions.useQuery(
+    api.metric.fetchIntegrationData.useQuery(
       {
         connectionId: connection.connectionId,
         integrationId: "posthog",
         endpoint: `/api/projects/${selectedProject}/event_definitions/`,
+        method: "GET",
       },
       {
         enabled: !!connection && !!selectedProject,
@@ -93,6 +105,24 @@ export function PostHogMetricContent({
     return transformEvents(eventsData.data);
   }, [eventsData]);
 
+  // Build endpoint params
+  const endpointParams = useMemo((): Record<string, string> => {
+    if (!selectedProject || !selectedEvent) return {};
+    return {
+      PROJECT_ID: selectedProject,
+      EVENT_NAME: selectedEvent,
+    };
+  }, [selectedProject, selectedEvent]);
+
+  // Pre-fetch raw data when both project and event are selected
+  const prefetch = useMetricDataPrefetch({
+    connectionId: connection.connectionId,
+    integrationId: "posthog",
+    template: template ?? null,
+    endpointParams,
+    enabled: !!selectedProject && !!selectedEvent && !!template,
+  });
+
   const handleProjectChange = (value: string) => {
     setSelectedProject(value);
     setSelectedEvent("");
@@ -105,17 +135,21 @@ export function PostHogMetricContent({
       projects.find((p) => p.value === selectedProject)?.label ?? "Project";
     const metricName = `${selectedProjectName} - ${selectedEvent}`;
 
-    onSubmit({
-      templateId: "posthog-event-count",
-      connectionId: connection.connectionId,
-      name: metricName,
-      description: `Count occurrences of ${selectedEvent} event over time`,
-      endpointParams: {
-        PROJECT_ID: selectedProject,
-        EVENT_NAME: selectedEvent,
+    void onSubmit(
+      {
+        templateId: TEMPLATE_ID,
+        connectionId: connection.connectionId,
+        name: metricName,
+        description: `Count occurrences of ${selectedEvent} event over time`,
+        endpointParams,
       },
-    });
+      prefetch.status === "ready" ? prefetch.data : undefined,
+    );
   };
+
+  const isFormValid = !!selectedProject && !!selectedEvent;
+  const isPrefetching = prefetch.status === "fetching";
+  const isPrefetchReady = prefetch.status === "ready";
 
   return (
     <>
@@ -173,6 +207,24 @@ export function PostHogMetricContent({
             </SelectContent>
           </Select>
         </div>
+
+        {/* Prefetch status indicator */}
+        {isFormValid && (
+          <div className="text-muted-foreground flex items-center gap-2 text-xs">
+            {isPrefetching && (
+              <>
+                <Loader2 className="h-3 w-3 animate-spin" />
+                <span>Pre-loading data...</span>
+              </>
+            )}
+            {isPrefetchReady && (
+              <span className="text-green-600">Data ready</span>
+            )}
+            {prefetch.status === "error" && (
+              <span className="text-amber-600">Will fetch on create</span>
+            )}
+          </div>
+        )}
       </div>
 
       <DialogFooter>

@@ -116,34 +116,16 @@ export const metricRouter = createTRPCRouter({
       return { success: true };
     }),
 
-  fetchIntegrationOptions: workspaceProcedure
-    .input(
-      z.object({
-        connectionId: z.string(),
-        integrationId: z.string(),
-        endpoint: z.string(),
-      }),
-    )
-    .query(async ({ ctx, input }) => {
-      await getIntegrationAndVerifyAccess(
-        ctx.db,
-        input.connectionId,
-        ctx.user.id,
-        ctx.workspace,
-      );
-
-      return await fetchData(
-        input.integrationId,
-        input.connectionId,
-        input.endpoint,
-        { method: "GET", params: {} },
-      );
-    }),
-
   // ===========================================================================
-  // Generic Integration Data Fetching
+  // Integration Data Fetching (Single Query for dropdowns AND raw data)
   // ===========================================================================
 
+  /**
+   * Unified query for fetching integration data
+   * - Used for dropdown options (cached)
+   * - Used for raw data pre-fetch (cached)
+   * - Supports all HTTP methods (GET, POST, etc.)
+   */
   fetchIntegrationData: workspaceProcedure
     .input(
       z.object({
@@ -157,7 +139,7 @@ export const metricRouter = createTRPCRouter({
         body: z.unknown().optional(),
       }),
     )
-    .mutation(async ({ ctx, input }) => {
+    .query(async ({ ctx, input }) => {
       // Verify user has access to this connection
       await getIntegrationAndVerifyAccess(
         ctx.db,

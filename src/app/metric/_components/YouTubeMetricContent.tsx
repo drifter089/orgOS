@@ -2,6 +2,9 @@
 
 import { useEffect, useMemo, useState } from "react";
 
+import { Loader2 } from "lucide-react";
+
+import { getTemplate } from "@/app/metric/registry";
 import { Button } from "@/components/ui/button";
 import { DialogFooter } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -15,6 +18,7 @@ import {
 } from "@/components/ui/select";
 import { api } from "@/trpc/react";
 
+import { useMetricDataPrefetch } from "../_hooks/use-metric-data-prefetch";
 import type { ContentProps } from "./MetricDialogBase";
 
 type ScopeType = "channel" | "video";
@@ -87,6 +91,10 @@ function getMetricDescription(
   }
 }
 
+function getTemplateId(scopeType: ScopeType, metricType: MetricType): string {
+  return `youtube-${scopeType}-${metricType}-timeseries`;
+}
+
 export function YouTubeMetricContent({
   connection,
   onSubmit,
@@ -97,13 +105,15 @@ export function YouTubeMetricContent({
   const [metricType, setMetricType] = useState<MetricType | "">("");
   const [metricName, setMetricName] = useState("");
 
+  // Fetch videos for dropdown
   const { data: videosData, isLoading: isLoadingVideos } =
-    api.metric.fetchIntegrationOptions.useQuery(
+    api.metric.fetchIntegrationData.useQuery(
       {
         connectionId: connection.connectionId,
         integrationId: "youtube",
         endpoint:
           "/youtube/v3/search?part=snippet&forMine=true&type=video&maxResults=50",
+        method: "GET",
       },
       {
         enabled: !!connection && scopeType === "video",
@@ -115,6 +125,33 @@ export function YouTubeMetricContent({
     if (!videosData?.data) return [];
     return transformVideos(videosData.data);
   }, [videosData]);
+
+  // Build template ID and params
+  const templateId =
+    scopeType && metricType ? getTemplateId(scopeType, metricType) : null;
+  const template = templateId ? getTemplate(templateId) : null;
+
+  const endpointParams = useMemo((): Record<string, string> => {
+    if (scopeType === "video" && selectedVideoId) {
+      return { VIDEO_ID: selectedVideoId };
+    }
+    return {};
+  }, [scopeType, selectedVideoId]);
+
+  // Check if all params are ready for prefetch
+  const isReadyForPrefetch =
+    !!scopeType &&
+    !!metricType &&
+    (scopeType === "channel" || (scopeType === "video" && !!selectedVideoId));
+
+  // Pre-fetch raw data when all options are selected
+  const prefetch = useMetricDataPrefetch({
+    connectionId: connection.connectionId,
+    integrationId: "youtube",
+    template: template ?? null,
+    endpointParams,
+    enabled: isReadyForPrefetch && !!template,
+  });
 
   // Reset selections when scope changes
   const handleScopeChange = (value: ScopeType) => {
@@ -139,19 +176,21 @@ export function YouTubeMetricContent({
   }, [metricType, scopeType, selectedVideoId, videoOptions]);
 
   const handleCreate = () => {
-    if (!scopeType || !metricType || !metricName) return;
+    if (!scopeType || !metricType || !metricName || !templateId) return;
 
     // For video scope, ensure video is selected
     if (scopeType === "video" && !selectedVideoId) return;
 
-    onSubmit({
-      templateId: `youtube-${scopeType}-${metricType}-timeseries`,
-      connectionId: connection.connectionId,
-      name: metricName,
-      description: getMetricDescription(metricType, scopeType),
-      endpointParams:
-        scopeType === "video" ? { VIDEO_ID: selectedVideoId } : {},
-    });
+    void onSubmit(
+      {
+        templateId,
+        connectionId: connection.connectionId,
+        name: metricName,
+        description: getMetricDescription(metricType, scopeType),
+        endpointParams,
+      },
+      prefetch.status === "ready" ? prefetch.data : undefined,
+    );
   };
 
   // Available metrics based on scope
@@ -167,6 +206,9 @@ export function YouTubeMetricContent({
     metricType &&
     metricName &&
     (scopeType === "channel" || (scopeType === "video" && selectedVideoId));
+
+  const isPrefetching = prefetch.status === "fetching";
+  const isPrefetchReady = prefetch.status === "ready";
 
   return (
     <>
@@ -252,6 +294,24 @@ export function YouTubeMetricContent({
               value={metricName}
               onChange={(e) => setMetricName(e.target.value)}
             />
+          </div>
+        )}
+
+        {/* Prefetch status indicator */}
+        {isFormValid && (
+          <div className="text-muted-foreground flex items-center gap-2 text-xs">
+            {isPrefetching && (
+              <>
+                <Loader2 className="h-3 w-3 animate-spin" />
+                <span>Pre-loading data...</span>
+              </>
+            )}
+            {isPrefetchReady && (
+              <span className="text-green-600">Data ready</span>
+            )}
+            {prefetch.status === "error" && (
+              <span className="text-amber-600">Will fetch on create</span>
+            )}
           </div>
         )}
       </div>

@@ -220,4 +220,153 @@ export const dashboardRouter = createTRPCRouter({
         newDashboardMetrics,
       };
     }),
+
+  // ===========================================================================
+  // New Optimized Mutations
+  // ===========================================================================
+
+  /**
+   * Create a dashboard metric for displaying a metric on the dashboard
+   * Used after metric.create() to add it to the dashboard
+   */
+  createDashboardMetric: workspaceProcedure
+    .input(
+      z.object({
+        metricId: z.string(),
+        graphType: z.string().default("bar"),
+        graphConfig: z.record(z.unknown()).default({}),
+        size: z.enum(["small", "medium", "large"]).default("medium"),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      // Get max position for ordering
+      const maxPosResult = await ctx.db.dashboardMetric.aggregate({
+        where: { organizationId: ctx.workspace.organizationId },
+        _max: { position: true },
+      });
+      const nextPosition = (maxPosResult._max.position ?? -1) + 1;
+
+      return ctx.db.dashboardMetric.create({
+        data: {
+          organizationId: ctx.workspace.organizationId,
+          metricId: input.metricId,
+          graphType: input.graphType,
+          graphConfig: input.graphConfig as Prisma.InputJsonValue,
+          size: input.size,
+          position: nextPosition,
+        },
+        include: {
+          metric: {
+            include: {
+              integration: true,
+              roles: true,
+            },
+          },
+        },
+      });
+    }),
+
+  /**
+   * Update only the chart data for a dashboard metric
+   * Used after AI transformation completes
+   */
+  updateDashboardMetricChart: workspaceProcedure
+    .input(
+      z.object({
+        dashboardMetricId: z.string(),
+        graphType: z.string(),
+        graphConfig: z.record(z.unknown()),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      // Verify ownership
+      const existing = await ctx.db.dashboardMetric.findUnique({
+        where: { id: input.dashboardMetricId },
+        select: { organizationId: true },
+      });
+
+      if (!existing) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Dashboard metric not found",
+        });
+      }
+
+      if (existing.organizationId !== ctx.workspace.organizationId) {
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "Access denied to this dashboard metric",
+        });
+      }
+
+      return ctx.db.dashboardMetric.update({
+        where: { id: input.dashboardMetricId },
+        data: {
+          graphType: input.graphType,
+          graphConfig: input.graphConfig as Prisma.InputJsonValue,
+          metric: {
+            update: {
+              lastFetchedAt: new Date(),
+            },
+          },
+        },
+        include: {
+          metric: {
+            include: {
+              integration: true,
+              roles: true,
+            },
+          },
+        },
+      });
+    }),
+
+  /**
+   * Transform raw API data into chart format using AI
+   * Called from frontend with pre-fetched data for faster UX
+   */
+  transformChartWithAI: workspaceProcedure
+    .input(
+      z.object({
+        metricConfig: z.object({
+          name: z.string(),
+          description: z.string().optional(),
+          metricTemplate: z.string(),
+          endpointConfig: z.record(z.string()),
+        }),
+        rawData: z.unknown(),
+        userHint: z.string().optional(),
+      }),
+    )
+    .mutation(async ({ input }) => {
+      // Create a metric-like object for the AI transformer
+      const metricLike = {
+        id: "",
+        name: input.metricConfig.name,
+        description: input.metricConfig.description ?? null,
+        organizationId: "",
+        teamId: null,
+        integrationId: null,
+        metricTemplate: input.metricConfig.metricTemplate,
+        endpointConfig: input.metricConfig.endpointConfig,
+        lastFetchedAt: null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+
+      const result = await transformMetricWithAI(
+        metricLike,
+        input.rawData,
+        input.userHint,
+      );
+
+      if (!result.success || !result.data) {
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: result.error ?? "AI transformation failed",
+        });
+      }
+
+      return result.data;
+    }),
 });

@@ -77,6 +77,10 @@ export function DashboardMetricCard({
   const hasChartData = !!(
     chartTransform?.chartData && chartTransform.chartData.length > 0
   );
+  // Check if metric is being processed (created from dialog with prefetch)
+  const isBeingProcessed = !!(
+    dashboardMetric.graphConfig as Record<string, unknown> | null
+  )?._processing;
 
   const deleteMetricMutation = api.metric.delete.useMutation({
     onMutate: async ({ id }) => {
@@ -173,7 +177,8 @@ export function DashboardMetricCard({
       !hasChartData &&
       !isPending &&
       !hasTriggeredRef.current &&
-      !isProcessing
+      !isProcessing &&
+      !isBeingProcessed // Don't trigger if metric is being created with prefetch
     ) {
       hasTriggeredRef.current = true;
       void handleRefresh();
@@ -184,6 +189,7 @@ export function DashboardMetricCard({
     hasChartData,
     isPending,
     isProcessing,
+    isBeingProcessed,
     handleRefresh,
   ]);
 
