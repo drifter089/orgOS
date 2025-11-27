@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
-import { Loader2 } from "lucide-react";
+import { Check, Loader2, Sparkles } from "lucide-react";
 
+import type { ChartTransformResult } from "@/app/dashboard/[teamId]/_components/dashboard-metric-card";
 import { getTemplate } from "@/app/metric/registry";
 import { Button } from "@/components/ui/button";
 import { DialogFooter } from "@/components/ui/dialog";
@@ -95,6 +96,13 @@ export function GitHubMetricContent({
   const [selectedRepo, setSelectedRepo] = useState<string>("");
   const [metricName, setMetricName] = useState("");
 
+  // AI transform state
+  const [chartData, setChartData] = useState<ChartTransformResult | null>(null);
+  const [isAiTransforming, setIsAiTransforming] = useState(false);
+  const aiTriggeredForDataRef = useRef<string | null>(null);
+
+  const transformAIMutation = api.dashboard.transformChartWithAI.useMutation();
+
   // Fetch repos for dropdown
   const { data: reposData, isLoading: isLoadingRepos } =
     api.metric.fetchIntegrationData.useQuery(
@@ -153,15 +161,19 @@ export function GitHubMetricContent({
     enabled: isReadyForPrefetch && !!template,
   });
 
-  // Reset metric name when selections change
+  // Reset states when selections change
   const handleMetricTypeChange = (value: MetricType) => {
     setMetricType(value);
     setMetricName("");
+    setChartData(null);
+    aiTriggeredForDataRef.current = null;
   };
 
   const handleRepoChange = (value: string) => {
     setSelectedRepo(value);
     setMetricName("");
+    setChartData(null);
+    aiTriggeredForDataRef.current = null;
   };
 
   // Auto-generate metric name when both are selected
@@ -173,11 +185,70 @@ export function GitHubMetricContent({
     }
   }, [metricType, selectedRepoDetails]);
 
+  // Auto-trigger AI transform when raw data becomes ready
+  useEffect(() => {
+    // Create a unique key for this data fetch
+    const dataKey = JSON.stringify({
+      data: prefetch.data ? "exists" : null,
+      template: templateId,
+      params: endpointParams,
+    });
+
+    if (
+      prefetch.status === "ready" &&
+      prefetch.data &&
+      !chartData &&
+      !isAiTransforming &&
+      metricName &&
+      templateId &&
+      aiTriggeredForDataRef.current !== dataKey
+    ) {
+      aiTriggeredForDataRef.current = dataKey;
+      setIsAiTransforming(true);
+
+      transformAIMutation.mutate(
+        {
+          metricConfig: {
+            name: metricName,
+            description: getMetricDescription(metricType as MetricType),
+            metricTemplate: templateId,
+            endpointConfig: endpointParams,
+          },
+          rawData: prefetch.data,
+        },
+        {
+          onSuccess: (result) => {
+            setChartData(result as ChartTransformResult);
+            setIsAiTransforming(false);
+          },
+          onError: () => {
+            setIsAiTransforming(false);
+          },
+        },
+      );
+    }
+  }, [
+    prefetch.status,
+    prefetch.data,
+    chartData,
+    isAiTransforming,
+    metricName,
+    templateId,
+    metricType,
+    endpointParams,
+    transformAIMutation,
+  ]);
+
   const handleSave = () => {
     if (!metricName || !selectedRepo || !selectedRepoDetails || !templateId)
       return;
 
-    void onSubmit(
+    // Reset the AI mutation to prevent duplicate calls if it's still running
+    // The card will handle refreshing if chartData isn't ready
+    transformAIMutation.reset();
+
+    // Pass both raw data AND pre-computed chart data
+    onSubmit(
       {
         templateId,
         connectionId: connection.connectionId,
@@ -185,13 +256,17 @@ export function GitHubMetricContent({
         description: getMetricDescription(metricType as MetricType),
         endpointParams,
       },
-      prefetch.status === "ready" ? prefetch.data : undefined,
+      {
+        rawData: prefetch.status === "ready" ? prefetch.data : undefined,
+        chartData,
+      },
     );
   };
 
   const isFormValid = !!metricType && !!selectedRepo && !!metricName;
   const isPrefetching = prefetch.status === "fetching";
   const isPrefetchReady = prefetch.status === "ready";
+  const isChartReady = !!chartData;
 
   return (
     <>
@@ -263,17 +338,34 @@ export function GitHubMetricContent({
           </div>
         )}
 
-        {/* Prefetch status indicator */}
+        {/* Status indicator */}
         {isFormValid && (
           <div className="text-muted-foreground flex items-center gap-2 text-xs">
             {isPrefetching && (
               <>
                 <Loader2 className="h-3 w-3 animate-spin" />
-                <span>Pre-loading data...</span>
+                <span>Fetching data...</span>
               </>
             )}
-            {isPrefetchReady && (
-              <span className="text-green-600">Data ready</span>
+            {isPrefetchReady && !isChartReady && !isAiTransforming && (
+              <>
+                <Check className="h-3 w-3 text-green-600" />
+                <span className="text-green-600">Data ready</span>
+              </>
+            )}
+            {isAiTransforming && (
+              <>
+                <Sparkles className="h-3 w-3 animate-pulse text-blue-500" />
+                <span className="text-blue-500">AI analyzing...</span>
+              </>
+            )}
+            {isChartReady && (
+              <>
+                <Check className="h-3 w-3 text-green-600" />
+                <span className="text-green-600">
+                  Chart ready - instant create!
+                </span>
+              </>
             )}
             {prefetch.status === "error" && (
               <span className="text-amber-600">Will fetch on create</span>

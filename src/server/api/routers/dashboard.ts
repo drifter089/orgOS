@@ -239,12 +239,10 @@ export const dashboardRouter = createTRPCRouter({
       }),
     )
     .mutation(async ({ ctx, input }) => {
-      // Get max position for ordering
-      const maxPosResult = await ctx.db.dashboardMetric.aggregate({
+      // Use count + 1 for position - faster than aggregate MAX
+      const count = await ctx.db.dashboardMetric.count({
         where: { organizationId: ctx.workspace.organizationId },
-        _max: { position: true },
       });
-      const nextPosition = (maxPosResult._max.position ?? -1) + 1;
 
       return ctx.db.dashboardMetric.create({
         data: {
@@ -253,7 +251,7 @@ export const dashboardRouter = createTRPCRouter({
           graphType: input.graphType,
           graphConfig: input.graphConfig as Prisma.InputJsonValue,
           size: input.size,
-          position: nextPosition,
+          position: count,
         },
         include: {
           metric: {
@@ -309,6 +307,66 @@ export const dashboardRouter = createTRPCRouter({
               lastFetchedAt: new Date(),
             },
           },
+        },
+        include: {
+          metric: {
+            include: {
+              integration: true,
+              roles: true,
+            },
+          },
+        },
+      });
+    }),
+
+  /**
+   * Create both metric AND dashboard metric in a single API call
+   * This reduces network round trips from 2 to 1
+   */
+  createMetricWithDashboard: workspaceProcedure
+    .input(
+      z.object({
+        // Metric fields
+        templateId: z.string(),
+        connectionId: z.string(),
+        name: z.string().min(1).max(100),
+        description: z.string().optional(),
+        endpointParams: z.record(z.string()),
+        teamId: z.string().optional(),
+        // Dashboard metric fields
+        graphType: z.string().default("bar"),
+        graphConfig: z.record(z.unknown()).default({}),
+        size: z.enum(["small", "medium", "large"]).default("medium"),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      // Get position count
+      const count = await ctx.db.dashboardMetric.count({
+        where: { organizationId: ctx.workspace.organizationId },
+      });
+
+      // Create metric first
+      const metric = await ctx.db.metric.create({
+        data: {
+          name: input.name,
+          description: input.description,
+          organizationId: ctx.workspace.organizationId,
+          integrationId: input.connectionId,
+          metricTemplate: input.templateId,
+          endpointConfig: input.endpointParams,
+          teamId: input.teamId,
+        },
+      });
+
+      // Create dashboard metric using the metric we just created
+      return ctx.db.dashboardMetric.create({
+        data: {
+          organizationId: ctx.workspace.organizationId,
+          metricId: metric.id,
+          graphType: input.graphType,
+          graphConfig: input.graphConfig as Prisma.InputJsonValue,
+          size: input.size,
+          position: count,
         },
         include: {
           metric: {

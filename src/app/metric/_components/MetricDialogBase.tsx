@@ -1,7 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useRef, useState } from "react";
 
+import type { Prisma } from "@prisma/client";
+import { toast } from "sonner";
+
+import type { ChartTransformResult } from "@/app/dashboard/[teamId]/_components/dashboard-metric-card";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Dialog,
@@ -24,6 +28,11 @@ export interface MetricCreateInput {
   teamId?: string;
 }
 
+export interface PrefetchState {
+  rawData?: unknown;
+  chartData?: ChartTransformResult | null;
+}
+
 export interface ContentProps {
   connection: {
     id: string;
@@ -31,10 +40,7 @@ export interface ContentProps {
     integrationId: string;
     createdAt: Date;
   };
-  onSubmit: (
-    data: MetricCreateInput,
-    prefetchedRawData?: unknown,
-  ) => void | Promise<void>;
+  onSubmit: (data: MetricCreateInput, prefetchState?: PrefetchState) => void;
   isCreating: boolean;
   error: string | null;
 }
@@ -55,6 +61,8 @@ interface MetricDialogBaseProps {
 type MetricWithIntegration = RouterOutputs["metric"]["getAll"][number];
 type DashboardMetricWithRelations =
   RouterOutputs["dashboard"]["getDashboardMetrics"][number];
+
+const MAX_RETRIES = 3;
 
 export function MetricDialogBase({
   integrationId,
@@ -78,20 +86,105 @@ export function MetricDialogBase({
 
   const utils = api.useUtils();
 
+  // Track background operations
+  const backgroundOpRef = useRef<{
+    tempMetricId: string;
+    tempDashboardMetricId: string;
+  } | null>(null);
+
   const integrationQuery = api.integration.listWithStats.useQuery();
   const connection = integrationQuery.data?.active.find(
     (int) => int.integrationId === integrationId,
   );
 
-  // Mutations
-  const createMetricMutation = api.metric.create.useMutation();
-  const createDashboardMetricMutation =
-    api.dashboard.createDashboardMetric.useMutation();
-  const transformAIMutation = api.dashboard.transformChartWithAI.useMutation();
+  // Combined mutation - creates both metric AND dashboard metric in one transaction
+  const createMetricWithDashboardMutation =
+    api.dashboard.createMetricWithDashboard.useMutation();
 
-  const handleSubmit = async (
+  // Background creation with retry logic - SINGLE call for both metric and dashboard metric
+  const createInBackground = useCallback(
+    async (
+      data: MetricCreateInput,
+      prefetchState: PrefetchState | undefined,
+      tempMetricId: string,
+      tempDashboardMetricId: string,
+    ) => {
+      // If chartData available, use it. Otherwise mark as processing so card doesn't auto-refresh
+      const graphConfigToSave = prefetchState?.chartData
+        ? (prefetchState.chartData as unknown as Record<string, unknown>)
+        : { _processing: true };
+
+      for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+        try {
+          // Single call creates both metric AND dashboard metric
+          const dashboardMetric =
+            await createMetricWithDashboardMutation.mutateAsync({
+              ...data,
+              teamId,
+              graphType: prefetchState?.chartData?.chartType ?? "bar",
+              graphConfig: graphConfigToSave,
+            });
+
+          // Update metric cache with real metric
+          const realMetric = dashboardMetric.metric;
+          utils.metric.getAll.setData(undefined, (old) =>
+            old?.map((m) => (m.id === tempMetricId ? realMetric : m)),
+          );
+          if (teamId) {
+            utils.metric.getByTeamId.setData({ teamId }, (old) =>
+              old?.map((m) => (m.id === tempMetricId ? realMetric : m)),
+            );
+          }
+
+          // Update dashboard cache with real dashboard metric
+          utils.dashboard.getDashboardMetrics.setData(undefined, (old) =>
+            old?.map((dm) =>
+              dm.id === tempDashboardMetricId ? dashboardMetric : dm,
+            ),
+          );
+          if (teamId) {
+            utils.dashboard.getDashboardMetrics.setData({ teamId }, (old) =>
+              old?.map((dm) =>
+                dm.id === tempDashboardMetricId ? dashboardMetric : dm,
+              ),
+            );
+          }
+
+          backgroundOpRef.current = null;
+          return; // Success!
+        } catch (err) {
+          if (attempt === MAX_RETRIES) {
+            console.error("Failed to create metric after retries:", err);
+            toast.error("Failed to save metric. It will sync on refresh.");
+
+            // Rollback from cache
+            utils.metric.getAll.setData(undefined, (old) =>
+              old?.filter((m) => m.id !== tempMetricId),
+            );
+            utils.dashboard.getDashboardMetrics.setData(undefined, (old) =>
+              old?.filter((dm) => dm.id !== tempDashboardMetricId),
+            );
+            if (teamId) {
+              utils.metric.getByTeamId.setData({ teamId }, (old) =>
+                old?.filter((m) => m.id !== tempMetricId),
+              );
+              utils.dashboard.getDashboardMetrics.setData({ teamId }, (old) =>
+                old?.filter((dm) => dm.id !== tempDashboardMetricId),
+              );
+            }
+            backgroundOpRef.current = null;
+            return;
+          }
+          await new Promise((r) => setTimeout(r, 1000 * attempt));
+        }
+      }
+    },
+    [createMetricWithDashboardMutation, utils, teamId],
+  );
+
+  const handleSubmit = (
     data: MetricCreateInput,
-    prefetchedRawData?: unknown,
+    prefetchState?: PrefetchState,
   ) => {
     setError(null);
     setIsProcessing(true);
@@ -99,185 +192,98 @@ export function MetricDialogBase({
     const tempMetricId = `temp-${Date.now()}`;
     const tempDashboardMetricId = `temp-dm-${Date.now()}`;
 
-    try {
-      // =========================================================================
-      // Step 1: Optimistic updates for both metric and dashboard
-      // =========================================================================
+    backgroundOpRef.current = { tempMetricId, tempDashboardMetricId };
 
-      // Optimistic metric
-      const optimisticMetric: MetricWithIntegration = {
-        id: tempMetricId,
-        name: data.name,
-        description: data.description ?? null,
-        organizationId: "",
-        integrationId: data.connectionId,
-        metricTemplate: data.templateId,
-        endpointConfig: data.endpointParams,
-        teamId: teamId ?? null,
-        lastFetchedAt: null,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-        integration: connection
-          ? {
-              id: connection.id,
-              connectionId: connection.connectionId,
-              integrationId: connection.integrationId,
-              organizationId: "",
-              connectedBy: "",
-              status: "active",
-              metadata: null,
-              lastSyncAt: null,
-              errorMessage: null,
-              createdAt: connection.createdAt,
-              updatedAt: connection.createdAt,
-            }
-          : null,
-      };
+    // =========================================================================
+    // Step 1: Optimistic updates - USE chartData if available!
+    // =========================================================================
 
-      // Optimistic dashboard metric - mark as "processing" with a special graphConfig
-      const optimisticDashboardMetric: DashboardMetricWithRelations = {
-        id: tempDashboardMetricId,
-        organizationId: "",
-        metricId: tempMetricId,
-        graphType: "bar",
-        graphConfig: { _processing: true }, // Special flag to prevent autoTrigger
-        position: 9999,
-        size: "medium",
-        createdAt: new Date(),
-        updatedAt: new Date(),
-        metric: {
-          ...optimisticMetric,
-          roles: [],
-        },
-      };
+    // Optimistic metric
+    const optimisticMetric: MetricWithIntegration = {
+      id: tempMetricId,
+      name: data.name,
+      description: data.description ?? null,
+      organizationId: "",
+      integrationId: data.connectionId,
+      metricTemplate: data.templateId,
+      endpointConfig: data.endpointParams,
+      teamId: teamId ?? null,
+      lastFetchedAt: null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      integration: connection
+        ? {
+            id: connection.id,
+            connectionId: connection.connectionId,
+            integrationId: connection.integrationId,
+            organizationId: "",
+            connectedBy: "",
+            status: "active",
+            metadata: null,
+            lastSyncAt: null,
+            errorMessage: null,
+            createdAt: connection.createdAt,
+            updatedAt: connection.createdAt,
+          }
+        : null,
+    };
 
-      // Update metric cache
-      utils.metric.getAll.setData(undefined, (old) =>
+    // Optimistic dashboard metric - include chartData if we have it!
+    const optimisticDashboardMetric: DashboardMetricWithRelations = {
+      id: tempDashboardMetricId,
+      organizationId: "",
+      metricId: tempMetricId,
+      graphType: prefetchState?.chartData?.chartType ?? "bar",
+      // If we have chartData, use it; otherwise mark as processing
+      graphConfig: (prefetchState?.chartData
+        ? prefetchState.chartData
+        : { _processing: true }) as Prisma.JsonValue,
+      position: 9999,
+      size: "medium",
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      metric: {
+        ...optimisticMetric,
+        roles: [],
+      },
+    };
+
+    // Update metric cache
+    utils.metric.getAll.setData(undefined, (old) =>
+      old ? [...old, optimisticMetric] : [optimisticMetric],
+    );
+    if (teamId) {
+      utils.metric.getByTeamId.setData({ teamId }, (old) =>
         old ? [...old, optimisticMetric] : [optimisticMetric],
       );
-      if (teamId) {
-        utils.metric.getByTeamId.setData({ teamId }, (old) =>
-          old ? [...old, optimisticMetric] : [optimisticMetric],
-        );
-      }
+    }
 
-      // Update dashboard cache
-      utils.dashboard.getDashboardMetrics.setData(undefined, (old) =>
+    // Update dashboard cache
+    utils.dashboard.getDashboardMetrics.setData(undefined, (old) =>
+      old ? [...old, optimisticDashboardMetric] : [optimisticDashboardMetric],
+    );
+    if (teamId) {
+      utils.dashboard.getDashboardMetrics.setData({ teamId }, (old) =>
         old ? [...old, optimisticDashboardMetric] : [optimisticDashboardMetric],
       );
-      if (teamId) {
-        utils.dashboard.getDashboardMetrics.setData({ teamId }, (old) =>
-          old
-            ? [...old, optimisticDashboardMetric]
-            : [optimisticDashboardMetric],
-        );
-      }
-
-      // Close dialog immediately - user sees optimistic card
-      setOpen?.(false);
-
-      // =========================================================================
-      // Step 2: Parallel - create metric + AI transform (wait for both)
-      // =========================================================================
-
-      // Start metric creation
-      const metricPromise = createMetricMutation.mutateAsync({
-        ...data,
-        teamId,
-      });
-
-      // Start AI transform if we have prefetched data
-      let chartData: RouterOutputs["dashboard"]["transformChartWithAI"] | null =
-        null;
-      if (prefetchedRawData) {
-        try {
-          chartData = await transformAIMutation.mutateAsync({
-            metricConfig: {
-              name: data.name,
-              description: data.description,
-              metricTemplate: data.templateId,
-              endpointConfig: data.endpointParams,
-            },
-            rawData: prefetchedRawData,
-          });
-        } catch (aiError) {
-          // AI failed - we'll create dashboard metric without chart data
-          console.error("AI transformation failed:", aiError);
-        }
-      }
-
-      // Wait for metric creation
-      const createdMetric = await metricPromise;
-
-      // Update metric cache with real data
-      utils.metric.getAll.setData(undefined, (old) =>
-        old?.map((m) => (m.id === tempMetricId ? createdMetric : m)),
-      );
-      if (teamId) {
-        utils.metric.getByTeamId.setData({ teamId }, (old) =>
-          old?.map((m) => (m.id === tempMetricId ? createdMetric : m)),
-        );
-      }
-
-      // =========================================================================
-      // Step 3: Create dashboard metric WITH chart data (single call)
-      // =========================================================================
-
-      const createdDashboardMetric =
-        await createDashboardMetricMutation.mutateAsync({
-          metricId: createdMetric.id,
-          graphType: chartData?.chartType ?? "bar",
-          graphConfig: chartData
-            ? (chartData as unknown as Record<string, unknown>)
-            : {},
-        });
-
-      // Update dashboard cache with real dashboard metric (includes chart data)
-      utils.dashboard.getDashboardMetrics.setData(undefined, (old) =>
-        old?.map((dm) =>
-          dm.id === tempDashboardMetricId ? createdDashboardMetric : dm,
-        ),
-      );
-      if (teamId) {
-        utils.dashboard.getDashboardMetrics.setData({ teamId }, (old) =>
-          old?.map((dm) =>
-            dm.id === tempDashboardMetricId ? createdDashboardMetric : dm,
-          ),
-        );
-      }
-
-      // Invalidate to ensure consistency
-      void utils.metric.getAll.invalidate();
-      void utils.dashboard.getDashboardMetrics.invalidate();
-      if (teamId) {
-        void utils.metric.getByTeamId.invalidate({ teamId });
-        void utils.dashboard.getDashboardMetrics.invalidate({ teamId });
-      }
-
-      onSuccess?.();
-    } catch (err) {
-      // Rollback optimistic updates
-      utils.metric.getAll.setData(undefined, (old) =>
-        old?.filter((m) => m.id !== tempMetricId),
-      );
-      utils.dashboard.getDashboardMetrics.setData(undefined, (old) =>
-        old?.filter((dm) => dm.id !== tempDashboardMetricId),
-      );
-      if (teamId) {
-        utils.metric.getByTeamId.setData({ teamId }, (old) =>
-          old?.filter((m) => m.id !== tempMetricId),
-        );
-        utils.dashboard.getDashboardMetrics.setData({ teamId }, (old) =>
-          old?.filter((dm) => dm.id !== tempDashboardMetricId),
-        );
-      }
-
-      setError(err instanceof Error ? err.message : "Failed to create metric");
-      // Re-open dialog on error
-      setOpen?.(true);
-    } finally {
-      setIsProcessing(false);
     }
+
+    // =========================================================================
+    // Step 2: Close dialog IMMEDIATELY - chart renders with AI data if available!
+    // =========================================================================
+    setOpen?.(false);
+    setIsProcessing(false);
+    onSuccess?.();
+
+    // =========================================================================
+    // Step 3: Fire-and-forget DB operations with silent retry
+    // =========================================================================
+    void createInBackground(
+      data,
+      prefetchState,
+      tempMetricId,
+      tempDashboardMetricId,
+    );
   };
 
   if (!connection) {

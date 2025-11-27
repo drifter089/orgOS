@@ -1,9 +1,10 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
-import { Loader2 } from "lucide-react";
+import { Check, Loader2, Sparkles } from "lucide-react";
 
+import type { ChartTransformResult } from "@/app/dashboard/[teamId]/_components/dashboard-metric-card";
 import { getTemplate } from "@/app/metric/registry";
 import { Button } from "@/components/ui/button";
 import { DialogFooter } from "@/components/ui/dialog";
@@ -63,7 +64,13 @@ export function PostHogMetricContent({
   const [selectedProject, setSelectedProject] = useState("");
   const [selectedEvent, setSelectedEvent] = useState("");
 
+  // AI transform state
+  const [chartData, setChartData] = useState<ChartTransformResult | null>(null);
+  const [isAiTransforming, setIsAiTransforming] = useState(false);
+  const aiTriggeredForDataRef = useRef<string | null>(null);
+
   const template = getTemplate(TEMPLATE_ID);
+  const transformAIMutation = api.dashboard.transformChartWithAI.useMutation();
 
   // Fetch projects for dropdown
   const { data: projectsData, isLoading: isLoadingProjects } =
@@ -123,19 +130,91 @@ export function PostHogMetricContent({
     enabled: !!selectedProject && !!selectedEvent && !!template,
   });
 
+  // Reset states when project changes
   const handleProjectChange = (value: string) => {
     setSelectedProject(value);
     setSelectedEvent("");
+    setChartData(null);
+    aiTriggeredForDataRef.current = null;
   };
+
+  // Reset AI state when event changes
+  const handleEventChange = (value: string) => {
+    setSelectedEvent(value);
+    setChartData(null);
+    aiTriggeredForDataRef.current = null;
+  };
+
+  // Build metric name for AI transform
+  const selectedProjectName =
+    projects.find((p) => p.value === selectedProject)?.label ?? "Project";
+  const metricName =
+    selectedProject && selectedEvent
+      ? `${selectedProjectName} - ${selectedEvent}`
+      : "";
+
+  // Auto-trigger AI transform when raw data becomes ready
+  useEffect(() => {
+    const dataKey = JSON.stringify({
+      data: prefetch.data ? "exists" : null,
+      project: selectedProject,
+      event: selectedEvent,
+    });
+
+    if (
+      prefetch.status === "ready" &&
+      prefetch.data &&
+      !chartData &&
+      !isAiTransforming &&
+      selectedProject &&
+      selectedEvent &&
+      aiTriggeredForDataRef.current !== dataKey
+    ) {
+      aiTriggeredForDataRef.current = dataKey;
+      setIsAiTransforming(true);
+
+      transformAIMutation.mutate(
+        {
+          metricConfig: {
+            name: metricName,
+            description: `Count occurrences of ${selectedEvent} event over time`,
+            metricTemplate: TEMPLATE_ID,
+            endpointConfig: endpointParams,
+          },
+          rawData: prefetch.data,
+        },
+        {
+          onSuccess: (result) => {
+            setChartData(result as ChartTransformResult);
+            setIsAiTransforming(false);
+          },
+          onError: () => {
+            setIsAiTransforming(false);
+          },
+        },
+      );
+    }
+  }, [
+    prefetch.status,
+    prefetch.data,
+    chartData,
+    isAiTransforming,
+    selectedProject,
+    selectedEvent,
+    metricName,
+    endpointParams,
+    transformAIMutation,
+  ]);
 
   const handleCreate = () => {
     if (!selectedProject || !selectedEvent) return;
 
-    const selectedProjectName =
-      projects.find((p) => p.value === selectedProject)?.label ?? "Project";
-    const metricName = `${selectedProjectName} - ${selectedEvent}`;
+    // Reset the AI mutation to prevent duplicate calls if it's still running
+    // The card will handle refreshing if chartData isn't ready
+    transformAIMutation.reset();
 
-    void onSubmit(
+    // Pass both raw data AND pre-computed chart data
+    onSubmit(
       {
         templateId: TEMPLATE_ID,
         connectionId: connection.connectionId,
@@ -143,13 +222,17 @@ export function PostHogMetricContent({
         description: `Count occurrences of ${selectedEvent} event over time`,
         endpointParams,
       },
-      prefetch.status === "ready" ? prefetch.data : undefined,
+      {
+        rawData: prefetch.status === "ready" ? prefetch.data : undefined,
+        chartData,
+      },
     );
   };
 
   const isFormValid = !!selectedProject && !!selectedEvent;
   const isPrefetching = prefetch.status === "fetching";
   const isPrefetchReady = prefetch.status === "ready";
+  const isChartReady = !!chartData;
 
   return (
     <>
@@ -184,7 +267,7 @@ export function PostHogMetricContent({
           <Label htmlFor="event">Event</Label>
           <Select
             value={selectedEvent}
-            onValueChange={setSelectedEvent}
+            onValueChange={handleEventChange}
             disabled={!selectedProject || isLoadingEvents}
           >
             <SelectTrigger id="event">
@@ -208,17 +291,34 @@ export function PostHogMetricContent({
           </Select>
         </div>
 
-        {/* Prefetch status indicator */}
+        {/* Status indicator */}
         {isFormValid && (
           <div className="text-muted-foreground flex items-center gap-2 text-xs">
             {isPrefetching && (
               <>
                 <Loader2 className="h-3 w-3 animate-spin" />
-                <span>Pre-loading data...</span>
+                <span>Fetching data...</span>
               </>
             )}
-            {isPrefetchReady && (
-              <span className="text-green-600">Data ready</span>
+            {isPrefetchReady && !isChartReady && !isAiTransforming && (
+              <>
+                <Check className="h-3 w-3 text-green-600" />
+                <span className="text-green-600">Data ready</span>
+              </>
+            )}
+            {isAiTransforming && (
+              <>
+                <Sparkles className="h-3 w-3 animate-pulse text-blue-500" />
+                <span className="text-blue-500">AI analyzing...</span>
+              </>
+            )}
+            {isChartReady && (
+              <>
+                <Check className="h-3 w-3 text-green-600" />
+                <span className="text-green-600">
+                  Chart ready - instant create!
+                </span>
+              </>
             )}
             {prefetch.status === "error" && (
               <span className="text-amber-600">Will fetch on create</span>
