@@ -149,45 +149,13 @@ export const templates: MetricTemplate[] = [
 
   // ===== Time Series Metrics =====
   {
-    templateId: "github-commit-activity",
-    label: "Commit Activity (Last Year)",
-    description:
-      "Weekly commit activity - returns array for time-series charts",
-    integrationId: "github",
-    metricType: "number",
-
-    metricEndpoint: "/repos/{OWNER}/{REPO}/stats/commit_activity",
-
-    requiredParams: [
-      {
-        name: "OWNER",
-        label: "Repository Owner",
-        description: "GitHub username or organization",
-        type: "text",
-        required: true,
-        placeholder: "facebook",
-      },
-      {
-        name: "REPO",
-        label: "Repository Name",
-        description: "Repository name",
-        type: "dynamic-select",
-        required: true,
-        placeholder: "Select a repository",
-        dynamicConfig: {
-          endpoint: "/user/repos?per_page=100&sort=updated",
-          method: "GET",
-        },
-      },
-    ],
-  },
-  {
     templateId: "github-code-frequency",
     label: "Code Frequency (Additions/Deletions)",
     description:
-      "Weekly code additions and deletions - time-series of code changes",
+      "Weekly code additions and deletions for the repository lifetime",
     integrationId: "github",
     metricType: "number",
+    defaultUnit: "lines",
 
     metricEndpoint: "/repos/{OWNER}/{REPO}/stats/code_frequency",
 
@@ -207,6 +175,74 @@ export const templates: MetricTemplate[] = [
         type: "text",
         required: true,
         placeholder: "react",
+      },
+    ],
+  },
+  {
+    templateId: "github-commit-activity",
+    label: "Commit Activity (Last Year)",
+    description: "Weekly commit counts for the last 52 weeks",
+    integrationId: "github",
+    metricType: "number",
+    defaultUnit: "commits",
+
+    metricEndpoint: "/repos/{OWNER}/{REPO}/stats/commit_activity",
+
+    requiredParams: [
+      {
+        name: "OWNER",
+        label: "Repository Owner",
+        description: "GitHub username or organization",
+        type: "text",
+        required: true,
+        placeholder: "facebook",
+      },
+      {
+        name: "REPO",
+        label: "Repository Name",
+        description: "Repository name",
+        type: "text",
+        required: true,
+        placeholder: "react",
+      },
+    ],
+  },
+  {
+    templateId: "github-pull-requests",
+    label: "Pull Requests (Time Series)",
+    description: "Pull requests created in the last 90 days",
+    integrationId: "github",
+    metricType: "number",
+    defaultUnit: "pull requests",
+
+    // Search API: /search/issues?q=repo:{OWNER}/{REPO}+is:pr+created:>={SINCE}
+    metricEndpoint:
+      "/search/issues?q=repo:{OWNER}/{REPO}+is:pr+created:>={SINCE}&per_page=100",
+
+    requiredParams: [
+      {
+        name: "OWNER",
+        label: "Repository Owner",
+        description: "GitHub username or organization",
+        type: "text",
+        required: true,
+        placeholder: "facebook",
+      },
+      {
+        name: "REPO",
+        label: "Repository Name",
+        description: "Repository name",
+        type: "text",
+        required: true,
+        placeholder: "react",
+      },
+      {
+        name: "SINCE",
+        label: "Since Date",
+        description: "Start date for PR search (calculated automatically)",
+        type: "text",
+        required: true,
+        placeholder: "2024-01-01",
       },
     ],
   },
