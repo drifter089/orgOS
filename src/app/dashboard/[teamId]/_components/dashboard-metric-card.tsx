@@ -77,6 +77,10 @@ export function DashboardMetricCard({
   const hasChartData = !!(
     chartTransform?.chartData && chartTransform.chartData.length > 0
   );
+  // Check if metric is being processed (created from dialog with prefetch)
+  const isBeingProcessed = !!(
+    dashboardMetric.graphConfig as Record<string, unknown> | null
+  )?._processing;
 
   const deleteMetricMutation = api.metric.delete.useMutation({
     onMutate: async ({ id }) => {
@@ -166,6 +170,7 @@ export function DashboardMetricCard({
     [isIntegrationMetric, refreshMutation, dashboardMetric.id],
   );
 
+  // Auto-trigger refresh for metrics without chart data
   useEffect(() => {
     if (
       autoTrigger &&
@@ -173,7 +178,8 @@ export function DashboardMetricCard({
       !hasChartData &&
       !isPending &&
       !hasTriggeredRef.current &&
-      !isProcessing
+      !isProcessing &&
+      !isBeingProcessed // Don't trigger if metric is being created with prefetch
     ) {
       hasTriggeredRef.current = true;
       void handleRefresh();
@@ -181,6 +187,38 @@ export function DashboardMetricCard({
   }, [
     autoTrigger,
     isIntegrationMetric,
+    hasChartData,
+    isPending,
+    isProcessing,
+    isBeingProcessed,
+    handleRefresh,
+  ]);
+
+  // Fallback: if _processing is true for too long, trigger refresh
+  // This handles the case where the dialog's prefetch was cancelled
+  useEffect(() => {
+    if (
+      autoTrigger &&
+      isIntegrationMetric &&
+      isBeingProcessed &&
+      !hasChartData &&
+      !isPending &&
+      !hasTriggeredRef.current &&
+      !isProcessing
+    ) {
+      const timeout = setTimeout(() => {
+        if (!hasTriggeredRef.current) {
+          hasTriggeredRef.current = true;
+          void handleRefresh();
+        }
+      }, 2000); // Wait 2 seconds before fallback refresh
+
+      return () => clearTimeout(timeout);
+    }
+  }, [
+    autoTrigger,
+    isIntegrationMetric,
+    isBeingProcessed,
     hasChartData,
     isPending,
     isProcessing,
