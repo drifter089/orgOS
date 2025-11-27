@@ -38,7 +38,7 @@ export function TeamCanvasControls() {
             </Button>
           </TooltipTrigger>
           <TooltipContent side="right">
-            <p>Auto-arrange roles</p>
+            <p>Force layout</p>
           </TooltipContent>
         </Tooltip>
       </TooltipProvider>

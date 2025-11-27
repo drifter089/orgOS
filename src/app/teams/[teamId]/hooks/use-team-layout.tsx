@@ -3,7 +3,7 @@ import { useCallback } from "react";
 import { useShallow } from "zustand/react/shallow";
 
 import { type TeamStore, useTeamStore } from "../store/team-store";
-import { layoutTeamGraph } from "../utils/team-layout-helper";
+import { layoutTeamWithForce } from "../utils/force-layout";
 
 const selector = (state: TeamStore) => ({
   nodes: state.nodes,
@@ -12,14 +12,14 @@ const selector = (state: TeamStore) => ({
 });
 
 /**
- * Hook to trigger auto-layout of team canvas nodes
- * Uses ELK.js to arrange nodes in a hierarchical layout
+ * Hook to trigger force-directed layout of team canvas nodes
+ * Uses d3-force to arrange nodes with physics-based positioning
  */
 export function useTeamLayout() {
   const { nodes, edges, setNodes } = useTeamStore(useShallow(selector));
 
-  return useCallback(async () => {
-    const layoutedNodes = await layoutTeamGraph(nodes, edges);
+  return useCallback(() => {
+    const layoutedNodes = layoutTeamWithForce(nodes, edges);
     setNodes(layoutedNodes);
   }, [edges, nodes, setNodes]);
 }
