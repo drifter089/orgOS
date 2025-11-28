@@ -23,6 +23,7 @@ export function NavWrapper({
   signOutAction,
 }: NavWrapperProps) {
   const pathname = usePathname();
+
   const isOrgPage = isOrganizationPage(pathname);
 
   // Extract team ID from pathname for both /teams/:id and /dashboard/:teamId
@@ -63,6 +64,11 @@ export function NavWrapper({
       orgData?.organization.name,
     );
   }, [isOrgPage, pathname, teamId, team?.name, orgData?.organization.name]);
+
+  // Hide global navbar on landing page
+  if (pathname === "/") {
+    return null;
+  }
 
   return (
     <FancyNav
