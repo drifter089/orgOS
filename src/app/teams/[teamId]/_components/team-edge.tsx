@@ -7,6 +7,7 @@ import {
   type Edge,
   EdgeLabelRenderer,
   type EdgeProps,
+  MarkerType,
   getBezierPath,
 } from "@xyflow/react";
 import { Loader2, Plus, Trash2 } from "lucide-react";
@@ -112,6 +113,7 @@ export function TeamEdge({
           target: nodeId,
           type: "team-edge",
           animated: true,
+          markerEnd: { type: MarkerType.ArrowClosed, width: 20, height: 20 },
         },
         {
           id: `edge-${nodeId}-${edge.target}`,
@@ -119,6 +121,7 @@ export function TeamEdge({
           target: edge.target,
           type: "team-edge",
           animated: true,
+          markerEnd: { type: MarkerType.ArrowClosed, width: 20, height: 20 },
         },
       ];
 

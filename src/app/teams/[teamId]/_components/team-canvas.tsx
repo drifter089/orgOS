@@ -5,6 +5,7 @@ import { useState } from "react";
 import {
   Background,
   BackgroundVariant,
+  MarkerType,
   type NodeMouseHandler,
   type ProOptions,
   ReactFlow,
@@ -120,9 +121,11 @@ export function TeamCanvas() {
           "transition-opacity duration-200",
           isSaving && "opacity-90",
         )}
+        panOnScroll
         defaultEdgeOptions={{
           type: "team-edge",
           animated: true,
+          markerEnd: { type: MarkerType.ArrowClosed, width: 20, height: 20 },
         }}
       >
         <Background variant={BackgroundVariant.Dots} gap={16} size={1} />

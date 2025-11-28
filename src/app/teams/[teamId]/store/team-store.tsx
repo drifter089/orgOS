@@ -4,6 +4,7 @@ import { type ReactNode, createContext, useContext, useRef } from "react";
 
 import {
   type Edge,
+  MarkerType,
   type Node,
   type OnConnect,
   type OnEdgesChange,
@@ -98,6 +99,7 @@ export function createTeamStore(
           ...connection,
           type: "team-edge",
           animated: true,
+          markerEnd: { type: MarkerType.ArrowClosed, width: 20, height: 20 },
         },
         get().edges,
       );
