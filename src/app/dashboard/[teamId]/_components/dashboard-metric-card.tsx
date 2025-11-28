@@ -5,6 +5,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { BarChart3, Loader2, Settings, Trash2, Users } from "lucide-react";
 import { toast } from "sonner";
 
+import { getTemplate } from "@/app/metric/registry";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useConfirmation } from "@/providers/ConfirmationDialogProvider";
@@ -77,10 +78,6 @@ export function DashboardMetricCard({
   const hasChartData = !!(
     chartTransform?.chartData && chartTransform.chartData.length > 0
   );
-  // Check if metric is being processed (created from dialog with prefetch)
-  const isBeingProcessed = !!(
-    dashboardMetric.graphConfig as Record<string, unknown> | null
-  )?._processing;
 
   const deleteMetricMutation = api.metric.delete.useMutation({
     onMutate: async ({ id }) => {
@@ -130,44 +127,85 @@ export function DashboardMetricCard({
     },
   });
 
-  const refreshMutation = api.dashboard.refreshMetricChart.useMutation({
-    onSuccess: (updatedDashboardMetric) => {
-      const teamId = updatedDashboardMetric.metric.teamId;
-
-      utils.dashboard.getDashboardMetrics.setData(undefined, (old) =>
-        old?.map((dm) =>
-          dm.id === updatedDashboardMetric.id ? updatedDashboardMetric : dm,
-        ),
-      );
-
-      if (teamId) {
-        utils.dashboard.getDashboardMetrics.setData({ teamId }, (old) =>
-          old?.map((dm) =>
-            dm.id === updatedDashboardMetric.id ? updatedDashboardMetric : dm,
-          ),
-        );
-      }
-    },
-  });
+  // Direct mutations for transform + save (no Zustand store)
+  const transformMutation = api.dashboard.transformChartWithAI.useMutation();
+  const updateChartMutation =
+    api.dashboard.updateDashboardMetricChart.useMutation();
 
   const handleRefresh = useCallback(
     async (userHint?: string) => {
-      if (!isIntegrationMetric) return;
+      if (!isIntegrationMetric || !metric.metricTemplate || !metric.integration)
+        return;
+
+      const template = getTemplate(metric.metricTemplate);
+      if (!template) {
+        toast.error("Metric template not found");
+        return;
+      }
 
       setIsProcessing(true);
       try {
-        await refreshMutation.mutateAsync({
-          dashboardMetricId: dashboardMetric.id,
-          userHint: userHint ?? undefined,
+        const endpointParams =
+          (metric.endpointConfig as Record<string, string>) ?? {};
+        let endpoint = template.metricEndpoint;
+        for (const [key, value] of Object.entries(endpointParams)) {
+          endpoint = endpoint.replace(`{${key}}`, encodeURIComponent(value));
+        }
+
+        const rawData = await utils.metric.fetchIntegrationData.fetch({
+          connectionId: metric.integration.connectionId,
+          integrationId: metric.integration.integrationId,
+          endpoint,
+          method: template.method,
         });
+
+        if (!rawData?.data) {
+          toast.error("Failed to fetch data");
+          return;
+        }
+
+        const chartResult = await transformMutation.mutateAsync({
+          metricConfig: {
+            name: metric.name,
+            description: metric.description ?? undefined,
+            metricTemplate: metric.metricTemplate,
+            endpointConfig: endpointParams,
+          },
+          rawData: rawData.data,
+          userHint,
+        });
+
+        const updated = await updateChartMutation.mutateAsync({
+          dashboardMetricId: dashboardMetric.id,
+          graphType: chartResult.chartType,
+          graphConfig: chartResult as unknown as Record<string, unknown>,
+        });
+
+        const teamId = metric.teamId;
+        utils.dashboard.getDashboardMetrics.setData(undefined, (old) =>
+          old?.map((dm) => (dm.id === updated.id ? updated : dm)),
+        );
+        if (teamId) {
+          utils.dashboard.getDashboardMetrics.setData({ teamId }, (old) =>
+            old?.map((dm) => (dm.id === updated.id ? updated : dm)),
+          );
+        }
       } catch (error) {
         console.error("Refresh failed:", error);
+        toast.error("Failed to refresh chart");
       } finally {
         setIsProcessing(false);
         setPrompt("");
       }
     },
-    [isIntegrationMetric, refreshMutation, dashboardMetric.id],
+    [
+      isIntegrationMetric,
+      metric,
+      dashboardMetric.id,
+      transformMutation,
+      updateChartMutation,
+      utils,
+    ],
   );
 
   // Auto-trigger refresh for metrics without chart data
@@ -178,8 +216,7 @@ export function DashboardMetricCard({
       !hasChartData &&
       !isPending &&
       !hasTriggeredRef.current &&
-      !isProcessing &&
-      !isBeingProcessed // Don't trigger if metric is being created with prefetch
+      !isProcessing
     ) {
       hasTriggeredRef.current = true;
       void handleRefresh();
@@ -187,38 +224,6 @@ export function DashboardMetricCard({
   }, [
     autoTrigger,
     isIntegrationMetric,
-    hasChartData,
-    isPending,
-    isProcessing,
-    isBeingProcessed,
-    handleRefresh,
-  ]);
-
-  // Fallback: if _processing is true for too long, trigger refresh
-  // This handles the case where the dialog's prefetch was cancelled
-  useEffect(() => {
-    if (
-      autoTrigger &&
-      isIntegrationMetric &&
-      isBeingProcessed &&
-      !hasChartData &&
-      !isPending &&
-      !hasTriggeredRef.current &&
-      !isProcessing
-    ) {
-      const timeout = setTimeout(() => {
-        if (!hasTriggeredRef.current) {
-          hasTriggeredRef.current = true;
-          void handleRefresh();
-        }
-      }, 2000); // Wait 2 seconds before fallback refresh
-
-      return () => clearTimeout(timeout);
-    }
-  }, [
-    autoTrigger,
-    isIntegrationMetric,
-    isBeingProcessed,
     hasChartData,
     isPending,
     isProcessing,

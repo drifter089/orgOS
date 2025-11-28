@@ -1,10 +1,9 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { Check, Loader2, Sparkles } from "lucide-react";
 
-import type { ChartTransformResult } from "@/app/dashboard/[teamId]/_components/dashboard-metric-card";
 import { getTemplate } from "@/app/metric/registry";
 import { Button } from "@/components/ui/button";
 import { DialogFooter } from "@/components/ui/dialog";
@@ -19,7 +18,7 @@ import {
 } from "@/components/ui/select";
 import { api } from "@/trpc/react";
 
-import { useMetricDataPrefetch } from "../_hooks/use-metric-data-prefetch";
+import { useApiToChartTransformer } from "../_hooks/use-api-to-chart-transformer";
 import type { ContentProps } from "./MetricDialogBase";
 
 type ScopeType = "channel" | "video";
@@ -106,13 +105,6 @@ export function YouTubeMetricContent({
   const [metricType, setMetricType] = useState<MetricType | "">("");
   const [metricName, setMetricName] = useState("");
 
-  // AI transform state
-  const [chartData, setChartData] = useState<ChartTransformResult | null>(null);
-  const [isAiTransforming, setIsAiTransforming] = useState(false);
-  const aiTriggeredForDataRef = useRef<string | null>(null);
-
-  const transformAIMutation = api.dashboard.transformChartWithAI.useMutation();
-
   // Fetch videos for dropdown
   const { data: videosData, isLoading: isLoadingVideos } =
     api.metric.fetchIntegrationData.useQuery(
@@ -134,7 +126,6 @@ export function YouTubeMetricContent({
     return transformVideos(videosData.data);
   }, [videosData]);
 
-  // Build template ID and params
   const templateId =
     scopeType && metricType ? getTemplateId(scopeType, metricType) : null;
   const template = templateId ? getTemplate(templateId) : null;
@@ -146,46 +137,45 @@ export function YouTubeMetricContent({
     return {};
   }, [scopeType, selectedVideoId]);
 
-  // Check if all params are ready for prefetch
   const isReadyForPrefetch =
     !!scopeType &&
     !!metricType &&
+    !!metricName &&
     (scopeType === "channel" || (scopeType === "video" && !!selectedVideoId));
 
-  // Pre-fetch raw data when all options are selected
-  const prefetch = useMetricDataPrefetch({
+  // Use unified transform hook
+  const transformer = useApiToChartTransformer({
     connectionId: connection.connectionId,
     integrationId: "youtube",
     template: template ?? null,
     endpointParams,
-    enabled: isReadyForPrefetch && !!template,
+    metricName,
+    metricDescription:
+      scopeType && metricType
+        ? getMetricDescription(metricType, scopeType)
+        : undefined,
+    enabled: isReadyForPrefetch,
   });
 
-  // Reset selections when scope changes
   const handleScopeChange = (value: ScopeType) => {
     setScopeType(value);
     setSelectedVideoId("");
     setMetricType("");
     setMetricName("");
-    setChartData(null);
-    aiTriggeredForDataRef.current = null;
+    transformer.reset();
   };
 
-  // Reset AI state when metric type changes
   const handleMetricTypeChange = (value: MetricType) => {
     setMetricType(value);
-    setChartData(null);
-    aiTriggeredForDataRef.current = null;
+    transformer.reset();
   };
 
-  // Reset AI state when video changes
   const handleVideoChange = (value: string) => {
     setSelectedVideoId(value);
-    setChartData(null);
-    aiTriggeredForDataRef.current = null;
+    transformer.reset();
   };
 
-  // Auto-generate metric name when metric type is selected
+  // Auto-generate metric name
   useEffect(() => {
     if (metricType && scopeType) {
       const videoName =
@@ -199,89 +189,19 @@ export function YouTubeMetricContent({
     }
   }, [metricType, scopeType, selectedVideoId, videoOptions]);
 
-  // Auto-trigger AI transform when raw data becomes ready
-  useEffect(() => {
-    const dataKey = JSON.stringify({
-      data: prefetch.data ? "exists" : null,
-      template: templateId,
-      params: endpointParams,
-    });
-
-    if (
-      prefetch.status === "ready" &&
-      prefetch.data &&
-      !chartData &&
-      !isAiTransforming &&
-      metricName &&
-      templateId &&
-      scopeType &&
-      metricType &&
-      aiTriggeredForDataRef.current !== dataKey
-    ) {
-      aiTriggeredForDataRef.current = dataKey;
-      setIsAiTransforming(true);
-
-      transformAIMutation.mutate(
-        {
-          metricConfig: {
-            name: metricName,
-            description: getMetricDescription(metricType, scopeType),
-            metricTemplate: templateId,
-            endpointConfig: endpointParams,
-          },
-          rawData: prefetch.data,
-        },
-        {
-          onSuccess: (result) => {
-            setChartData(result as ChartTransformResult);
-            setIsAiTransforming(false);
-          },
-          onError: () => {
-            setIsAiTransforming(false);
-          },
-        },
-      );
-    }
-  }, [
-    prefetch.status,
-    prefetch.data,
-    chartData,
-    isAiTransforming,
-    metricName,
-    templateId,
-    scopeType,
-    metricType,
-    endpointParams,
-    transformAIMutation,
-  ]);
-
   const handleCreate = () => {
     if (!scopeType || !metricType || !metricName || !templateId) return;
-
-    // For video scope, ensure video is selected
     if (scopeType === "video" && !selectedVideoId) return;
 
-    // Reset the AI mutation to prevent duplicate calls if it's still running
-    // The card will handle refreshing if chartData isn't ready
-    transformAIMutation.reset();
-
-    // Pass both raw data AND pre-computed chart data
-    onSubmit(
-      {
-        templateId,
-        connectionId: connection.connectionId,
-        name: metricName,
-        description: getMetricDescription(metricType, scopeType),
-        endpointParams,
-      },
-      {
-        rawData: prefetch.status === "ready" ? prefetch.data : undefined,
-        chartData,
-      },
-    );
+    onSubmit({
+      templateId,
+      connectionId: connection.connectionId,
+      name: metricName,
+      description: getMetricDescription(metricType, scopeType),
+      endpointParams,
+    });
   };
 
-  // Available metrics based on scope
   const availableMetrics: MetricType[] =
     scopeType === "channel"
       ? ["views", "likes", "subscribers"]
@@ -295,14 +215,16 @@ export function YouTubeMetricContent({
     metricName &&
     (scopeType === "channel" || (scopeType === "video" && selectedVideoId));
 
-  const isPrefetching = prefetch.status === "fetching";
-  const isPrefetchReady = prefetch.status === "ready";
-  const isChartReady = !!chartData;
+  const isFetching = transformer.status === "fetching" || transformer.isLoading;
+  const isTransforming =
+    transformer.status === "transforming" || transformer.isTransforming;
+  const isChartReady = !!transformer.chartData;
+  const isDataReady =
+    transformer.status === "ready" && transformer.rawData && !isChartReady;
 
   return (
     <>
       <div className="space-y-4 py-4">
-        {/* Scope Selection: Channel or Video */}
         <div className="space-y-2">
           <Label htmlFor="scope">Scope</Label>
           <Select
@@ -319,7 +241,6 @@ export function YouTubeMetricContent({
           </Select>
         </div>
 
-        {/* Video Selection (only shown when scope is "video") */}
         {scopeType === "video" && (
           <div className="space-y-2">
             <Label htmlFor="video">Select Video</Label>
@@ -346,7 +267,6 @@ export function YouTubeMetricContent({
           </div>
         )}
 
-        {/* Metric Type Selection */}
         {scopeType && (
           <div className="space-y-2">
             <Label htmlFor="metric">Metric Type</Label>
@@ -375,7 +295,6 @@ export function YouTubeMetricContent({
           </div>
         )}
 
-        {/* Metric Name */}
         {metricType && (
           <div className="space-y-2">
             <Label htmlFor="name">Metric Name</Label>
@@ -388,22 +307,21 @@ export function YouTubeMetricContent({
           </div>
         )}
 
-        {/* Status indicator */}
         {isFormValid && (
           <div className="text-muted-foreground flex items-center gap-2 text-xs">
-            {isPrefetching && (
+            {isFetching && (
               <>
                 <Loader2 className="h-3 w-3 animate-spin" />
                 <span>Fetching data...</span>
               </>
             )}
-            {isPrefetchReady && !isChartReady && !isAiTransforming && (
+            {isDataReady && !isTransforming && (
               <>
                 <Check className="h-3 w-3 text-green-600" />
                 <span className="text-green-600">Data ready</span>
               </>
             )}
-            {isAiTransforming && (
+            {isTransforming && (
               <>
                 <Sparkles className="h-3 w-3 animate-pulse text-blue-500" />
                 <span className="text-blue-500">AI analyzing...</span>
@@ -417,7 +335,7 @@ export function YouTubeMetricContent({
                 </span>
               </>
             )}
-            {prefetch.status === "error" && (
+            {transformer.status === "error" && (
               <span className="text-amber-600">Will fetch on create</span>
             )}
           </div>
