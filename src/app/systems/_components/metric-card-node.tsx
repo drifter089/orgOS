@@ -29,7 +29,8 @@ function MetricCardNodeComponent({
   return (
     <div
       className={cn(
-        "bg-card w-[450px] rounded-lg border shadow-sm",
+        "bg-card w-[500px] rounded-xl border-2 p-3 shadow-md",
+        "transition-shadow hover:shadow-lg",
         selected && "ring-primary ring-2 ring-offset-2",
       )}
     >
@@ -58,10 +59,12 @@ function MetricCardNodeComponent({
         className={handleClassName}
       />
 
-      <DashboardMetricCard
-        dashboardMetric={data.dashboardMetric}
-        autoTrigger={false}
-      />
+      <div className="overflow-hidden rounded-lg">
+        <DashboardMetricCard
+          dashboardMetric={data.dashboardMetric}
+          autoTrigger={false}
+        />
+      </div>
     </div>
   );
 }
