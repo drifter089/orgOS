@@ -1,5 +1,9 @@
 import { Suspense } from "react";
 
+import Link from "next/link";
+
+import { Settings2 } from "lucide-react";
+
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { HydrateClient, api } from "@/trpc/server";
@@ -73,6 +77,28 @@ export default async function OrganizationPage() {
               </div>
             </div>
             <TeamsList />
+          </section>
+
+          {/* Systems Section */}
+          <section className="animate-in fade-in slide-in-from-bottom-4 mt-12 space-y-6 delay-300 duration-500">
+            <h2 className="text-2xl font-bold tracking-tight sm:text-3xl">
+              Systems
+            </h2>
+            <Link href="/systems">
+              <Card className="hover:bg-muted/50 cursor-pointer transition-colors">
+                <CardContent className="flex items-center gap-4 p-6">
+                  <div className="bg-primary/10 flex h-12 w-12 items-center justify-center rounded-lg">
+                    <Settings2 className="text-primary h-6 w-6" />
+                  </div>
+                  <div>
+                    <h3 className="font-semibold">Manage Systems</h3>
+                    <p className="text-muted-foreground text-sm">
+                      View and configure organizational systems
+                    </p>
+                  </div>
+                </CardContent>
+              </Card>
+            </Link>
           </section>
         </div>
       </div>
