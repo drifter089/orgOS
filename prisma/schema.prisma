@@ -172,3 +172,20 @@ model DashboardMetric {
     @@index([metricId])
     @@index([position])
 }
+
+// Systems Canvas - Visual KPI relationship mapping
+model SystemsCanvas {
+    id             String   @id @default(cuid())
+    organizationId String   @unique // One canvas per organization
+
+    // Store only positions and edges (metric data is in DashboardMetric)
+    // Node IDs match DashboardMetric.id for linking
+    reactFlowNodes Json     @default("[]") // Array of { id, position }
+    reactFlowEdges Json     @default("[]") // Array of edge connection data
+    viewport       Json?    // { x, y, zoom } for canvas position
+
+    createdAt      DateTime @default(now())
+    updatedAt      DateTime @updatedAt
+
+    @@index([organizationId])
+}
