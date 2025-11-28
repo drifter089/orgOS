@@ -141,6 +141,7 @@ export function FancyNav({
   const menuItemsRef = useRef<HTMLDivElement>(null);
   const actionsRef = useRef<HTMLDivElement>(null);
   const timelineRef = useRef<gsap.core.Timeline | null>(null);
+  const dropdownCloseTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Check if running in development
   const isDev = process.env.NODE_ENV === "development";
@@ -150,9 +151,29 @@ export function FancyNav({
   // In development: show dev items unless "Prod Mode" is toggled on
   const showDevItems = isDev && !isProdMode;
 
+  // Dropdown hover handlers with delay for better UX
+  const handleDropdownMouseEnter = useCallback((dropdownId: string) => {
+    if (dropdownCloseTimeoutRef.current) {
+      clearTimeout(dropdownCloseTimeoutRef.current);
+      dropdownCloseTimeoutRef.current = null;
+    }
+    setOpenDropdown(dropdownId);
+  }, []);
+
+  const handleDropdownMouseLeave = useCallback(() => {
+    dropdownCloseTimeoutRef.current = setTimeout(() => {
+      setOpenDropdown(null);
+    }, 400);
+  }, []);
+
   // Mount effect
   useEffect(() => {
     setMounted(true);
+    return () => {
+      if (dropdownCloseTimeoutRef.current) {
+        clearTimeout(dropdownCloseTimeoutRef.current);
+      }
+    };
   }, []);
 
   // Helper to check if a path is active
@@ -365,8 +386,10 @@ export function FancyNav({
                         {item.dropdown ? (
                           <BreadcrumbItemUI
                             className="flex items-center gap-0.5"
-                            onMouseEnter={() => setOpenDropdown(dropdownId)}
-                            onMouseLeave={() => setOpenDropdown(null)}
+                            onMouseEnter={() =>
+                              handleDropdownMouseEnter(dropdownId)
+                            }
+                            onMouseLeave={handleDropdownMouseLeave}
                           >
                             {/* Label - navigable or static */}
                             {item.isNavigable !== false ? (
@@ -407,8 +430,10 @@ export function FancyNav({
                               <DropdownMenuContentNoPortal
                                 align="start"
                                 sideOffset={8}
-                                onMouseEnter={() => setOpenDropdown(dropdownId)}
-                                onMouseLeave={() => setOpenDropdown(null)}
+                                onMouseEnter={() =>
+                                  handleDropdownMouseEnter(dropdownId)
+                                }
+                                onMouseLeave={handleDropdownMouseLeave}
                               >
                                 {item.dropdown.type === "teams" && teams
                                   ? teams.map((team) => {
@@ -541,7 +566,7 @@ export function FancyNav({
                   Hi, {user.firstName ?? "there"}
                 </span>
               ) : (
-                <Button variant="ghost" size="sm" asChild className="h-7 px-2">
+                <Button size="sm" asChild className="h-7 px-3">
                   <Link href="/login" prefetch={false}>
                     Sign in
                   </Link>
