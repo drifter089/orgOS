@@ -1,17 +1,39 @@
 import { HydrateClient, api } from "@/trpc/server";
 
-import { SystemsCanvas } from "./_components/systems-canvas";
+import { SystemsCanvasWrapper } from "./_components/systems-canvas-wrapper";
 import { SystemsStoreProvider } from "./store/systems-store";
+import type { StoredEdge, StoredNode } from "./utils/canvas-serialization";
 
 export default async function SystemsPage() {
-  await api.dashboard.getAllDashboardMetricsWithCharts.prefetch();
+  const [dashboardMetrics, canvasState] = await Promise.all([
+    api.dashboard.getAllDashboardMetricsWithCharts(),
+    api.systemsCanvas.get(),
+  ]);
+
+  const savedNodes = (canvasState?.reactFlowNodes ?? []) as StoredNode[];
+  const savedEdges = (canvasState?.reactFlowEdges ?? []) as StoredEdge[];
+
+  if (dashboardMetrics.length === 0) {
+    return (
+      <div className="flex h-screen w-full items-center justify-center">
+        <p className="text-muted-foreground">
+          No metrics with chart data found. Add metrics from the dashboard
+          first.
+        </p>
+      </div>
+    );
+  }
 
   return (
     <HydrateClient>
       <SystemsStoreProvider>
         <div className="flex h-screen w-full overflow-hidden">
           <div className="relative h-full w-full flex-1 overflow-hidden">
-            <SystemsCanvas />
+            <SystemsCanvasWrapper
+              dashboardMetrics={dashboardMetrics}
+              savedNodes={savedNodes}
+              savedEdges={savedEdges}
+            />
           </div>
         </div>
       </SystemsStoreProvider>

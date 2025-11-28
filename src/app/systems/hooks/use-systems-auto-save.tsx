@@ -1,91 +1,85 @@
 "use client";
 
-import { useCallback, useEffect, useRef } from "react";
+import { useEffect, useRef } from "react";
 
-import { useShallow } from "zustand/react/shallow";
+import { toast } from "sonner";
 
-import { type SystemsStore, useSystemsStore } from "../store/systems-store";
+import { api } from "@/trpc/react";
 
-const AUTO_SAVE_DELAY = 1000;
-const STORAGE_KEY = "systems-canvas-state";
+import { useSystemsStore } from "../store/systems-store";
+import { serializeEdges, serializeNodes } from "../utils/canvas-serialization";
 
-type StoredState = {
-  nodes: Array<{
-    id: string;
-    type: string;
-    position: { x: number; y: number };
-  }>;
-  edges: Array<{
-    id: string;
-    source: string;
-    target: string;
-    sourceHandle?: string | null;
-    targetHandle?: string | null;
-    type?: string;
-    animated?: boolean;
-  }>;
-};
-
-const selector = (state: SystemsStore) => ({
-  nodes: state.nodes,
-  edges: state.edges,
-  isDirty: state.isDirty,
-  markClean: state.markClean,
-  setSaving: state.setSaving,
-  setLastSaved: state.setLastSaved,
-});
+const AUTO_SAVE_DELAY = 2000;
 
 export function useSystemsAutoSave() {
-  const { nodes, edges, isDirty, markClean, setSaving, setLastSaved } =
-    useSystemsStore(useShallow(selector));
+  const nodes = useSystemsStore((state) => state.nodes);
+  const edges = useSystemsStore((state) => state.edges);
+  const isDirty = useSystemsStore((state) => state.isDirty);
+  const markClean = useSystemsStore((state) => state.markClean);
+  const setSaving = useSystemsStore((state) => state.setSaving);
+  const setLastSaved = useSystemsStore((state) => state.setLastSaved);
 
   const saveTimeoutRef = useRef<NodeJS.Timeout | undefined>(undefined);
-  const isSavingRef = useRef(false);
+  const pendingSnapshotRef = useRef<{
+    nodes: ReturnType<typeof serializeNodes>;
+    edges: ReturnType<typeof serializeEdges>;
+  } | null>(null);
 
-  const saveToStorage = useCallback(() => {
-    if (isSavingRef.current) return;
-
-    isSavingRef.current = true;
-    setSaving(true);
-
-    try {
-      const storedState: StoredState = {
-        nodes: nodes.map((node) => ({
-          id: node.id,
-          type: node.type ?? "metricCard",
-          position: node.position,
-        })),
-        edges: edges.map((edge) => ({
-          id: edge.id,
-          source: edge.source,
-          target: edge.target,
-          sourceHandle: edge.sourceHandle,
-          targetHandle: edge.targetHandle,
-          type: edge.type,
-          animated: edge.animated,
-        })),
+  const updateCanvas = api.systemsCanvas.update.useMutation({
+    onSuccess: () => {
+      const lastSent = pendingSnapshotRef.current;
+      const currentSnapshot = {
+        nodes: serializeNodes(nodes),
+        edges: serializeEdges(edges),
       };
 
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(storedState));
-      markClean();
-      setLastSaved(new Date());
-    } catch (error) {
-      console.error("Failed to save systems canvas:", error);
-    } finally {
-      isSavingRef.current = false;
+      const mutatedWhileSaving =
+        !lastSent ||
+        JSON.stringify(lastSent.nodes) !==
+          JSON.stringify(currentSnapshot.nodes) ||
+        JSON.stringify(lastSent.edges) !==
+          JSON.stringify(currentSnapshot.edges);
+
+      if (!mutatedWhileSaving) {
+        markClean();
+        setLastSaved(new Date());
+      }
+    },
+    onError: (error) => {
+      toast.error("Failed to save canvas", {
+        description: error.message ?? "Changes could not be saved",
+      });
+    },
+    onSettled: () => {
       setSaving(false);
-    }
-  }, [nodes, edges, markClean, setSaving, setLastSaved]);
+      pendingSnapshotRef.current = null;
+    },
+  });
 
   useEffect(() => {
     if (saveTimeoutRef.current) {
       clearTimeout(saveTimeoutRef.current);
     }
 
-    if (!isDirty) return;
+    if (!isDirty || updateCanvas.isPending) {
+      return;
+    }
 
     saveTimeoutRef.current = setTimeout(() => {
-      saveToStorage();
+      setSaving(true);
+
+      const serializedNodes = serializeNodes(nodes);
+      const serializedEdges = serializeEdges(edges);
+
+      pendingSnapshotRef.current = {
+        nodes: serializedNodes,
+        edges: serializedEdges,
+      };
+
+      updateCanvas.mutate({
+        reactFlowNodes: serializedNodes,
+        reactFlowEdges: serializedEdges,
+      });
     }, AUTO_SAVE_DELAY);
 
     return () => {
@@ -93,22 +87,10 @@ export function useSystemsAutoSave() {
         clearTimeout(saveTimeoutRef.current);
       }
     };
-  }, [isDirty, saveToStorage]);
+  }, [isDirty, nodes, edges, updateCanvas, setSaving, markClean, setLastSaved]);
 
-  const isSaving = useSystemsStore((state) => state.isSaving);
-  const lastSaved = useSystemsStore((state) => state.lastSaved);
-
-  return { isSaving, lastSaved };
-}
-
-export function loadSystemsCanvasState(): StoredState | null {
-  if (typeof window === "undefined") return null;
-
-  try {
-    const stored = localStorage.getItem(STORAGE_KEY);
-    if (!stored) return null;
-    return JSON.parse(stored) as StoredState;
-  } catch {
-    return null;
-  }
+  return {
+    isSaving: updateCanvas.isPending,
+    lastSaved: useSystemsStore((state) => state.lastSaved),
+  };
 }
