@@ -3,7 +3,7 @@
 import { memo, useCallback, useState } from "react";
 
 import { Handle, type Node, type NodeProps, Position } from "@xyflow/react";
-import { Loader2, Trash2, TrendingUp, User } from "lucide-react";
+import { Loader2, Settings, Trash2, TrendingUp, User } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -36,10 +36,11 @@ export type RoleNodeData = {
 
 export type RoleNode = Node<RoleNodeData, "role-node">;
 
-function RoleNodeComponent({ data, selected }: NodeProps<RoleNode>) {
+function RoleNodeComponent({ data, selected, id }: NodeProps<RoleNode>) {
   const [isDeleting, setIsDeleting] = useState(false);
 
   const teamId = useTeamStore((state) => state.teamId);
+  const setEditingNodeId = useTeamStore((state) => state.setEditingNodeId);
   const { confirm } = useConfirmation();
   const deleteRoleMutation = useDeleteRole(teamId);
 
@@ -60,10 +61,14 @@ function RoleNodeComponent({ data, selected }: NodeProps<RoleNode>) {
     }
   }, [data.roleId, data.title, deleteRoleMutation, confirm]);
 
+  const handleEdit = useCallback(() => {
+    setEditingNodeId(id);
+  }, [setEditingNodeId, id]);
+
   const color = data.color ?? "#3b82f6";
   const truncatedPurpose =
-    data.purpose.length > 50
-      ? data.purpose.substring(0, 50) + "..."
+    data.purpose.length > 80
+      ? data.purpose.substring(0, 80) + "..."
       : data.purpose;
 
   const isPending = data.isPending ?? false;
@@ -72,7 +77,7 @@ function RoleNodeComponent({ data, selected }: NodeProps<RoleNode>) {
     <div
       className={cn(
         "bg-card group relative rounded-lg border transition-all duration-200 hover:shadow-lg",
-        "max-w-[280px] min-w-[280px]",
+        "max-w-[320px] min-w-[320px]",
         selected && "ring-primary ring-2 ring-offset-2",
         isPending && "cursor-not-allowed opacity-60",
         isDeleting && "opacity-50",
@@ -91,28 +96,42 @@ function RoleNodeComponent({ data, selected }: NodeProps<RoleNode>) {
         )}
       />
 
-      {/* Delete Button - Positioned in top-right corner */}
+      {/* Action Buttons - Positioned in top-right corner */}
       {!isPending && (
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={(e) => {
-            e.stopPropagation();
-            void handleDelete();
-          }}
-          disabled={isDeleting}
-          className={cn(
-            "nodrag absolute top-1 right-1 z-10 h-6 w-6 opacity-0 transition-opacity group-hover:opacity-100",
-            "hover:bg-destructive/10 hover:text-destructive",
-          )}
-          title="Delete role"
-        >
-          {isDeleting ? (
-            <Loader2 className="h-3 w-3 animate-spin" />
-          ) : (
-            <Trash2 className="h-3 w-3" />
-          )}
-        </Button>
+        <div className="nodrag absolute top-1 right-1 z-10 flex gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={(e) => {
+              e.stopPropagation();
+              handleEdit();
+            }}
+            className={cn("h-6 w-6", "hover:bg-primary/10 hover:text-primary")}
+            title="Edit role"
+          >
+            <Settings className="h-3 w-3" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={(e) => {
+              e.stopPropagation();
+              void handleDelete();
+            }}
+            disabled={isDeleting}
+            className={cn(
+              "h-6 w-6",
+              "hover:bg-destructive/10 hover:text-destructive",
+            )}
+            title="Delete role"
+          >
+            {isDeleting ? (
+              <Loader2 className="h-3 w-3 animate-spin" />
+            ) : (
+              <Trash2 className="h-3 w-3" />
+            )}
+          </Button>
+        </div>
       )}
 
       {/* Header */}
@@ -149,7 +168,7 @@ function RoleNodeComponent({ data, selected }: NodeProps<RoleNode>) {
                 {truncatedPurpose}
               </p>
             </TooltipTrigger>
-            {data.purpose.length > 50 && (
+            {data.purpose.length > 80 && (
               <TooltipContent className="max-w-xs">
                 <p className="text-xs">{data.purpose}</p>
               </TooltipContent>
