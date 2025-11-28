@@ -6,6 +6,32 @@ import { transformMetricWithAI } from "@/server/api/services/chart-tools/ai-tran
 import { createTRPCRouter, workspaceProcedure } from "@/server/api/trpc";
 
 export const dashboardRouter = createTRPCRouter({
+  /**
+   * Get all dashboard metrics with charts (non-empty graphConfig) across all teams
+   * Used by the default dashboard page to show all metrics
+   */
+  getAllDashboardMetricsWithCharts: workspaceProcedure.query(
+    async ({ ctx }) => {
+      const dashboardMetrics = await ctx.db.dashboardMetric.findMany({
+        where: {
+          organizationId: ctx.workspace.organizationId,
+          NOT: { graphConfig: { equals: {} } },
+        },
+        include: {
+          metric: {
+            include: {
+              integration: true,
+              roles: true,
+              team: true,
+            },
+          },
+        },
+        orderBy: { position: "asc" },
+      });
+      return dashboardMetrics;
+    },
+  ),
+
   getDashboardMetrics: workspaceProcedure
     .input(z.object({ teamId: z.string().optional() }).optional())
     .query(async ({ ctx, input }) => {

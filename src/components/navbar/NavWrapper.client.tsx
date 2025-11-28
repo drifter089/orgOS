@@ -44,11 +44,11 @@ export function NavWrapper({
     retry: false,
   });
 
-  // Fetch team data when on team or dashboard pages
+  // Fetch team data when on team or dashboard pages (skip "default" which is not a real team)
   const { data: team } = api.team.getById.useQuery(
     { id: teamId! },
     {
-      enabled: !!teamId && isOrgPage,
+      enabled: !!teamId && teamId !== "default" && isOrgPage,
       retry: false,
     },
   );

@@ -106,6 +106,30 @@ export function generateBreadcrumbs(
     return breadcrumbs;
   }
 
+  // /dashboard/default route - show: icon -> org -> All Teams -> Dashboard
+  if (pathname === "/dashboard/default") {
+    breadcrumbs.push({
+      id: "team",
+      label: "All Teams",
+      path: `/dashboard/default`,
+      isCurrentPage: false,
+      isNavigable: false,
+      dropdown: {
+        type: "teams",
+        items: [], // Populated by component with actual teams
+      },
+    });
+
+    breadcrumbs.push({
+      id: "view",
+      label: "Dashboard",
+      path: `/dashboard/default`,
+      isCurrentPage: true,
+      isNavigable: false,
+    });
+    return breadcrumbs;
+  }
+
   // /dashboard/:teamId route - show: icon -> org -> team (dropdown) -> Dashboard (dropdown)
   if (pathname.startsWith("/dashboard/") && teamId) {
     // Team name with dropdown for team switching (not navigable itself)
