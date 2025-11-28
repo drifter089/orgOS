@@ -42,6 +42,7 @@ export const roleRouter = createTRPCRouter({
         teamId: z.string(),
         title: z.string().min(1).max(100),
         purpose: z.string().min(1),
+        accountabilities: z.string().optional(),
         metricId: z.string().optional(),
         nodeId: z.string(),
         assignedUserId: z.string().nullable().optional(),
@@ -73,6 +74,7 @@ export const roleRouter = createTRPCRouter({
         data: {
           title: input.title,
           purpose: input.purpose,
+          accountabilities: input.accountabilities ?? null,
           teamId: input.teamId,
           metricId: input.metricId ?? null,
           nodeId: input.nodeId,
@@ -89,6 +91,7 @@ export const roleRouter = createTRPCRouter({
         id: z.string(),
         title: z.string().min(1).max(100).optional(),
         purpose: z.string().optional(),
+        accountabilities: z.string().optional(),
         metricId: z.string().optional(),
         assignedUserId: z.string().optional().nullable(),
         color: z
@@ -118,12 +121,14 @@ export const roleRouter = createTRPCRouter({
       const data: {
         title?: string;
         purpose?: string;
+        accountabilities?: string | null;
         metricId?: string | null;
         assignedUserId?: string | null;
         color?: string;
       } = {
         title: input.title,
         purpose: input.purpose,
+        accountabilities: input.accountabilities,
         color: input.color,
       };
 

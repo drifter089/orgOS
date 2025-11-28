@@ -23,6 +23,7 @@ export type RoleNodeData = {
   roleId: string;
   title: string;
   purpose: string;
+  accountabilities?: string;
   metricId?: string;
   metricName?: string;
   metricValue?: number;
