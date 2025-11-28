@@ -60,10 +60,7 @@ function MetricCardNodeComponent({
       />
 
       <div className="overflow-hidden rounded-lg">
-        <DashboardMetricCard
-          dashboardMetric={data.dashboardMetric}
-          autoTrigger={false}
-        />
+        <DashboardMetricCard dashboardMetric={data.dashboardMetric} />
       </div>
     </div>
   );

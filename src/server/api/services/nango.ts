@@ -110,6 +110,53 @@ export async function fetchData(
         ...(finalBody ? { data: finalBody } : {}),
       });
 
+      // GitHub stats endpoints return 202 or empty {} while computing
+      // Retry up to 3 times with delays for these endpoints
+      const isGitHubStats =
+        integrationId === "github" && finalEndpoint.includes("/stats/");
+      const isEmptyResponse =
+        response.status === 202 ||
+        (response.data &&
+          typeof response.data === "object" &&
+          Object.keys(response.data).length === 0);
+
+      if (isGitHubStats && isEmptyResponse) {
+        console.info(
+          "[GitHub Stats] Empty response - GitHub is computing statistics. Retrying...",
+        );
+        const delays = [2000, 4000, 6000]; // 2s, 4s, 6s
+        for (let i = 0; i < delays.length; i++) {
+          await new Promise((resolve) => setTimeout(resolve, delays[i]));
+          console.info(
+            `[GitHub Stats] Retry ${i + 1}/${delays.length} after ${delays[i]}ms...`,
+          );
+
+          const retryResponse = await nango.proxy({
+            connectionId,
+            providerConfigKey: integrationId,
+            endpoint: finalEndpoint,
+            method: options?.method ?? "GET",
+          });
+
+          const isStillEmpty =
+            retryResponse.status === 202 ||
+            (retryResponse.data &&
+              typeof retryResponse.data === "object" &&
+              Object.keys(retryResponse.data).length === 0);
+
+          if (!isStillEmpty) {
+            console.info("[GitHub Stats] Got data on retry!");
+            return {
+              data: retryResponse.data,
+              status: retryResponse.status,
+            };
+          }
+        }
+        console.info(
+          "[GitHub Stats] Still empty after retries. Statistics may not be available for this repo.",
+        );
+      }
+
       return {
         data: response.data,
         status: response.status,

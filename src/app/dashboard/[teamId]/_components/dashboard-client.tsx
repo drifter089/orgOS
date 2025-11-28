@@ -10,13 +10,11 @@ type DashboardMetrics = RouterOutputs["dashboard"]["getDashboardMetrics"];
 interface DashboardClientProps {
   teamId: string;
   initialDashboardMetrics: DashboardMetrics;
-  autoTrigger?: boolean;
 }
 
 export function DashboardClient({
   teamId,
   initialDashboardMetrics,
-  autoTrigger = true,
 }: DashboardClientProps) {
   const { data: dashboardMetrics } = api.dashboard.getDashboardMetrics.useQuery(
     { teamId },
@@ -51,7 +49,6 @@ export function DashboardClient({
             <DashboardMetricCard
               key={dashboardMetric.id}
               dashboardMetric={dashboardMetric}
-              autoTrigger={autoTrigger}
             />
           ))}
         </div>

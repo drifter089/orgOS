@@ -31,11 +31,12 @@ export const templates: MetricTemplate[] = [
 
     metricEndpoint: "/api/projects/{PROJECT_ID}/query/",
     method: "POST",
+    // Use toDate() for grouping and explicit column in GROUP BY (more reliable than aliases)
     requestBody: JSON.stringify({
       query: {
         kind: "HogQLQuery",
         query:
-          "SELECT formatDateTime(timestamp, '%Y-%m-%d') as date, count() as count FROM events WHERE event = '{EVENT_NAME}' AND timestamp > now() - INTERVAL 30 DAY GROUP BY date ORDER BY date",
+          "SELECT toString(toDate(timestamp)) as date, count() as count FROM events WHERE event = '{EVENT_NAME}' AND timestamp > now() - INTERVAL 30 DAY GROUP BY toDate(timestamp) ORDER BY toDate(timestamp)",
       },
     }),
 

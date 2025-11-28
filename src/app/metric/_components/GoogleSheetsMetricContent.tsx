@@ -2,9 +2,8 @@
 
 import { useEffect, useMemo, useState } from "react";
 
-import { Check, Loader2, Sparkles } from "lucide-react";
+import { Loader2 } from "lucide-react";
 
-import { getTemplate } from "@/app/metric/registry";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { DialogFooter } from "@/components/ui/dialog";
@@ -28,7 +27,6 @@ import {
 } from "@/components/ui/table";
 import { api } from "@/trpc/react";
 
-import { useApiToChartTransformer } from "../_hooks/use-api-to-chart-transformer";
 import type { ContentProps } from "./MetricDialogBase";
 
 function extractSpreadsheetId(url: string): string | null {
@@ -52,8 +50,6 @@ export function GoogleSheetsMetricContent({
 
   const [selectedColumns, setSelectedColumns] = useState<number[]>([]);
   const [metricName, setMetricName] = useState("");
-
-  const template = getTemplate(TEMPLATE_ID);
 
   // Fetch spreadsheet metadata
   const { data: metadataData, isLoading: isLoadingMetadata } =
@@ -109,23 +105,6 @@ export function GoogleSheetsMetricContent({
     };
   }, [spreadsheetId, selectedSheet, selectedColumns]);
 
-  // Use unified transform hook
-  const transformer = useApiToChartTransformer({
-    connectionId: connection.connectionId,
-    integrationId: "google-sheet",
-    template: template ?? null,
-    endpointParams,
-    metricName,
-    metricDescription: selectedSheet
-      ? `Tracking columns from ${selectedSheet} in Google Sheets`
-      : undefined,
-    enabled:
-      !!spreadsheetId &&
-      !!selectedSheet &&
-      selectedColumns.length > 0 &&
-      !!metricName,
-  });
-
   // Move to step 2 when metadata is loaded
   useEffect(() => {
     if (sheets.length > 0 && step === 1 && spreadsheetId) {
@@ -147,7 +126,7 @@ export function GoogleSheetsMetricContent({
   const handleCreateMetric = () => {
     if (!connection || !metricName || selectedColumns.length === 0) return;
 
-    onSubmit({
+    void onSubmit({
       templateId: TEMPLATE_ID,
       connectionId: connection.connectionId,
       name: metricName,
@@ -160,19 +139,11 @@ export function GoogleSheetsMetricContent({
     setSelectedColumns((prev) =>
       prev.includes(index) ? prev.filter((i) => i !== index) : [...prev, index],
     );
-    transformer.reset();
   };
 
   const isStep1Valid = spreadsheetUrl.trim() !== "";
   const isStep2Valid = selectedSheet !== "";
   const isStep3Valid = metricName.trim() !== "" && selectedColumns.length > 0;
-
-  const isFetching = transformer.status === "fetching" || transformer.isLoading;
-  const isTransforming =
-    transformer.status === "transforming" || transformer.isTransforming;
-  const isChartReady = !!transformer.chartData;
-  const isDataReady =
-    transformer.status === "ready" && transformer.rawData && !isChartReady;
 
   return (
     <>
@@ -298,40 +269,6 @@ export function GoogleSheetsMetricContent({
                 rows.
               </p>
             </div>
-
-            {isStep3Valid && (
-              <div className="text-muted-foreground flex items-center gap-2 text-xs">
-                {isFetching && (
-                  <>
-                    <Loader2 className="h-3 w-3 animate-spin" />
-                    <span>Fetching data...</span>
-                  </>
-                )}
-                {isDataReady && !isTransforming && (
-                  <>
-                    <Check className="h-3 w-3 text-green-600" />
-                    <span className="text-green-600">Data ready</span>
-                  </>
-                )}
-                {isTransforming && (
-                  <>
-                    <Sparkles className="h-3 w-3 animate-pulse text-blue-500" />
-                    <span className="text-blue-500">AI analyzing...</span>
-                  </>
-                )}
-                {isChartReady && (
-                  <>
-                    <Check className="h-3 w-3 text-green-600" />
-                    <span className="text-green-600">
-                      Chart ready - instant create!
-                    </span>
-                  </>
-                )}
-                {transformer.status === "error" && (
-                  <span className="text-amber-600">Will fetch on create</span>
-                )}
-              </div>
-            )}
           </div>
         )}
       </div>

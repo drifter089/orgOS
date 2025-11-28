@@ -2,9 +2,8 @@
 
 import { useMemo, useState } from "react";
 
-import { Check, Loader2, Sparkles } from "lucide-react";
+import { Loader2 } from "lucide-react";
 
-import { getTemplate } from "@/app/metric/registry";
 import { Button } from "@/components/ui/button";
 import { DialogFooter } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
@@ -17,7 +16,6 @@ import {
 } from "@/components/ui/select";
 import { api } from "@/trpc/react";
 
-import { useApiToChartTransformer } from "../_hooks/use-api-to-chart-transformer";
 import type { ContentProps } from "./MetricDialogBase";
 
 type Project = { label: string; value: string };
@@ -62,8 +60,6 @@ export function PostHogMetricContent({
 }: ContentProps) {
   const [selectedProject, setSelectedProject] = useState("");
   const [selectedEvent, setSelectedEvent] = useState("");
-
-  const template = getTemplate(TEMPLATE_ID);
 
   // Fetch projects for dropdown
   const { data: projectsData, isLoading: isLoadingProjects } =
@@ -120,34 +116,15 @@ export function PostHogMetricContent({
       ? `${selectedProjectName} - ${selectedEvent}`
       : "";
 
-  // Use unified transform hook
-  const transformer = useApiToChartTransformer({
-    connectionId: connection.connectionId,
-    integrationId: "posthog",
-    template: template ?? null,
-    endpointParams,
-    metricName,
-    metricDescription: selectedEvent
-      ? `Count occurrences of ${selectedEvent} event over time`
-      : undefined,
-    enabled: !!selectedProject && !!selectedEvent,
-  });
-
   const handleProjectChange = (value: string) => {
     setSelectedProject(value);
     setSelectedEvent("");
-    transformer.reset();
-  };
-
-  const handleEventChange = (value: string) => {
-    setSelectedEvent(value);
-    transformer.reset();
   };
 
   const handleCreate = () => {
     if (!selectedProject || !selectedEvent) return;
 
-    onSubmit({
+    void onSubmit({
       templateId: TEMPLATE_ID,
       connectionId: connection.connectionId,
       name: metricName,
@@ -157,12 +134,6 @@ export function PostHogMetricContent({
   };
 
   const isFormValid = !!selectedProject && !!selectedEvent;
-  const isFetching = transformer.status === "fetching" || transformer.isLoading;
-  const isTransforming =
-    transformer.status === "transforming" || transformer.isTransforming;
-  const isChartReady = !!transformer.chartData;
-  const isDataReady =
-    transformer.status === "ready" && transformer.rawData && !isChartReady;
 
   return (
     <>
@@ -195,7 +166,7 @@ export function PostHogMetricContent({
           <Label htmlFor="event">Event</Label>
           <Select
             value={selectedEvent}
-            onValueChange={handleEventChange}
+            onValueChange={setSelectedEvent}
             disabled={!selectedProject || isLoadingEvents}
           >
             <SelectTrigger id="event">
@@ -218,40 +189,6 @@ export function PostHogMetricContent({
             </SelectContent>
           </Select>
         </div>
-
-        {isFormValid && (
-          <div className="text-muted-foreground flex items-center gap-2 text-xs">
-            {isFetching && (
-              <>
-                <Loader2 className="h-3 w-3 animate-spin" />
-                <span>Fetching data...</span>
-              </>
-            )}
-            {isDataReady && !isTransforming && (
-              <>
-                <Check className="h-3 w-3 text-green-600" />
-                <span className="text-green-600">Data ready</span>
-              </>
-            )}
-            {isTransforming && (
-              <>
-                <Sparkles className="h-3 w-3 animate-pulse text-blue-500" />
-                <span className="text-blue-500">AI analyzing...</span>
-              </>
-            )}
-            {isChartReady && (
-              <>
-                <Check className="h-3 w-3 text-green-600" />
-                <span className="text-green-600">
-                  Chart ready - instant create!
-                </span>
-              </>
-            )}
-            {transformer.status === "error" && (
-              <span className="text-amber-600">Will fetch on create</span>
-            )}
-          </div>
-        )}
       </div>
 
       <DialogFooter>
@@ -259,7 +196,14 @@ export function PostHogMetricContent({
           onClick={handleCreate}
           disabled={!selectedProject || !selectedEvent || isCreating}
         >
-          {isCreating ? "Creating..." : "Create Metric"}
+          {isCreating ? (
+            <>
+              <Loader2 className="mr-2 size-4 animate-spin" />
+              Creating...
+            </>
+          ) : (
+            "Create Metric"
+          )}
         </Button>
       </DialogFooter>
     </>
