@@ -1,22 +1,13 @@
-import {
-  CTASection,
-  FeaturesProductCarousel,
-  Footer,
-  HeroSection,
-  SmoothScrollWrapper,
-} from "./_components";
-import { FeaturesCarouselV2 } from "./_components/features-carousel-v2";
+import { Hero } from "@/app/_components/landing/hero";
+import { Pricing } from "@/app/_components/landing/pricing";
+import { Steps } from "@/app/_components/landing/steps";
 
 export default function Home() {
   return (
-    <SmoothScrollWrapper>
-      <main className="bg-background relative w-full overflow-x-hidden">
-        <HeroSection />
-        <FeaturesCarouselV2 />
-        <FeaturesProductCarousel />
-        <CTASection />
-        <Footer />
-      </main>
-    </SmoothScrollWrapper>
+    <main>
+      <Hero />
+      <Steps />
+      <Pricing />
+    </main>
   );
 }
