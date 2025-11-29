@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useState } from "react";
 
 import { BarChart3, Loader2, Settings, Trash2, Users } from "lucide-react";
 import { toast } from "sonner";
@@ -53,17 +53,14 @@ export interface DisplayedChart {
 
 interface DashboardMetricCardProps {
   dashboardMetric: DashboardMetricWithRelations;
-  autoTrigger?: boolean;
 }
 
 export function DashboardMetricCard({
   dashboardMetric,
-  autoTrigger = true,
 }: DashboardMetricCardProps) {
   const [prompt, setPrompt] = useState("");
   const [isProcessing, setIsProcessing] = useState(false);
   const [activeTab, setActiveTab] = useState("chart");
-  const hasTriggeredRef = useRef(false);
 
   const utils = api.useUtils();
   const { confirm } = useConfirmation();
@@ -164,6 +161,18 @@ export function DashboardMetricCard({
           return;
         }
 
+        // Log raw data for debugging
+        console.info("[Chart Refresh] Raw API data:", {
+          metricName: metric.name,
+          templateId: metric.metricTemplate,
+          endpoint,
+          dataType: typeof rawData.data,
+          dataLength: Array.isArray(rawData.data)
+            ? rawData.data.length
+            : "not array",
+          data: rawData.data,
+        });
+
         const chartResult = await transformMutation.mutateAsync({
           metricConfig: {
             name: metric.name,
@@ -207,28 +216,6 @@ export function DashboardMetricCard({
       utils,
     ],
   );
-
-  // Auto-trigger refresh for metrics without chart data
-  useEffect(() => {
-    if (
-      autoTrigger &&
-      isIntegrationMetric &&
-      !hasChartData &&
-      !isPending &&
-      !hasTriggeredRef.current &&
-      !isProcessing
-    ) {
-      hasTriggeredRef.current = true;
-      void handleRefresh();
-    }
-  }, [
-    autoTrigger,
-    isIntegrationMetric,
-    hasChartData,
-    isPending,
-    isProcessing,
-    handleRefresh,
-  ]);
 
   const handleRemove = async () => {
     const confirmed = await confirm({

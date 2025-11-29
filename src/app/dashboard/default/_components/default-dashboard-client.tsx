@@ -60,10 +60,7 @@ export function DefaultDashboardClient() {
                     {dashboardMetric.metric.team.name}
                   </Badge>
                 )}
-                <DashboardMetricCard
-                  dashboardMetric={dashboardMetric}
-                  autoTrigger={false}
-                />
+                <DashboardMetricCard dashboardMetric={dashboardMetric} />
               </div>
             ))}
           </div>

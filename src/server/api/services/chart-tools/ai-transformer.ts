@@ -193,6 +193,17 @@ The metric may include an "endpointConfig" object with user selections:
       "[AI Transform] Starting transformation for metric:",
       metric.name,
     );
+
+    // Log raw data for debugging
+    const dataType = Array.isArray(rawData) ? "array" : typeof rawData;
+    const dataLength = Array.isArray(rawData) ? rawData.length : "N/A";
+    console.info("[AI Transform] Raw data type:", dataType);
+    console.info("[AI Transform] Raw data length:", dataLength);
+    console.info(
+      "[AI Transform] Raw data preview:",
+      JSON.stringify(rawData).substring(0, 1000),
+    );
+
     if (userHint) {
       console.info("[AI Transform] User hint:", userHint);
     }

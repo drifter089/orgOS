@@ -5,6 +5,7 @@ import { useState } from "react";
 import type { Prisma } from "@prisma/client";
 import { toast } from "sonner";
 
+import { getTemplate } from "@/app/metric/registry";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Dialog,
@@ -16,10 +17,6 @@ import {
 } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import type { ChartTransformResult } from "@/server/api/services/chart-tools/types";
-import {
-  createTransformKey,
-  useMetricTransformStore,
-} from "@/stores/metric-transform-store";
 import type { RouterOutputs } from "@/trpc/react";
 import { api } from "@/trpc/react";
 
@@ -39,7 +36,7 @@ export interface ContentProps {
     integrationId: string;
     createdAt: Date;
   };
-  onSubmit: (data: MetricCreateInput) => void;
+  onSubmit: (data: MetricCreateInput) => void | Promise<void>;
   isCreating: boolean;
   error: string | null;
 }
@@ -59,32 +56,6 @@ interface MetricDialogBaseProps {
 
 type DashboardMetricWithRelations =
   RouterOutputs["dashboard"]["getDashboardMetrics"][number];
-
-/**
- * Validates that an object has the expected shape for ChartTransformResult
- */
-function validateChartData(data: unknown): ChartTransformResult | null {
-  if (!data || typeof data !== "object") {
-    return null;
-  }
-
-  const obj = data as Record<string, unknown>;
-
-  const hasRequiredFields =
-    typeof obj.chartType === "string" &&
-    Array.isArray(obj.chartData) &&
-    typeof obj.chartConfig === "object" &&
-    obj.chartConfig !== null &&
-    typeof obj.xAxisKey === "string" &&
-    Array.isArray(obj.dataKeys) &&
-    typeof obj.title === "string";
-
-  if (!hasRequiredFields) {
-    return null;
-  }
-
-  return obj as unknown as ChartTransformResult;
-}
 
 export function MetricDialogBase({
   integrationId,
@@ -106,7 +77,6 @@ export function MetricDialogBase({
   const setOpen = isControlled ? onOpenChange : setInternalOpen;
 
   const utils = api.useUtils();
-  const transformStore = useMetricTransformStore();
 
   const integrationQuery = api.integration.listWithStats.useQuery();
   const connection = integrationQuery.data?.active.find(
@@ -120,29 +90,92 @@ export function MetricDialogBase({
   const updateChartMutation =
     api.dashboard.updateDashboardMetricChart.useMutation();
 
-  const handleSubmit = (data: MetricCreateInput) => {
-    setError(null);
+  // For AI transformation
+  const transformMutation = api.dashboard.transformChartWithAI.useMutation();
 
-    // Get chartData from Zustand store if available
-    const transformKey = createTransformKey({
-      connectionId: data.connectionId,
-      templateId: data.templateId,
-      endpointParams: data.endpointParams,
+  /**
+   * Generate chart data by fetching API data and transforming with AI.
+   * This runs in parallel with metric creation.
+   */
+  async function generateChartData(params: {
+    connectionId: string;
+    integrationId: string;
+    templateId: string;
+    endpointParams: Record<string, string>;
+    metricName: string;
+    metricDescription?: string;
+  }): Promise<ChartTransformResult> {
+    const template = getTemplate(params.templateId);
+    if (!template) {
+      throw new Error("Template not found");
+    }
+
+    // Build endpoint
+    let endpoint = template.metricEndpoint;
+    for (const [key, value] of Object.entries(params.endpointParams)) {
+      endpoint = endpoint.replace(`{${key}}`, encodeURIComponent(value));
+    }
+
+    // Build body if needed
+    let body: unknown = undefined;
+    if (template.requestBody) {
+      let bodyStr = JSON.stringify(template.requestBody);
+      for (const [key, value] of Object.entries(params.endpointParams)) {
+        bodyStr = bodyStr.replace(new RegExp(`\\{${key}\\}`, "g"), value);
+      }
+      body = JSON.parse(bodyStr);
+    }
+
+    // 1. Fetch raw API data
+    const rawData = await utils.metric.fetchIntegrationData.fetch({
+      connectionId: params.connectionId,
+      integrationId: params.integrationId,
+      endpoint,
+      method: template.method,
+      body,
     });
-    const transform = transformStore.getTransform(transformKey);
-    const chartData = transform?.chartData
-      ? validateChartData(transform.chartData)
-      : null;
 
+    if (!rawData?.data) {
+      throw new Error("Failed to fetch integration data");
+    }
+
+    // Log raw data for debugging
+    console.info("[Chart Generation] Raw API data:", {
+      metricName: params.metricName,
+      templateId: params.templateId,
+      endpoint,
+      dataType: typeof rawData.data,
+      dataLength: Array.isArray(rawData.data)
+        ? rawData.data.length
+        : "not array",
+      data: rawData.data,
+    });
+
+    // 2. Transform with AI
+    const chartResult = await transformMutation.mutateAsync({
+      metricConfig: {
+        name: params.metricName,
+        description: params.metricDescription,
+        metricTemplate: params.templateId,
+        endpointConfig: params.endpointParams,
+      },
+      rawData: rawData.data,
+    });
+
+    return chartResult;
+  }
+
+  const handleSubmit = async (data: MetricCreateInput) => {
+    setError(null);
     const tempId = `temp-${Date.now()}`;
 
-    // Build optimistic dashboard metric
+    // Build optimistic dashboard metric (no chart data yet - it will be generated)
     const optimisticDashboardMetric: DashboardMetricWithRelations = {
       id: tempId,
       organizationId: "",
       metricId: tempId,
-      graphType: chartData?.chartType ?? "bar",
-      graphConfig: (chartData ?? {}) as Prisma.JsonValue,
+      graphType: "bar",
+      graphConfig: {} as Prisma.JsonValue,
       position: 9999,
       size: "medium",
       createdAt: new Date(),
@@ -188,49 +221,74 @@ export function MetricDialogBase({
       );
     }
 
-    // Close dialog and notify parent immediately (optimistic update makes it feel instant)
+    // Close dialog immediately (optimistic update makes it feel instant)
     setOpen?.(false);
     onSuccess?.();
 
-    // Use mutateAsync so we can handle the result after dialog closes
-    // The callbacks are captured in the promise chain, not component lifecycle
-    createMutation
-      .mutateAsync({ ...data, teamId })
-      .then((realDashboardMetric) => {
-        // Replace temp with real in cache
-        utils.dashboard.getDashboardMetrics.setData(undefined, (old) =>
+    // Run metric creation and chart generation in PARALLEL
+    const [metricResult, chartResult] = await Promise.allSettled([
+      createMutation.mutateAsync({ ...data, teamId }),
+      generateChartData({
+        connectionId: data.connectionId,
+        integrationId: connection?.integrationId ?? "",
+        templateId: data.templateId,
+        endpointParams: data.endpointParams,
+        metricName: data.name,
+        metricDescription: data.description,
+      }),
+    ]);
+
+    // Handle results
+    if (metricResult.status === "fulfilled") {
+      const realDashboardMetric = metricResult.value;
+
+      // Swap temp→real ID in cache
+      utils.dashboard.getDashboardMetrics.setData(undefined, (old) =>
+        old?.map((dm) => (dm.id === tempId ? realDashboardMetric : dm)),
+      );
+      if (teamId) {
+        utils.dashboard.getDashboardMetrics.setData({ teamId }, (old) =>
           old?.map((dm) => (dm.id === tempId ? realDashboardMetric : dm)),
         );
-        if (teamId) {
-          utils.dashboard.getDashboardMetrics.setData({ teamId }, (old) =>
-            old?.map((dm) => (dm.id === tempId ? realDashboardMetric : dm)),
-          );
-        }
+      }
 
-        // If we have chartData from store, save it to the real dashboard metric
-        if (chartData) {
-          updateChartMutation.mutate({
-            dashboardMetricId: realDashboardMetric.id,
-            graphType: chartData.chartType,
-            graphConfig: chartData as unknown as Record<string, unknown>,
-          });
-        }
-      })
-      .catch(() => {
-        // Rollback from cache
+      // If chart generation succeeded, save it
+      if (chartResult.status === "fulfilled") {
+        const chartData = chartResult.value;
+        const updated = await updateChartMutation.mutateAsync({
+          dashboardMetricId: realDashboardMetric.id,
+          graphType: chartData.chartType,
+          graphConfig: chartData as unknown as Record<string, unknown>,
+        });
+
+        // Update cache with chart data
         utils.dashboard.getDashboardMetrics.setData(undefined, (old) =>
-          old?.filter((dm) => dm.id !== tempId),
+          old?.map((dm) => (dm.id === updated.id ? updated : dm)),
         );
         if (teamId) {
           utils.dashboard.getDashboardMetrics.setData({ teamId }, (old) =>
-            old?.filter((dm) => dm.id !== tempId),
+            old?.map((dm) => (dm.id === updated.id ? updated : dm)),
           );
         }
-        toast.error("Failed to create metric");
-      });
-
-    // Clear transform store for this key
-    transformStore.reset(transformKey);
+      } else {
+        // Chart generation failed - toast error, user can retry via Settings
+        console.error("Chart generation failed:", chartResult.reason);
+        toast.error(
+          "Chart generation failed. You can retry from the Settings tab.",
+        );
+      }
+    } else {
+      // Metric creation failed - rollback
+      utils.dashboard.getDashboardMetrics.setData(undefined, (old) =>
+        old?.filter((dm) => dm.id !== tempId),
+      );
+      if (teamId) {
+        utils.dashboard.getDashboardMetrics.setData({ teamId }, (old) =>
+          old?.filter((dm) => dm.id !== tempId),
+        );
+      }
+      toast.error("Failed to create metric");
+    }
   };
 
   if (!connection) {

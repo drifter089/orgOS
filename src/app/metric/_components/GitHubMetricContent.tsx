@@ -2,9 +2,8 @@
 
 import { useEffect, useMemo, useState } from "react";
 
-import { Check, Loader2, Sparkles } from "lucide-react";
+import { Loader2 } from "lucide-react";
 
-import { getTemplate } from "@/app/metric/registry";
 import { Button } from "@/components/ui/button";
 import { DialogFooter } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -18,7 +17,6 @@ import {
 } from "@/components/ui/select";
 import { api } from "@/trpc/react";
 
-import { useApiToChartTransformer } from "../_hooks/use-api-to-chart-transformer";
 import type { ContentProps } from "./MetricDialogBase";
 
 type MetricType = "code-frequency" | "commit-activity" | "pull-requests";
@@ -117,7 +115,6 @@ export function GitHubMetricContent({
   }, [repoOptions, selectedRepo]);
 
   const templateId = metricType ? getTemplateId(metricType) : null;
-  const template = templateId ? getTemplate(templateId) : null;
 
   const endpointParams = useMemo((): Record<string, string> => {
     if (!selectedRepoDetails) return {};
@@ -134,34 +131,6 @@ export function GitHubMetricContent({
     return params;
   }, [selectedRepoDetails, metricType]);
 
-  const isReadyForPrefetch = !!metricType && !!selectedRepo && !!metricName;
-
-  // Use unified transform hook
-  const transformer = useApiToChartTransformer({
-    connectionId: connection.connectionId,
-    integrationId: "github",
-    template: template ?? null,
-    endpointParams,
-    metricName,
-    metricDescription: metricType
-      ? getMetricDescription(metricType)
-      : undefined,
-    enabled: isReadyForPrefetch,
-  });
-
-  // Reset transform on dropdown changes
-  const handleMetricTypeChange = (value: MetricType) => {
-    setMetricType(value);
-    setMetricName("");
-    transformer.reset();
-  };
-
-  const handleRepoChange = (value: string) => {
-    setSelectedRepo(value);
-    setMetricName("");
-    transformer.reset();
-  };
-
   // Auto-generate metric name
   useEffect(() => {
     if (metricType && selectedRepoDetails) {
@@ -175,7 +144,7 @@ export function GitHubMetricContent({
     if (!metricName || !selectedRepo || !selectedRepoDetails || !templateId)
       return;
 
-    onSubmit({
+    void onSubmit({
       templateId,
       connectionId: connection.connectionId,
       name: metricName,
@@ -185,12 +154,6 @@ export function GitHubMetricContent({
   };
 
   const isFormValid = !!metricType && !!selectedRepo && !!metricName;
-  const isFetching = transformer.status === "fetching" || transformer.isLoading;
-  const isTransforming =
-    transformer.status === "transforming" || transformer.isTransforming;
-  const isChartReady = !!transformer.chartData;
-  const isDataReady =
-    transformer.status === "ready" && transformer.rawData && !isChartReady;
 
   return (
     <>
@@ -199,9 +162,7 @@ export function GitHubMetricContent({
           <Label htmlFor="metric-type">Metric Type</Label>
           <Select
             value={metricType}
-            onValueChange={(value) =>
-              handleMetricTypeChange(value as MetricType)
-            }
+            onValueChange={(value) => setMetricType(value as MetricType)}
           >
             <SelectTrigger id="metric-type">
               <SelectValue placeholder="Select metric type" />
@@ -225,7 +186,7 @@ export function GitHubMetricContent({
           <Label htmlFor="repo">Repository</Label>
           <Select
             value={selectedRepo}
-            onValueChange={handleRepoChange}
+            onValueChange={setSelectedRepo}
             disabled={isLoadingRepos || repoOptions.length === 0}
           >
             <SelectTrigger id="repo">
@@ -258,45 +219,18 @@ export function GitHubMetricContent({
             />
           </div>
         )}
-
-        {isFormValid && (
-          <div className="text-muted-foreground flex items-center gap-2 text-xs">
-            {isFetching && (
-              <>
-                <Loader2 className="h-3 w-3 animate-spin" />
-                <span>Fetching data...</span>
-              </>
-            )}
-            {isDataReady && !isTransforming && (
-              <>
-                <Check className="h-3 w-3 text-green-600" />
-                <span className="text-green-600">Data ready</span>
-              </>
-            )}
-            {isTransforming && (
-              <>
-                <Sparkles className="h-3 w-3 animate-pulse text-blue-500" />
-                <span className="text-blue-500">AI analyzing...</span>
-              </>
-            )}
-            {isChartReady && (
-              <>
-                <Check className="h-3 w-3 text-green-600" />
-                <span className="text-green-600">
-                  Chart ready - instant create!
-                </span>
-              </>
-            )}
-            {transformer.status === "error" && (
-              <span className="text-amber-600">Will fetch on create</span>
-            )}
-          </div>
-        )}
       </div>
 
       <DialogFooter>
         <Button onClick={handleSave} disabled={!isFormValid || isCreating}>
-          {isCreating ? "Creating..." : "Create Metric"}
+          {isCreating ? (
+            <>
+              <Loader2 className="mr-2 size-4 animate-spin" />
+              Creating...
+            </>
+          ) : (
+            "Create Metric"
+          )}
         </Button>
       </DialogFooter>
     </>
