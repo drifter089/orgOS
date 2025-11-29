@@ -44,6 +44,7 @@ import { type RoleNodeData } from "./role-node";
 const roleSchema = z.object({
   title: z.string().min(1, "Title is required").max(100),
   purpose: z.string().min(1, "Purpose is required"),
+  accountabilities: z.string().optional(),
   metricId: z.string().optional(),
   assignedUserId: z.string().nullable().optional(),
   color: z
@@ -94,6 +95,7 @@ export function RoleDialog({
     defaultValues: {
       title: "",
       purpose: "",
+      accountabilities: "",
       metricId: "",
       assignedUserId: null,
       color: COLORS[0],
@@ -107,6 +109,7 @@ export function RoleDialog({
         form.reset({
           title: roleData.title,
           purpose: roleData.purpose,
+          accountabilities: roleData.accountabilities ?? "",
           metricId: roleData.metricId ?? "",
           assignedUserId: roleData.assignedUserId ?? null,
           color: roleData.color ?? COLORS[0],
@@ -115,6 +118,7 @@ export function RoleDialog({
         form.reset({
           title: "",
           purpose: "",
+          accountabilities: "",
           metricId: "",
           assignedUserId: null,
           color: COLORS[0],
@@ -154,6 +158,7 @@ export function RoleDialog({
         id: tempRoleId,
         title: variables.title,
         purpose: variables.purpose,
+        accountabilities: variables.accountabilities ?? null,
         teamId: variables.teamId,
         metricId: variables.metricId ?? null,
         nodeId: variables.nodeId,
@@ -189,6 +194,7 @@ export function RoleDialog({
           roleId: tempRoleId,
           title: variables.title,
           purpose: variables.purpose,
+          accountabilities: variables.accountabilities ?? undefined,
           metricId: variables.metricId ?? undefined,
           metricName: selectedMetric?.name ?? undefined,
           assignedUserId: variables.assignedUserId ?? null,
@@ -269,6 +275,7 @@ export function RoleDialog({
               ...node.data,
               title: updatedRole.title,
               purpose: updatedRole.purpose,
+              accountabilities: updatedRole.accountabilities ?? undefined,
               metricId: updatedRole.metric?.id ?? undefined,
               metricName: updatedRole.metric?.name ?? undefined,
               assignedUserId: updatedRole.assignedUserId,
@@ -309,6 +316,7 @@ export function RoleDialog({
         id: roleData.roleId,
         title: data.title,
         purpose: data.purpose,
+        accountabilities: data.accountabilities,
         metricId:
           data.metricId === "__none__" || !data.metricId
             ? undefined
@@ -323,6 +331,7 @@ export function RoleDialog({
         teamId,
         title: data.title,
         purpose: data.purpose,
+        accountabilities: data.accountabilities,
         metricId:
           data.metricId === "__none__" || !data.metricId
             ? undefined
@@ -390,6 +399,24 @@ export function RoleDialog({
                   <FormControl>
                     <Textarea
                       placeholder="Describe the role's responsibilities..."
+                      rows={4}
+                      {...field}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="accountabilities"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Accountabilities (Optional)</FormLabel>
+                  <FormControl>
+                    <Textarea
+                      placeholder="List key accountabilities for this role..."
                       rows={4}
                       {...field}
                     />

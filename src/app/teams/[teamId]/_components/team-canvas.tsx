@@ -1,11 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useMemo } from "react";
 
 import {
   Background,
   BackgroundVariant,
-  type NodeMouseHandler,
+  MarkerType,
   type ProOptions,
   ReactFlow,
 } from "@xyflow/react";
@@ -19,7 +19,7 @@ import { cn } from "@/lib/utils";
 import { useAutoSave } from "../hooks/use-auto-save";
 import { type TeamStore, useTeamStore } from "../store/team-store";
 import { RoleDialog } from "./role-dialog";
-import { type RoleNodeData, RoleNodeMemo } from "./role-node";
+import { RoleNodeMemo } from "./role-node";
 import { TeamCanvasControls } from "./team-canvas-controls";
 import { TeamEdge } from "./team-edge";
 
@@ -41,6 +41,8 @@ const selector = (state: TeamStore) => ({
   onEdgesChange: state.onEdgesChange,
   onConnect: state.onConnect,
   isDirty: state.isDirty,
+  editingNodeId: state.editingNodeId,
+  setEditingNodeId: state.setEditingNodeId,
 });
 
 export function TeamCanvas() {
@@ -52,26 +54,29 @@ export function TeamCanvas() {
     onEdgesChange,
     onConnect,
     isDirty,
+    editingNodeId,
+    setEditingNodeId,
   } = useTeamStore(useShallow(selector));
 
   const { isSaving, lastSaved } = useAutoSave();
 
-  // State for edit dialog
-  const [selectedRole, setSelectedRole] = useState<
-    (RoleNodeData & { nodeId: string }) | null
-  >(null);
-  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  // Get selected role data from editingNodeId
+  const selectedRole = useMemo(() => {
+    if (!editingNodeId) return null;
+    const node = nodes.find((n) => n.id === editingNodeId);
+    if (!node || node.type !== "role-node") return null;
+    return {
+      ...node.data,
+      nodeId: node.id,
+    };
+  }, [editingNodeId, nodes]);
 
-  // Handle node double-click to edit role
-  const handleNodeDoubleClick: NodeMouseHandler = (event, node) => {
-    if (node.type === "role-node") {
-      setSelectedRole({
-        ...(node.data as RoleNodeData),
-        nodeId: node.id,
-      });
-      setEditDialogOpen(true);
+  // Clear editing state when dialog closes
+  useEffect(() => {
+    if (!selectedRole && editingNodeId) {
+      setEditingNodeId(null);
     }
-  };
+  }, [selectedRole, editingNodeId, setEditingNodeId]);
 
   return (
     <div className="relative h-full w-full">
@@ -106,7 +111,6 @@ export function TeamCanvas() {
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
         onConnect={onConnect}
-        onNodeDoubleClick={handleNodeDoubleClick}
         nodeTypes={nodeTypes}
         edgeTypes={edgeTypes}
         proOptions={proOptions}
@@ -120,9 +124,11 @@ export function TeamCanvas() {
           "transition-opacity duration-200",
           isSaving && "opacity-90",
         )}
+        panOnScroll
         defaultEdgeOptions={{
           type: "team-edge",
           animated: true,
+          markerEnd: { type: MarkerType.ArrowClosed, width: 20, height: 20 },
         }}
       >
         <Background variant={BackgroundVariant.Dots} gap={16} size={1} />
@@ -135,10 +141,9 @@ export function TeamCanvas() {
         <RoleDialog
           teamId={teamId}
           roleData={selectedRole}
-          open={editDialogOpen}
+          open={!!editingNodeId}
           onOpenChange={(open) => {
-            setEditDialogOpen(open);
-            if (!open) setSelectedRole(null);
+            if (!open) setEditingNodeId(null);
           }}
         />
       )}

@@ -4,6 +4,7 @@ import { type ReactNode, createContext, useContext, useRef } from "react";
 
 import {
   type Edge,
+  MarkerType,
   type Node,
   type OnConnect,
   type OnEdgesChange,
@@ -33,6 +34,7 @@ type TeamState = {
   lastSaved: Date | null;
   isSaving: boolean;
   isInitialized: boolean;
+  editingNodeId: string | null;
 };
 
 type TeamActions = {
@@ -54,6 +56,9 @@ type TeamActions = {
   // Saving state
   setSaving: (saving: boolean) => void;
   setLastSaved: (date: Date) => void;
+
+  // Edit dialog
+  setEditingNodeId: (nodeId: string | null) => void;
 };
 
 export type TeamStore = TeamState & TeamActions;
@@ -72,6 +77,7 @@ export function createTeamStore(
     lastSaved: null,
     isSaving: false,
     isInitialized: false,
+    editingNodeId: null,
 
     // React Flow handlers
     onNodesChange: (changes) => {
@@ -98,6 +104,7 @@ export function createTeamStore(
           ...connection,
           type: "team-edge",
           animated: true,
+          markerEnd: { type: MarkerType.ArrowClosed, width: 20, height: 20 },
         },
         get().edges,
       );
@@ -124,6 +131,9 @@ export function createTeamStore(
     // Saving state
     setSaving: (saving) => set({ isSaving: saving }),
     setLastSaved: (date) => set({ lastSaved: date }),
+
+    // Edit dialog
+    setEditingNodeId: (nodeId) => set({ editingNodeId: nodeId }),
   }));
 }
 
