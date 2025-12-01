@@ -119,7 +119,11 @@ export function MetricDialogBase({
     // Build body if needed
     let body: unknown = undefined;
     if (template.requestBody) {
-      let bodyStr = JSON.stringify(template.requestBody);
+      // requestBody is already a JSON string, don't double-encode
+      let bodyStr =
+        typeof template.requestBody === "string"
+          ? template.requestBody
+          : JSON.stringify(template.requestBody);
       for (const [key, value] of Object.entries(params.endpointParams)) {
         bodyStr = bodyStr.replace(new RegExp(`\\{${key}\\}`, "g"), value);
       }

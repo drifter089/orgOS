@@ -256,7 +256,7 @@ export function DashboardMetricChart({
       return (
         <ChartContainer
           config={chartConfig}
-          className="mx-auto aspect-square h-[250px]"
+          className="mx-auto h-[250px] w-full"
         >
           <PieChart>
             {showTooltip && (
@@ -328,7 +328,7 @@ export function DashboardMetricChart({
       return (
         <ChartContainer
           config={chartConfig}
-          className="mx-auto aspect-square max-h-[250px]"
+          className="mx-auto h-[250px] w-full"
         >
           <RadarChart data={chartData}>
             {showTooltip && (
@@ -360,7 +360,7 @@ export function DashboardMetricChart({
       return (
         <ChartContainer
           config={chartConfig}
-          className="mx-auto aspect-square max-h-[250px]"
+          className="mx-auto h-[250px] w-full"
         >
           <RadialBarChart data={chartData} innerRadius={30} outerRadius={100}>
             {showTooltip && (
