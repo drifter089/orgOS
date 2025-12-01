@@ -1,4 +1,12 @@
-import { Fraunces, Space_Grotesk, Space_Mono } from "next/font/google";
+import {
+  Alegreya_SC,
+  Fira_Code,
+  Fraunces,
+  Inter,
+  Montserrat,
+  Space_Grotesk,
+  Space_Mono,
+} from "next/font/google";
 
 import { AuthKitProvider } from "@workos-inc/authkit-nextjs/components";
 import { type Metadata } from "next";
@@ -26,6 +34,27 @@ const spaceMono = Space_Mono({
   subsets: ["latin"],
   weight: ["400", "700"],
   variable: "--font-space-mono",
+});
+
+const montserrat = Montserrat({
+  subsets: ["latin"],
+  variable: "--font-montserrat",
+});
+
+const inter = Inter({
+  subsets: ["latin"],
+  variable: "--font-inter",
+});
+
+const alegreyaSC = Alegreya_SC({
+  subsets: ["latin"],
+  weight: ["400", "500", "700", "800"],
+  variable: "--font-alegreya-sc",
+});
+
+const firaCode = Fira_Code({
+  subsets: ["latin"],
+  variable: "--font-fira-code",
 });
 
 export const metadata: Metadata = {
@@ -69,7 +98,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${spaceGrotesk.variable} ${fraunces.variable} ${spaceMono.variable}`}
+      className={`${spaceGrotesk.variable} ${fraunces.variable} ${spaceMono.variable} ${montserrat.variable} ${inter.variable} ${alegreyaSC.variable} ${firaCode.variable}`}
       suppressHydrationWarning
     >
       <body suppressHydrationWarning>

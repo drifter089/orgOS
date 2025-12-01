@@ -25,20 +25,20 @@ export function DashboardClient({
 
   return (
     <div className="space-y-6">
-      <div>
-        <p className="text-muted-foreground text-sm">
-          {dashboardMetrics.length === 0
-            ? "No metrics on dashboard yet. Add metrics from the sidebar."
-            : `Showing ${dashboardMetrics.length} metric${dashboardMetrics.length === 1 ? "" : "s"}`}
-        </p>
-      </div>
+      {dashboardMetrics.length > 0 && (
+        <div>
+          <p className="text-muted-foreground text-sm">
+            {`Showing ${dashboardMetrics.length} metric${dashboardMetrics.length === 1 ? "" : "s"}`}
+          </p>
+        </div>
+      )}
 
       {dashboardMetrics.length === 0 ? (
         <div className="flex flex-col items-center justify-center rounded-lg border-2 border-dashed py-16">
           <div className="space-y-2 text-center">
-            <h3 className="text-lg font-semibold">No metrics yet</h3>
+            <h3 className="text-lg font-semibold">No KPIs yet</h3>
             <p className="text-muted-foreground max-w-sm text-sm">
-              Add metrics from connected integrations using the sidebar to start
+              Add KPIs from connected integrations using the sidebar to start
               tracking and visualizing your data
             </p>
           </div>

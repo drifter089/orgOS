@@ -85,7 +85,7 @@ export function DashboardSidebar({
             <div className="flex-shrink-0 border-b px-6 py-4">
               <div className="space-y-1">
                 <h2 className="text-xl font-bold tracking-tight">
-                  Manage Integrations
+                  Manage KPIs
                 </h2>
                 <p className="text-muted-foreground text-sm leading-relaxed">
                   Connect platforms and create KPIs for your dashboard
