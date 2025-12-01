@@ -15,19 +15,31 @@ export default async function TeamPage({
 }) {
   const { teamId } = await params;
 
-  // Fetch team data from server
-  const team = await api.team.getById({ id: teamId }).catch(() => null);
+  const [team, members] = await Promise.all([
+    api.team.getById({ id: teamId }).catch(() => null),
+    api.organization.getCurrentOrgMembers().catch(() => []),
+  ]);
 
   if (!team) {
     notFound();
   }
 
-  // Parse React Flow nodes and enrich with role data
+  const userNameMap = new Map<string, string>();
+  for (const member of members) {
+    const name =
+      member.user.firstName && member.user.lastName
+        ? `${member.user.firstName} ${member.user.lastName}`
+        : (member.user.firstName ?? member.user.email ?? undefined);
+    if (name) {
+      userNameMap.set(member.user.id, name);
+    }
+  }
+
   const storedNodes: StoredNode[] = Array.isArray(team.reactFlowNodes)
     ? (team.reactFlowNodes as StoredNode[])
     : [];
 
-  const nodes = enrichNodesWithRoleData(storedNodes, team.roles);
+  const nodes = enrichNodesWithRoleData(storedNodes, team.roles, userNameMap);
 
   const edges: StoredEdge[] = Array.isArray(team.reactFlowEdges)
     ? (team.reactFlowEdges as StoredEdge[])

@@ -58,9 +58,15 @@ export function serializeEdges(edges: Edge[]): StoredEdge[] {
 export function enrichNodesWithRoleData(
   storedNodes: StoredNode[],
   roles: RoleWithMetric[],
+  userNameMap?: Map<string, string>,
 ): TeamNode[] {
   return storedNodes.map((node) => {
     const role = roles.find((r) => r.id === node.data?.roleId);
+
+    const assignedUserName = role?.assignedUserId
+      ? (userNameMap?.get(role.assignedUserId) ??
+        `User ${role.assignedUserId.substring(0, 8)}`)
+      : undefined;
 
     return {
       id: node.id,
@@ -74,9 +80,7 @@ export function enrichNodesWithRoleData(
         metricId: role?.metric?.id,
         metricName: role?.metric?.name,
         assignedUserId: role?.assignedUserId ?? null,
-        assignedUserName: role?.assignedUserId
-          ? `User ${role.assignedUserId.substring(0, 8)}`
-          : undefined,
+        assignedUserName,
         color: role?.color ?? node.data?.color ?? "#3b82f6",
       },
     };

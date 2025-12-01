@@ -55,6 +55,34 @@ const roleSchema = z.object({
 
 type RoleForm = z.infer<typeof roleSchema>;
 
+/** Calculate the center position of the current viewport in flow coordinates */
+function getViewportCenter(
+  reactFlowInstance: {
+    screenToFlowPosition: (position: { x: number; y: number }) => {
+      x: number;
+      y: number;
+    };
+  } | null,
+): { x: number; y: number } {
+  if (!reactFlowInstance) {
+    return { x: 400, y: 300 };
+  }
+
+  const container = document.querySelector(".react-flow");
+  if (!container) {
+    return { x: 400, y: 300 };
+  }
+
+  const rect = container.getBoundingClientRect();
+  const screenCenterX = rect.left + rect.width / 2;
+  const screenCenterY = rect.top + rect.height / 2;
+
+  return reactFlowInstance.screenToFlowPosition({
+    x: screenCenterX,
+    y: screenCenterY,
+  });
+}
+
 const COLORS = [
   "#3b82f6", // blue
   "#10b981", // green
@@ -146,6 +174,7 @@ export function RoleDialog({
       const previousRoles = utils.role.getByTeam.getData({ teamId });
       const currentNodes = storeApi.getState().nodes;
       const previousNodes = [...currentNodes];
+      const reactFlowInstance = storeApi.getState().reactFlowInstance;
 
       const tempRoleId = `temp-role-${nanoid(8)}`;
       const nodeId = variables.nodeId;
@@ -186,10 +215,12 @@ export function RoleDialog({
         isPending: true,
       };
 
+      const position = getViewportCenter(reactFlowInstance);
+
       const optimisticNode = {
         id: nodeId,
         type: "role-node" as const,
-        position: { x: 400, y: 300 },
+        position,
         data: {
           roleId: tempRoleId,
           title: variables.title,
@@ -265,26 +296,38 @@ export function RoleDialog({
   });
 
   const updateRole = api.role.update.useMutation({
-    onSuccess: (updatedRole) => {
+    onMutate: async (variables) => {
+      setOpen(false);
+      form.reset();
+
+      await utils.role.getByTeam.cancel({ teamId });
+
+      const previousRoles = utils.role.getByTeam.getData({ teamId });
       const currentNodes = storeApi.getState().nodes;
+      const previousNodes = [...currentNodes];
+
+      const selectedMetric = variables.metricId
+        ? metrics.find((m) => m.id === variables.metricId)
+        : null;
+
       const updatedNodes = currentNodes.map((node) => {
-        if (node.data.roleId === updatedRole.id) {
+        if (node.data.roleId === variables.id) {
           return {
             ...node,
             data: {
               ...node.data,
-              title: updatedRole.title,
-              purpose: updatedRole.purpose,
-              accountabilities: updatedRole.accountabilities ?? undefined,
-              metricId: updatedRole.metric?.id ?? undefined,
-              metricName: updatedRole.metric?.name ?? undefined,
-              assignedUserId: updatedRole.assignedUserId,
-              assignedUserName: updatedRole.assignedUserId
-                ? (members.find((m) => m.user.id === updatedRole.assignedUserId)
+              title: variables.title ?? node.data.title,
+              purpose: variables.purpose ?? node.data.purpose,
+              accountabilities: variables.accountabilities ?? undefined,
+              metricId: variables.metricId ?? undefined,
+              metricName: selectedMetric?.name ?? undefined,
+              assignedUserId: variables.assignedUserId ?? null,
+              assignedUserName: variables.assignedUserId
+                ? (members.find((m) => m.user.id === variables.assignedUserId)
                     ?.user.firstName ??
-                  `User ${updatedRole.assignedUserId.substring(0, 8)}`)
+                  `User ${variables.assignedUserId.substring(0, 8)}`)
                 : undefined,
-              color: updatedRole.color,
+              color: variables.color ?? node.data.color,
             },
           };
         }
@@ -295,15 +338,55 @@ export function RoleDialog({
       markDirty();
 
       utils.role.getByTeam.setData({ teamId }, (old) => {
+        if (!old) return old;
+        return old.map((role) =>
+          role.id === variables.id
+            ? {
+                ...role,
+                title: variables.title ?? role.title,
+                purpose: variables.purpose ?? role.purpose,
+                accountabilities: variables.accountabilities ?? null,
+                metricId: variables.metricId ?? null,
+                assignedUserId: variables.assignedUserId ?? null,
+                color: variables.color ?? role.color,
+                metric: selectedMetric ?? null,
+              }
+            : role,
+        );
+      });
+
+      return { previousRoles, previousNodes };
+    },
+    onSuccess: (updatedRole) => {
+      const currentNodes = storeApi.getState().nodes;
+      const updatedNodes = currentNodes.map((node) => {
+        if (node.data.roleId === updatedRole.id) {
+          return {
+            ...node,
+            data: {
+              ...node.data,
+              metricName: updatedRole.metric?.name ?? undefined,
+            },
+          };
+        }
+        return node;
+      });
+      setNodes(updatedNodes);
+
+      utils.role.getByTeam.setData({ teamId }, (old) => {
         if (!old) return [updatedRole];
         return old.map((role) =>
           role.id === updatedRole.id ? updatedRole : role,
         );
       });
-
-      setOpen(false);
     },
-    onError: (error) => {
+    onError: (error, _variables, context) => {
+      if (context?.previousRoles) {
+        utils.role.getByTeam.setData({ teamId }, context.previousRoles);
+      }
+      if (context?.previousNodes) {
+        setNodes(context.previousNodes);
+      }
       toast.error("Failed to update role", {
         description: error.message ?? "An unexpected error occurred",
       });

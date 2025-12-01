@@ -9,6 +9,7 @@ import {
   type OnConnect,
   type OnEdgesChange,
   type OnNodesChange,
+  type ReactFlowInstance,
   addEdge,
   applyEdgeChanges,
   applyNodeChanges,
@@ -24,6 +25,7 @@ type TeamState = {
   // React Flow state
   nodes: TeamNode[];
   edges: TeamEdge[];
+  reactFlowInstance: ReactFlowInstance<TeamNode, TeamEdge> | null;
 
   // Team metadata
   teamId: string;
@@ -47,6 +49,9 @@ type TeamActions = {
   setNodes: (nodes: TeamNode[]) => void;
   setEdges: (edges: TeamEdge[]) => void;
   setTeamName: (name: string) => void;
+  setReactFlowInstance: (
+    instance: ReactFlowInstance<TeamNode, TeamEdge> | null,
+  ) => void;
 
   // Dirty state management
   markDirty: () => void;
@@ -71,6 +76,7 @@ export function createTeamStore(
     // Initial state
     nodes: [],
     edges: [],
+    reactFlowInstance: null,
     teamId: initialTeamId,
     teamName: initialTeamName,
     isDirty: false,
@@ -122,6 +128,7 @@ export function createTeamStore(
       set({ teamName: name });
       get().markDirty();
     },
+    setReactFlowInstance: (instance) => set({ reactFlowInstance: instance }),
 
     // Dirty state management
     markDirty: () => set({ isDirty: true }),
