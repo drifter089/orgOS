@@ -22,18 +22,43 @@ type RoleWithMetric = {
 /**
  * Serialize TeamNodes to StoredNodes for database storage
  * Strips out UI-only data and keeps only essential fields
+ * Handles both role-node and text-node types
  */
 export function serializeNodes(nodes: TeamNode[]): StoredNode[] {
-  return nodes.map((node) => ({
-    id: node.id,
-    type: node.type,
-    position: node.position,
-    data: {
-      roleId: node.data.roleId,
-      title: node.data.title,
-      color: node.data.color,
-    },
-  }));
+  return nodes.map((node) => {
+    // Handle text-node type
+    if (node.type === "text-node") {
+      // Extract width/height from style for persistence
+      const style = node.style as
+        | { width?: number; height?: number }
+        | undefined;
+      return {
+        id: node.id,
+        type: node.type,
+        position: node.position,
+        data: {
+          text: node.data.text,
+          fontSize: node.data.fontSize,
+        },
+        style:
+          style?.width || style?.height
+            ? { width: style.width, height: style.height }
+            : undefined,
+      };
+    }
+
+    // Handle role-node type
+    return {
+      id: node.id,
+      type: node.type,
+      position: node.position,
+      data: {
+        roleId: node.data.roleId,
+        title: node.data.title,
+        color: node.data.color,
+      },
+    };
+  });
 }
 
 /**
@@ -54,6 +79,7 @@ export function serializeEdges(edges: Edge[]): StoredEdge[] {
 /**
  * Enrich stored nodes with full role data from API
  * Converts StoredNodes (minimal data) to TeamNodes (full UI data)
+ * Text nodes are returned as-is (no enrichment needed)
  */
 export function enrichNodesWithRoleData(
   storedNodes: StoredNode[],
@@ -61,6 +87,22 @@ export function enrichNodesWithRoleData(
   userNameMap?: Map<string, string>,
 ): TeamNode[] {
   return storedNodes.map((node) => {
+    // Handle text-node type (no enrichment needed)
+    if (node.type === "text-node") {
+      return {
+        id: node.id,
+        type: "text-node" as const,
+        position: node.position,
+        data: {
+          text: node.data?.text ?? "",
+          fontSize: node.data?.fontSize,
+        },
+        // Restore dimensions for resizable node
+        style: node.style ?? { width: 180, height: 60 },
+      };
+    }
+
+    // Handle role-node type (enrich with API data)
     const role = roles.find((r) => r.id === node.data?.roleId);
 
     const assignedUserName = role?.assignedUserId

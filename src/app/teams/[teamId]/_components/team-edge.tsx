@@ -155,7 +155,7 @@ export function TeamEdge({
       // Use fresh state to preserve user's node position changes during mutation
       const currentNodes = storeApi.getState().nodes;
       const updatedNodes = currentNodes.map((node) => {
-        if (node.id === context.nodeId) {
+        if (node.id === context.nodeId && node.type === "role-node") {
           return {
             ...node,
             data: {

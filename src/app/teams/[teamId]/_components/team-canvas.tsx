@@ -28,9 +28,11 @@ import { RoleDialog } from "./role-dialog";
 import { RoleNodeMemo } from "./role-node";
 import { TeamCanvasControls } from "./team-canvas-controls";
 import { TeamEdge } from "./team-edge";
+import { TextNodeMemo } from "./text-node";
 
 const nodeTypes = {
   "role-node": RoleNodeMemo,
+  "text-node": TextNodeMemo,
 };
 
 const edgeTypes = {

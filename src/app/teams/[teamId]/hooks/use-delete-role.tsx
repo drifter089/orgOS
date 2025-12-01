@@ -32,7 +32,8 @@ export function useDeleteRole(teamId: string) {
       });
 
       const nodeToRemove = currentNodes.find(
-        (node) => node.data.roleId === variables.id,
+        (node) =>
+          node.type === "role-node" && node.data.roleId === variables.id,
       );
 
       if (nodeToRemove) {
