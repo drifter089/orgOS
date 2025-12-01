@@ -142,7 +142,7 @@ export function TeamsList() {
                     </div>
                     <div className="bg-muted/50 flex h-12 items-center justify-center border-t border-l">
                       <BarChart3 className="mr-2 h-4 w-4 opacity-50" />
-                      <span className="opacity-50">Dashboard</span>
+                      <span className="opacity-50">KPIs</span>
                     </div>
                   </div>
                 </Card>
@@ -203,7 +203,7 @@ export function TeamsList() {
                   >
                     <Link href={`/dashboard/${team.id}`}>
                       <BarChart3 className="mr-2 h-4 w-4" />
-                      Dashboard
+                      KPIs
                     </Link>
                   </Button>
                 </div>

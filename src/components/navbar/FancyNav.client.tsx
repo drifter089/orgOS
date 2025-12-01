@@ -364,7 +364,7 @@ export function FancyNav({
       <div
         ref={pillRef}
         className={cn(
-          "bg-background/95 border-border relative origin-top rounded-md border shadow-lg backdrop-blur-md transition-shadow",
+          "bg-background/40 border-border relative origin-top rounded-md border shadow-lg backdrop-blur-md transition-shadow",
           isExpanded
             ? "overflow-hidden shadow-2xl"
             : "overflow-visible shadow-lg hover:shadow-xl",
@@ -806,7 +806,7 @@ export function FancyNav({
                       </Link>
                     </div>
 
-                    {/* Dashboard */}
+                    {/* KPIs */}
                     <div className="menu-item">
                       <Link
                         href="/dashboard"
@@ -826,7 +826,7 @@ export function FancyNav({
                         </div>
                         <div className="min-w-0 flex-1">
                           <div className="truncate text-sm font-medium">
-                            Dashboard
+                            KPIs
                           </div>
                           <div className="text-muted-foreground truncate text-xs">
                             Monitor key metrics

@@ -88,7 +88,7 @@ export function generateBreadcrumbs(
       },
     });
 
-    // "Roles" as current page with dropdown to switch to Dashboard
+    // "Roles" as current page with dropdown to switch to KPIs
     breadcrumbs.push({
       id: "view",
       label: "Roles",
@@ -99,7 +99,7 @@ export function generateBreadcrumbs(
         type: "view",
         items: [
           { label: "Roles", path: `/teams/${teamId}` },
-          { label: "Dashboard", path: `/dashboard/${teamId}` },
+          { label: "KPIs", path: `/dashboard/${teamId}` },
         ],
       },
     });
@@ -122,7 +122,7 @@ export function generateBreadcrumbs(
 
     breadcrumbs.push({
       id: "view",
-      label: "Dashboard",
+      label: "KPIs",
       path: `/dashboard/default`,
       isCurrentPage: true,
       isNavigable: false,
@@ -145,10 +145,10 @@ export function generateBreadcrumbs(
       },
     });
 
-    // "Dashboard" as current page with dropdown to switch to Roles
+    // "KPIs" as current page with dropdown to switch to Roles
     breadcrumbs.push({
       id: "view",
-      label: "Dashboard",
+      label: "KPIs",
       path: `/dashboard/${teamId}`,
       isCurrentPage: true,
       isNavigable: false,
@@ -156,7 +156,7 @@ export function generateBreadcrumbs(
         type: "view",
         items: [
           { label: "Roles", path: `/teams/${teamId}` },
-          { label: "Dashboard", path: `/dashboard/${teamId}` },
+          { label: "KPIs", path: `/dashboard/${teamId}` },
         ],
       },
     });
