@@ -103,7 +103,8 @@ export function DashboardSidebar({
 
                 <IntegrationGrid
                   initialData={initialIntegrations}
-                  gridCols={2}
+                  gridCols={3}
+                  size="sm"
                   showMetricDialogs={true}
                   onMetricCreated={onMetricCreated}
                   teamId={teamId}

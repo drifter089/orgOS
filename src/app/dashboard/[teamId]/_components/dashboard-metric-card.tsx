@@ -128,6 +128,27 @@ export function DashboardMetricCard({
   const transformMutation = api.dashboard.transformChartWithAI.useMutation();
   const updateChartMutation =
     api.dashboard.updateDashboardMetricChart.useMutation();
+  const updateMetricMutation = api.metric.update.useMutation({
+    onSuccess: (updatedMetric) => {
+      const teamId = metric.teamId;
+      utils.dashboard.getDashboardMetrics.setData(undefined, (old) =>
+        old?.map((dm) =>
+          dm.metric.id === updatedMetric.id
+            ? { ...dm, metric: { ...dm.metric, ...updatedMetric } }
+            : dm,
+        ),
+      );
+      if (teamId) {
+        utils.dashboard.getDashboardMetrics.setData({ teamId }, (old) =>
+          old?.map((dm) =>
+            dm.metric.id === updatedMetric.id
+              ? { ...dm, metric: { ...dm.metric, ...updatedMetric } }
+              : dm,
+          ),
+        );
+      }
+    },
+  });
 
   const handleRefresh = useCallback(
     async (userHint?: string) => {
@@ -248,8 +269,15 @@ export function DashboardMetricCard({
     void handleRefresh(prompt);
   };
 
+  const handleUpdateMetric = (name: string, description: string) => {
+    updateMetricMutation.mutate({
+      id: metric.id,
+      name,
+      description: description || undefined,
+    });
+  };
+
   const title = chartTransform?.title ?? metric.name;
-  const description = chartTransform?.description ?? metric.description;
 
   return (
     <Tabs
@@ -297,6 +325,7 @@ export function DashboardMetricCard({
             isIntegrationMetric={isIntegrationMetric}
             isPending={isPending}
             isProcessing={isProcessing}
+            integrationId={metric.integration?.integrationId}
           />
         </TabsContent>
 
@@ -313,17 +342,20 @@ export function DashboardMetricCard({
             className="animate-tab-slide-in absolute inset-0 m-0 data-[state=inactive]:hidden"
           >
             <DashboardMetricSettings
-              title={title}
-              description={description}
+              metricId={metric.id}
+              metricName={metric.name}
+              metricDescription={metric.description}
               chartTransform={chartTransform}
               hasChartData={hasChartData}
               integrationId={metric.integration?.integrationId ?? null}
               lastFetchedAt={metric.lastFetchedAt}
               isProcessing={isProcessing}
+              isUpdating={updateMetricMutation.isPending}
               prompt={prompt}
               onPromptChange={setPrompt}
               onRegenerate={handleRegenerate}
               onRefresh={() => handleRefresh()}
+              onUpdateMetric={handleUpdateMetric}
             />
           </TabsContent>
         )}

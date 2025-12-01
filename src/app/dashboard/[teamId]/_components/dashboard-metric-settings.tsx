@@ -1,117 +1,184 @@
 "use client";
 
-import { Loader2, RefreshCw, Sparkles } from "lucide-react";
+import { useEffect, useState } from "react";
+
+import { Check, Loader2, RefreshCw, Sparkles } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { getPlatformConfig } from "@/lib/platform-config";
+import { cn } from "@/lib/utils";
 
 import type { ChartTransformResult } from "./dashboard-metric-card";
 
 interface DashboardMetricSettingsProps {
-  title: string;
-  description: string | null;
+  metricId: string;
+  metricName: string;
+  metricDescription: string | null;
   chartTransform: ChartTransformResult | null;
   hasChartData: boolean;
   integrationId: string | null;
   lastFetchedAt: Date | null;
   isProcessing: boolean;
+  isUpdating: boolean;
   prompt: string;
   onPromptChange: (value: string) => void;
   onRegenerate: () => void;
   onRefresh: () => void;
+  onUpdateMetric: (name: string, description: string) => void;
 }
 
 export function DashboardMetricSettings({
-  title,
-  description,
+  metricId,
+  metricName,
+  metricDescription,
   chartTransform,
   hasChartData,
   integrationId,
   lastFetchedAt,
   isProcessing,
+  isUpdating,
   prompt,
   onPromptChange,
   onRegenerate,
   onRefresh,
+  onUpdateMetric,
 }: DashboardMetricSettingsProps) {
+  const [name, setName] = useState(metricName);
+  const [description, setDescription] = useState(metricDescription ?? "");
+  const [hasChanges, setHasChanges] = useState(false);
+
+  useEffect(() => {
+    setName(metricName);
+    setDescription(metricDescription ?? "");
+  }, [metricName, metricDescription]);
+
+  useEffect(() => {
+    const nameChanged = name !== metricName;
+    const descChanged = description !== (metricDescription ?? "");
+    setHasChanges(nameChanged || descChanged);
+  }, [name, description, metricName, metricDescription]);
+
+  const handleSave = () => {
+    if (hasChanges && name.trim()) {
+      onUpdateMetric(name.trim(), description.trim());
+    }
+  };
+
+  const platformConfig = integrationId
+    ? getPlatformConfig(integrationId)
+    : null;
   return (
-    <Card className="flex h-full flex-col">
-      <CardHeader className="flex-shrink-0 pb-2">
-        <div className="flex items-center justify-between gap-2 pr-24">
-          <CardTitle className="truncate text-lg">Settings</CardTitle>
-        </div>
-        <div className="space-y-0.5">
-          <p className="truncate text-sm font-medium">{title}</p>
-          {description && (
-            <p className="text-muted-foreground line-clamp-1 text-xs">
-              {description}
-            </p>
+    <Card className="flex h-full flex-col overflow-hidden">
+      <CardHeader className="shrink-0 px-4 pt-4 pb-2">
+        <div className="flex items-center gap-2">
+          <CardTitle className="shrink-0 text-base">Settings</CardTitle>
+          {platformConfig && (
+            <Badge
+              className={cn(
+                "shrink-0 text-xs",
+                platformConfig.bgColor,
+                platformConfig.textColor,
+              )}
+            >
+              {platformConfig.name}
+            </Badge>
           )}
         </div>
       </CardHeader>
 
-      <CardContent className="flex flex-1 flex-col gap-3 overflow-hidden pt-0">
-        <div className="flex-shrink-0 space-y-1">
-          <label className="text-sm font-medium">AI Prompt</label>
+      <CardContent className="flex min-h-0 flex-1 flex-col gap-2.5 overflow-y-auto px-4 pt-0">
+        {/* Name with save button */}
+        <div className="flex items-center gap-2">
           <Input
-            placeholder="Try: 'pie chart' or 'by month'"
-            value={prompt}
-            onChange={(e) => onPromptChange(e.target.value)}
-            disabled={isProcessing}
-            className="text-sm"
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && !isProcessing) {
-                onRegenerate();
-              }
-            }}
+            placeholder="Metric name"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            disabled={isUpdating}
+            className="h-8 min-w-0 flex-1 text-sm"
           />
-          <p className="text-muted-foreground text-xs">
-            Describe how you want the chart to be transformed
-          </p>
+          <Button
+            variant={hasChanges ? "default" : "outline"}
+            size="icon"
+            onClick={handleSave}
+            disabled={!hasChanges || !name.trim() || isUpdating}
+            className="h-8 w-8 shrink-0"
+          >
+            {isUpdating ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <Check className="h-3.5 w-3.5" />
+            )}
+          </Button>
         </div>
 
-        <div className="flex flex-shrink-0 gap-2">
+        {/* Description */}
+        <Input
+          placeholder="Description (optional)"
+          value={description}
+          onChange={(e) => setDescription(e.target.value)}
+          disabled={isUpdating}
+          className="h-8 text-xs"
+        />
+
+        {/* AI Prompt */}
+        <Textarea
+          placeholder="AI prompt: 'pie chart', 'by month', 'show trends'..."
+          value={prompt}
+          onChange={(e) => onPromptChange(e.target.value)}
+          disabled={isProcessing}
+          className="min-h-[80px] flex-1 resize-none text-sm"
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && !e.shiftKey && !isProcessing) {
+              e.preventDefault();
+              onRegenerate();
+            }
+          }}
+        />
+
+        {/* Action Buttons */}
+        <div className="flex gap-2">
           <Button
             variant="outline"
+            size="sm"
             onClick={onRegenerate}
             disabled={isProcessing}
             className="flex-1"
           >
             {isProcessing ? (
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
             ) : (
-              <Sparkles className="mr-2 h-4 w-4" />
+              <Sparkles className="mr-1.5 h-3.5 w-3.5" />
             )}
             Regenerate
           </Button>
-          <Button variant="outline" onClick={onRefresh} disabled={isProcessing}>
-            <RefreshCw className="mr-2 h-4 w-4" />
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={onRefresh}
+            disabled={isProcessing}
+          >
+            <RefreshCw className="mr-1.5 h-3.5 w-3.5" />
             Refetch
           </Button>
         </div>
 
-        <div className="flex-1" />
-
-        {lastFetchedAt && (
-          <div className="text-muted-foreground flex-shrink-0 border-t pt-2 text-xs">
-            Last updated: {new Date(lastFetchedAt).toLocaleString()}
-          </div>
-        )}
-
-        {integrationId && (
-          <div className="flex flex-shrink-0 flex-wrap gap-2">
-            <Badge variant="secondary" className="text-xs">
-              {integrationId}
+        {/* Footer Info */}
+        <div className="mt-auto flex shrink-0 items-center justify-between border-t pt-2">
+          {lastFetchedAt && (
+            <span className="text-muted-foreground text-xs">
+              {new Date(lastFetchedAt).toLocaleDateString()}
+            </span>
+          )}
+          {hasChartData && chartTransform && (
+            <Badge variant="outline" className="text-xs">
+              {chartTransform.chartType}
             </Badge>
-            {hasChartData && chartTransform && (
-              <Badge variant="outline" className="text-xs">
-                {chartTransform.chartType}
-              </Badge>
-            )}
-          </div>
-        )}
+          )}
+        </div>
       </CardContent>
     </Card>
   );
