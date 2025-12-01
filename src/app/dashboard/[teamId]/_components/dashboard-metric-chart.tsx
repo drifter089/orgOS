@@ -30,6 +30,8 @@ import {
   ChartTooltip,
   ChartTooltipContent,
 } from "@/components/ui/chart";
+import { getPlatformConfig } from "@/lib/platform-config";
+import { cn } from "@/lib/utils";
 
 import type { ChartTransformResult } from "./dashboard-metric-card";
 
@@ -47,6 +49,7 @@ interface DashboardMetricChartProps {
   isPending: boolean;
   isProcessing: boolean;
   loadingPhase?: LoadingPhase;
+  integrationId?: string | null;
 }
 
 export function DashboardMetricChart({
@@ -57,7 +60,11 @@ export function DashboardMetricChart({
   isPending,
   isProcessing,
   loadingPhase,
+  integrationId,
 }: DashboardMetricChartProps) {
+  const platformConfig = integrationId
+    ? getPlatformConfig(integrationId)
+    : null;
   const renderChart = () => {
     if (!chartTransform) return null;
 
@@ -448,10 +455,24 @@ export function DashboardMetricChart({
       className={`flex h-full flex-col ${isPending ? "animate-pulse opacity-70" : ""}`}
     >
       <CardHeader className="flex-shrink-0 pb-2">
-        <div className="flex items-center justify-between gap-2 pr-24">
+        <div className="flex items-center gap-2 pr-24">
           <CardTitle className="truncate text-lg">{title}</CardTitle>
+          {platformConfig && (
+            <Badge
+              className={cn(
+                "shrink-0 text-xs",
+                platformConfig.bgColor,
+                platformConfig.textColor,
+              )}
+            >
+              {platformConfig.name}
+            </Badge>
+          )}
           {(isPending || isProcessing || loadingPhase) && (
-            <Badge variant="outline" className="text-muted-foreground text-xs">
+            <Badge
+              variant="outline"
+              className="text-muted-foreground ml-auto shrink-0 text-xs"
+            >
               <Loader2 className="mr-1 h-3 w-3 animate-spin" />
               {isPending
                 ? "Saving..."

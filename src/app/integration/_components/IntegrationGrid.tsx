@@ -7,6 +7,7 @@ import { CheckCircle2, FileSpreadsheet, Plus, Trash2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { getPlatformConfig } from "@/lib/platform-config";
+import { cn } from "@/lib/utils";
 import { useConfirmation } from "@/providers/ConfirmationDialogProvider";
 import { api } from "@/trpc/react";
 import type { RouterOutputs } from "@/trpc/react";
@@ -15,7 +16,8 @@ type IntegrationsWithStats = RouterOutputs["integration"]["listWithStats"];
 
 interface IntegrationGridProps {
   initialData: IntegrationsWithStats;
-  gridCols?: 2 | 4;
+  gridCols?: 2 | 3 | 4 | "auto";
+  size?: "sm" | "md";
   showMetricDialogs?: boolean;
   onMetricCreated?: () => void;
   teamId?: string;
@@ -32,6 +34,7 @@ interface IntegrationGridProps {
 export function IntegrationGrid({
   initialData,
   gridCols = 4,
+  size = "md",
   showMetricDialogs = false,
   onMetricCreated,
   teamId,
@@ -125,10 +128,17 @@ export function IntegrationGrid({
     );
   }
 
+  const gridClasses = {
+    2: "grid-cols-2",
+    3: "grid-cols-3",
+    4: "grid-cols-2 md:grid-cols-4",
+    auto: "grid-cols-[repeat(auto-fit,minmax(100px,1fr))]",
+  };
+
+  const iconSize = size === "sm" ? "h-10 w-10" : "h-16 w-16";
+
   return (
-    <div
-      className={`grid gap-4 ${gridCols === 2 ? "md:grid-cols-2" : "md:grid-cols-4"}`}
-    >
+    <div className={cn("grid gap-3", gridClasses[gridCols])}>
       {integrations.map((integration) => {
         const config = getPlatformConfig(integration.integrationId);
         const MetricDialog = MetricDialogs?.[integration.integrationId];
@@ -169,12 +179,15 @@ export function IntegrationGrid({
 
               {/* Platform logo */}
               <div
-                className={`flex h-full w-full flex-col items-center justify-center rounded-lg border ${config.bgColor}`}
+                className={cn(
+                  "flex h-full w-full flex-col items-center justify-center rounded-lg border",
+                  config.bgColor,
+                )}
               >
-                <div className="relative h-16 w-16">
+                <div className={cn("relative", iconSize)}>
                   {config.useLucideIcon ? (
                     <FileSpreadsheet
-                      className={`h-16 w-16 ${config.textColor}`}
+                      className={cn(iconSize, config.textColor)}
                     />
                   ) : (
                     <Image
@@ -186,18 +199,28 @@ export function IntegrationGrid({
                     />
                   )}
                 </div>
-                <p className={`mt-3 text-sm font-medium ${config.textColor}`}>
+                <p
+                  className={cn(
+                    "font-medium",
+                    size === "sm" ? "mt-2 text-xs" : "mt-3 text-sm",
+                    config.textColor,
+                  )}
+                >
                   {config.name}
                 </p>
-                <p className={`mt-1 text-xs opacity-80 ${config.textColor}`}>
-                  {new Date(integration.createdAt).toLocaleDateString(
-                    undefined,
-                    {
-                      month: "short",
-                      day: "numeric",
-                    },
-                  )}
-                </p>
+                {size !== "sm" && (
+                  <p
+                    className={cn("mt-1 text-xs opacity-80", config.textColor)}
+                  >
+                    {new Date(integration.createdAt).toLocaleDateString(
+                      undefined,
+                      {
+                        month: "short",
+                        day: "numeric",
+                      },
+                    )}
+                  </p>
+                )}
               </div>
             </div>
 
