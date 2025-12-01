@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react";
 
-import * as SheetPrimitive from "@radix-ui/react-dialog";
 import { Loader2 } from "lucide-react";
 
 import {
@@ -18,7 +17,7 @@ import {
 } from "@/app/metric/_components";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { Sheet } from "@/components/ui/sheet";
+import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { getPlatformConfig } from "@/lib/platform-config";
 import { cn } from "@/lib/utils";
 import type { RouterOutputs } from "@/trpc/react";
@@ -31,36 +30,6 @@ interface DashboardSidebarProps {
   teamId: string;
   initialIntegrations: IntegrationsWithStats;
   onMetricCreated?: () => void;
-}
-
-function NonModalSheetContent({
-  className,
-  children,
-  side = "right",
-  ...props
-}: React.ComponentProps<typeof SheetPrimitive.Content> & {
-  side?: "top" | "right" | "bottom" | "left";
-}) {
-  return (
-    <SheetPrimitive.Portal>
-      <SheetPrimitive.Content
-        className={cn(
-          "bg-background data-[state=open]:animate-in data-[state=closed]:animate-out fixed z-[51] flex flex-col gap-4 shadow-lg transition ease-in-out data-[state=closed]:duration-300 data-[state=open]:duration-500",
-          side === "right" &&
-            "data-[state=closed]:slide-out-to-right data-[state=open]:slide-in-from-right inset-y-0 right-0 h-full border-l",
-          side === "left" &&
-            "data-[state=closed]:slide-out-to-left data-[state=open]:slide-in-from-left inset-y-0 left-0 h-full border-r",
-          className,
-        )}
-        {...props}
-      >
-        <SheetPrimitive.Title className="sr-only">
-          Dashboard Sidebar
-        </SheetPrimitive.Title>
-        {children}
-      </SheetPrimitive.Content>
-    </SheetPrimitive.Portal>
-  );
 }
 
 export function DashboardSidebar({
@@ -107,10 +76,11 @@ export function DashboardSidebar({
       />
 
       <Sheet open={isOpen} onOpenChange={setIsOpen} modal={false}>
-        <NonModalSheetContent
+        <SheetContent
           side="right"
-          className="w-[40rem] overflow-hidden p-0"
+          className="z-[52] w-[40rem] overflow-hidden p-0 sm:max-w-none"
         >
+          <SheetTitle className="sr-only">Dashboard Sidebar</SheetTitle>
           <div className="flex h-full flex-col">
             <div className="flex-shrink-0 border-b px-6 py-4">
               <div className="space-y-1">
@@ -200,7 +170,7 @@ export function DashboardSidebar({
               </div>
             </div>
           </div>
-        </NonModalSheetContent>
+        </SheetContent>
       </Sheet>
     </>
   );
