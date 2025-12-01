@@ -149,11 +149,25 @@ export function DashboardMetricCard({
           endpoint = endpoint.replace(`{${key}}`, encodeURIComponent(value));
         }
 
+        // Build body if template has one (e.g., PostHog HogQL queries)
+        let body: unknown = undefined;
+        if (template.requestBody) {
+          let bodyStr =
+            typeof template.requestBody === "string"
+              ? template.requestBody
+              : JSON.stringify(template.requestBody);
+          for (const [key, value] of Object.entries(endpointParams)) {
+            bodyStr = bodyStr.replace(new RegExp(`\\{${key}\\}`, "g"), value);
+          }
+          body = JSON.parse(bodyStr);
+        }
+
         const rawData = await utils.metric.fetchIntegrationData.fetch({
           connectionId: metric.integration.connectionId,
           integrationId: metric.integration.integrationId,
           endpoint,
           method: template.method,
+          body,
         });
 
         if (!rawData?.data) {
