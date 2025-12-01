@@ -101,7 +101,7 @@ export function CreateTeamDialog() {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button size="default" className="gap-2">
+        <Button variant="outline" className="w-[130px] gap-2 font-semibold">
           <Plus className="h-4 w-4" />
           Team
         </Button>

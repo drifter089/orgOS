@@ -60,7 +60,7 @@ export function AllMembersSheet({ members }: AllMembersSheetProps) {
     <>
       <Sheet>
         <SheetTrigger asChild>
-          <Button variant="outline" className="gap-2 font-semibold">
+          <Button variant="outline" className="w-[130px] gap-2 font-semibold">
             <Users className="h-4 w-4" />
             {totalMembers} {totalMembers === 1 ? "Member" : "Members"}
           </Button>

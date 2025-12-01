@@ -117,7 +117,7 @@ export function TeamsList() {
                 <Card className="ring-primary/20 cursor-not-allowed gap-0 overflow-hidden py-0 opacity-70 ring-2">
                   <div className="flex flex-col gap-3 p-4">
                     <div className="flex items-center gap-2">
-                      <CardTitle className="line-clamp-1 flex-1 text-2xl font-bold">
+                      <CardTitle className="line-clamp-1 flex-1 text-xl font-semibold">
                         {team.name}
                       </CardTitle>
                       <Badge variant="outline" className="shrink-0 gap-1.5">
@@ -135,12 +135,12 @@ export function TeamsList() {
                     </div>
                   </div>
                   <div className="grid grid-cols-2">
-                    <div className="bg-muted/50 flex h-12 items-center justify-center border-t">
-                      <Network className="mr-2 h-4 w-4 opacity-50" />
+                    <div className="bg-muted/50 flex h-9 items-center justify-center border-t text-sm">
+                      <Network className="mr-1.5 h-3.5 w-3.5 opacity-50" />
                       <span className="opacity-50">Roles</span>
                     </div>
-                    <div className="bg-muted/50 flex h-12 items-center justify-center border-t border-l">
-                      <BarChart3 className="mr-2 h-4 w-4 opacity-50" />
+                    <div className="bg-muted/50 flex h-9 items-center justify-center border-t border-l text-sm">
+                      <BarChart3 className="mr-1.5 h-3.5 w-3.5 opacity-50" />
                       <span className="opacity-50">Dashboard</span>
                     </div>
                   </div>
@@ -158,7 +158,7 @@ export function TeamsList() {
             >
               <Card className="group hover:border-border/80 gap-0 overflow-hidden py-0 transition-colors">
                 <div className="flex flex-col gap-3 p-4">
-                  <CardTitle className="line-clamp-1 text-2xl font-bold">
+                  <CardTitle className="line-clamp-1 text-xl font-semibold">
                     {team.name}
                   </CardTitle>
 
@@ -180,20 +180,20 @@ export function TeamsList() {
                   <Button
                     asChild
                     variant="ghost"
-                    className="hover:bg-primary/10 hover:text-primary h-12 rounded-none border-t transition-colors"
+                    className="hover:bg-primary/10 hover:text-primary h-9 rounded-none border-t transition-colors"
                   >
                     <Link href={`/teams/${team.id}`}>
-                      <Network className="mr-2 h-4 w-4" />
+                      <Network className="mr-1.5 h-3.5 w-3.5" />
                       Roles
                     </Link>
                   </Button>
                   <Button
                     asChild
                     variant="ghost"
-                    className="hover:bg-primary/10 hover:text-primary h-12 rounded-none border-t border-l transition-colors"
+                    className="hover:bg-primary/10 hover:text-primary h-9 rounded-none border-t border-l transition-colors"
                   >
                     <Link href={`/dashboard/${team.id}`}>
-                      <BarChart3 className="mr-2 h-4 w-4" />
+                      <BarChart3 className="mr-1.5 h-3.5 w-3.5" />
                       Dashboard
                     </Link>
                   </Button>
