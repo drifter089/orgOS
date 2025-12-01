@@ -260,7 +260,7 @@ export function RoleDialog({
       // Use fresh state to preserve user's node position changes during mutation
       const currentNodes = storeApi.getState().nodes;
       const updatedNodes = currentNodes.map((node) => {
-        if (node.id === context.nodeId) {
+        if (node.id === context.nodeId && node.type === "role-node") {
           return {
             ...node,
             data: {
@@ -311,7 +311,7 @@ export function RoleDialog({
         : null;
 
       const updatedNodes = currentNodes.map((node) => {
-        if (node.data.roleId === variables.id) {
+        if (node.type === "role-node" && node.data.roleId === variables.id) {
           return {
             ...node,
             data: {
@@ -360,7 +360,7 @@ export function RoleDialog({
     onSuccess: (updatedRole) => {
       const currentNodes = storeApi.getState().nodes;
       const updatedNodes = currentNodes.map((node) => {
-        if (node.data.roleId === updatedRole.id) {
+        if (node.type === "role-node" && node.data.roleId === updatedRole.id) {
           return {
             ...node,
             data: {
