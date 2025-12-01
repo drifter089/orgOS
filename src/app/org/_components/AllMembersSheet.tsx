@@ -3,14 +3,7 @@
 import { useState } from "react";
 
 import type { User } from "@workos-inc/node";
-import {
-  ChevronRight,
-  Clock,
-  Mail,
-  Shield,
-  UserCheck,
-  Users,
-} from "lucide-react";
+import { ChevronRight, Mail, Shield, UserCheck, Users } from "lucide-react";
 
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -62,16 +55,6 @@ export function AllMembersSheet({ members }: AllMembersSheetProps) {
   };
 
   const totalMembers = members.length;
-  const activeMembers = members.filter(
-    (m) => m.membership.status === "active",
-  ).length;
-  const pendingMembers = members.filter(
-    (m) => m.membership.status === "pending",
-  ).length;
-  const adminMembers = members.filter(
-    (m) =>
-      m.membership.role.slug === "admin" || m.membership.role.slug === "owner",
-  ).length;
 
   return (
     <>
@@ -92,165 +75,101 @@ export function AllMembersSheet({ members }: AllMembersSheetProps) {
             </SheetDescription>
           </SheetHeader>
 
-          <div className="space-y-6">
-            {/* Members List */}
-            <div className="space-y-4">
-              {members.map(({ user, membership }) => {
-                // Get initials for avatar with safe fallbacks
-                const userObj = user as Record<string, unknown>;
-                const firstName = userObj.firstName as
-                  | string
-                  | null
-                  | undefined;
-                const lastName = userObj.lastName as string | null | undefined;
-                const email = userObj.email as string | null | undefined;
+          <div className="space-y-4 pb-6">
+            {members.map(({ user, membership }) => {
+              const userObj = user as Record<string, unknown>;
+              const firstName = userObj.firstName as string | null | undefined;
+              const lastName = userObj.lastName as string | null | undefined;
+              const email = userObj.email as string | null | undefined;
 
-                const initials =
-                  firstName && lastName
-                    ? `${firstName[0]}${lastName[0]}`.toUpperCase()
-                    : (email?.[0]?.toUpperCase() ?? "U");
+              const initials =
+                firstName && lastName
+                  ? `${firstName[0]}${lastName[0]}`.toUpperCase()
+                  : (email?.[0]?.toUpperCase() ?? "U");
 
-                const userName =
-                  firstName && lastName
-                    ? `${firstName} ${lastName}`
-                    : (email ?? "Member");
+              const userName =
+                firstName && lastName
+                  ? `${firstName} ${lastName}`
+                  : (email ?? "Member");
 
-                const isAdmin =
-                  membership.role.slug === "admin" ||
-                  membership.role.slug === "owner";
+              const isAdmin =
+                membership.role.slug === "admin" ||
+                membership.role.slug === "owner";
 
-                return (
-                  <div
-                    key={membership.id}
-                    role="button"
-                    tabIndex={0}
-                    onClick={() => handleMemberClick(user)}
-                    onKeyDown={(e) => handleKeyDown(e, user)}
-                    aria-label={`View details for ${userName}`}
-                    className={cn(
-                      "group relative flex cursor-pointer items-center justify-between rounded-xl border p-5 transition-all duration-200",
-                      isAdmin
-                        ? "border-primary/30 bg-primary/5 hover:border-primary/50 hover:bg-primary/10 hover:shadow-lg"
-                        : "border-border bg-card hover:border-primary/30 hover:bg-accent/50 hover:shadow-lg",
-                      "focus-visible:ring-ring focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none",
-                    )}
-                  >
-                    {/* Admin indicator badge */}
-                    {isAdmin && (
-                      <div className="bg-primary ring-background absolute -top-2 -right-2 flex h-7 w-7 items-center justify-center rounded-full shadow-md ring-2">
-                        <Shield className="text-primary-foreground h-4 w-4" />
+              return (
+                <div
+                  key={membership.id}
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => handleMemberClick(user)}
+                  onKeyDown={(e) => handleKeyDown(e, user)}
+                  aria-label={`View details for ${userName}`}
+                  className={cn(
+                    "group relative flex cursor-pointer items-center justify-between rounded-xl border p-5 transition-all duration-200",
+                    isAdmin
+                      ? "border-primary/30 bg-primary/5 hover:border-primary/50 hover:bg-primary/10 hover:shadow-lg"
+                      : "border-border bg-card hover:border-primary/30 hover:bg-accent/50 hover:shadow-lg",
+                    "focus-visible:ring-ring focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none",
+                  )}
+                >
+                  {/* Admin indicator badge */}
+                  {isAdmin && (
+                    <div className="bg-primary ring-background absolute -top-2 -right-2 flex h-7 w-7 items-center justify-center rounded-full shadow-md ring-2">
+                      <Shield className="text-primary-foreground h-4 w-4" />
+                    </div>
+                  )}
+
+                  <div className="flex items-center gap-5">
+                    {/* Avatar with transition */}
+                    <Avatar className="group-hover:ring-primary/20 h-14 w-14 ring-2 ring-transparent transition-all group-hover:scale-105 group-hover:shadow-md">
+                      <AvatarFallback className="bg-primary/10 text-primary group-hover:bg-primary/20 text-base font-semibold transition-colors">
+                        {initials}
+                      </AvatarFallback>
+                    </Avatar>
+
+                    {/* User Info */}
+                    <div className="space-y-1.5">
+                      <div className="flex items-center gap-2.5">
+                        <p className="group-hover:text-primary text-base font-bold transition-colors">
+                          {userName}
+                        </p>
+                        {membership.status === "active" && (
+                          <UserCheck className="h-4 w-4 text-emerald-600/90 dark:text-emerald-400/90" />
+                        )}
                       </div>
-                    )}
-
-                    <div className="flex items-center gap-5">
-                      {/* Avatar with transition */}
-                      <Avatar className="group-hover:ring-primary/20 h-14 w-14 ring-2 ring-transparent transition-all group-hover:scale-105 group-hover:shadow-md">
-                        <AvatarFallback className="bg-primary/10 text-primary group-hover:bg-primary/20 text-base font-semibold transition-colors">
-                          {initials}
-                        </AvatarFallback>
-                      </Avatar>
-
-                      {/* User Info */}
-                      <div className="space-y-1.5">
-                        <div className="flex items-center gap-2.5">
-                          <p className="group-hover:text-primary text-base font-bold transition-colors">
-                            {userName}
-                          </p>
-                          {membership.status === "active" && (
-                            <UserCheck className="h-4 w-4 text-emerald-600/90 dark:text-emerald-400/90" />
-                          )}
-                        </div>
-                        <div className="text-muted-foreground flex items-center gap-2 text-sm">
-                          <Mail className="h-4 w-4" />
-                          <span>{email ?? "No email"}</span>
-                        </div>
+                      <div className="text-muted-foreground flex items-center gap-2 text-sm">
+                        <Mail className="h-4 w-4" />
+                        <span>{email ?? "No email"}</span>
                       </div>
                     </div>
-
-                    {/* Role & Status */}
-                    <div className="flex items-center gap-3">
-                      <Badge
-                        variant={isAdmin ? "default" : "secondary"}
-                        className="flex items-center gap-1.5 px-3 py-1 font-semibold"
-                      >
-                        {isAdmin && <Shield className="h-3.5 w-3.5" />}
-                        {membership.role.slug}
-                      </Badge>
-                      <Badge
-                        variant={
-                          membership.status === "active"
-                            ? "success"
-                            : membership.status === "pending"
-                              ? "warning"
-                              : "outline"
-                        }
-                        className="px-3 py-1 font-semibold capitalize"
-                      >
-                        {membership.status}
-                      </Badge>
-                      <ChevronRight className="text-muted-foreground group-hover:text-primary h-5 w-5 transition-all group-hover:translate-x-1" />
-                    </div>
                   </div>
-                );
-              })}
-            </div>
 
-            {/* Summary Stats */}
-            <div>
-              <h3 className="text-muted-foreground mb-3 text-sm font-bold tracking-wider uppercase">
-                Statistics
-              </h3>
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-                {/* Active Members - Primary emphasis */}
-                <div className="border-border from-primary/10 to-primary/5 relative overflow-hidden rounded-xl border bg-gradient-to-br p-6 transition-all hover:shadow-lg">
-                  <div className="flex items-center justify-between">
-                    <div className="space-y-2">
-                      <p className="text-muted-foreground text-xs font-semibold tracking-wider uppercase">
-                        Active Members
-                      </p>
-                      <p className="text-primary text-4xl font-extrabold">
-                        {activeMembers}
-                      </p>
-                    </div>
-                    <div className="bg-primary/10 ring-primary/20 rounded-xl p-4 ring-2">
-                      <UserCheck className="text-primary h-7 w-7" />
-                    </div>
+                  {/* Role & Status */}
+                  <div className="flex items-center gap-3">
+                    <Badge
+                      variant={isAdmin ? "default" : "secondary"}
+                      className="flex items-center gap-1.5 px-3 py-1 font-semibold"
+                    >
+                      {isAdmin && <Shield className="h-3.5 w-3.5" />}
+                      {membership.role.slug}
+                    </Badge>
+                    <Badge
+                      variant={
+                        membership.status === "active"
+                          ? "success"
+                          : membership.status === "pending"
+                            ? "warning"
+                            : "outline"
+                      }
+                      className="px-3 py-1 font-semibold capitalize"
+                    >
+                      {membership.status}
+                    </Badge>
+                    <ChevronRight className="text-muted-foreground group-hover:text-primary h-5 w-5 transition-all group-hover:translate-x-1" />
                   </div>
                 </div>
-
-                {/* Pending - Secondary emphasis */}
-                <div className="border-border relative overflow-hidden rounded-xl border bg-gradient-to-br from-orange-500/10 to-orange-500/5 p-6 transition-all hover:shadow-lg">
-                  <div className="flex items-center justify-between">
-                    <div className="space-y-2">
-                      <p className="text-muted-foreground text-xs font-semibold tracking-wider uppercase">
-                        Pending Invites
-                      </p>
-                      <p className="text-4xl font-extrabold text-orange-600 dark:text-orange-400">
-                        {pendingMembers}
-                      </p>
-                    </div>
-                    <div className="rounded-xl bg-orange-500/10 p-4 ring-2 ring-orange-500/20">
-                      <Clock className="h-7 w-7 text-orange-600 dark:text-orange-400" />
-                    </div>
-                  </div>
-                </div>
-
-                {/* Admins - Tertiary emphasis */}
-                <div className="border-border bg-card relative overflow-hidden rounded-xl border p-6 transition-all hover:shadow-lg">
-                  <div className="flex items-center justify-between">
-                    <div className="space-y-2">
-                      <p className="text-muted-foreground text-xs font-semibold tracking-wider uppercase">
-                        Administrators
-                      </p>
-                      <p className="text-4xl font-extrabold">{adminMembers}</p>
-                    </div>
-                    <div className="bg-muted ring-border rounded-xl p-4 ring-2">
-                      <Shield className="text-muted-foreground h-7 w-7" />
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
+              );
+            })}
           </div>
         </SheetContent>
       </Sheet>

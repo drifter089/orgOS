@@ -9,8 +9,8 @@ export const organizationRouter = createTRPCRouter({
     if (ctx.workspace.type === "directory") {
       const { directory, users } = await getDirectoryData();
 
-      const workosUser = await workos.userManagement.getUser(ctx.user.id);
-      const userEmail = workosUser.email.toLowerCase();
+      const currentUser = await workos.userManagement.getUser(ctx.user.id);
+      const userEmail = currentUser.email.toLowerCase();
       const directoryUser = users.find(
         (u) => u.email?.toLowerCase() === userEmail,
       );
@@ -31,15 +31,18 @@ export const organizationRouter = createTRPCRouter({
           status: directoryUser?.state ?? "active",
         },
         directoryUser,
+        currentUser,
       };
     }
 
     if (ctx.workspace.type === "organization") {
-      const memberships =
-        await workos.userManagement.listOrganizationMemberships({
+      const [memberships, currentUser] = await Promise.all([
+        workos.userManagement.listOrganizationMemberships({
           userId: ctx.user.id,
           organizationId: ctx.workspace.organizationId,
-        });
+        }),
+        workos.userManagement.getUser(ctx.user.id),
+      ]);
 
       if (!memberships.data[0]) return null;
 
@@ -50,8 +53,11 @@ export const organizationRouter = createTRPCRouter({
       return {
         organization,
         membership: memberships.data[0],
+        currentUser,
       };
     }
+
+    const currentUser = await workos.userManagement.getUser(ctx.user.id);
 
     return {
       organization: {
@@ -68,6 +74,7 @@ export const organizationRouter = createTRPCRouter({
         role: { slug: "owner" },
         status: "active",
       },
+      currentUser,
     };
   }),
 
