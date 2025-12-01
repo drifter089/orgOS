@@ -8,6 +8,7 @@ import {
   MarkerType,
   type ProOptions,
   ReactFlow,
+  useReactFlow,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import { Loader2, Save } from "lucide-react";
@@ -17,7 +18,12 @@ import { ZoomSlider } from "@/components/zoom-slider";
 import { cn } from "@/lib/utils";
 
 import { useAutoSave } from "../hooks/use-auto-save";
-import { type TeamStore, useTeamStore } from "../store/team-store";
+import {
+  type TeamEdge as TeamEdgeType,
+  type TeamNode,
+  type TeamStore,
+  useTeamStore,
+} from "../store/team-store";
 import { RoleDialog } from "./role-dialog";
 import { RoleNodeMemo } from "./role-node";
 import { TeamCanvasControls } from "./team-canvas-controls";
@@ -44,6 +50,21 @@ const selector = (state: TeamStore) => ({
   editingNodeId: state.editingNodeId,
   setEditingNodeId: state.setEditingNodeId,
 });
+
+/** Registers React Flow instance with store. Must be inside <ReactFlow>. */
+function ReactFlowInstanceRegistrar() {
+  const reactFlowInstance = useReactFlow<TeamNode, TeamEdgeType>();
+  const setReactFlowInstance = useTeamStore(
+    (state) => state.setReactFlowInstance,
+  );
+
+  useEffect(() => {
+    setReactFlowInstance(reactFlowInstance);
+    return () => setReactFlowInstance(null);
+  }, [reactFlowInstance, setReactFlowInstance]);
+
+  return null;
+}
 
 export function TeamCanvas() {
   const {
@@ -134,6 +155,7 @@ export function TeamCanvas() {
         <Background variant={BackgroundVariant.Dots} gap={16} size={1} />
         <ZoomSlider position="bottom-left" />
         <TeamCanvasControls />
+        <ReactFlowInstanceRegistrar />
       </ReactFlow>
 
       {/* Edit Role Dialog */}
