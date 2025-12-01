@@ -20,6 +20,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { api } from "@/trpc/react";
 
 import { CreateTeamDialog } from "./create-team-dialog";
+import { DeleteTeamDialog } from "./delete-team-dialog";
 
 function TeamCardSkeleton() {
   return (
@@ -141,7 +142,7 @@ export function TeamsList() {
                     </div>
                     <div className="bg-muted/50 flex h-12 items-center justify-center border-t border-l">
                       <BarChart3 className="mr-2 h-4 w-4 opacity-50" />
-                      <span className="opacity-50">Dashboard</span>
+                      <span className="opacity-50">KPIs</span>
                     </div>
                   </div>
                 </Card>
@@ -158,9 +159,17 @@ export function TeamsList() {
             >
               <Card className="group hover:border-border/80 gap-0 overflow-hidden py-0 transition-colors">
                 <div className="flex flex-col gap-3 p-4">
-                  <CardTitle className="line-clamp-1 text-2xl font-bold">
-                    {team.name}
-                  </CardTitle>
+                  <div className="flex items-start justify-between gap-2">
+                    <CardTitle className="line-clamp-1 text-2xl font-bold">
+                      {team.name}
+                    </CardTitle>
+                    <DeleteTeamDialog
+                      teamId={team.id}
+                      teamName={team.name}
+                      roleCount={team._count.roles}
+                      metricCount={team._count.metrics}
+                    />
+                  </div>
 
                   <div className="flex gap-2">
                     <Badge variant="secondary" className="gap-1.5">
@@ -194,7 +203,7 @@ export function TeamsList() {
                   >
                     <Link href={`/dashboard/${team.id}`}>
                       <BarChart3 className="mr-2 h-4 w-4" />
-                      Dashboard
+                      KPIs
                     </Link>
                   </Button>
                 </div>
