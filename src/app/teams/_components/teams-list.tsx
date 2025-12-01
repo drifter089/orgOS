@@ -20,6 +20,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { api } from "@/trpc/react";
 
 import { CreateTeamDialog } from "./create-team-dialog";
+import { DeleteTeamDialog } from "./delete-team-dialog";
 
 function TeamCardSkeleton() {
   return (
@@ -139,9 +140,9 @@ export function TeamsList() {
                       <Network className="mr-1.5 h-3.5 w-3.5 opacity-50" />
                       <span className="opacity-50">Roles</span>
                     </div>
-                    <div className="bg-muted/50 flex h-9 items-center justify-center border-t border-l text-sm">
-                      <BarChart3 className="mr-1.5 h-3.5 w-3.5 opacity-50" />
-                      <span className="opacity-50">Dashboard</span>
+                    <div className="bg-muted/50 flex h-12 items-center justify-center border-t border-l">
+                      <BarChart3 className="mr-2 h-4 w-4 opacity-50" />
+                      <span className="opacity-50">KPIs</span>
                     </div>
                   </div>
                 </Card>
@@ -158,9 +159,17 @@ export function TeamsList() {
             >
               <Card className="group hover:border-border/80 gap-0 overflow-hidden py-0 transition-colors">
                 <div className="flex flex-col gap-3 p-4">
-                  <CardTitle className="line-clamp-1 text-xl font-semibold">
-                    {team.name}
-                  </CardTitle>
+                  <div className="flex items-start justify-between gap-2">
+                    <CardTitle className="line-clamp-1 text-2xl font-bold">
+                      {team.name}
+                    </CardTitle>
+                    <DeleteTeamDialog
+                      teamId={team.id}
+                      teamName={team.name}
+                      roleCount={team._count.roles}
+                      metricCount={team._count.metrics}
+                    />
+                  </div>
 
                   <div className="flex gap-2">
                     <Badge variant="secondary" className="gap-1.5">
@@ -193,8 +202,8 @@ export function TeamsList() {
                     className="hover:bg-primary/10 hover:text-primary h-9 rounded-none border-t border-l transition-colors"
                   >
                     <Link href={`/dashboard/${team.id}`}>
-                      <BarChart3 className="mr-1.5 h-3.5 w-3.5" />
-                      Dashboard
+                      <BarChart3 className="mr-2 h-4 w-4" />
+                      KPIs
                     </Link>
                   </Button>
                 </div>

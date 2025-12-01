@@ -100,7 +100,7 @@ model Metric {
     endpointConfig Json?    // Endpoint parameters (e.g., {videoId: "abc123"})
     lastFetchedAt  DateTime? // Last data refresh timestamp
 
-    team              Team?             @relation(fields: [teamId], references: [id], onDelete: SetNull)
+    team              Team?             @relation(fields: [teamId], references: [id], onDelete: Cascade)
     integration       Integration?      @relation(fields: [integrationId], references: [connectionId], onDelete: Cascade)
     roles             Role[]            // One metric can be used by many roles
     dashboardMetrics  DashboardMetric[] // Dashboard configurations using this metric

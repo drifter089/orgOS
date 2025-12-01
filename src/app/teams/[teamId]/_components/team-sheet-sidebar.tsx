@@ -274,7 +274,7 @@ export function TeamSheetSidebar({
 
   const selectedRole = teamRoles?.find((role) => role.id === selectedRoleId);
   const selectedNode = nodes.find(
-    (node) => node.data.roleId === selectedRoleId,
+    (node) => node.type === "role-node" && node.data.roleId === selectedRoleId,
   );
   const selectedRoleData =
     selectedRole && selectedNode

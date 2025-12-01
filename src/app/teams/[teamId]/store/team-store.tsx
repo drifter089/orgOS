@@ -14,11 +14,21 @@ import {
   applyEdgeChanges,
   applyNodeChanges,
 } from "@xyflow/react";
+import { nanoid } from "nanoid";
 import { type StoreApi, create, useStore } from "zustand";
 
 import { type RoleNodeData } from "../_components/role-node";
+import { type TextNodeFontSize } from "../types/canvas";
 
-export type TeamNode = Node<RoleNodeData, "role-node">;
+// Text node data type
+export type TextNodeData = {
+  text: string;
+  fontSize?: TextNodeFontSize;
+};
+
+export type TextNode = Node<TextNodeData, "text-node">;
+export type RoleNode = Node<RoleNodeData, "role-node">;
+export type TeamNode = RoleNode | TextNode;
 export type TeamEdge = Edge;
 
 type TeamState = {
@@ -37,6 +47,7 @@ type TeamState = {
   isSaving: boolean;
   isInitialized: boolean;
   editingNodeId: string | null;
+  editingTextNodeId: string | null;
 };
 
 type TeamActions = {
@@ -62,8 +73,15 @@ type TeamActions = {
   setSaving: (saving: boolean) => void;
   setLastSaved: (date: Date) => void;
 
-  // Edit dialog
+  // Edit dialog (for role nodes)
   setEditingNodeId: (nodeId: string | null) => void;
+
+  // Text node actions
+  setEditingTextNodeId: (nodeId: string | null) => void;
+  addTextNode: (position: { x: number; y: number }, text?: string) => string;
+  updateTextNodeContent: (nodeId: string, text: string) => void;
+  updateTextNodeFontSize: (nodeId: string, fontSize: TextNodeFontSize) => void;
+  deleteNode: (nodeId: string) => void;
 };
 
 export type TeamStore = TeamState & TeamActions;
@@ -84,6 +102,7 @@ export function createTeamStore(
     isSaving: false,
     isInitialized: false,
     editingNodeId: null,
+    editingTextNodeId: null,
 
     // React Flow handlers
     onNodesChange: (changes) => {
@@ -139,8 +158,65 @@ export function createTeamStore(
     setSaving: (saving) => set({ isSaving: saving }),
     setLastSaved: (date) => set({ lastSaved: date }),
 
-    // Edit dialog
+    // Edit dialog (for role nodes)
     setEditingNodeId: (nodeId) => set({ editingNodeId: nodeId }),
+
+    // Text node actions
+    setEditingTextNodeId: (nodeId) => set({ editingTextNodeId: nodeId }),
+
+    addTextNode: (position, text = "") => {
+      const nodeId = `text-${nanoid(8)}`;
+      const newNode: TextNode = {
+        id: nodeId,
+        type: "text-node",
+        position,
+        data: { text, fontSize: "medium" },
+        style: { width: 180, height: 60 }, // Initial size for resizable node
+      };
+      set({ nodes: [...get().nodes, newNode] });
+      if (get().isInitialized) {
+        get().markDirty();
+      }
+      return nodeId;
+    },
+
+    updateTextNodeContent: (nodeId, text) => {
+      set({
+        nodes: get().nodes.map((node) =>
+          node.id === nodeId && node.type === "text-node"
+            ? { ...node, data: { ...node.data, text } }
+            : node,
+        ),
+      });
+      if (get().isInitialized) {
+        get().markDirty();
+      }
+    },
+
+    updateTextNodeFontSize: (nodeId, fontSize) => {
+      set({
+        nodes: get().nodes.map((node) =>
+          node.id === nodeId && node.type === "text-node"
+            ? { ...node, data: { ...node.data, fontSize } }
+            : node,
+        ),
+      });
+      if (get().isInitialized) {
+        get().markDirty();
+      }
+    },
+
+    deleteNode: (nodeId) => {
+      set({
+        nodes: get().nodes.filter((n) => n.id !== nodeId),
+        edges: get().edges.filter(
+          (e) => e.source !== nodeId && e.target !== nodeId,
+        ),
+      });
+      if (get().isInitialized) {
+        get().markDirty();
+      }
+    },
   }));
 }
 
