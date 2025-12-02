@@ -1,23 +1,21 @@
 import type { Edge } from "@xyflow/react";
 
+import { type StoredEdge, type StoredNode } from "@/lib/canvas";
+
 import type { MetricCardNode } from "../_components/metric-card-node";
 
-export type StoredNode = {
+// Re-export shared types for convenience
+export type { StoredEdge, StoredNode };
+
+/**
+ * Systems-specific stored node (just position, no data needed).
+ */
+export type SystemsStoredNode = {
   id: string;
   position: { x: number; y: number };
 };
 
-export type StoredEdge = {
-  id: string;
-  source: string;
-  target: string;
-  sourceHandle?: string | null;
-  targetHandle?: string | null;
-  type?: string;
-  animated?: boolean;
-};
-
-export function serializeNodes(nodes: MetricCardNode[]): StoredNode[] {
+export function serializeNodes(nodes: MetricCardNode[]): SystemsStoredNode[] {
   return nodes.map((node) => ({
     id: node.id,
     position: node.position,

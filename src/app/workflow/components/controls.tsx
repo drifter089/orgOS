@@ -2,9 +2,8 @@ import { Panel } from "@xyflow/react";
 import { Route } from "lucide-react";
 
 import { useLayout } from "@/app/workflow/hooks/use-layout";
+import { ZoomSlider } from "@/components/react-flow";
 import { Button } from "@/components/ui/button";
-
-import { ZoomSlider } from "../../../components/zoom-slider";
 
 export function WorkflowControls() {
   const runLayout = useLayout();

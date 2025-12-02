@@ -1,42 +1,31 @@
 /**
- * Type definitions for storing React Flow nodes and edges in the database
- * These types represent the serialized format saved to PostgreSQL JSON columns
+ * Type definitions for storing React Flow nodes and edges in the database.
+ * Re-exports shared types and adds team-specific node data types.
  */
+import {
+  FONT_SIZE_VALUES,
+  type StoredEdge,
+  type StoredNode as StoredNodeBase,
+  type TextNodeFontSize,
+} from "@/lib/canvas";
 
-export type TextNodeFontSize = "small" | "medium" | "large";
+// Re-export shared types
+export { FONT_SIZE_VALUES, type StoredEdge, type TextNodeFontSize };
 
-export const FONT_SIZE_VALUES: Record<TextNodeFontSize, number> = {
-  small: 12,
-  medium: 14,
-  large: 18,
+/**
+ * Team-specific stored node data shape.
+ */
+export type TeamStoredNodeData = {
+  // For role-node
+  roleId?: string;
+  title?: string;
+  color?: string;
+  // For text-node
+  text?: string;
+  fontSize?: TextNodeFontSize;
 };
 
-export type StoredNode = {
-  id: string;
-  type: string;
-  position: { x: number; y: number };
-  data?: {
-    // For role-node
-    roleId?: string;
-    title?: string;
-    color?: string;
-    // For text-node
-    text?: string;
-    fontSize?: TextNodeFontSize;
-  };
-  // For resizable nodes (text-node)
-  style?: {
-    width?: number;
-    height?: number;
-  };
-};
-
-export type StoredEdge = {
-  id: string;
-  source: string;
-  target: string;
-  sourceHandle?: string | null;
-  targetHandle?: string | null;
-  type?: string;
-  animated?: boolean;
-};
+/**
+ * Team-specific StoredNode with known data shape.
+ */
+export type StoredNode = StoredNodeBase<TeamStoredNodeData>;

@@ -7,12 +7,12 @@ import { NODE_SIZE } from "@/app/workflow/config";
 import { useWorkflowRunner } from "@/app/workflow/hooks/use-workflow-runner";
 import { useAppStore } from "@/app/workflow/store";
 import { iconMapping } from "@/app/workflow/utils/icon-mapping";
+import { NodeStatusIndicator } from "@/components/node-status-indicator";
 import {
   BaseNode,
   BaseNodeHeader,
   BaseNodeHeaderTitle,
-} from "@/components/base-node";
-import { NodeStatusIndicator } from "@/components/node-status-indicator";
+} from "@/components/react-flow";
 import { Button } from "@/components/ui/button";
 
 // This is an example of how to implement the WorkflowNode component. All the nodes in the Workflow Builder example
