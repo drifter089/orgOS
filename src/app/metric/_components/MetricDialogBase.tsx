@@ -44,6 +44,7 @@ export interface ContentProps {
 
 interface MetricDialogBaseProps {
   integrationId: string;
+  connectionId?: string;
   title: string;
   description?: string;
   trigger?: React.ReactNode;
@@ -60,6 +61,7 @@ type DashboardMetricWithRelations =
 
 export function MetricDialogBase({
   integrationId,
+  connectionId: connectionIdProp,
   title,
   description,
   trigger,
@@ -80,8 +82,11 @@ export function MetricDialogBase({
   const utils = api.useUtils();
 
   const integrationQuery = api.integration.listWithStats.useQuery();
-  const connection = integrationQuery.data?.active.find(
-    (int) => int.integrationId === integrationId,
+  // If connectionId is provided, find by connectionId; otherwise fall back to integrationId
+  const connection = integrationQuery.data?.active.find((int) =>
+    connectionIdProp
+      ? int.connectionId === connectionIdProp
+      : int.integrationId === integrationId,
   );
 
   // Single mutation - creates metric + dashboard metric in transaction

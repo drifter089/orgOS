@@ -36,6 +36,7 @@ interface IntegrationGridProps {
       trigger?: React.ReactNode;
       onSuccess?: () => void;
       teamId?: string;
+      connectionId?: string;
     }>
   >;
 }
@@ -283,6 +284,7 @@ export function IntegrationGrid({
                   </Button>
                 }
                 teamId={teamId}
+                connectionId={integration.connectionId}
                 onSuccess={() => {
                   void refetch();
                   onMetricCreated?.();

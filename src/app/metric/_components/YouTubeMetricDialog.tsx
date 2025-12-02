@@ -9,6 +9,7 @@ interface YouTubeMetricDialogProps {
   onOpenChange?: (open: boolean) => void;
   onSuccess?: () => void;
   teamId?: string;
+  connectionId?: string;
 }
 
 export function YouTubeMetricDialog({
@@ -17,10 +18,12 @@ export function YouTubeMetricDialog({
   onOpenChange,
   onSuccess,
   teamId,
+  connectionId,
 }: YouTubeMetricDialogProps) {
   return (
     <MetricDialogBase
       integrationId="youtube"
+      connectionId={connectionId}
       title="Create YouTube Metric"
       description="Track views, likes, and subscribers over time for your channel or specific videos."
       trigger={trigger}
