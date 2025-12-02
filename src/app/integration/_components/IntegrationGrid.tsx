@@ -1,11 +1,20 @@
 "use client";
 
+import { useState } from "react";
+
 import Image from "next/image";
 
-import { CheckCircle2, FileSpreadsheet, Plus, Trash2 } from "lucide-react";
+import {
+  CheckCircle2,
+  FileSpreadsheet,
+  Pencil,
+  Plus,
+  Trash2,
+} from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { getPlatformConfig } from "@/lib/platform-config";
 import { cn } from "@/lib/utils";
 import { useConfirmation } from "@/providers/ConfirmationDialogProvider";
@@ -42,6 +51,8 @@ export function IntegrationGrid({
 }: IntegrationGridProps) {
   const { confirm } = useConfirmation();
   const utils = api.useUtils();
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editValue, setEditValue] = useState("");
 
   const { data, refetch } = api.integration.listWithStats.useQuery(undefined, {
     initialData,
@@ -82,6 +93,23 @@ export function IntegrationGrid({
       await utils.integration.listWithStats.invalidate();
     },
   });
+
+  const updateNameMutation = api.integration.updateDisplayName.useMutation({
+    onSuccess: () => utils.integration.listWithStats.invalidate(),
+  });
+
+  const handleSaveName = (connectionId: string) => {
+    updateNameMutation.mutate({
+      connectionId,
+      displayName: editValue.trim() || null,
+    });
+    setEditingId(null);
+  };
+
+  const startEditing = (connectionId: string, currentName: string | null) => {
+    setEditingId(connectionId);
+    setEditValue(currentName ?? "");
+  };
 
   const handleRevoke = async (
     connectionId: string,
@@ -169,13 +197,20 @@ export function IntegrationGrid({
                 <Trash2 className="h-4 w-4 text-red-600" />
               </Button>
 
-              {/* Active badge (hover) */}
-              <div className="absolute top-2 left-2 z-10 opacity-0 transition-opacity group-hover:opacity-100">
-                <Badge variant="default" className="text-xs">
-                  <CheckCircle2 className="mr-1 h-3 w-3" />
-                  Active
-                </Badge>
-              </div>
+              {/* Edit button (hover) */}
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() =>
+                  startEditing(
+                    integration.connectionId,
+                    integration.displayName,
+                  )
+                }
+                className="absolute top-1 left-1 z-10 h-8 w-8 opacity-0 transition-opacity group-hover:opacity-100"
+              >
+                <Pencil className="h-4 w-4" />
+              </Button>
 
               {/* Platform logo */}
               <div
@@ -199,26 +234,40 @@ export function IntegrationGrid({
                     />
                   )}
                 </div>
-                <p
-                  className={cn(
-                    "font-medium",
-                    size === "sm" ? "mt-2 text-xs" : "mt-3 text-sm",
-                    config.textColor,
-                  )}
-                >
-                  {config.name}
-                </p>
+                {editingId === integration.connectionId ? (
+                  <Input
+                    autoFocus
+                    value={editValue}
+                    onChange={(e) => setEditValue(e.target.value)}
+                    onBlur={() => handleSaveName(integration.connectionId)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter")
+                        handleSaveName(integration.connectionId);
+                      if (e.key === "Escape") setEditingId(null);
+                    }}
+                    placeholder={config.name}
+                    className="mt-2 h-7 w-[90%] text-center text-xs"
+                  />
+                ) : (
+                  <p
+                    className={cn(
+                      "font-medium",
+                      size === "sm" ? "mt-2 text-xs" : "mt-3 text-sm",
+                      config.textColor,
+                    )}
+                  >
+                    {integration.displayName ?? config.name}
+                  </p>
+                )}
                 {size !== "sm" && (
                   <p
                     className={cn("mt-1 text-xs opacity-80", config.textColor)}
                   >
-                    {new Date(integration.createdAt).toLocaleDateString(
-                      undefined,
-                      {
-                        month: "short",
-                        day: "numeric",
-                      },
-                    )}
+                    {(integration.metadata as { email?: string })?.email ??
+                      new Date(integration.createdAt).toLocaleDateString(
+                        undefined,
+                        { month: "short", day: "numeric" },
+                      )}
                   </p>
                 )}
               </div>

@@ -201,6 +201,7 @@ export function MetricDialogBase({
               id: connection.id,
               connectionId: connection.connectionId,
               integrationId: connection.integrationId,
+              displayName: connection.displayName ?? null,
               organizationId: "",
               connectedBy: "",
               status: "active",

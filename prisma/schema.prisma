@@ -123,6 +123,9 @@ model Integration {
     connectionId   String   @unique // UUID from Nango (required for API calls)
     integrationId  String   // Provider name: 'github', 'google', 'slack', etc.
 
+    // User-defined display name (e.g., "Work GitHub", "Personal")
+    displayName    String?
+
     // Ownership (organization-level connections)
     organizationId String   // WorkOS organization ID
     connectedBy    String   // WorkOS user ID who authorized the connection

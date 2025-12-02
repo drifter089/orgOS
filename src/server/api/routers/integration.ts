@@ -98,4 +98,25 @@ export const integrationRouter = createTRPCRouter({
 
       return { success: true };
     }),
+
+  updateDisplayName: workspaceProcedure
+    .input(
+      z.object({
+        connectionId: z.string(),
+        displayName: z.string().max(50).nullable(),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      await getIntegrationAndVerifyAccess(
+        ctx.db,
+        input.connectionId,
+        ctx.user.id,
+        ctx.workspace,
+      );
+
+      return ctx.db.integration.update({
+        where: { connectionId: input.connectionId },
+        data: { displayName: input.displayName },
+      });
+    }),
 });
