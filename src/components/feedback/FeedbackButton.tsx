@@ -60,14 +60,12 @@ export function FeedbackButton() {
                 x: 0,
                 width: 56,
                 height: 56,
-                borderRadius: 28,
               }}
               animate={{
                 y: -60,
                 x: -264,
                 width: 320,
                 height: "auto",
-                borderRadius: 12,
                 transition: {
                   ...LOGO_SPRING,
                   delay: 0.15,
@@ -86,7 +84,6 @@ export function FeedbackButton() {
                 x: 0,
                 width: 56,
                 height: 56,
-                borderRadius: 28,
                 transition: {
                   ...LOGO_SPRING,
                   x: {
@@ -158,8 +155,8 @@ export function FeedbackButton() {
             }
           }}
           className={cn(
-            "bg-primary text-primary-foreground flex h-14 w-14 cursor-pointer items-center justify-center rounded-full shadow-lg transition-transform hover:scale-105",
-            "relative after:absolute after:bottom-0 after:h-[150%] after:w-full after:rounded-b-full after:p-5 after:content-['']",
+            "bg-primary text-primary-foreground flex h-14 w-14 cursor-pointer items-center justify-center shadow-lg transition-transform hover:scale-105",
+            "relative after:absolute after:bottom-0 after:h-[150%] after:w-full after:p-5 after:content-['']",
           )}
         >
           <MessageSquare className="h-6 w-6" />
