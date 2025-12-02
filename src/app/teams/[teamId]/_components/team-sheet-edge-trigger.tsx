@@ -1,8 +1,7 @@
 "use client";
 
-import { ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 
-import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 interface TeamSheetEdgeTriggerProps {
@@ -11,51 +10,34 @@ interface TeamSheetEdgeTriggerProps {
   className?: string;
 }
 
-/**
- * Circular animated button on the edge of the sidebar sheet
- * Positioned in the middle of the right edge with eye-catching design
- */
 export function TeamSheetEdgeTrigger({
   isOpen,
   onToggle,
   className,
 }: TeamSheetEdgeTriggerProps) {
   return (
-    <Button
+    <button
       onClick={onToggle}
-      size="icon"
       className={cn(
-        // Base styles - prominent but not too large
-        "fixed top-1/2 z-50 h-10 w-10 -translate-y-1/2 rounded-full",
-        "bg-primary text-primary-foreground border-primary border-2",
-        // Shadow for depth
-        "shadow-xl hover:shadow-2xl",
-        // Smooth transitions
+        "fixed top-1/2 z-50 -translate-y-1/2",
+        "flex items-center gap-2 px-3 py-2",
+        "rounded-lg border",
+        "shadow-lg hover:shadow-xl",
         "transition-all duration-300 ease-in-out",
-        // Hover effects
-        "hover:scale-110 hover:brightness-110",
-        // Pulse animation to draw attention
-        "animate-pulse hover:animate-none",
-        // Ring effect for extra visibility
-        "ring-primary/20 ring-offset-background ring-2 ring-offset-2",
-        // Position based on sheet state
+        isOpen
+          ? "bg-background/60 hover:bg-background/80 backdrop-blur-md"
+          : "bg-primary text-primary-foreground border-primary hover:brightness-110",
         isOpen ? "right-[23.5rem]" : "right-4",
         className,
       )}
-      aria-label={isOpen ? "Close sidebar" : "Open sidebar"}
-      style={{
-        animationDuration: "2.5s",
-        animationIterationCount: "infinite",
-      }}
+      aria-label={isOpen ? "Close Roles sidebar" : "Open Roles sidebar"}
     >
-      {/* Single icon that rotates 180 degrees */}
-      <ChevronRight
-        className={cn(
-          "h-5 w-5 transition-transform duration-300 ease-in-out",
-          // Rotate 180 degrees when open (arrow points left to close)
-          isOpen && "rotate-180",
-        )}
-      />
-    </Button>
+      <span className="text-sm font-medium">Roles</span>
+      {isOpen ? (
+        <ChevronRight className="h-4 w-4" />
+      ) : (
+        <ChevronLeft className="h-4 w-4" />
+      )}
+    </button>
   );
 }
