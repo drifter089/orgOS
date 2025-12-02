@@ -8,6 +8,7 @@ import {
   Space_Mono,
 } from "next/font/google";
 
+import { Analytics } from "@vercel/analytics/next";
 import { AuthKitProvider } from "@workos-inc/authkit-nextjs/components";
 import { type Metadata } from "next";
 
@@ -115,6 +116,7 @@ export default function RootLayout({
                 <TransitionProvider>{children}</TransitionProvider>
                 <Toaster />
                 <FeedbackButton />
+                <Analytics />
               </ConfirmationDialogProvider>
             </ThemeProvider>
           </TRPCReactProvider>
