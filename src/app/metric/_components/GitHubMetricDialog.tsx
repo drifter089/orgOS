@@ -9,6 +9,7 @@ interface GitHubMetricDialogProps {
   onOpenChange?: (open: boolean) => void;
   onSuccess?: () => void;
   teamId?: string;
+  connectionId?: string;
 }
 
 export function GitHubMetricDialog({
@@ -17,10 +18,12 @@ export function GitHubMetricDialog({
   onOpenChange,
   onSuccess,
   teamId,
+  connectionId,
 }: GitHubMetricDialogProps) {
   return (
     <MetricDialogBase
       integrationId="github"
+      connectionId={connectionId}
       title="Create Commit History Metric"
       description="Track code additions and deletions for the last 28 days"
       trigger={trigger}

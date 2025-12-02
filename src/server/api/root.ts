@@ -3,6 +3,7 @@ import { feedbackRouter } from "@/server/api/routers/feedback";
 import { integrationRouter } from "@/server/api/routers/integration";
 import { metricRouter } from "@/server/api/routers/metric";
 import { organizationRouter } from "@/server/api/routers/organization";
+import { publicViewRouter } from "@/server/api/routers/public-view";
 import { roleRouter } from "@/server/api/routers/role";
 import { systemsCanvasRouter } from "@/server/api/routers/systems-canvas";
 import { taskRouter } from "@/server/api/routers/task";
@@ -24,6 +25,7 @@ export const appRouter = createTRPCRouter({
   dashboard: dashboardRouter,
   feedback: feedbackRouter,
   systemsCanvas: systemsCanvasRouter,
+  publicView: publicViewRouter,
 });
 
 // export type definition of API

@@ -7,6 +7,7 @@ export default authkitMiddleware({
       "/", // Public home page
       "/login", // Login page - handles auth check and redirect
       "/api/nango/webhook", // Nango webhook endpoint (must be public for Nango servers)
+      "/public/:path*", // Public display routes (read-only shared views)
     ],
   },
 });

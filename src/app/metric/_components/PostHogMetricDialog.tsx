@@ -9,6 +9,7 @@ interface PostHogMetricDialogProps {
   onOpenChange?: (open: boolean) => void;
   onSuccess?: () => void;
   teamId?: string;
+  connectionId?: string;
 }
 
 export function PostHogMetricDialog({
@@ -17,10 +18,12 @@ export function PostHogMetricDialog({
   onOpenChange,
   onSuccess,
   teamId,
+  connectionId,
 }: PostHogMetricDialogProps) {
   return (
     <MetricDialogBase
       integrationId="posthog"
+      connectionId={connectionId}
       title="Create Event Metric"
       description="Track event occurrences over time from your PostHog project"
       trigger={trigger}

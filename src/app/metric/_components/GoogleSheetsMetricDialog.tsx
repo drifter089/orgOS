@@ -9,6 +9,7 @@ interface GoogleSheetsMetricDialogProps {
   onOpenChange?: (open: boolean) => void;
   onSuccess?: () => void;
   teamId?: string;
+  connectionId?: string;
 }
 
 export function GoogleSheetsMetricDialog({
@@ -17,10 +18,12 @@ export function GoogleSheetsMetricDialog({
   onOpenChange,
   onSuccess,
   teamId,
+  connectionId,
 }: GoogleSheetsMetricDialogProps) {
   return (
     <MetricDialogBase
       integrationId="google-sheet"
+      connectionId={connectionId}
       title="Create Google Sheets Metric"
       description="Track data from your Google Sheets spreadsheet"
       trigger={trigger}

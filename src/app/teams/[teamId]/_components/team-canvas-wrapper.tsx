@@ -4,27 +4,33 @@ import React, { useEffect } from "react";
 
 import { type TeamNode, useTeamStore } from "../store/team-store";
 import { type StoredEdge } from "../types/canvas";
+import { ShareTeamDialog } from "./share-team-dialog";
 import { TeamCanvas } from "./team-canvas";
+
+interface TeamCanvasWrapperProps {
+  initialNodes: TeamNode[];
+  initialEdges: StoredEdge[];
+  teamId: string;
+  shareToken: string | null;
+  isPubliclyShared: boolean;
+}
 
 export function TeamCanvasWrapper({
   initialNodes,
   initialEdges,
-}: {
-  initialNodes: TeamNode[];
-  initialEdges: StoredEdge[];
-}) {
+  teamId,
+  shareToken,
+  isPubliclyShared,
+}: TeamCanvasWrapperProps) {
   const setNodes = useTeamStore((state) => state.setNodes);
   const setEdges = useTeamStore((state) => state.setEdges);
   const setInitialized = useTeamStore((state) => state.setInitialized);
 
-  // Initialize store with server data
   useEffect(() => {
     setNodes(initialNodes);
     setEdges(initialEdges);
 
-    // Mark as initialized after a brief delay to allow React Flow to complete its initial setup
-    // This prevents React Flow's internal operations (fitView, dimension calculations, etc.)
-    // from triggering the dirty flag and causing unnecessary saves
+    // Delay initialization to let React Flow complete setup without triggering dirty flag
     const timer = setTimeout(() => {
       setInitialized(true);
     }, 100);
@@ -32,5 +38,17 @@ export function TeamCanvasWrapper({
     return () => clearTimeout(timer);
   }, [initialNodes, initialEdges, setNodes, setEdges, setInitialized]);
 
-  return <TeamCanvas />;
+  return (
+    <div className="relative h-full w-full">
+      <div className="absolute top-4 left-4 z-20">
+        <ShareTeamDialog
+          teamId={teamId}
+          initialShareToken={shareToken}
+          initialIsPubliclyShared={isPubliclyShared}
+        />
+      </div>
+
+      <TeamCanvas />
+    </div>
+  );
 }

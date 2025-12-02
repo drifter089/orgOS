@@ -19,12 +19,10 @@ export default async function TeamPage({
   const [team, members, integrations] = await Promise.all([
     api.team.getById({ id: teamId }).catch(() => null),
     api.organization.getCurrentOrgMembers().catch(() => []),
-    api.integration
-      .listWithStats()
-      .catch(() => ({
-        active: [],
-        stats: { total: 0, active: 0, byProvider: {} },
-      })),
+    api.integration.listWithStats().catch(() => ({
+      active: [],
+      stats: { total: 0, active: 0, byProvider: {} },
+    })),
   ]);
 
   if (!team) {
@@ -64,7 +62,13 @@ export default async function TeamPage({
 
         {/* Main Canvas Area */}
         <div className="relative h-full w-full flex-1 overflow-hidden">
-          <TeamCanvasWrapper initialNodes={nodes} initialEdges={edges} />
+          <TeamCanvasWrapper
+            initialNodes={nodes}
+            initialEdges={edges}
+            teamId={team.id}
+            shareToken={team.shareToken}
+            isPubliclyShared={team.isPubliclyShared}
+          />
         </div>
 
         {/* Right Sidebar - Roles Management */}

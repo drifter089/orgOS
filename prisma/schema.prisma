@@ -49,6 +49,10 @@ model Team {
     reactFlowEdges Json     @default("[]") // Array of RF edges
     viewport       Json?    // { x, y, zoom } for canvas position
 
+    // Public sharing (optional)
+    shareToken       String?  @unique // UUID for public access
+    isPubliclyShared Boolean  @default(false)
+
     roles          Role[]
     metrics        Metric[]
 
