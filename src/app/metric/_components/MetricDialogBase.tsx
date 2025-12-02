@@ -34,6 +34,7 @@ export interface ContentProps {
     id: string;
     connectionId: string;
     integrationId: string;
+    displayName?: string | null;
     createdAt: Date;
   };
   onSubmit: (data: MetricCreateInput) => void | Promise<void>;
