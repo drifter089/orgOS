@@ -30,12 +30,14 @@ interface DashboardSidebarProps {
   teamId: string;
   initialIntegrations: IntegrationsWithStats;
   onMetricCreated?: () => void;
+  side?: "left" | "right";
 }
 
 export function DashboardSidebar({
   teamId,
   initialIntegrations,
   onMetricCreated,
+  side = "right",
 }: DashboardSidebarProps) {
   const [isOpen, setIsOpen] = useState(false);
 
@@ -73,11 +75,12 @@ export function DashboardSidebar({
       <DashboardSheetEdgeTrigger
         isOpen={isOpen}
         onToggle={() => setIsOpen(!isOpen)}
+        side={side}
       />
 
       <Sheet open={isOpen} onOpenChange={setIsOpen} modal={false}>
         <SheetContent
-          side="right"
+          side={side}
           className="z-[52] w-[40rem] overflow-hidden p-0 sm:max-w-none"
         >
           <SheetTitle className="sr-only">Dashboard Sidebar</SheetTitle>

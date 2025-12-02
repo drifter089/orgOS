@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 
+import { DashboardSidebar } from "@/app/dashboard/[teamId]/_components/dashboard-sidebar";
 import { api } from "@/trpc/server";
 
 import { TeamCanvasWrapper } from "./_components/team-canvas-wrapper";
@@ -15,9 +16,15 @@ export default async function TeamPage({
 }) {
   const { teamId } = await params;
 
-  const [team, members] = await Promise.all([
+  const [team, members, integrations] = await Promise.all([
     api.team.getById({ id: teamId }).catch(() => null),
     api.organization.getCurrentOrgMembers().catch(() => []),
+    api.integration
+      .listWithStats()
+      .catch(() => ({
+        active: [],
+        stats: { total: 0, active: 0, byProvider: {} },
+      })),
   ]);
 
   if (!team) {
@@ -48,13 +55,19 @@ export default async function TeamPage({
   return (
     <TeamStoreProvider teamId={team.id} teamName={team.name}>
       <div className="flex h-screen w-full overflow-hidden">
+        {/* Left Sidebar - KPI Management */}
+        <DashboardSidebar
+          teamId={team.id}
+          initialIntegrations={integrations}
+          side="left"
+        />
+
         {/* Main Canvas Area */}
         <div className="relative h-full w-full flex-1 overflow-hidden">
-          {/* Canvas */}
           <TeamCanvasWrapper initialNodes={nodes} initialEdges={edges} />
         </div>
 
-        {/* Right Sidebar (Sheet) - Closed by default to allow data prefetching */}
+        {/* Right Sidebar - Roles Management */}
         <TeamSheetSidebar
           teamId={team.id}
           teamName={team.name}
