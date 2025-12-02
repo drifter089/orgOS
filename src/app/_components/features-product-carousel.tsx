@@ -87,7 +87,7 @@ export function FeaturesProductCarousel() {
         <div className="w-full max-w-[90rem]">
           <div className="mb-16 text-center">
             <h2 className="text-foreground text-4xl font-bold tracking-tight sm:text-5xl md:text-6xl">
-              Why Teams Choose Org OS
+              Why Teams Choose Ryo
             </h2>
             <p className="text-muted-foreground mx-auto mt-4 max-w-2xl text-lg">
               Built for modern organizations that value clarity, agility, and

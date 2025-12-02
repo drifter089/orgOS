@@ -7,7 +7,7 @@ export function Footer() {
         <div className="grid gap-8 sm:grid-cols-2 md:grid-cols-4">
           {/* Brand */}
           <div>
-            <h3 className="text-foreground mb-4 text-lg font-bold">ORG-OS</h3>
+            <h3 className="text-foreground mb-4 text-lg font-bold">Ryo</h3>
             <p className="text-muted-foreground text-sm">
               Your organizational operating system
             </p>
@@ -115,7 +115,7 @@ export function Footer() {
 
         <div className="border-border/50 mt-12 border-t pt-8 text-center">
           <p className="text-muted-foreground text-sm">
-            © {new Date().getFullYear()} ORG-OS. All rights reserved.
+            © {new Date().getFullYear()} Ryo. All rights reserved.
           </p>
         </div>
       </div>

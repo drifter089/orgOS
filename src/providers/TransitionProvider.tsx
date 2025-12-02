@@ -151,7 +151,7 @@ export function TransitionProvider({
         >
           <div className="flex flex-col items-center gap-4">
             <h1 className="text-foreground font-mono text-4xl font-bold tracking-tighter">
-              ORG-OS
+              Ryo
             </h1>
             <div className="grid grid-cols-3 gap-1">
               {[0, 1, 2, 3, 4, 5, 6, 7, 8].map((i) => (

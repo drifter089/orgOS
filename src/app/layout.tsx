@@ -59,8 +59,8 @@ const firaCode = Fira_Code({
 
 export const metadata: Metadata = {
   title: {
-    default: "ORG-OS",
-    template: "%s | ORG-OS",
+    default: "Ryo",
+    template: "%s | Ryo",
   },
   description:
     "Your organizational operating system - Streamline team management, workflows, and collaboration",
@@ -71,19 +71,19 @@ export const metadata: Metadata = {
     "collaboration",
     "productivity",
   ],
-  authors: [{ name: "ORG-OS Team" }],
-  creator: "ORG-OS",
+  authors: [{ name: "Ryo Team" }],
+  creator: "Ryo",
   openGraph: {
     type: "website",
     locale: "en_US",
-    url: "https://github.com/drifter089/orgOS",
-    title: "ORG-OS",
+    url: "https://github.com/drifter089/ryo",
+    title: "Ryo",
     description: "Your organizational operating system",
-    siteName: "ORG-OS",
+    siteName: "Ryo",
   },
   twitter: {
     card: "summary_large_image",
-    title: "ORG-OS",
+    title: "Ryo",
     description: "Your organizational operating system",
   },
   icons: [

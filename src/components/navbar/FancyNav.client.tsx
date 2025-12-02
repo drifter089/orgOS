@@ -552,10 +552,10 @@ export function FancyNav({
               >
                 <div className="bg-primary shadow-primary/20 flex size-7 shrink-0 items-center justify-center rounded-full shadow-lg">
                   <span className="text-primary-foreground text-xs font-bold">
-                    O
+                    R
                   </span>
                 </div>
-                <span className="text-sm whitespace-nowrap">ORG-OS</span>
+                <span className="text-sm whitespace-nowrap">Ryo</span>
               </Link>
 
               {/* Separator */}
@@ -605,9 +605,9 @@ export function FancyNav({
           <div className="border-border col-span-full flex items-center justify-between border-b pb-4">
             <Link href="/" className="flex items-center gap-2">
               <div className="bg-primary flex size-8 items-center justify-center rounded-lg">
-                <span className="text-primary-foreground font-bold">O</span>
+                <span className="text-primary-foreground font-bold">R</span>
               </div>
-              <span className="text-lg font-bold">ORG-OS</span>
+              <span className="text-lg font-bold">Ryo</span>
             </Link>
 
             <div className="flex items-center gap-3">
