@@ -5,17 +5,14 @@ import { useCallback } from "react";
 import {
   BaseEdge,
   type Edge,
-  EdgeLabelRenderer,
   type EdgeProps,
   MarkerType,
   getBezierPath,
 } from "@xyflow/react";
-import { Loader2, Plus, Trash2 } from "lucide-react";
 import { nanoid } from "nanoid";
 import { toast } from "sonner";
 
-import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
+import { EdgeActionButtons } from "@/lib/canvas";
 import { api } from "@/trpc/react";
 
 import { useTeamStore, useTeamStoreApi } from "../store/team-store";
@@ -210,8 +207,6 @@ export function TeamEdge({
     markDirty();
   }, [storeApi, id, setEdges, markDirty]);
 
-  const isPending = createRole.isPending;
-
   return (
     <>
       <BaseEdge
@@ -224,53 +219,15 @@ export function TeamEdge({
           pointerEvents: "auto",
         }}
       />
-      <EdgeLabelRenderer>
-        <div
-          className="nodrag nopan pointer-events-auto absolute flex gap-1"
-          style={{
-            transform: `translate(-50%, -50%) translate(${labelX}px, ${labelY}px)`,
-          }}
-        >
-          {/* Add Role Button */}
-          <Button
-            onClick={(e) => {
-              e.stopPropagation();
-              handleAddRole();
-            }}
-            size="icon"
-            variant="secondary"
-            disabled={isPending}
-            className={cn(
-              "hover:bg-primary hover:text-primary-foreground h-6 w-6 rounded-lg border shadow-sm transition-all hover:shadow-md",
-              selected && "border-primary",
-            )}
-            title="Add role between"
-          >
-            {isPending ? (
-              <Loader2 className="h-3 w-3 animate-spin" />
-            ) : (
-              <Plus className="h-3 w-3" />
-            )}
-          </Button>
-
-          {/* Delete Edge Button */}
-          <Button
-            onClick={(e) => {
-              e.stopPropagation();
-              handleDeleteEdge();
-            }}
-            size="icon"
-            variant="secondary"
-            className={cn(
-              "hover:bg-destructive hover:text-destructive-foreground h-6 w-6 rounded-lg border shadow-sm transition-all hover:shadow-md",
-              selected && "border-destructive",
-            )}
-            title="Delete connection"
-          >
-            <Trash2 className="h-3 w-3" />
-          </Button>
-        </div>
-      </EdgeLabelRenderer>
+      <EdgeActionButtons
+        labelX={labelX}
+        labelY={labelY}
+        selected={selected}
+        onAdd={handleAddRole}
+        onDelete={handleDeleteEdge}
+        isAdding={createRole.isPending}
+        addTitle="Add role between"
+      />
     </>
   );
 }

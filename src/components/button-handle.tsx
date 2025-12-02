@@ -2,7 +2,7 @@ import React from "react";
 
 import { type HandleProps, Position } from "@xyflow/react";
 
-import { BaseHandle } from "./base-handle";
+import { BaseHandle } from "./react-flow";
 
 const wrapperClassNames: Record<Position, string> = {
   [Position.Top]:

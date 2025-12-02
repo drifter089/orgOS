@@ -8,10 +8,10 @@ import {
   ReactFlow,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
-import { Loader2, Save } from "lucide-react";
 import { useShallow } from "zustand/react/shallow";
 
-import { ZoomSlider } from "@/components/zoom-slider";
+import { ZoomSlider } from "@/components/react-flow";
+import { SaveStatus } from "@/lib/canvas";
 import { cn } from "@/lib/utils";
 
 import { useSystemsAutoSave } from "../hooks/use-systems-auto-save";
@@ -41,27 +41,13 @@ export function SystemsCanvas() {
 
   return (
     <div className="relative h-full w-full">
+      {/* Save Status Indicator */}
       <div className="absolute top-4 right-4 z-20">
-        <div className="supports-backdrop-filter:bg-background/60 bg-background/95 ring-border/50 rounded-md border px-3 py-2 shadow-md ring-1 backdrop-blur-sm">
-          {isSaving ? (
-            <div className="flex items-center gap-2 text-sm">
-              <Loader2 className="text-primary h-3.5 w-3.5 animate-spin" />
-              <span className="font-medium">Saving...</span>
-            </div>
-          ) : isDirty ? (
-            <div className="flex items-center gap-2 text-sm">
-              <div className="h-2 w-2 animate-pulse rounded-full bg-yellow-500" />
-              <span className="text-muted-foreground font-medium">
-                Unsaved changes
-              </span>
-            </div>
-          ) : lastSaved ? (
-            <div className="flex items-center gap-2 text-sm">
-              <Save className="h-3.5 w-3.5 text-emerald-500" />
-              <span className="text-muted-foreground font-medium">Saved</span>
-            </div>
-          ) : null}
-        </div>
+        <SaveStatus
+          isSaving={isSaving}
+          isDirty={isDirty}
+          lastSaved={lastSaved}
+        />
       </div>
 
       <ReactFlow
