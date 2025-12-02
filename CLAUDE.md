@@ -281,22 +281,64 @@ The project uses Playwright for end-to-end testing:
 
 ## React Flow Features
 
-**Workflow Builder (`/workflow`):**
+### Shared Canvas Library (`src/lib/canvas/`)
 
-- Visual workflow builder powered by React Flow
-- **Custom Nodes:** Initial, Transform, Branch, Join, Output nodes (src/app/workflow/components/nodes/)
-- **Custom Edges:** Workflow edges with interactive buttons (src/app/workflow/components/edges/)
-- **Auto Layout:** ELK.js-based automatic graph layout (src/app/workflow/hooks/use-layout.tsx)
-- **State Management:** Zustand store with Context pattern (src/app/workflow/store/)
-- **Features:** Context menus, drag-and-drop, node execution visualization
-- Store must be accessed via `useAppStore` hook within `AppStoreProvider`
+Reusable patterns for building React Flow canvas UIs:
 
-**Team Canvas (`/teams/[teamId]`):**
+```
+src/lib/canvas/
+├── index.ts                      # Public exports
+├── store/
+│   ├── create-canvas-store.tsx   # Factory for typed Zustand stores
+│   └── types.ts                  # BaseCanvasState, BaseCanvasActions
+├── hooks/
+│   └── use-auto-save.ts          # Debounced auto-save hook factory
+├── components/
+│   └── save-status.tsx           # Save indicator (Saving/Unsaved/Saved)
+├── edges/
+│   └── edge-action-buttons.tsx   # Add/delete buttons on edges
+└── types/
+    └── serialization.ts          # StoredNode, StoredEdge for DB
+```
 
-- Visual team organization canvas for creating and managing roles
-- **Persistence:** Canvas state (nodes, edges, viewport) stored in Team model as JSON
-- **Data Flow:** Server fetches team → Enrich nodes with role data → Client-side canvas
-- **Components:** TeamCanvasWrapper (client), TeamSidebar (role management), TeamSidebarTrigger
-- **State:** TeamStoreProvider manages canvas state and role data synchronization
-- **Authorization:** Multi-tenant access control via WorkOS organizations
-- See src/app/teams/[teamId]/utils/canvas-serialization.ts for data transformation logic
+**Adding a New Canvas Feature:**
+
+1. Create feature folder: `src/app/[feature]/`
+2. Use shared components:
+   ```tsx
+   import { BaseNode, ZoomSlider } from "@/components/react-flow";
+   import { EdgeActionButtons, SaveStatus } from "@/lib/canvas";
+   ```
+3. Create store with Zustand + Context pattern (see `team-store.tsx`)
+4. Create canvas wrapper for server → client data bridge
+5. Define custom nodes in `_components/` folder
+6. Use `SaveStatus` for consistent save UX
+7. Use `EdgeActionButtons` for edge interactions
+
+### React Flow Primitives (`src/components/react-flow/`)
+
+- `BaseNode` - Styled node container with selection states
+- `BaseHandle` - Styled connection handles
+- `ZoomSlider` - Zoom controls panel
+
+### Workflow Builder (`/workflow`) - Reference Only
+
+Example implementation (not production):
+
+- **Custom Nodes:** src/app/workflow/components/nodes/
+- **Custom Edges:** src/app/workflow/components/edges/
+- **Auto Layout:** ELK.js-based (src/app/workflow/hooks/use-layout.tsx)
+- **State:** Zustand store with Context pattern
+
+### Team Canvas (`/teams/[teamId]`)
+
+- **Persistence:** Canvas state stored in Team model as JSON
+- **Data Flow:** Server fetches team → Enrich nodes with role data → Client canvas
+- **Components:** TeamCanvasWrapper, TeamSidebar, role-node, text-node, team-edge
+- **State:** TeamStoreProvider with auto-save
+
+### Systems Canvas (`/systems`)
+
+- **Persistence:** Canvas state stored in SystemsCanvas model
+- **Components:** SystemsCanvasWrapper, metric-card-node
+- **State:** SystemsStoreProvider with auto-save
