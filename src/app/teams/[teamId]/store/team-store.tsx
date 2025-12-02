@@ -17,6 +17,8 @@ import {
 import { nanoid } from "nanoid";
 import { type StoreApi, create, useStore } from "zustand";
 
+import { type FreehandNodeType } from "@/lib/canvas";
+
 import { type RoleNodeData } from "../_components/role-node";
 import { type TextNodeFontSize } from "../types/canvas";
 
@@ -28,7 +30,7 @@ export type TextNodeData = {
 
 export type TextNode = Node<TextNodeData, "text-node">;
 export type RoleNode = Node<RoleNodeData, "role-node">;
-export type TeamNode = RoleNode | TextNode;
+export type TeamNode = RoleNode | TextNode | FreehandNodeType;
 export type TeamEdge = Edge;
 
 type TeamState = {
@@ -48,6 +50,7 @@ type TeamState = {
   isInitialized: boolean;
   editingNodeId: string | null;
   editingTextNodeId: string | null;
+  isDrawing: boolean;
 };
 
 type TeamActions = {
@@ -82,6 +85,9 @@ type TeamActions = {
   updateTextNodeContent: (nodeId: string, text: string) => void;
   updateTextNodeFontSize: (nodeId: string, fontSize: TextNodeFontSize) => void;
   deleteNode: (nodeId: string) => void;
+
+  // Drawing mode
+  setIsDrawing: (isDrawing: boolean) => void;
 };
 
 export type TeamStore = TeamState & TeamActions;
@@ -103,6 +109,7 @@ export function createTeamStore(
     isInitialized: false,
     editingNodeId: null,
     editingTextNodeId: null,
+    isDrawing: false,
 
     // React Flow handlers
     onNodesChange: (changes) => {
@@ -217,6 +224,9 @@ export function createTeamStore(
         get().markDirty();
       }
     },
+
+    // Drawing mode
+    setIsDrawing: (isDrawing) => set({ isDrawing }),
   }));
 }
 

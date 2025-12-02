@@ -4,6 +4,7 @@
  */
 import {
   FONT_SIZE_VALUES,
+  type Points,
   type StoredEdge,
   type StoredNode as StoredNodeBase,
   type TextNodeFontSize,
@@ -23,6 +24,9 @@ export type TeamStoredNodeData = {
   // For text-node
   text?: string;
   fontSize?: TextNodeFontSize;
+  // For freehand node
+  points?: Points;
+  initialSize?: { width: number; height: number };
 };
 
 /**

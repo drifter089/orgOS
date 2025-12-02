@@ -6,6 +6,8 @@
  * - Auto-save hook factory for debounced persistence
  * - Shared UI components (SaveStatus, EdgeActionButtons)
  * - Type definitions for database serialization
+ * - Freehand drawing components
+ * - Undo/redo history management
  */
 
 // Types
@@ -23,3 +25,9 @@ export * from "./components/save-status";
 
 // Edges
 export * from "./edges/edge-action-buttons";
+
+// Freehand drawing
+export * from "./freehand";
+
+// History (undo/redo)
+export * from "./history";

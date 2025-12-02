@@ -1,5 +1,7 @@
 import { type Edge } from "@xyflow/react";
 
+import { type FreehandNodeData } from "@/lib/canvas";
+
 import { type TeamNode } from "../store/team-store";
 import { type StoredEdge, type StoredNode } from "../types/canvas";
 
@@ -22,7 +24,7 @@ type RoleWithMetric = {
 /**
  * Serialize TeamNodes to StoredNodes for database storage
  * Strips out UI-only data and keeps only essential fields
- * Handles both role-node and text-node types
+ * Handles role-node, text-node, and freehand node types
  */
 export function serializeNodes(nodes: TeamNode[]): StoredNode[] {
   return nodes.map((node) => {
@@ -43,6 +45,24 @@ export function serializeNodes(nodes: TeamNode[]): StoredNode[] {
         style:
           style?.width || style?.height
             ? { width: style.width, height: style.height }
+            : undefined,
+      };
+    }
+
+    // Handle freehand node type
+    if (node.type === "freehand") {
+      const freehandData = node.data;
+      return {
+        id: node.id,
+        type: node.type,
+        position: node.position,
+        data: {
+          points: freehandData.points,
+          initialSize: freehandData.initialSize,
+        },
+        style:
+          node.width && node.height
+            ? { width: node.width, height: node.height }
             : undefined,
       };
     }
@@ -79,7 +99,7 @@ export function serializeEdges(edges: Edge[]): StoredEdge[] {
 /**
  * Enrich stored nodes with full role data from API
  * Converts StoredNodes (minimal data) to TeamNodes (full UI data)
- * Text nodes are returned as-is (no enrichment needed)
+ * Text nodes and freehand nodes are returned as-is (no enrichment needed)
  */
 export function enrichNodesWithRoleData(
   storedNodes: StoredNode[],
@@ -99,6 +119,23 @@ export function enrichNodesWithRoleData(
         },
         // Restore dimensions for resizable node
         style: node.style ?? { width: 180, height: 60 },
+      };
+    }
+
+    // Handle freehand node type (no enrichment needed)
+    if (node.type === "freehand") {
+      const freehandData = node.data as FreehandNodeData | undefined;
+      return {
+        id: node.id,
+        type: "freehand" as const,
+        position: node.position,
+        data: {
+          points: freehandData?.points ?? [],
+          initialSize: freehandData?.initialSize ?? { width: 100, height: 100 },
+        },
+        // Restore dimensions if available
+        width: node.style?.width,
+        height: node.style?.height,
       };
     }
 

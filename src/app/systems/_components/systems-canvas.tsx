@@ -1,5 +1,7 @@
 "use client";
 
+import { useCallback } from "react";
+
 import {
   Background,
   BackgroundVariant,
@@ -11,15 +13,30 @@ import "@xyflow/react/dist/style.css";
 import { useShallow } from "zustand/react/shallow";
 
 import { ZoomSlider } from "@/components/react-flow";
-import { SaveStatus } from "@/lib/canvas";
+import {
+  FreehandNode,
+  type FreehandNodeType,
+  FreehandOverlay,
+  SaveStatus,
+  useUndoRedo,
+} from "@/lib/canvas";
 import { cn } from "@/lib/utils";
 
 import { useSystemsAutoSave } from "../hooks/use-systems-auto-save";
-import { type SystemsStore, useSystemsStore } from "../store/systems-store";
+import {
+  type SystemsEdge,
+  type SystemsNode,
+  type SystemsStore,
+  useSystemsStore,
+} from "../store/systems-store";
 import { MetricCardNode } from "./metric-card-node";
+import { SystemsCanvasControls } from "./systems-canvas-controls";
+import { SystemsTextNodeMemo } from "./text-node";
 
 const nodeTypes = {
   metricCard: MetricCardNode,
+  freehand: FreehandNode,
+  "text-node": SystemsTextNodeMemo,
 };
 
 const proOptions: ProOptions = { hideAttribution: true };
@@ -31,11 +48,71 @@ const selector = (state: SystemsStore) => ({
   onEdgesChange: state.onEdgesChange,
   onConnect: state.onConnect,
   isDirty: state.isDirty,
+  isDrawing: state.isDrawing,
 });
 
+/**
+ * Inner component that uses useUndoRedo hook.
+ * Must be rendered inside <ReactFlow> to access ReactFlowProvider context.
+ */
+function SystemsCanvasInner() {
+  const { nodes, isDrawing, setIsDrawing, setNodes, markDirty, isInitialized } =
+    useSystemsStore(
+      useShallow((state) => ({
+        nodes: state.nodes,
+        isDrawing: state.isDrawing,
+        setIsDrawing: state.setIsDrawing,
+        setNodes: state.setNodes,
+        markDirty: state.markDirty,
+        isInitialized: state.isInitialized,
+      })),
+    );
+
+  const { undo, redo, takeSnapshot, canUndo, canRedo } = useUndoRedo<
+    SystemsNode,
+    SystemsEdge
+  >();
+
+  // Handle drawing complete - add freehand node
+  const handleDrawingComplete = useCallback(
+    (node: FreehandNodeType) => {
+      takeSnapshot();
+      setNodes([...nodes, node]);
+      if (isInitialized) {
+        markDirty();
+      }
+    },
+    [takeSnapshot, setNodes, nodes, isInitialized, markDirty],
+  );
+
+  return (
+    <>
+      <SystemsCanvasControls
+        isDrawing={isDrawing}
+        setIsDrawing={setIsDrawing}
+        undo={undo}
+        redo={redo}
+        canUndo={canUndo}
+        canRedo={canRedo}
+        takeSnapshot={takeSnapshot}
+      />
+      {isDrawing && (
+        <FreehandOverlay onDrawingComplete={handleDrawingComplete} />
+      )}
+    </>
+  );
+}
+
 export function SystemsCanvas() {
-  const { nodes, edges, onNodesChange, onEdgesChange, onConnect, isDirty } =
-    useSystemsStore(useShallow(selector));
+  const {
+    nodes,
+    edges,
+    onNodesChange,
+    onEdgesChange,
+    onConnect,
+    isDirty,
+    isDrawing,
+  } = useSystemsStore(useShallow(selector));
 
   const { isSaving, lastSaved } = useSystemsAutoSave();
 
@@ -67,6 +144,10 @@ export function SystemsCanvas() {
         fitViewOptions={{ padding: 0.2 }}
         minZoom={0.1}
         maxZoom={1.5}
+        panOnScroll={!isDrawing}
+        panOnDrag={!isDrawing}
+        zoomOnScroll={!isDrawing}
+        selectNodesOnDrag={!isDrawing}
         className={cn(
           "bg-background",
           "transition-opacity duration-200",
@@ -75,6 +156,7 @@ export function SystemsCanvas() {
       >
         <Background variant={BackgroundVariant.Dots} gap={16} size={1} />
         <ZoomSlider position="bottom-left" />
+        <SystemsCanvasInner />
       </ReactFlow>
     </div>
   );
