@@ -219,20 +219,20 @@ export function FancyNav({
         {
           opacity: 0,
           scale: 0.8,
-          duration: 0.12,
+          duration: 0.09,
           ease: "power2.in",
         },
         0,
       );
 
-      // Remove pill content from flow (position absolute)
+      // Remove pill content from flow
       tl.set(
         ".pill-content",
         {
           position: "absolute",
           pointerEvents: "none",
         },
-        0.12,
+        0.09,
       );
 
       // Step 2: Expand width
@@ -240,10 +240,10 @@ export function FancyNav({
         pillRef.current,
         {
           width: "min(800px, 90vw)",
-          duration: 0.15,
+          duration: 0.12,
           ease: "power3.out",
         },
-        0.04,
+        0.03,
       );
 
       // Step 3: Show expanded content early
@@ -253,7 +253,7 @@ export function FancyNav({
           display: "grid",
           opacity: 0,
         },
-        0.12,
+        0.09,
       );
 
       // Step 4: Expand height
@@ -264,7 +264,7 @@ export function FancyNav({
         },
         {
           height: "auto",
-          duration: 0.35,
+          duration: 0.4,
           ease: "power2.out",
         },
         0.12,
@@ -275,9 +275,9 @@ export function FancyNav({
         expandedRef.current,
         {
           opacity: 1,
-          duration: 0.12,
+          duration: 0.09,
         },
-        0.25,
+        0.26,
       );
 
       tl.from(
@@ -285,10 +285,10 @@ export function FancyNav({
         {
           scale: 0.95,
           y: 10,
-          duration: 0.18,
+          duration: 0.14,
           ease: "back.out(1.5)",
         },
-        0.25,
+        0.26,
       );
 
       // Step 6: Stagger menu items
@@ -298,11 +298,11 @@ export function FancyNav({
           opacity: 0,
           x: -15,
           y: 8,
-          duration: 0.18,
-          stagger: 0.025,
+          duration: 0.14,
+          stagger: 0.02,
           ease: "back.out(1.5)",
         },
-        0.3,
+        0.29,
       );
 
       // Step 7: Show actions
@@ -311,7 +311,7 @@ export function FancyNav({
         {
           opacity: 0,
           y: 15,
-          duration: 0.18,
+          duration: 0.14,
           ease: "back.out(2)",
         },
         0.4,
