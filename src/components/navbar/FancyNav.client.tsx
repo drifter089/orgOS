@@ -8,14 +8,17 @@ import { useGSAP } from "@gsap/react";
 import { motion } from "framer-motion";
 import gsap from "gsap";
 import {
+  BarChart3,
   Building2,
   ChevronDown,
   Code2,
   FlaskConical,
   Github,
   Home,
+  Layers,
   LayoutDashboard,
   Menu,
+  Network,
   Palette,
   Plug,
   TrendingUp,
@@ -75,14 +78,14 @@ function ThemeToggle({ className = "" }: { className?: string }) {
         <clipPath id="theme-toggle-clip">
           <motion.path
             animate={{ y: isDark ? 10 : 0, x: isDark ? -12 : 0 }}
-            transition={{ ease: "easeInOut", duration: 0.35 }}
+            transition={{ ease: "easeInOut", duration: 0.15 }}
             d="M0-5h30a1 1 0 0 0 9 13v24H0Z"
           />
         </clipPath>
         <g clipPath="url(#theme-toggle-clip)">
           <motion.circle
             animate={{ r: isDark ? 10 : 8 }}
-            transition={{ ease: "easeInOut", duration: 0.35 }}
+            transition={{ ease: "easeInOut", duration: 0.15 }}
             cx="16"
             cy="16"
           />
@@ -92,7 +95,7 @@ function ThemeToggle({ className = "" }: { className?: string }) {
               scale: isDark ? 0.5 : 1,
               opacity: isDark ? 0 : 1,
             }}
-            transition={{ ease: "easeInOut", duration: 0.35 }}
+            transition={{ ease: "easeInOut", duration: 0.15 }}
             stroke="currentColor"
             strokeWidth="1.5"
           >
@@ -182,9 +185,9 @@ export function FancyNav({
     return pathname === path || pathname.startsWith(path + "/");
   };
 
-  // Fetch all teams for dropdown (only when needed)
+  // Fetch all teams for dropdown and expanded nav (only when user is authenticated)
   const { data: teams } = api.team.getAll.useQuery(undefined, {
-    enabled: isOrgPage && mounted,
+    enabled: !!user && mounted,
     retry: false,
   });
 
@@ -210,13 +213,13 @@ export function FancyNav({
       // Get the initial collapsed height (dynamic based on pill vs breadcrumb mode)
       const collapsedHeight = pillElement.offsetHeight;
 
-      // Step 1: Hide pill content (44% faster than original)
+      // Step 1: Hide pill content
       tl.to(
         ".pill-content",
         {
           opacity: 0,
           scale: 0.8,
-          duration: 0.17,
+          duration: 0.12,
           ease: "power2.in",
         },
         0,
@@ -229,18 +232,18 @@ export function FancyNav({
           position: "absolute",
           pointerEvents: "none",
         },
-        0.17,
+        0.12,
       );
 
-      // Step 2: Expand width (44% faster than original)
+      // Step 2: Expand width
       tl.to(
         pillRef.current,
         {
           width: "min(800px, 90vw)",
-          duration: 0.22,
+          duration: 0.15,
           ease: "power3.out",
         },
-        0.06,
+        0.04,
       );
 
       // Step 3: Show expanded content early
@@ -250,10 +253,10 @@ export function FancyNav({
           display: "grid",
           opacity: 0,
         },
-        0.17,
+        0.12,
       );
 
-      // Step 4: Expand height (44% faster than original)
+      // Step 4: Expand height
       tl.fromTo(
         pillRef.current,
         {
@@ -261,20 +264,20 @@ export function FancyNav({
         },
         {
           height: "auto",
-          duration: 0.78,
-          ease: "power1.out",
+          duration: 0.35,
+          ease: "power2.out",
         },
-        0.22,
+        0.12,
       );
 
-      // Step 5: Fade in expanded content (44% faster than original)
+      // Step 5: Fade in expanded content
       tl.to(
         expandedRef.current,
         {
           opacity: 1,
-          duration: 0.17,
+          duration: 0.12,
         },
-        0.5,
+        0.25,
       );
 
       tl.from(
@@ -282,36 +285,36 @@ export function FancyNav({
         {
           scale: 0.95,
           y: 10,
-          duration: 0.28,
+          duration: 0.18,
           ease: "back.out(1.5)",
         },
-        0.5,
+        0.25,
       );
 
-      // Step 5: Stagger menu items (44% faster than original)
+      // Step 6: Stagger menu items
       tl.from(
         ".menu-item",
         {
           opacity: 0,
           x: -15,
           y: 8,
-          duration: 0.28,
-          stagger: 0.045,
+          duration: 0.18,
+          stagger: 0.025,
           ease: "back.out(1.5)",
         },
-        0.56,
+        0.3,
       );
 
-      // Step 6: Show actions (44% faster than original)
+      // Step 7: Show actions
       tl.from(
         actionsRef.current,
         {
           opacity: 0,
           y: 15,
-          duration: 0.28,
+          duration: 0.18,
           ease: "back.out(2)",
         },
-        0.78,
+        0.4,
       );
 
       // Store timeline reference
@@ -347,6 +350,26 @@ export function FancyNav({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pathname]);
 
+  // Close nav on click outside
+  useEffect(() => {
+    if (!isExpanded) return;
+
+    const handleClickOutside = (e: MouseEvent) => {
+      if (
+        containerRef.current &&
+        !containerRef.current.contains(e.target as Node)
+      ) {
+        if (timelineRef.current) {
+          timelineRef.current.reverse();
+        }
+        setIsExpanded(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [isExpanded]);
+
   if (!mounted) {
     return (
       <div className="fixed top-4 left-1/2 z-50 -translate-x-1/2">
@@ -364,10 +387,10 @@ export function FancyNav({
       <div
         ref={pillRef}
         className={cn(
-          "bg-background/40 border-border relative origin-top rounded-md border shadow-lg backdrop-blur-md transition-shadow",
+          "border-border relative origin-top rounded-md border shadow-lg transition-all duration-300",
           isExpanded
-            ? "overflow-hidden shadow-2xl"
-            : "overflow-visible shadow-lg hover:shadow-xl",
+            ? "bg-background overflow-hidden shadow-2xl"
+            : "bg-background/40 overflow-visible shadow-lg backdrop-blur-md hover:shadow-xl",
         )}
       >
         {/* Collapsed pill content */}
@@ -707,6 +730,76 @@ export function FancyNav({
                     <div className="font-medium">Organization</div>
                     <div className="text-muted-foreground text-xs">
                       Manage settings & members
+                    </div>
+                  </div>
+                </Link>
+              </div>
+
+              {/* Teams Tree Section */}
+              {teams && teams.length > 0 && (
+                <div className="menu-item col-span-full">
+                  <h3 className="text-muted-foreground mb-2 px-1 text-xs font-semibold tracking-wider uppercase">
+                    Teams
+                  </h3>
+                  <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                    {teams.map((team) => (
+                      <div
+                        key={team.id}
+                        className="bg-muted/30 hover:bg-muted/50 rounded-lg p-2 transition-colors"
+                      >
+                        <div className="mb-1.5 flex items-center gap-2">
+                          <Users className="text-primary size-3.5" />
+                          <span className="truncate text-sm font-medium">
+                            {team.name}
+                          </span>
+                        </div>
+                        <div className="grid grid-cols-2 gap-1">
+                          <Link
+                            href={`/teams/${team.id}`}
+                            className={cn(
+                              "hover:bg-primary/10 hover:text-primary flex items-center justify-center gap-1.5 rounded px-2 py-1 text-xs transition-colors",
+                              pathname.includes(`/teams/${team.id}`) &&
+                                "bg-primary/10 text-primary",
+                            )}
+                          >
+                            <Network className="size-3" />
+                            Roles
+                          </Link>
+                          <Link
+                            href={`/dashboard/${team.id}`}
+                            className={cn(
+                              "hover:bg-primary/10 hover:text-primary flex items-center justify-center gap-1.5 rounded px-2 py-1 text-xs transition-colors",
+                              pathname.includes(`/dashboard/${team.id}`) &&
+                                "bg-primary/10 text-primary",
+                            )}
+                          >
+                            <BarChart3 className="size-3" />
+                            KPIs
+                          </Link>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Systems Section */}
+              <div className="menu-item">
+                <Link
+                  href="/systems"
+                  className={cn(
+                    "bg-muted/50 hover:bg-muted flex items-center gap-3 rounded-lg p-3 transition-colors",
+                    isActivePath("/systems") &&
+                      "bg-primary/10 border-primary border",
+                  )}
+                >
+                  <div className="bg-primary/10 text-primary flex size-8 items-center justify-center rounded-lg">
+                    <Layers className="size-4" />
+                  </div>
+                  <div>
+                    <div className="font-medium">Systems</div>
+                    <div className="text-muted-foreground text-xs">
+                      Organization-wide metrics
                     </div>
                   </div>
                 </Link>
