@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo } from "react";
+import { useCallback, useEffect, useMemo } from "react";
 
 import {
   Background,
@@ -14,7 +14,13 @@ import "@xyflow/react/dist/style.css";
 import { useShallow } from "zustand/react/shallow";
 
 import { ZoomSlider } from "@/components/react-flow";
-import { SaveStatus } from "@/lib/canvas";
+import {
+  FreehandNode,
+  type FreehandNodeType,
+  FreehandOverlay,
+  SaveStatus,
+  useUndoRedo,
+} from "@/lib/canvas";
 import { cn } from "@/lib/utils";
 
 import { useAutoSave } from "../hooks/use-auto-save";
@@ -33,6 +39,7 @@ import { TextNodeMemo } from "./text-node";
 const nodeTypes = {
   "role-node": RoleNodeMemo,
   "text-node": TextNodeMemo,
+  freehand: FreehandNode,
 };
 
 const edgeTypes = {
@@ -48,9 +55,14 @@ const selector = (state: TeamStore) => ({
   onNodesChange: state.onNodesChange,
   onEdgesChange: state.onEdgesChange,
   onConnect: state.onConnect,
+  setNodes: state.setNodes,
   isDirty: state.isDirty,
   editingNodeId: state.editingNodeId,
   setEditingNodeId: state.setEditingNodeId,
+  isDrawing: state.isDrawing,
+  setIsDrawing: state.setIsDrawing,
+  markDirty: state.markDirty,
+  isInitialized: state.isInitialized,
 });
 
 /** Registers React Flow instance with store. Must be inside <ReactFlow>. */
@@ -68,6 +80,59 @@ function ReactFlowInstanceRegistrar() {
   return null;
 }
 
+/**
+ * Inner component that uses useUndoRedo hook.
+ * Must be rendered inside <ReactFlow> to access ReactFlowProvider context.
+ */
+function TeamCanvasInner() {
+  const { nodes, isDrawing, setIsDrawing, setNodes, markDirty, isInitialized } =
+    useTeamStore(
+      useShallow((state) => ({
+        nodes: state.nodes,
+        isDrawing: state.isDrawing,
+        setIsDrawing: state.setIsDrawing,
+        setNodes: state.setNodes,
+        markDirty: state.markDirty,
+        isInitialized: state.isInitialized,
+      })),
+    );
+
+  const { undo, redo, takeSnapshot, canUndo, canRedo } = useUndoRedo<
+    TeamNode,
+    TeamEdgeType
+  >();
+
+  // Handle drawing complete - add freehand node
+  const handleDrawingComplete = useCallback(
+    (node: FreehandNodeType) => {
+      takeSnapshot();
+      setNodes([...nodes, node]);
+      if (isInitialized) {
+        markDirty();
+      }
+    },
+    [takeSnapshot, setNodes, nodes, isInitialized, markDirty],
+  );
+
+  return (
+    <>
+      <TeamCanvasControls
+        isDrawing={isDrawing}
+        setIsDrawing={setIsDrawing}
+        undo={undo}
+        redo={redo}
+        canUndo={canUndo}
+        canRedo={canRedo}
+        takeSnapshot={takeSnapshot}
+      />
+      <ReactFlowInstanceRegistrar />
+      {isDrawing && (
+        <FreehandOverlay onDrawingComplete={handleDrawingComplete} />
+      )}
+    </>
+  );
+}
+
 export function TeamCanvas() {
   const {
     nodes,
@@ -79,6 +144,7 @@ export function TeamCanvas() {
     isDirty,
     editingNodeId,
     setEditingNodeId,
+    isDrawing,
   } = useTeamStore(useShallow(selector));
 
   const { isSaving, lastSaved } = useAutoSave();
@@ -132,7 +198,10 @@ export function TeamCanvas() {
           "transition-opacity duration-200",
           isSaving && "opacity-90",
         )}
-        panOnScroll
+        panOnScroll={!isDrawing}
+        panOnDrag={!isDrawing}
+        zoomOnScroll={!isDrawing}
+        selectNodesOnDrag={!isDrawing}
         defaultEdgeOptions={{
           type: "team-edge",
           animated: true,
@@ -141,8 +210,7 @@ export function TeamCanvas() {
       >
         <Background variant={BackgroundVariant.Dots} gap={16} size={1} />
         <ZoomSlider position="bottom-left" />
-        <TeamCanvasControls />
-        <ReactFlowInstanceRegistrar />
+        <TeamCanvasInner />
       </ReactFlow>
 
       {/* Edit Role Dialog */}

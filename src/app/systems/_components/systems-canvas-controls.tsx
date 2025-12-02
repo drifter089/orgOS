@@ -14,10 +14,10 @@ import {
 } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 
-import { useTeamLayout } from "../hooks/use-team-layout";
-import { useTeamStore } from "../store/team-store";
+import { useSystemsLayout } from "../hooks/use-systems-layout";
+import { useSystemsStore } from "../store/systems-store";
 
-type TeamCanvasControlsProps = {
+type SystemsCanvasControlsProps = {
   isDrawing: boolean;
   setIsDrawing: (isDrawing: boolean) => void;
   undo: () => void;
@@ -28,10 +28,10 @@ type TeamCanvasControlsProps = {
 };
 
 /**
- * Controls for the team canvas - provides auto-layout, text node creation,
- * drawing mode toggle, and undo/redo buttons.
+ * Controls for the systems canvas - provides drawing mode toggle, undo/redo,
+ * text node creation, and force layout buttons.
  */
-export function TeamCanvasControls({
+export function SystemsCanvasControls({
   isDrawing,
   setIsDrawing,
   undo,
@@ -39,11 +39,11 @@ export function TeamCanvasControls({
   canUndo,
   canRedo,
   takeSnapshot,
-}: TeamCanvasControlsProps) {
-  const runLayout = useTeamLayout();
+}: SystemsCanvasControlsProps) {
+  const runLayout = useSystemsLayout();
   const reactFlowInstance = useReactFlow();
-  const addTextNode = useTeamStore((state) => state.addTextNode);
-  const setEditingTextNodeId = useTeamStore(
+  const addTextNode = useSystemsStore((state) => state.addTextNode);
+  const setEditingTextNodeId = useSystemsStore(
     (state) => state.setEditingTextNodeId,
   );
 
