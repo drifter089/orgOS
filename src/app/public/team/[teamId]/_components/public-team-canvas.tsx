@@ -128,7 +128,7 @@ export function PublicTeamCanvas({ team }: PublicTeamCanvasProps) {
           className={cn("bg-background")}
           nodesDraggable={false}
           nodesConnectable={false}
-          elementsSelectable={false}
+          elementsSelectable={true}
           panOnScroll
           defaultEdgeOptions={{
             type: "team-edge",
