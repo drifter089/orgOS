@@ -4,6 +4,7 @@ import { useCallback } from "react";
 
 import { Panel, useReactFlow } from "@xyflow/react";
 import { Pencil, Redo2, Route, Type, Undo2 } from "lucide-react";
+import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -108,7 +109,17 @@ export function TeamCanvasControls({
           <Tooltip>
             <TooltipTrigger asChild>
               <Button
-                onClick={() => setIsDrawing(!isDrawing)}
+                onClick={() => {
+                  const newDrawingState = !isDrawing;
+                  setIsDrawing(newDrawingState);
+                  if (newDrawingState) {
+                    toast.info("Drawings are temporary and won't be saved", {
+                      description:
+                        "Your sketches will be cleared when you refresh the page.",
+                      duration: 4000,
+                    });
+                  }
+                }}
                 variant={isDrawing ? "default" : "outline"}
                 size="lg"
                 className={cn(
