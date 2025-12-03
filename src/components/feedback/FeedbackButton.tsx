@@ -2,6 +2,8 @@
 
 import React, { useState } from "react";
 
+import { usePathname } from "next/navigation";
+
 import { AnimatePresence, motion } from "framer-motion";
 import { MessageSquare, Send } from "lucide-react";
 import { toast } from "sonner";
@@ -13,9 +15,15 @@ import { Button } from "../ui/button";
 import { Textarea } from "../ui/textarea";
 
 export function FeedbackButton() {
+  const pathname = usePathname();
   const [isOpen, setIsOpen] = useState(false);
   const [feedback, setFeedback] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Hide feedback button on landing page and mission page
+  if (pathname === "/" || pathname === "/mission") {
+    return null;
+  }
 
   const submitFeedback = api.feedback.submit.useMutation({
     onSuccess: (data) => {
