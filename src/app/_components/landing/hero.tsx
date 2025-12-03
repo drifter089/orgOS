@@ -311,7 +311,9 @@ export function Hero() {
             mission
           </a>
           <a
-            href="#demo"
+            href="https://forms.acta.so/r/ODQR7g"
+            target="_blank"
+            rel="noopener noreferrer"
             className="text-foreground font-sans text-sm transition-opacity hover:opacity-70"
             style={{ letterSpacing: "-0.03em" }}
           >
@@ -341,12 +343,15 @@ export function Hero() {
             focus on what matters.
           </p>
           <div className="mt-12 flex gap-4">
-            <button
+            <a
+              href="https://forms.acta.so/r/ODQR7g"
+              target="_blank"
+              rel="noopener noreferrer"
               className="bg-foreground text-background px-6 py-3 font-sans text-sm transition-opacity hover:opacity-90"
               style={{ letterSpacing: "-0.03em" }}
             >
               schedule demo
-            </button>
+            </a>
             <button
               className="border-border text-foreground hover:bg-muted border px-6 py-3 font-sans text-sm transition-colors"
               style={{ letterSpacing: "-0.03em" }}
