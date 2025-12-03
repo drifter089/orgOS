@@ -304,7 +304,7 @@ export function Hero() {
         </span>
         <nav className="flex items-center gap-8">
           <a
-            href="#mission"
+            href="/mission"
             className="text-muted-foreground hover:text-foreground font-sans text-sm transition-colors"
             style={{ letterSpacing: "-0.03em" }}
           >

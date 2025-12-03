@@ -65,8 +65,8 @@ export function NavWrapper({
     );
   }, [isOrgPage, pathname, teamId, team?.name, orgData?.organization.name]);
 
-  // Hide navbar on landing page as it has its own header
-  if (pathname === "/") {
+  // Hide navbar on landing page and mission page as they have their own headers
+  if (pathname === "/" || pathname === "/mission") {
     return null;
   }
 

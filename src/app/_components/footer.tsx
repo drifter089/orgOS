@@ -53,12 +53,12 @@ export function Footer() {
             </h4>
             <ul className="space-y-2">
               <li>
-                <a
-                  href="#"
+                <Link
+                  href="/mission"
                   className="text-muted-foreground hover:text-foreground text-sm transition-colors"
                 >
-                  About
-                </a>
+                  Mission
+                </Link>
               </li>
               <li>
                 <a

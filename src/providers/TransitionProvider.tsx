@@ -150,9 +150,12 @@ export function TransitionProvider({
           className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 opacity-0"
         >
           <div className="flex flex-col items-center gap-4">
-            <h1 className="text-foreground font-mono text-4xl font-bold tracking-tighter">
-              Ryo
-            </h1>
+            <span
+              className="text-foreground font-sans text-4xl"
+              style={{ letterSpacing: "-0.03em" }}
+            >
+              ryō
+            </span>
             <div className="grid grid-cols-3 gap-1">
               {[0, 1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
                 <div
