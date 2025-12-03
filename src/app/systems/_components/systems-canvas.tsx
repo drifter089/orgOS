@@ -18,13 +18,12 @@ import {
   type FreehandNodeType,
   FreehandOverlay,
   SaveStatus,
-  useUndoRedo,
+  useDrawingUndoRedo,
 } from "@/lib/canvas";
 import { cn } from "@/lib/utils";
 
 import { useSystemsAutoSave } from "../hooks/use-systems-auto-save";
 import {
-  type SystemsEdge,
   type SystemsNode,
   type SystemsStore,
   useSystemsStore,
@@ -52,37 +51,29 @@ const selector = (state: SystemsStore) => ({
 });
 
 /**
- * Inner component that uses useUndoRedo hook.
+ * Inner component that uses useDrawingUndoRedo hook.
  * Must be rendered inside <ReactFlow> to access ReactFlowProvider context.
+ * Undo/redo is ONLY for freehand drawings (session-only, not persisted).
  */
 function SystemsCanvasInner() {
-  const { nodes, isDrawing, setIsDrawing, setNodes, markDirty, isInitialized } =
-    useSystemsStore(
-      useShallow((state) => ({
-        nodes: state.nodes,
-        isDrawing: state.isDrawing,
-        setIsDrawing: state.setIsDrawing,
-        setNodes: state.setNodes,
-        markDirty: state.markDirty,
-        isInitialized: state.isInitialized,
-      })),
-    );
+  const { nodes, isDrawing, setIsDrawing, setNodes } = useSystemsStore(
+    useShallow((state) => ({
+      nodes: state.nodes,
+      isDrawing: state.isDrawing,
+      setIsDrawing: state.setIsDrawing,
+      setNodes: state.setNodes,
+    })),
+  );
 
-  const { undo, redo, takeSnapshot, canUndo, canRedo } = useUndoRedo<
-    SystemsNode,
-    SystemsEdge
-  >();
+  const { undo, redo, takeSnapshot, canUndo, canRedo } =
+    useDrawingUndoRedo<SystemsNode>();
 
-  // Handle drawing complete - add freehand node
   const handleDrawingComplete = useCallback(
     (node: FreehandNodeType) => {
       takeSnapshot();
       setNodes([...nodes, node]);
-      if (isInitialized) {
-        markDirty();
-      }
     },
-    [takeSnapshot, setNodes, nodes, isInitialized, markDirty],
+    [takeSnapshot, setNodes, nodes],
   );
 
   return (

@@ -19,7 +19,7 @@ import {
   type FreehandNodeType,
   FreehandOverlay,
   SaveStatus,
-  useUndoRedo,
+  useDrawingUndoRedo,
 } from "@/lib/canvas";
 import { cn } from "@/lib/utils";
 
@@ -81,37 +81,29 @@ function ReactFlowInstanceRegistrar() {
 }
 
 /**
- * Inner component that uses useUndoRedo hook.
+ * Inner component that uses useDrawingUndoRedo hook.
  * Must be rendered inside <ReactFlow> to access ReactFlowProvider context.
+ * Undo/redo is ONLY for freehand drawings (session-only, not persisted).
  */
 function TeamCanvasInner() {
-  const { nodes, isDrawing, setIsDrawing, setNodes, markDirty, isInitialized } =
-    useTeamStore(
-      useShallow((state) => ({
-        nodes: state.nodes,
-        isDrawing: state.isDrawing,
-        setIsDrawing: state.setIsDrawing,
-        setNodes: state.setNodes,
-        markDirty: state.markDirty,
-        isInitialized: state.isInitialized,
-      })),
-    );
+  const { nodes, isDrawing, setIsDrawing, setNodes } = useTeamStore(
+    useShallow((state) => ({
+      nodes: state.nodes,
+      isDrawing: state.isDrawing,
+      setIsDrawing: state.setIsDrawing,
+      setNodes: state.setNodes,
+    })),
+  );
 
-  const { undo, redo, takeSnapshot, canUndo, canRedo } = useUndoRedo<
-    TeamNode,
-    TeamEdgeType
-  >();
+  const { undo, redo, takeSnapshot, canUndo, canRedo } =
+    useDrawingUndoRedo<TeamNode>();
 
-  // Handle drawing complete - add freehand node
   const handleDrawingComplete = useCallback(
     (node: FreehandNodeType) => {
       takeSnapshot();
       setNodes([...nodes, node]);
-      if (isInitialized) {
-        markDirty();
-      }
     },
-    [takeSnapshot, setNodes, nodes, isInitialized, markDirty],
+    [takeSnapshot, setNodes, nodes],
   );
 
   return (

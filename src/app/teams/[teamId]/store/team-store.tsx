@@ -111,13 +111,26 @@ export function createTeamStore(
     editingTextNodeId: null,
     isDrawing: false,
 
-    // React Flow handlers
     onNodesChange: (changes) => {
-      const nextNodes = applyNodeChanges(changes, get().nodes);
+      const currentNodes = get().nodes;
+      const nextNodes = applyNodeChanges(changes, currentNodes);
       set({ nodes: nextNodes });
-      // Only mark dirty if initialized (prevents initial React Flow setup from triggering saves)
+
       if (get().isInitialized) {
-        get().markDirty();
+        // Skip marking dirty for freehand-only changes (drawings are session-only)
+        const onlyFreehandChanges = changes.every((change) => {
+          if ("id" in change) {
+            const node =
+              currentNodes.find((n) => n.id === change.id) ??
+              nextNodes.find((n) => n.id === change.id);
+            return node?.type === "freehand";
+          }
+          return false;
+        });
+
+        if (!onlyFreehandChanges) {
+          get().markDirty();
+        }
       }
     },
 
