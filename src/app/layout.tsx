@@ -115,8 +115,8 @@ export default function RootLayout({
                 <NavBar />
                 <TransitionProvider>{children}</TransitionProvider>
                 <Toaster />
-                <FeedbackButton />
                 <Analytics />
+                <FeedbackButton />
               </ConfirmationDialogProvider>
             </ThemeProvider>
           </TRPCReactProvider>

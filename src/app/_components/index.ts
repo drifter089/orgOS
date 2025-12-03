@@ -5,4 +5,3 @@ export { FeaturesCarousel } from "./features-carousel";
 export { FeaturesProductCarousel } from "./features-product-carousel";
 export { Footer } from "./footer";
 export { HeroSection } from "./hero-section";
-export { SmoothScrollWrapper } from "./smooth-scroll-wrapper";
