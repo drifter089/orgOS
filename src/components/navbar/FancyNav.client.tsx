@@ -8,7 +8,6 @@ import { useGSAP } from "@gsap/react";
 import { motion } from "framer-motion";
 import gsap from "gsap";
 import {
-  BarChart3,
   Building2,
   ChevronDown,
   Code2,
@@ -18,7 +17,6 @@ import {
   Layers,
   LayoutDashboard,
   Menu,
-  Network,
   Palette,
   Plug,
   TrendingUp,
@@ -265,7 +263,7 @@ export function FancyNav({
         {
           height: "auto",
           duration: 0.4,
-          ease: "power2.out",
+          ease: "expo.out",
         },
         0.12,
       );
@@ -413,7 +411,28 @@ export function FancyNav({
 
                     return (
                       <div key={item.id} className="flex items-center gap-1.5">
-                        {item.dropdown ? (
+                        {/* Tabs for Roles/KPIs switching */}
+                        {item.tabs ? (
+                          <div className="bg-muted/50 flex items-center rounded-md p-0.5">
+                            {item.tabs.items.map((tabItem) => {
+                              const isActive = tabItem.path === pathname;
+                              return (
+                                <Link
+                                  key={tabItem.path}
+                                  href={tabItem.path}
+                                  className={cn(
+                                    "relative rounded px-2 py-0.5 text-sm font-medium transition-all duration-200",
+                                    isActive
+                                      ? "bg-background text-foreground shadow-sm"
+                                      : "text-muted-foreground hover:text-foreground",
+                                  )}
+                                >
+                                  {tabItem.label}
+                                </Link>
+                              );
+                            })}
+                          </div>
+                        ) : item.dropdown ? (
                           <BreadcrumbItemUI
                             className="flex items-center gap-0.5"
                             onMouseEnter={() =>
@@ -448,11 +467,7 @@ export function FancyNav({
                               <DropdownMenuTrigger asChild>
                                 <button
                                   className="text-muted-foreground hover:text-foreground hover:bg-accent rounded p-0.5 transition-colors"
-                                  aria-label={
-                                    item.dropdown.type === "teams"
-                                      ? "Switch team"
-                                      : "Switch view"
-                                  }
+                                  aria-label="Switch team"
                                 >
                                   <ChevronDown className="size-3.5" />
                                 </button>
@@ -465,7 +480,7 @@ export function FancyNav({
                                 }
                                 onMouseLeave={handleDropdownMouseLeave}
                               >
-                                {item.dropdown.type === "teams" && teams
+                                {teams
                                   ? teams.map((team) => {
                                       const teamPath = isOnDashboard
                                         ? `/dashboard/${team.id}`
@@ -536,10 +551,11 @@ export function FancyNav({
                           </BreadcrumbItemUI>
                         )}
 
-                        {/* Separator */}
-                        {index < breadcrumbs.length - 1 && (
-                          <BreadcrumbSeparator />
-                        )}
+                        {/* Separator - don't show before tabs */}
+                        {index < breadcrumbs.length - 1 &&
+                          !breadcrumbs[index + 1]?.tabs && (
+                            <BreadcrumbSeparator />
+                          )}
                       </div>
                     );
                   })}
@@ -750,41 +766,22 @@ export function FancyNav({
                   </h3>
                   <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
                     {teams.map((team) => (
-                      <div
+                      <Link
                         key={team.id}
-                        className="bg-muted/30 hover:bg-muted/50 rounded-lg p-2 transition-colors"
+                        href={`/teams/${team.id}`}
+                        className={cn(
+                          "bg-muted/30 hover:bg-muted/50 flex items-center gap-2 rounded-lg p-3 transition-colors",
+                          pathname.includes(team.id) &&
+                            "bg-primary/10 border-primary/30 border",
+                        )}
                       >
-                        <div className="mb-1.5 flex items-center gap-2">
-                          <Users className="text-primary size-3.5" />
-                          <span className="truncate text-sm font-medium">
-                            {team.name}
-                          </span>
+                        <div className="bg-primary/10 text-primary flex size-7 items-center justify-center rounded-md">
+                          <Users className="size-3.5" />
                         </div>
-                        <div className="grid grid-cols-2 gap-1">
-                          <Link
-                            href={`/teams/${team.id}`}
-                            className={cn(
-                              "hover:bg-primary/10 hover:text-primary flex items-center justify-center gap-1.5 rounded px-2 py-1 text-xs transition-colors",
-                              pathname.includes(`/teams/${team.id}`) &&
-                                "bg-primary/10 text-primary",
-                            )}
-                          >
-                            <Network className="size-3" />
-                            Roles
-                          </Link>
-                          <Link
-                            href={`/dashboard/${team.id}`}
-                            className={cn(
-                              "hover:bg-primary/10 hover:text-primary flex items-center justify-center gap-1.5 rounded px-2 py-1 text-xs transition-colors",
-                              pathname.includes(`/dashboard/${team.id}`) &&
-                                "bg-primary/10 text-primary",
-                            )}
-                          >
-                            <BarChart3 className="size-3" />
-                            KPIs
-                          </Link>
-                        </div>
-                      </div>
+                        <span className="truncate text-sm font-medium">
+                          {team.name}
+                        </span>
+                      </Link>
                     ))}
                   </div>
                 </div>
