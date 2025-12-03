@@ -11,11 +11,22 @@ export interface BreadcrumbItem {
   icon?: "home";
   isNavigable?: boolean;
   dropdown?: BreadcrumbDropdown;
+  tabs?: BreadcrumbTabs;
 }
 
 export interface BreadcrumbDropdown {
-  type: "teams" | "view";
+  type: "teams";
   items: DropdownItem[];
+}
+
+export interface BreadcrumbTabs {
+  items: TabItem[];
+  activeTab: string;
+}
+
+export interface TabItem {
+  label: string;
+  path: string;
 }
 
 export interface DropdownItem {
@@ -73,7 +84,7 @@ export function generateBreadcrumbs(
     });
   }
 
-  // /teams/:id route - show: icon -> org -> team (dropdown) -> Roles (dropdown)
+  // /teams/:id route - show: icon -> org -> team (dropdown) -> [Roles|KPIs tabs]
   if (pathname.startsWith("/teams/") && teamId) {
     // Team name with dropdown for team switching (not navigable itself)
     breadcrumbs.push({
@@ -88,15 +99,15 @@ export function generateBreadcrumbs(
       },
     });
 
-    // "Roles" as current page with dropdown to switch to KPIs
+    // Tabs for switching between Roles and KPIs
     breadcrumbs.push({
-      id: "view",
+      id: "view-tabs",
       label: "Roles",
       path: `/teams/${teamId}`,
       isCurrentPage: true,
       isNavigable: false,
-      dropdown: {
-        type: "view",
+      tabs: {
+        activeTab: "roles",
         items: [
           { label: "Roles", path: `/teams/${teamId}` },
           { label: "KPIs", path: `/dashboard/${teamId}` },
@@ -130,7 +141,7 @@ export function generateBreadcrumbs(
     return breadcrumbs;
   }
 
-  // /dashboard/:teamId route - show: icon -> org -> team (dropdown) -> Dashboard (dropdown)
+  // /dashboard/:teamId route - show: icon -> org -> team (dropdown) -> [Roles|KPIs tabs]
   if (pathname.startsWith("/dashboard/") && teamId) {
     // Team name with dropdown for team switching (not navigable itself)
     breadcrumbs.push({
@@ -145,15 +156,15 @@ export function generateBreadcrumbs(
       },
     });
 
-    // "KPIs" as current page with dropdown to switch to Roles
+    // Tabs for switching between Roles and KPIs
     breadcrumbs.push({
-      id: "view",
+      id: "view-tabs",
       label: "KPIs",
       path: `/dashboard/${teamId}`,
       isCurrentPage: true,
       isNavigable: false,
-      dropdown: {
-        type: "view",
+      tabs: {
+        activeTab: "kpis",
         items: [
           { label: "Roles", path: `/teams/${teamId}` },
           { label: "KPIs", path: `/dashboard/${teamId}` },
