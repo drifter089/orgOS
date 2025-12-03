@@ -164,7 +164,7 @@ export function FancyNav({
   const handleDropdownMouseLeave = useCallback(() => {
     dropdownCloseTimeoutRef.current = setTimeout(() => {
       setOpenDropdown(null);
-    }, 400);
+    }, 500);
   }, []);
 
   // Mount effect
@@ -469,7 +469,7 @@ export function FancyNav({
                                   className="text-muted-foreground hover:text-foreground hover:bg-accent rounded p-0.5 transition-colors"
                                   aria-label="Switch team"
                                 >
-                                  <ChevronDown className="size-3.5" />
+                                  <ChevronDown className="size-4" />
                                 </button>
                               </DropdownMenuTrigger>
                               <DropdownMenuContentNoPortal
