@@ -1,6 +1,5 @@
 "use client";
 
-import type { User } from "@workos-inc/node";
 import { Briefcase, TrendingUp } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
@@ -15,8 +14,16 @@ import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { api } from "@/trpc/react";
 
+interface UserInfo {
+  id: string;
+  email: string;
+  firstName: string | null;
+  lastName: string | null;
+  profilePictureUrl?: string | null;
+}
+
 interface UserRolesDialogProps {
-  user: User | null;
+  user: UserInfo | null;
   isOpen: boolean;
   onOpenChange: (open: boolean) => void;
 }

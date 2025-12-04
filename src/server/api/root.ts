@@ -1,3 +1,4 @@
+import { adminPortalRouter } from "@/server/api/routers/admin-portal";
 import { dashboardRouter } from "@/server/api/routers/dashboard";
 import { feedbackRouter } from "@/server/api/routers/feedback";
 import { integrationRouter } from "@/server/api/routers/integration";
@@ -26,6 +27,7 @@ export const appRouter = createTRPCRouter({
   feedback: feedbackRouter,
   systemsCanvas: systemsCanvasRouter,
   publicView: publicViewRouter,
+  adminPortal: adminPortalRouter,
 });
 
 // export type definition of API

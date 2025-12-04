@@ -10,6 +10,7 @@ import { HydrateClient, api } from "@/trpc/server";
 
 import { CreateTeamDialog } from "../teams/_components/create-team-dialog";
 import { TeamsList } from "../teams/_components/teams-list";
+import { CreateOrganization } from "./_components/CreateOrganization";
 import { OrganizationDetails } from "./_components/OrganizationDetails";
 
 function OrganizationDetailsLoading() {
@@ -26,13 +27,28 @@ function OrganizationDetailsLoading() {
 }
 
 export default async function OrganizationPage() {
-  const [orgData] = await Promise.all([
-    api.organization.getCurrent(),
-    api.organization.getCurrentOrgMembers.prefetch(),
+  const orgData = await api.organization.getCurrent();
+
+  // User has no organization - show create form
+  if (!orgData) {
+    return (
+      <HydrateClient>
+        <div className="min-h-screen">
+          <div className="container mx-auto max-w-7xl px-6 pt-16 pb-8 sm:px-8 sm:pt-20 sm:pb-12 lg:px-12 lg:pt-24 lg:pb-16">
+            <CreateOrganization />
+          </div>
+        </div>
+      </HydrateClient>
+    );
+  }
+
+  // Prefetch data for existing org
+  await Promise.all([
+    api.organization.getMembers.prefetch(),
     api.team.getAll.prefetch(),
   ]);
 
-  const orgName = orgData?.organization.name ?? "Organization";
+  const orgName = orgData.organization.name ?? "Organization";
 
   return (
     <HydrateClient>

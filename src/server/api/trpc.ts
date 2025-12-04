@@ -117,20 +117,26 @@ const enforceUserIsAuthed = t.middleware(async ({ ctx, next }) => {
   });
 });
 
+/**
+ * Attaches workspace context to the request.
+ * Must be used AFTER enforceUserIsAuthed - assumes ctx.user exists.
+ * Throws if user has no organization.
+ */
 const attachWorkspaceContext = t.middleware(async ({ ctx, next }) => {
-  if (!ctx.user) {
+  // ctx.user is guaranteed by enforceUserIsAuthed running first
+  const workspace = await getWorkspaceContext(ctx.user!.id);
+
+  if (!workspace) {
     throw new TRPCError({
-      code: "UNAUTHORIZED",
-      message: "You must be logged in to access this resource",
+      code: "PRECONDITION_FAILED",
+      message: "No organization found. Please create one first.",
     });
   }
-
-  const workspace = await getWorkspaceContext(ctx.user.id);
 
   return next({
     ctx: {
       ...ctx,
-      user: ctx.user,
+      user: ctx.user!,
       workspace,
     },
   });
