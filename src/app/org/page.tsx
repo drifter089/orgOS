@@ -11,6 +11,7 @@ import { HydrateClient, api } from "@/trpc/server";
 import { CreateTeamDialog } from "../teams/_components/create-team-dialog";
 import { TeamsList } from "../teams/_components/teams-list";
 import { CreateOrganization } from "./_components/CreateOrganization";
+import { DirectorySyncSection } from "./_components/DirectorySyncSection";
 import { OrganizationDetails } from "./_components/OrganizationDetails";
 
 function OrganizationDetailsLoading() {
@@ -63,6 +64,14 @@ export default async function OrganizationPage() {
               <OrganizationDetails />
             </Suspense>
           </div>
+
+          {/* Directory Sync Section */}
+          <section className="animate-in fade-in slide-in-from-bottom-4 mb-8 max-w-md delay-75 duration-500">
+            <DirectorySyncSection
+              hasDirectorySync={orgData.hasDirectorySync}
+              directory={orgData.directory}
+            />
+          </section>
 
           {/* Teams Section */}
           <section className="animate-in fade-in slide-in-from-bottom-4 space-y-6 delay-100 duration-500">
