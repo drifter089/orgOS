@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 
-import { ChevronRight, FolderSync, Mail, Users } from "lucide-react";
+import { ChevronRight, FolderSync, LogIn, Mail, Users } from "lucide-react";
 
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -16,19 +16,11 @@ import {
   SheetTrigger,
 } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
+import { type RouterOutputs } from "@/trpc/react";
 
 import { UserRolesDialog } from "./UserRolesDialog";
 
-interface Member {
-  id: string;
-  email: string;
-  firstName: string | null;
-  lastName: string | null;
-  profilePictureUrl: string | null;
-  jobTitle?: string | null;
-  groups?: Array<{ id: string; name: string }>;
-  source: "membership" | "directory";
-}
+type Member = RouterOutputs["organization"]["getMembers"][number];
 
 interface AllMembersSheetProps {
   members: Member[];
@@ -83,7 +75,8 @@ export function AllMembersSheet({ members }: AllMembersSheetProps) {
                   ? `${member.firstName} ${member.lastName}`
                   : (member.email ?? "Member");
 
-              const isDirectory = member.source === "directory";
+              const isDirectory =
+                member.source === "directory" || member.source === "both";
 
               return (
                 <div
@@ -137,6 +130,22 @@ export function AllMembersSheet({ members }: AllMembersSheetProps) {
 
                   {/* Source Badge */}
                   <div className="flex items-center gap-3">
+                    {member.canLogin ? (
+                      <Badge
+                        variant="outline"
+                        className="flex items-center gap-1 border-green-500/50 text-green-600 dark:text-green-400"
+                      >
+                        <LogIn className="h-3 w-3" />
+                        Can Login
+                      </Badge>
+                    ) : (
+                      <Badge
+                        variant="outline"
+                        className="text-muted-foreground flex items-center gap-1"
+                      >
+                        No Login
+                      </Badge>
+                    )}
                     <Badge
                       variant={isDirectory ? "default" : "secondary"}
                       className="flex items-center gap-1.5 px-3 py-1 font-semibold"

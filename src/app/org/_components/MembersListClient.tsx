@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 
-import { ChevronRight, FolderSync, Mail, Users } from "lucide-react";
+import { ChevronRight, FolderSync, LogIn, Mail, Users } from "lucide-react";
 
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -15,19 +15,11 @@ import {
 } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
+import { type RouterOutputs } from "@/trpc/react";
 
 import { UserRolesDialog } from "./UserRolesDialog";
 
-interface Member {
-  id: string;
-  email: string;
-  firstName: string | null;
-  lastName: string | null;
-  profilePictureUrl: string | null;
-  jobTitle?: string | null;
-  groups?: Array<{ id: string; name: string }>;
-  source: "membership" | "directory";
-}
+type Member = RouterOutputs["organization"]["getMembers"][number];
 
 interface MembersListClientProps {
   members: Member[];
@@ -62,8 +54,12 @@ export function MembersListClient({ members }: MembersListClientProps) {
     );
   }
 
-  const directoryMembers = members.filter((m) => m.source === "directory");
-  const membershipMembers = members.filter((m) => m.source === "membership");
+  const directoryMembers = members.filter(
+    (m) => m.source === "directory" || m.source === "both",
+  );
+  const membershipMembers = members.filter(
+    (m) => m.source === "membership" || m.source === "both",
+  );
 
   return (
     <>
@@ -97,7 +93,8 @@ export function MembersListClient({ members }: MembersListClientProps) {
                   ? `${member.firstName} ${member.lastName}`
                   : (member.email ?? "Member");
 
-              const isDirectory = member.source === "directory";
+              const isDirectory =
+                member.source === "directory" || member.source === "both";
 
               return (
                 <div
@@ -151,6 +148,22 @@ export function MembersListClient({ members }: MembersListClientProps) {
 
                   {/* Source Badge */}
                   <div className="flex items-center gap-2">
+                    {member.canLogin ? (
+                      <Badge
+                        variant="outline"
+                        className="flex items-center gap-1 border-green-500/50 text-green-600 dark:text-green-400"
+                      >
+                        <LogIn className="h-3 w-3" />
+                        Can Login
+                      </Badge>
+                    ) : (
+                      <Badge
+                        variant="outline"
+                        className="text-muted-foreground flex items-center gap-1"
+                      >
+                        No Login
+                      </Badge>
+                    )}
                     <Badge
                       variant={isDirectory ? "default" : "secondary"}
                       className="flex items-center gap-1"

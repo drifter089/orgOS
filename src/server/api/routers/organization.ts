@@ -19,7 +19,8 @@ type Member = {
   profilePictureUrl: string | null;
   jobTitle?: string | null;
   groups?: Array<{ id: string; name: string }>;
-  source: "membership" | "directory";
+  source: "membership" | "directory" | "both";
+  canLogin: boolean;
 };
 
 export const organizationRouter = createTRPCRouter({
@@ -64,6 +65,7 @@ export const organizationRouter = createTRPCRouter({
    */
   getMembers: workspaceProcedure.query(async ({ ctx }) => {
     const memberMap = new Map<string, Member>();
+    const orgMemberEmails = new Set<string>();
 
     const memberships = await workos.userManagement.listOrganizationMemberships(
       {
@@ -74,13 +76,16 @@ export const organizationRouter = createTRPCRouter({
     await Promise.all(
       memberships.data.map(async (m) => {
         const user = await workos.userManagement.getUser(m.userId);
-        memberMap.set(user.email.toLowerCase(), {
+        const emailLower = user.email.toLowerCase();
+        orgMemberEmails.add(emailLower);
+        memberMap.set(emailLower, {
           id: user.id,
           email: user.email,
           firstName: user.firstName,
           lastName: user.lastName,
           profilePictureUrl: user.profilePictureUrl,
           source: "membership",
+          canLogin: true,
         });
       }),
     );
@@ -96,7 +101,9 @@ export const organizationRouter = createTRPCRouter({
 
         for (const dirUser of response.data) {
           if (dirUser.email) {
-            memberMap.set(dirUser.email.toLowerCase(), {
+            const emailLower = dirUser.email.toLowerCase();
+            const isOrgMember = orgMemberEmails.has(emailLower);
+            memberMap.set(emailLower, {
               id: dirUser.id,
               email: dirUser.email,
               firstName: dirUser.firstName,
@@ -104,7 +111,8 @@ export const organizationRouter = createTRPCRouter({
               profilePictureUrl: null,
               jobTitle: dirUser.jobTitle,
               groups: dirUser.groups,
-              source: "directory",
+              source: isOrgMember ? "both" : "directory",
+              canLogin: isOrgMember,
             });
           }
         }
