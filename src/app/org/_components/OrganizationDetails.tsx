@@ -1,6 +1,5 @@
 import { User } from "lucide-react";
 
-import { Badge } from "@/components/ui/badge";
 import { api } from "@/trpc/server";
 
 import { AllMembersSheet } from "./AllMembersSheet";
@@ -8,14 +7,14 @@ import { AllMembersSheet } from "./AllMembersSheet";
 export async function OrganizationDetails() {
   const [orgData, members] = await Promise.all([
     api.organization.getCurrent(),
-    api.organization.getCurrentOrgMembers(),
+    api.organization.getMembers(),
   ]);
 
   if (!orgData) {
     return null;
   }
 
-  const { membership, currentUser } = orgData;
+  const { currentUser } = orgData;
 
   const userName =
     currentUser?.firstName && currentUser?.lastName
@@ -32,9 +31,6 @@ export async function OrganizationDetails() {
           Signed in as{" "}
           <span className="text-foreground font-medium">{userName}</span>
         </span>
-        <Badge variant="secondary" className="text-xs capitalize">
-          {membership.role.slug}
-        </Badge>
       </div>
       <AllMembersSheet members={members} />
     </div>

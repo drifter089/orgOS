@@ -1,10 +1,10 @@
-import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 
 import { createTRPCRouter, workspaceProcedure } from "@/server/api/trpc";
 import {
   getRoleAndVerifyAccess,
   getTeamAndVerifyAccess,
+  validateUserAssignable,
 } from "@/server/api/utils/authorization";
 
 export const roleRouter = createTRPCRouter({
@@ -60,14 +60,8 @@ export const roleRouter = createTRPCRouter({
         ctx.workspace,
       );
 
-      if (
-        input.assignedUserId &&
-        !ctx.workspace.assignableUserIds.includes(input.assignedUserId)
-      ) {
-        throw new TRPCError({
-          code: "BAD_REQUEST",
-          message: "User cannot be assigned to this role",
-        });
+      if (input.assignedUserId) {
+        await validateUserAssignable(ctx.workspace, input.assignedUserId);
       }
 
       return ctx.db.role.create({
@@ -108,14 +102,8 @@ export const roleRouter = createTRPCRouter({
         ctx.workspace,
       );
 
-      if (
-        input.assignedUserId &&
-        !ctx.workspace.assignableUserIds.includes(input.assignedUserId)
-      ) {
-        throw new TRPCError({
-          code: "BAD_REQUEST",
-          message: "User cannot be assigned to this role",
-        });
+      if (input.assignedUserId) {
+        await validateUserAssignable(ctx.workspace, input.assignedUserId);
       }
 
       const data: {
@@ -170,12 +158,7 @@ export const roleRouter = createTRPCRouter({
         ctx.workspace,
       );
 
-      if (!ctx.workspace.assignableUserIds.includes(input.userId)) {
-        throw new TRPCError({
-          code: "BAD_REQUEST",
-          message: "User cannot be assigned to this role",
-        });
-      }
+      await validateUserAssignable(ctx.workspace, input.userId);
 
       return ctx.db.role.update({
         where: { id: input.id },

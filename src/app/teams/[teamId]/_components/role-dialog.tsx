@@ -159,8 +159,7 @@ export function RoleDialog({
   const { data: metrics = [] } = api.metric.getByTeamId.useQuery({ teamId });
 
   // Fetch organization members for assignment
-  const { data: members = [] } =
-    api.organization.getCurrentOrgMembers.useQuery();
+  const { data: members = [] } = api.organization.getMembers.useQuery();
 
   const utils = api.useUtils();
 
@@ -230,8 +229,8 @@ export function RoleDialog({
           metricName: selectedMetric?.name ?? undefined,
           assignedUserId: variables.assignedUserId ?? null,
           assignedUserName: variables.assignedUserId
-            ? (members.find((m) => m.user.id === variables.assignedUserId)?.user
-                .firstName ??
+            ? (members.find((m) => m.id === variables.assignedUserId)
+                ?.firstName ??
               `User ${variables.assignedUserId?.substring(0, 8)}`)
             : undefined,
           color: variables.color ?? "#3b82f6",
@@ -323,8 +322,8 @@ export function RoleDialog({
               metricName: selectedMetric?.name ?? undefined,
               assignedUserId: variables.assignedUserId ?? null,
               assignedUserName: variables.assignedUserId
-                ? (members.find((m) => m.user.id === variables.assignedUserId)
-                    ?.user.firstName ??
+                ? (members.find((m) => m.id === variables.assignedUserId)
+                    ?.firstName ??
                   `User ${variables.assignedUserId.substring(0, 8)}`)
                 : undefined,
               color: variables.color ?? node.data.color,
@@ -556,13 +555,13 @@ export function RoleDialog({
                     <SelectContent>
                       <SelectItem value="__none__">None</SelectItem>
                       {members.map((member) => (
-                        <SelectItem key={member.user.id} value={member.user.id}>
+                        <SelectItem key={member.id} value={member.id}>
                           <div className="flex items-center gap-2">
                             <span>
-                              {member.user.firstName} {member.user.lastName}
+                              {member.firstName} {member.lastName}
                             </span>
                             <span className="text-muted-foreground text-xs">
-                              {member.user.email}
+                              {member.email}
                             </span>
                           </div>
                         </SelectItem>

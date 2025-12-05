@@ -3,7 +3,6 @@
 import { useState } from "react";
 
 import * as SheetPrimitive from "@radix-ui/react-dialog";
-import type { User } from "@workos-inc/node";
 import { ChevronDown, ChevronRight, Loader2, Mail, Trash2 } from "lucide-react";
 
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -63,25 +62,29 @@ interface TeamSheetSidebarProps {
   roleCount: number;
 }
 
+interface MemberProps {
+  id: string;
+  email: string;
+  firstName: string | null;
+  lastName: string | null;
+}
+
 function MemberCard({
-  user,
+  member,
   roleCount,
 }: {
-  user: User | Record<string, unknown>;
+  member: MemberProps;
   roleCount: number;
 }) {
-  const userObj = user as Record<string, unknown>;
-  const firstName = userObj.firstName as string | null | undefined;
-  const lastName = userObj.lastName as string | null | undefined;
-  const email = userObj.email as string | null | undefined;
-
   const initials =
-    firstName && lastName
-      ? `${firstName[0]}${lastName[0]}`.toUpperCase()
-      : (email?.[0]?.toUpperCase() ?? "U");
+    member.firstName && member.lastName
+      ? `${member.firstName[0]}${member.lastName[0]}`.toUpperCase()
+      : (member.email?.[0]?.toUpperCase() ?? "U");
 
   const userName =
-    firstName && lastName ? `${firstName} ${lastName}` : (email ?? "Member");
+    member.firstName && member.lastName
+      ? `${member.firstName} ${member.lastName}`
+      : (member.email ?? "Member");
 
   return (
     <div className="bg-card hover:bg-accent/50 flex items-center justify-between gap-3 rounded-lg border p-3 shadow-sm transition-colors hover:shadow">
@@ -97,7 +100,7 @@ function MemberCard({
           </p>
           <div className="text-muted-foreground mt-0.5 flex items-center gap-1.5 text-xs">
             <Mail className="h-3 w-3 flex-shrink-0" />
-            <span className="truncate">{email ?? "No email"}</span>
+            <span className="truncate">{member.email ?? "No email"}</span>
           </div>
         </div>
       </div>
@@ -262,7 +265,7 @@ export function TeamSheetSidebar({
   const [editDialogOpen, setEditDialogOpen] = useState(false);
 
   const { data: members, isLoading: membersLoading } =
-    api.organization.getCurrentOrgMembers.useQuery();
+    api.organization.getMembers.useQuery();
 
   const { data: teamRoles } = api.role.getByTeam.useQuery({ teamId });
   const nodes = useTeamStore((state) => state.nodes);
@@ -393,9 +396,9 @@ export function TeamSheetSidebar({
                     ) : (
                       members.map((member) => (
                         <MemberCard
-                          key={member.membership.id}
-                          user={member.user}
-                          roleCount={roleCountByUser[member.user.id] ?? 0}
+                          key={member.id}
+                          member={member}
+                          roleCount={roleCountByUser[member.id] ?? 0}
                         />
                       ))
                     )}

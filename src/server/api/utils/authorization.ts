@@ -1,220 +1,108 @@
 import { TRPCError } from "@trpc/server";
-import type { Directory, DirectoryUserWithGroups } from "@workos-inc/node";
+import type {
+  Directory,
+  Organization as WorkOSOrganization,
+} from "@workos-inc/node";
 
-import { env } from "@/env";
 import { type db } from "@/server/db";
 import { workos } from "@/server/workos";
 
 type DB = typeof db;
 
-const CACHE_TTL = 5 * 60 * 1000;
+/**
+ * Workspace context - all data from WorkOS, no local DB.
+ */
+export type WorkspaceContext = {
+  organizationId: string;
+  organization: WorkOSOrganization;
+  directory?: Directory;
+};
 
-let directoryUsersCache: {
-  data: DirectoryUserWithGroups[];
-  timestamp: number;
-} | null = null;
-
-let directoryCache: {
-  data: Directory;
-  timestamp: number;
-} | null = null;
-
-let directoryPromise: Promise<Directory> | null = null;
-
-export type WorkspaceContext =
-  | {
-      type: "personal";
-      organizationId: string;
-      assignableUserIds: string[];
-    }
-  | {
-      type: "organization";
-      organizationId: string;
-      assignableUserIds: string[];
-    }
-  | {
-      type: "directory";
-      organizationId: string;
-      assignableUserIds: string[];
-      directoryId: string;
-    };
-
-async function fetchDirectoryUsers(): Promise<DirectoryUserWithGroups[]> {
-  if (!env.WORKOS_DIR_ID) {
-    throw new Error("WORKOS_DIR_ID not configured");
-  }
-
-  const allUsers: DirectoryUserWithGroups[] = [];
-  let after: string | undefined;
-  let hasMore = true;
-
-  while (hasMore) {
-    const response = await workos.directorySync.listUsers({
-      directory: env.WORKOS_DIR_ID,
-      limit: 100,
-      after,
-    });
-    allUsers.push(...response.data);
-    after = response.listMetadata?.after;
-    hasMore = !!after;
-  }
-
-  return allUsers;
-}
-
-async function getDirectoryUsers(): Promise<DirectoryUserWithGroups[]> {
-  if (
-    directoryUsersCache &&
-    Date.now() - directoryUsersCache.timestamp < CACHE_TTL
-  ) {
-    return directoryUsersCache.data;
-  }
-
-  const users = await fetchDirectoryUsers();
-  directoryUsersCache = { data: users, timestamp: Date.now() };
-  return users;
-}
-
-async function getDirectory(): Promise<Directory> {
-  if (!env.WORKOS_DIR_ID) {
-    throw new TRPCError({
-      code: "INTERNAL_SERVER_ERROR",
-      message: "WORKOS_DIR_ID not configured",
-    });
-  }
-
-  if (directoryCache && Date.now() - directoryCache.timestamp < CACHE_TTL) {
-    return directoryCache.data;
-  }
-
-  if (directoryPromise) {
-    return directoryPromise;
-  }
-
-  directoryPromise = (async () => {
-    try {
-      const directory = await workos.directorySync.getDirectory(
-        env.WORKOS_DIR_ID!,
-      );
-      directoryCache = { data: directory, timestamp: Date.now() };
-      directoryPromise = null;
-      return directory;
-    } catch (error) {
-      directoryPromise = null;
-      throw new TRPCError({
-        code: "INTERNAL_SERVER_ERROR",
-        message: "Failed to fetch directory",
-        cause: error,
-      });
-    }
-  })();
-
-  return directoryPromise;
-}
-
-async function checkDirectoryMembership(
-  userId: string,
-): Promise<{ isMember: boolean; directoryUser?: DirectoryUserWithGroups }> {
-  try {
-    const directoryUsers = await getDirectoryUsers();
-
-    if (userId.startsWith("directory_user_")) {
-      const directoryUser = directoryUsers.find((u) => u.id === userId);
-      return { isMember: !!directoryUser, directoryUser };
-    }
-
-    const workosUser = await workos.userManagement.getUser(userId);
-    const userEmail = workosUser.email.toLowerCase();
-    const directoryUser = directoryUsers.find(
-      (u) => u.email?.toLowerCase() === userEmail,
-    );
-
-    return { isMember: !!directoryUser, directoryUser };
-  } catch (error) {
-    console.error("[AUTH] Directory membership check failed:", error);
-    return { isMember: false };
-  }
-}
-
-async function checkOrganizationMembership(userId: string): Promise<{
-  isMember: boolean;
-  organizationId?: string;
-  memberIds?: string[];
-}> {
-  try {
-    const memberships = await workos.userManagement.listOrganizationMemberships(
-      { userId, limit: 1 },
-    );
-
-    if (!memberships.data.length) {
-      return { isMember: false };
-    }
-
-    const organizationId = memberships.data[0]!.organizationId;
-    const allMemberships =
-      await workos.userManagement.listOrganizationMemberships({
-        organizationId,
-      });
-
-    const memberIds = allMemberships.data.map((m) => m.userId);
-
-    return { isMember: true, organizationId, memberIds };
-  } catch (error) {
-    console.error("[AUTH] Organization membership check failed:", error);
-    return { isMember: false };
-  }
-}
-
+/**
+ * Gets workspace context for a user.
+ * Returns null if user has no organization (needs to create one).
+ */
 export async function getWorkspaceContext(
   userId: string,
+): Promise<WorkspaceContext | null> {
+  const memberships = await workos.userManagement.listOrganizationMemberships({
+    userId,
+    limit: 1,
+  });
+
+  if (memberships.data.length === 0) {
+    return null;
+  }
+
+  const organizationId = memberships.data[0]!.organizationId;
+
+  const [organization, directories] = await Promise.all([
+    workos.organizations.getOrganization(organizationId),
+    workos.directorySync.listDirectories({ organizationId }),
+  ]);
+
+  return {
+    organizationId,
+    organization,
+    directory: directories.data[0], // undefined if no directory
+  };
+}
+
+/**
+ * Creates a new organization for a user.
+ */
+export async function createOrganizationForUser(
+  userId: string,
+  orgName: string,
 ): Promise<WorkspaceContext> {
-  const directoryCheck = await checkDirectoryMembership(userId);
+  const organization = await workos.organizations.createOrganization({
+    name: orgName,
+  });
 
-  if (directoryCheck.isMember) {
-    try {
-      const directory = await getDirectory();
+  await workos.userManagement.createOrganizationMembership({
+    userId,
+    organizationId: organization.id,
+    roleSlug: "admin",
+  });
 
-      if (!directory.organizationId) {
-        console.error("[AUTH] Directory missing organizationId");
-        throw new TRPCError({
-          code: "INTERNAL_SERVER_ERROR",
-          message: "Service configuration error",
-        });
-      }
+  return { organizationId: organization.id, organization };
+}
 
-      const directoryUsers = await getDirectoryUsers();
-      const assignableUserIds = directoryUsers.map((u) => u.id);
-
-      return {
-        type: "directory",
-        organizationId: directory.organizationId,
-        assignableUserIds,
-        directoryId: env.WORKOS_DIR_ID!,
-      };
-    } catch (error) {
-      console.error("[AUTH] Failed to load directory context:", error);
+/**
+ * Validates that a user can be assigned within an organization.
+ * Checks directory users if SCIM configured, else org memberships.
+ */
+export async function validateUserAssignable(
+  workspace: WorkspaceContext,
+  userId: string,
+): Promise<void> {
+  if (workspace.directory) {
+    const dirUsers = await workos.directorySync.listUsers({
+      directory: workspace.directory.id,
+      limit: 100,
+    });
+    const isAssignable = dirUsers.data.some((u) => u.id === userId);
+    if (!isAssignable) {
       throw new TRPCError({
-        code: "INTERNAL_SERVER_ERROR",
-        message: "Failed to load workspace",
+        code: "BAD_REQUEST",
+        message: "User cannot be assigned to this role",
+      });
+    }
+  } else {
+    const memberships = await workos.userManagement.listOrganizationMemberships(
+      {
+        organizationId: workspace.organizationId,
+        userId,
+        limit: 1,
+      },
+    );
+    if (memberships.data.length === 0) {
+      throw new TRPCError({
+        code: "BAD_REQUEST",
+        message: "User cannot be assigned to this role",
       });
     }
   }
-
-  const orgCheck = await checkOrganizationMembership(userId);
-
-  if (orgCheck.isMember && orgCheck.organizationId) {
-    return {
-      type: "organization",
-      organizationId: orgCheck.organizationId,
-      assignableUserIds: orgCheck.memberIds ?? [userId],
-    };
-  }
-
-  return {
-    type: "personal",
-    organizationId: `user:${userId}`,
-    assignableUserIds: [userId],
-  };
 }
 
 export async function verifyResourceAccess(
@@ -225,6 +113,13 @@ export async function verifyResourceAccess(
   workspaceContext?: WorkspaceContext,
 ): Promise<void> {
   const workspace = workspaceContext ?? (await getWorkspaceContext(userId));
+
+  if (!workspace) {
+    throw new TRPCError({
+      code: "PRECONDITION_FAILED",
+      message: "No organization found. Please create one first.",
+    });
+  }
 
   if (workspace.organizationId !== resourceOrganizationId) {
     throw new TRPCError({
@@ -306,18 +201,4 @@ export async function getIntegrationAndVerifyAccess(
     workspaceContext,
   );
   return integration;
-}
-
-export async function getDirectoryData() {
-  try {
-    const directory = await getDirectory();
-    const users = await getDirectoryUsers();
-    return { directory, users };
-  } catch (error) {
-    console.error("[AUTH] Failed to fetch directory data:", error);
-    throw new TRPCError({
-      code: "INTERNAL_SERVER_ERROR",
-      message: "Failed to load directory",
-    });
-  }
 }

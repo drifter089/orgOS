@@ -18,7 +18,7 @@ export default async function TeamPage({
 
   const [team, members, integrations] = await Promise.all([
     api.team.getById({ id: teamId }).catch(() => null),
-    api.organization.getCurrentOrgMembers().catch(() => []),
+    api.organization.getMembers().catch(() => []),
     api.integration.listWithStats().catch(() => ({
       active: [],
       stats: { total: 0, active: 0, byProvider: {} },
@@ -32,11 +32,11 @@ export default async function TeamPage({
   const userNameMap = new Map<string, string>();
   for (const member of members) {
     const name =
-      member.user.firstName && member.user.lastName
-        ? `${member.user.firstName} ${member.user.lastName}`
-        : (member.user.firstName ?? member.user.email ?? undefined);
+      member.firstName && member.lastName
+        ? `${member.firstName} ${member.lastName}`
+        : (member.firstName ?? member.email ?? undefined);
     if (name) {
-      userNameMap.set(member.user.id, name);
+      userNameMap.set(member.id, name);
     }
   }
 

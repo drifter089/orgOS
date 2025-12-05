@@ -2,8 +2,7 @@
 
 import { useState } from "react";
 
-import type { User } from "@workos-inc/node";
-import { ChevronRight, Mail, Shield, UserCheck, Users } from "lucide-react";
+import { ChevronRight, FolderSync, LogIn, Mail, Users } from "lucide-react";
 
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -17,40 +16,29 @@ import {
   SheetTrigger,
 } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
+import { type RouterOutputs } from "@/trpc/react";
 
 import { UserRolesDialog } from "./UserRolesDialog";
 
-interface Member {
-  user: User | Record<string, unknown>;
-  membership: {
-    id: string;
-    status: string;
-    role: {
-      slug: string;
-    };
-  };
-}
+type Member = RouterOutputs["organization"]["getMembers"][number];
 
 interface AllMembersSheetProps {
   members: Member[];
 }
 
 export function AllMembersSheet({ members }: AllMembersSheetProps) {
-  const [selectedUser, setSelectedUser] = useState<User | null>(null);
+  const [selectedMember, setSelectedMember] = useState<Member | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
 
-  const handleMemberClick = (user: User | Record<string, unknown>) => {
-    setSelectedUser(user as User);
+  const handleMemberClick = (member: Member) => {
+    setSelectedMember(member);
     setIsDialogOpen(true);
   };
 
-  const handleKeyDown = (
-    e: React.KeyboardEvent,
-    user: User | Record<string, unknown>,
-  ) => {
+  const handleKeyDown = (e: React.KeyboardEvent, member: Member) => {
     if (e.key === "Enter" || e.key === " ") {
       e.preventDefault();
-      handleMemberClick(user);
+      handleMemberClick(member);
     }
   };
 
@@ -71,51 +59,45 @@ export function AllMembersSheet({ members }: AllMembersSheetProps) {
               Organization Members
             </SheetTitle>
             <SheetDescription className="pt-1 text-base">
-              Manage your team members and their roles
+              View your team members
             </SheetDescription>
           </SheetHeader>
 
           <div className="space-y-4 pb-6">
-            {members.map(({ user, membership }) => {
-              const userObj = user as Record<string, unknown>;
-              const firstName = userObj.firstName as string | null | undefined;
-              const lastName = userObj.lastName as string | null | undefined;
-              const email = userObj.email as string | null | undefined;
-
+            {members.map((member) => {
               const initials =
-                firstName && lastName
-                  ? `${firstName[0]}${lastName[0]}`.toUpperCase()
-                  : (email?.[0]?.toUpperCase() ?? "U");
+                member.firstName && member.lastName
+                  ? `${member.firstName[0]}${member.lastName[0]}`.toUpperCase()
+                  : (member.email?.[0]?.toUpperCase() ?? "U");
 
               const userName =
-                firstName && lastName
-                  ? `${firstName} ${lastName}`
-                  : (email ?? "Member");
+                member.firstName && member.lastName
+                  ? `${member.firstName} ${member.lastName}`
+                  : (member.email ?? "Member");
 
-              const isAdmin =
-                membership.role.slug === "admin" ||
-                membership.role.slug === "owner";
+              const isDirectory =
+                member.source === "directory" || member.source === "both";
 
               return (
                 <div
-                  key={membership.id}
+                  key={member.id}
                   role="button"
                   tabIndex={0}
-                  onClick={() => handleMemberClick(user)}
-                  onKeyDown={(e) => handleKeyDown(e, user)}
+                  onClick={() => handleMemberClick(member)}
+                  onKeyDown={(e) => handleKeyDown(e, member)}
                   aria-label={`View details for ${userName}`}
                   className={cn(
                     "group relative flex cursor-pointer items-center justify-between rounded-xl border p-5 transition-all duration-200",
-                    isAdmin
-                      ? "border-primary/30 bg-primary/5 hover:border-primary/50 hover:bg-primary/10 hover:shadow-lg"
+                    isDirectory
+                      ? "border-blue-500/30 bg-blue-500/5 hover:border-blue-500/50 hover:bg-blue-500/10 hover:shadow-lg"
                       : "border-border bg-card hover:border-primary/30 hover:bg-accent/50 hover:shadow-lg",
                     "focus-visible:ring-ring focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none",
                   )}
                 >
-                  {/* Admin indicator badge */}
-                  {isAdmin && (
-                    <div className="bg-primary ring-background absolute -top-2 -right-2 flex h-7 w-7 items-center justify-center rounded-full shadow-md ring-2">
-                      <Shield className="text-primary-foreground h-4 w-4" />
+                  {/* Directory indicator badge */}
+                  {isDirectory && (
+                    <div className="ring-background absolute -top-2 -right-2 flex h-7 w-7 items-center justify-center rounded-full bg-blue-500 shadow-md ring-2">
+                      <FolderSync className="h-4 w-4 text-white" />
                     </div>
                   )}
 
@@ -133,37 +115,43 @@ export function AllMembersSheet({ members }: AllMembersSheetProps) {
                         <p className="group-hover:text-primary text-base font-bold transition-colors">
                           {userName}
                         </p>
-                        {membership.status === "active" && (
-                          <UserCheck className="h-4 w-4 text-emerald-600/90 dark:text-emerald-400/90" />
-                        )}
                       </div>
                       <div className="text-muted-foreground flex items-center gap-2 text-sm">
                         <Mail className="h-4 w-4" />
-                        <span>{email ?? "No email"}</span>
+                        <span>{member.email ?? "No email"}</span>
                       </div>
+                      {member.jobTitle && (
+                        <p className="text-muted-foreground text-sm">
+                          {member.jobTitle}
+                        </p>
+                      )}
                     </div>
                   </div>
 
-                  {/* Role & Status */}
+                  {/* Source Badge */}
                   <div className="flex items-center gap-3">
+                    {member.canLogin ? (
+                      <Badge
+                        variant="outline"
+                        className="flex items-center gap-1 border-green-500/50 text-green-600 dark:text-green-400"
+                      >
+                        <LogIn className="h-3 w-3" />
+                        Can Login
+                      </Badge>
+                    ) : (
+                      <Badge
+                        variant="outline"
+                        className="text-muted-foreground flex items-center gap-1"
+                      >
+                        No Login
+                      </Badge>
+                    )}
                     <Badge
-                      variant={isAdmin ? "default" : "secondary"}
+                      variant={isDirectory ? "default" : "secondary"}
                       className="flex items-center gap-1.5 px-3 py-1 font-semibold"
                     >
-                      {isAdmin && <Shield className="h-3.5 w-3.5" />}
-                      {membership.role.slug}
-                    </Badge>
-                    <Badge
-                      variant={
-                        membership.status === "active"
-                          ? "success"
-                          : membership.status === "pending"
-                            ? "warning"
-                            : "outline"
-                      }
-                      className="px-3 py-1 font-semibold capitalize"
-                    >
-                      {membership.status}
+                      {isDirectory && <FolderSync className="h-3.5 w-3.5" />}
+                      {isDirectory ? "Directory" : "Member"}
                     </Badge>
                     <ChevronRight className="text-muted-foreground group-hover:text-primary h-5 w-5 transition-all group-hover:translate-x-1" />
                   </div>
@@ -176,7 +164,17 @@ export function AllMembersSheet({ members }: AllMembersSheetProps) {
 
       {/* User Roles Dialog */}
       <UserRolesDialog
-        user={selectedUser}
+        user={
+          selectedMember
+            ? {
+                id: selectedMember.id,
+                email: selectedMember.email,
+                firstName: selectedMember.firstName,
+                lastName: selectedMember.lastName,
+                profilePictureUrl: selectedMember.profilePictureUrl,
+              }
+            : null
+        }
         isOpen={isDialogOpen}
         onOpenChange={setIsDialogOpen}
       />

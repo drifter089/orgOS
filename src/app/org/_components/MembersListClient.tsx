@@ -2,8 +2,7 @@
 
 import { useState } from "react";
 
-import type { User } from "@workos-inc/node";
-import { ChevronRight, Clock, Mail, Shield, UserCheck } from "lucide-react";
+import { ChevronRight, FolderSync, LogIn, Mail, Users } from "lucide-react";
 
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -16,40 +15,29 @@ import {
 } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
+import { type RouterOutputs } from "@/trpc/react";
 
 import { UserRolesDialog } from "./UserRolesDialog";
 
-interface Member {
-  user: User | Record<string, unknown>;
-  membership: {
-    id: string;
-    status: string;
-    role: {
-      slug: string;
-    };
-  };
-}
+type Member = RouterOutputs["organization"]["getMembers"][number];
 
 interface MembersListClientProps {
   members: Member[];
 }
 
 export function MembersListClient({ members }: MembersListClientProps) {
-  const [selectedUser, setSelectedUser] = useState<User | null>(null);
+  const [selectedMember, setSelectedMember] = useState<Member | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
 
-  const handleMemberClick = (user: User | Record<string, unknown>) => {
-    setSelectedUser(user as User);
+  const handleMemberClick = (member: Member) => {
+    setSelectedMember(member);
     setIsDialogOpen(true);
   };
 
-  const handleKeyDown = (
-    e: React.KeyboardEvent,
-    user: User | Record<string, unknown>,
-  ) => {
+  const handleKeyDown = (e: React.KeyboardEvent, member: Member) => {
     if (e.key === "Enter" || e.key === " ") {
       e.preventDefault();
-      handleMemberClick(user);
+      handleMemberClick(member);
     }
   };
 
@@ -66,6 +54,13 @@ export function MembersListClient({ members }: MembersListClientProps) {
     );
   }
 
+  const directoryMembers = members.filter(
+    (m) => m.source === "directory" || m.source === "both",
+  );
+  const membershipMembers = members.filter(
+    (m) => m.source === "membership" || m.source === "both",
+  );
+
   return (
     <>
       <Card>
@@ -74,7 +69,7 @@ export function MembersListClient({ members }: MembersListClientProps) {
             <div className="space-y-1">
               <CardTitle className="text-2xl">Organization Members</CardTitle>
               <CardDescription className="text-base">
-                Manage your team members and their roles
+                View your team members
               </CardDescription>
             </div>
             <Badge variant="secondary" className="shrink-0 px-3 py-1 text-lg">
@@ -87,47 +82,40 @@ export function MembersListClient({ members }: MembersListClientProps) {
 
         <CardContent className="pt-6">
           <div className="space-y-3">
-            {members.map(({ user, membership }) => {
-              // Get initials for avatar with safe fallbacks
-              const userObj = user as Record<string, unknown>;
-              const firstName = userObj.firstName as string | null | undefined;
-              const lastName = userObj.lastName as string | null | undefined;
-              const email = userObj.email as string | null | undefined;
-
+            {members.map((member) => {
               const initials =
-                firstName && lastName
-                  ? `${firstName[0]}${lastName[0]}`.toUpperCase()
-                  : (email?.[0]?.toUpperCase() ?? "U");
+                member.firstName && member.lastName
+                  ? `${member.firstName[0]}${member.lastName[0]}`.toUpperCase()
+                  : (member.email?.[0]?.toUpperCase() ?? "U");
 
               const userName =
-                firstName && lastName
-                  ? `${firstName} ${lastName}`
-                  : (email ?? "Member");
+                member.firstName && member.lastName
+                  ? `${member.firstName} ${member.lastName}`
+                  : (member.email ?? "Member");
 
-              const isAdmin =
-                membership.role.slug === "admin" ||
-                membership.role.slug === "owner";
+              const isDirectory =
+                member.source === "directory" || member.source === "both";
 
               return (
                 <div
-                  key={membership.id}
+                  key={member.id}
                   role="button"
                   tabIndex={0}
-                  onClick={() => handleMemberClick(user)}
-                  onKeyDown={(e) => handleKeyDown(e, user)}
+                  onClick={() => handleMemberClick(member)}
+                  onKeyDown={(e) => handleKeyDown(e, member)}
                   aria-label={`View details for ${userName}`}
                   className={cn(
                     "group relative flex cursor-pointer items-center justify-between rounded-lg border p-4 transition-all duration-200",
-                    isAdmin
-                      ? "border-primary/30 bg-primary/5 hover:border-primary/50 hover:bg-primary/10 hover:shadow-md"
+                    isDirectory
+                      ? "border-blue-500/30 bg-blue-500/5 hover:border-blue-500/50 hover:bg-blue-500/10 hover:shadow-md"
                       : "border-border bg-card hover:border-primary/30 hover:bg-accent/50 hover:shadow-md",
                     "focus-visible:ring-ring focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none",
                   )}
                 >
-                  {/* Admin indicator badge */}
-                  {isAdmin && (
-                    <div className="bg-primary absolute -top-2 -right-2 flex h-6 w-6 items-center justify-center rounded-full">
-                      <Shield className="text-primary-foreground h-3.5 w-3.5" />
+                  {/* Directory indicator badge */}
+                  {isDirectory && (
+                    <div className="absolute -top-2 -right-2 flex h-6 w-6 items-center justify-center rounded-full bg-blue-500">
+                      <FolderSync className="h-3.5 w-3.5 text-white" />
                     </div>
                   )}
 
@@ -145,37 +133,43 @@ export function MembersListClient({ members }: MembersListClientProps) {
                         <p className="group-hover:text-primary font-semibold transition-colors">
                           {userName}
                         </p>
-                        {membership.status === "active" && (
-                          <UserCheck className="h-4 w-4 text-emerald-600/90 dark:text-emerald-400/90" />
-                        )}
                       </div>
                       <div className="text-muted-foreground flex items-center gap-1.5 text-sm">
                         <Mail className="h-3.5 w-3.5" />
-                        <span>{email ?? "No email"}</span>
+                        <span>{member.email ?? "No email"}</span>
                       </div>
+                      {member.jobTitle && (
+                        <p className="text-muted-foreground text-xs">
+                          {member.jobTitle}
+                        </p>
+                      )}
                     </div>
                   </div>
 
-                  {/* Role & Status */}
+                  {/* Source Badge */}
                   <div className="flex items-center gap-2">
+                    {member.canLogin ? (
+                      <Badge
+                        variant="outline"
+                        className="flex items-center gap-1 border-green-500/50 text-green-600 dark:text-green-400"
+                      >
+                        <LogIn className="h-3 w-3" />
+                        Can Login
+                      </Badge>
+                    ) : (
+                      <Badge
+                        variant="outline"
+                        className="text-muted-foreground flex items-center gap-1"
+                      >
+                        No Login
+                      </Badge>
+                    )}
                     <Badge
-                      variant={isAdmin ? "default" : "secondary"}
+                      variant={isDirectory ? "default" : "secondary"}
                       className="flex items-center gap-1"
                     >
-                      {isAdmin && <Shield className="h-3 w-3" />}
-                      {membership.role.slug}
-                    </Badge>
-                    <Badge
-                      variant={
-                        membership.status === "active"
-                          ? "success"
-                          : membership.status === "pending"
-                            ? "warning"
-                            : "outline"
-                      }
-                      className="capitalize"
-                    >
-                      {membership.status}
+                      {isDirectory && <FolderSync className="h-3 w-3" />}
+                      {isDirectory ? "Directory" : "Member"}
                     </Badge>
                     <ChevronRight className="text-muted-foreground group-hover:text-primary h-5 w-5 transition-all group-hover:translate-x-1" />
                   </div>
@@ -187,66 +181,37 @@ export function MembersListClient({ members }: MembersListClientProps) {
           {/* Summary Stats */}
           <Separator className="my-6" />
 
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-            {/* Active Members - Primary emphasis */}
-            <div className="border-border from-primary/10 to-primary/5 relative overflow-hidden rounded-lg border bg-gradient-to-br p-6 transition-all hover:shadow-md">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            {/* Directory Members */}
+            <div className="border-border relative overflow-hidden rounded-lg border bg-gradient-to-br from-blue-500/10 to-blue-500/5 p-6 transition-all hover:shadow-md">
               <div className="flex items-center justify-between">
                 <div className="space-y-1">
                   <p className="text-muted-foreground text-sm font-medium">
-                    Active Members
+                    Directory Synced
                   </p>
-                  <p className="text-primary text-3xl font-bold">
-                    {
-                      members.filter((m) => m.membership.status === "active")
-                        .length
-                    }
+                  <p className="text-3xl font-bold text-blue-600 dark:text-blue-400">
+                    {directoryMembers.length}
                   </p>
                 </div>
-                <div className="bg-primary/10 rounded-full p-3">
-                  <UserCheck className="text-primary h-6 w-6" />
+                <div className="rounded-full bg-blue-500/10 p-3">
+                  <FolderSync className="h-6 w-6 text-blue-600 dark:text-blue-400" />
                 </div>
               </div>
             </div>
 
-            {/* Pending - Secondary emphasis */}
-            <div className="border-border relative overflow-hidden rounded-lg border bg-gradient-to-br from-orange-500/10 to-orange-500/5 p-6 transition-all hover:shadow-md">
-              <div className="flex items-center justify-between">
-                <div className="space-y-1">
-                  <p className="text-muted-foreground text-sm font-medium">
-                    Pending Invites
-                  </p>
-                  <p className="text-3xl font-bold text-orange-600 dark:text-orange-400">
-                    {
-                      members.filter((m) => m.membership.status === "pending")
-                        .length
-                    }
-                  </p>
-                </div>
-                <div className="rounded-full bg-orange-500/10 p-3">
-                  <Clock className="h-6 w-6 text-orange-600 dark:text-orange-400" />
-                </div>
-              </div>
-            </div>
-
-            {/* Admins - Tertiary emphasis */}
+            {/* Membership Members */}
             <div className="border-border bg-card relative overflow-hidden rounded-lg border p-6 transition-all hover:shadow-md">
               <div className="flex items-center justify-between">
                 <div className="space-y-1">
                   <p className="text-muted-foreground text-sm font-medium">
-                    Administrators
+                    Direct Members
                   </p>
                   <p className="text-3xl font-bold">
-                    {
-                      members.filter(
-                        (m) =>
-                          m.membership.role.slug === "admin" ||
-                          m.membership.role.slug === "owner",
-                      ).length
-                    }
+                    {membershipMembers.length}
                   </p>
                 </div>
                 <div className="bg-muted rounded-full p-3">
-                  <Shield className="text-muted-foreground h-6 w-6" />
+                  <Users className="text-muted-foreground h-6 w-6" />
                 </div>
               </div>
             </div>
@@ -256,7 +221,17 @@ export function MembersListClient({ members }: MembersListClientProps) {
 
       {/* User Roles Dialog */}
       <UserRolesDialog
-        user={selectedUser}
+        user={
+          selectedMember
+            ? {
+                id: selectedMember.id,
+                email: selectedMember.email,
+                firstName: selectedMember.firstName,
+                lastName: selectedMember.lastName,
+                profilePictureUrl: selectedMember.profilePictureUrl,
+              }
+            : null
+        }
         isOpen={isDialogOpen}
         onOpenChange={setIsDialogOpen}
       />

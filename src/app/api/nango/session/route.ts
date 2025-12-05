@@ -18,6 +18,13 @@ export async function POST() {
 
     const workspace = await getWorkspaceContext(user.id);
 
+    if (!workspace) {
+      return NextResponse.json(
+        { error: "No organization found" },
+        { status: 400 },
+      );
+    }
+
     if (!env.NANGO_SECRET_KEY_DEV) {
       console.error("[Nango Session] NANGO_SECRET_KEY_DEV is not configured");
       return NextResponse.json(

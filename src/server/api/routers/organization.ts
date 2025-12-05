@@ -1,218 +1,126 @@
 import { z } from "zod";
 
-import { createTRPCRouter, workspaceProcedure } from "@/server/api/trpc";
-import { getDirectoryData } from "@/server/api/utils/authorization";
+import {
+  createTRPCRouter,
+  protectedProcedure,
+  workspaceProcedure,
+} from "@/server/api/trpc";
+import {
+  createOrganizationForUser,
+  getWorkspaceContext,
+} from "@/server/api/utils/authorization";
 import { workos } from "@/server/workos";
 
+type Member = {
+  id: string;
+  email: string;
+  firstName: string | null;
+  lastName: string | null;
+  profilePictureUrl: string | null;
+  jobTitle?: string | null;
+  groups?: Array<{ id: string; name: string }>;
+  source: "membership" | "directory" | "both";
+  canLogin: boolean;
+};
+
 export const organizationRouter = createTRPCRouter({
-  getCurrent: workspaceProcedure.query(async ({ ctx }) => {
-    if (ctx.workspace.type === "directory") {
-      const { directory, users } = await getDirectoryData();
+  /**
+   * Get current organization info and user.
+   * Returns null if user has no organization.
+   */
+  getCurrent: protectedProcedure.query(async ({ ctx }) => {
+    const workspace = await getWorkspaceContext(ctx.user.id);
 
-      const currentUser = await workos.userManagement.getUser(ctx.user.id);
-      const userEmail = currentUser.email.toLowerCase();
-      const directoryUser = users.find(
-        (u) => u.email?.toLowerCase() === userEmail,
-      );
-
-      return {
-        organization: {
-          id: directory.organizationId,
-          name: directory.name,
-          object: "organization" as const,
-          createdAt: directory.createdAt,
-          updatedAt: directory.updatedAt,
-        },
-        membership: {
-          id: directoryUser?.id ?? ctx.user.id,
-          userId: ctx.user.id,
-          organizationId: directory.organizationId,
-          role: { slug: directoryUser?.role?.slug ?? "member" },
-          status: directoryUser?.state ?? "active",
-        },
-        directoryUser,
-        currentUser,
-      };
-    }
-
-    if (ctx.workspace.type === "organization") {
-      const [memberships, currentUser] = await Promise.all([
-        workos.userManagement.listOrganizationMemberships({
-          userId: ctx.user.id,
-          organizationId: ctx.workspace.organizationId,
-        }),
-        workos.userManagement.getUser(ctx.user.id),
-      ]);
-
-      if (!memberships.data[0]) return null;
-
-      const organization = await workos.organizations.getOrganization(
-        ctx.workspace.organizationId,
-      );
-
-      return {
-        organization,
-        membership: memberships.data[0],
-        currentUser,
-      };
+    if (!workspace) {
+      return null;
     }
 
     const currentUser = await workos.userManagement.getUser(ctx.user.id);
 
     return {
-      organization: {
-        id: ctx.workspace.organizationId,
-        name: "Personal Workspace",
-        object: "organization" as const,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      },
-      membership: {
-        id: ctx.user.id,
-        userId: ctx.user.id,
-        organizationId: ctx.workspace.organizationId,
-        role: { slug: "owner" },
-        status: "active",
-      },
+      organization: workspace.organization,
+      organizationId: workspace.organizationId,
+      directory: workspace.directory ?? null,
+      hasDirectorySync: !!workspace.directory,
       currentUser,
     };
   }),
 
-  getCurrentOrgMembers: workspaceProcedure.query(async ({ ctx }) => {
-    if (ctx.workspace.type === "directory") {
-      const { directory, users } = await getDirectoryData();
+  /**
+   * Create a new organization for the current user.
+   */
+  create: protectedProcedure
+    .input(z.object({ name: z.string().min(1).max(100) }))
+    .mutation(async ({ ctx, input }) => {
+      const existing = await getWorkspaceContext(ctx.user.id);
+      if (existing) {
+        return existing;
+      }
+      return createOrganizationForUser(ctx.user.id, input.name);
+    }),
 
-      return users.map((directoryUser) => ({
-        membership: {
-          id: directoryUser.id,
-          userId: directoryUser.id,
-          organizationId: directory.organizationId,
-          role: { slug: directoryUser.role?.slug ?? "member" },
-          status: directoryUser.state,
-          createdAt: directoryUser.createdAt,
-          updatedAt: directoryUser.updatedAt,
-        },
-        user: {
-          id: directoryUser.id,
-          email: directoryUser.email,
-          firstName: directoryUser.firstName,
-          lastName: directoryUser.lastName,
-          emailVerified: directoryUser.state === "active",
-          profilePictureUrl:
-            (directoryUser as unknown as Record<string, unknown>).avatarUrl ??
-            null,
-          jobTitle: directoryUser.jobTitle,
-          groups: directoryUser.groups,
-          customAttributes: directoryUser.customAttributes,
-        },
-        directoryUser,
-      }));
-    }
+  /**
+   * Get all members - combines directory users + org members.
+   * Single source: WorkOS. Deduplicates by email.
+   */
+  getMembers: workspaceProcedure.query(async ({ ctx }) => {
+    const memberMap = new Map<string, Member>();
+    const orgMemberEmails = new Set<string>();
 
-    if (ctx.workspace.type === "organization") {
-      const memberships =
-        await workos.userManagement.listOrganizationMemberships({
-          organizationId: ctx.workspace.organizationId,
+    const memberships = await workos.userManagement.listOrganizationMemberships(
+      {
+        organizationId: ctx.workspace.organizationId,
+      },
+    );
+
+    await Promise.all(
+      memberships.data.map(async (m) => {
+        const user = await workos.userManagement.getUser(m.userId);
+        const emailLower = user.email.toLowerCase();
+        orgMemberEmails.add(emailLower);
+        memberMap.set(emailLower, {
+          id: user.id,
+          email: user.email,
+          firstName: user.firstName,
+          lastName: user.lastName,
+          profilePictureUrl: user.profilePictureUrl,
+          source: "membership",
+          canLogin: true,
+        });
+      }),
+    );
+
+    if (ctx.workspace.directory) {
+      let after: string | undefined;
+      do {
+        const response = await workos.directorySync.listUsers({
+          directory: ctx.workspace.directory.id,
+          limit: 100,
+          after,
         });
 
-      const membersWithDetails = await Promise.all(
-        memberships.data.map(async (membership) => {
-          const user = await workos.userManagement.getUser(membership.userId);
-          return { membership, user };
-        }),
-      );
+        for (const dirUser of response.data) {
+          if (dirUser.email) {
+            const emailLower = dirUser.email.toLowerCase();
+            const isOrgMember = orgMemberEmails.has(emailLower);
+            memberMap.set(emailLower, {
+              id: dirUser.id,
+              email: dirUser.email,
+              firstName: dirUser.firstName,
+              lastName: dirUser.lastName,
+              profilePictureUrl: null,
+              jobTitle: dirUser.jobTitle,
+              groups: dirUser.groups,
+              source: isOrgMember ? "both" : "directory",
+              canLogin: isOrgMember,
+            });
+          }
+        }
 
-      return membersWithDetails;
+        after = response.listMetadata?.after;
+      } while (after);
     }
 
-    const currentUser = await workos.userManagement.getUser(ctx.user.id);
-
-    return [
-      {
-        membership: {
-          id: ctx.user.id,
-          userId: ctx.user.id,
-          organizationId: ctx.workspace.organizationId,
-          role: { slug: "owner" },
-          status: "active",
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-        },
-        user: currentUser,
-      },
-    ];
+    return Array.from(memberMap.values());
   }),
-
-  getOrganization: workspaceProcedure
-    .input(z.object({ id: z.string() }))
-    .query(async ({ ctx, input }) => {
-      if (input.id !== ctx.workspace.organizationId) {
-        return null;
-      }
-
-      if (ctx.workspace.type === "directory") {
-        const { directory } = await getDirectoryData();
-        return {
-          id: directory.organizationId,
-          name: directory.name,
-          object: "organization" as const,
-          createdAt: directory.createdAt,
-          updatedAt: directory.updatedAt,
-        };
-      }
-
-      if (ctx.workspace.type === "organization") {
-        return workos.organizations.getOrganization(input.id);
-      }
-
-      return {
-        id: ctx.workspace.organizationId,
-        name: "Personal Workspace",
-        object: "organization" as const,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      };
-    }),
-
-  getOrganizationMembers: workspaceProcedure
-    .input(z.object({ organizationId: z.string() }))
-    .query(async ({ ctx, input }) => {
-      if (input.organizationId !== ctx.workspace.organizationId) {
-        return [];
-      }
-
-      if (ctx.workspace.type === "directory") {
-        const { directory, users } = await getDirectoryData();
-
-        return users.map((directoryUser) => ({
-          id: directoryUser.id,
-          userId: directoryUser.id,
-          organizationId: directory.organizationId,
-          role: { slug: directoryUser.role?.slug ?? "member" },
-          status: directoryUser.state,
-          createdAt: directoryUser.createdAt,
-          updatedAt: directoryUser.updatedAt,
-        }));
-      }
-
-      if (ctx.workspace.type === "organization") {
-        const memberships =
-          await workos.userManagement.listOrganizationMemberships({
-            organizationId: input.organizationId,
-          });
-        return memberships.data;
-      }
-
-      return [
-        {
-          id: ctx.user.id,
-          userId: ctx.user.id,
-          organizationId: ctx.workspace.organizationId,
-          role: { slug: "owner" },
-          status: "active",
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-        },
-      ];
-    }),
 });
