@@ -33,6 +33,11 @@ export const templates: MetricTemplate[] = [
     metricEndpoint:
       "https://youtubeanalytics.googleapis.com/v2/reports?ids=channel==MINE&metrics=views&dimensions=day&startDate=28daysAgo&endDate=today",
 
+    // Architecture config
+    historicalDataLimit: "28d",
+    defaultPollFrequency: "daily",
+    isTimeSeries: true,
+
     requiredParams: [],
   },
   {
@@ -46,6 +51,11 @@ export const templates: MetricTemplate[] = [
     metricEndpoint:
       "https://youtubeanalytics.googleapis.com/v2/reports?ids=channel==MINE&metrics=likes&dimensions=day&startDate=28daysAgo&endDate=today",
 
+    // Architecture config
+    historicalDataLimit: "28d",
+    defaultPollFrequency: "daily",
+    isTimeSeries: true,
+
     requiredParams: [],
   },
   {
@@ -58,6 +68,11 @@ export const templates: MetricTemplate[] = [
 
     metricEndpoint:
       "https://youtubeanalytics.googleapis.com/v2/reports?ids=channel==MINE&metrics=subscribersGained&dimensions=day&startDate=28daysAgo&endDate=today",
+
+    // Architecture config
+    historicalDataLimit: "28d",
+    defaultPollFrequency: "daily",
+    isTimeSeries: true,
 
     requiredParams: [],
   },
@@ -73,6 +88,11 @@ export const templates: MetricTemplate[] = [
 
     metricEndpoint:
       "https://youtubeanalytics.googleapis.com/v2/reports?ids=channel==MINE&metrics=views&dimensions=day&startDate=28daysAgo&endDate=today&filters=video=={VIDEO_ID}",
+
+    // Architecture config
+    historicalDataLimit: "28d",
+    defaultPollFrequency: "daily",
+    isTimeSeries: true,
 
     requiredParams: [
       {
@@ -100,6 +120,11 @@ export const templates: MetricTemplate[] = [
 
     metricEndpoint:
       "https://youtubeanalytics.googleapis.com/v2/reports?ids=channel==MINE&metrics=likes&dimensions=day&startDate=28daysAgo&endDate=today&filters=video=={VIDEO_ID}",
+
+    // Architecture config
+    historicalDataLimit: "28d",
+    defaultPollFrequency: "daily",
+    isTimeSeries: true,
 
     requiredParams: [
       {

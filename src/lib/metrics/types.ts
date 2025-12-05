@@ -65,6 +65,11 @@ export interface MetricTemplate {
 
   // Optional: preview/validation endpoints
   previewEndpoint?: string;
+
+  // New fields for metrics architecture
+  historicalDataLimit?: string; // "30d", "90d", "365d" - how far back to fetch on creation
+  defaultPollFrequency?: "frequent" | "hourly" | "daily" | "weekly" | "manual";
+  isTimeSeries?: boolean; // default true, false for snapshot data (Google Sheets)
 }
 
 // =============================================================================

@@ -2,7 +2,6 @@ import type { Prisma } from "@prisma/client";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 
-import { transformMetricWithAI } from "@/server/api/services/chart-tools/ai-transformer";
 import { createTRPCRouter, workspaceProcedure } from "@/server/api/trpc";
 
 export const dashboardRouter = createTRPCRouter({
@@ -112,51 +111,11 @@ export const dashboardRouter = createTRPCRouter({
     }),
 
   /**
-   * Transform raw API data into chart format using AI
-   * Called from frontend with pre-fetched data for faster UX
+   * TODO: Transform raw API data into chart format using ChartTransformer
+   * See METRICS_ARCHITECTURE_PLAN.md for implementation details
+   *
+   * This procedure was removed as part of the pre-refactor cleanup.
+   * The new architecture will use saved ChartTransformer code instead of
+   * calling AI on every transformation.
    */
-  transformChartWithAI: workspaceProcedure
-    .input(
-      z.object({
-        metricConfig: z.object({
-          name: z.string(),
-          description: z.string().optional(),
-          metricTemplate: z.string(),
-          endpointConfig: z.record(z.string()),
-        }),
-        rawData: z.unknown(),
-        userHint: z.string().optional(),
-      }),
-    )
-    .mutation(async ({ input }) => {
-      // Create a metric-like object for the AI transformer
-      const metricLike = {
-        id: "",
-        name: input.metricConfig.name,
-        description: input.metricConfig.description ?? null,
-        organizationId: "",
-        teamId: null,
-        integrationId: null,
-        metricTemplate: input.metricConfig.metricTemplate,
-        endpointConfig: input.metricConfig.endpointConfig,
-        lastFetchedAt: null,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      };
-
-      const result = await transformMetricWithAI(
-        metricLike,
-        input.rawData,
-        input.userHint,
-      );
-
-      if (!result.success || !result.data) {
-        throw new TRPCError({
-          code: "INTERNAL_SERVER_ERROR",
-          message: result.error ?? "AI transformation failed",
-        });
-      }
-
-      return result.data;
-    }),
 });

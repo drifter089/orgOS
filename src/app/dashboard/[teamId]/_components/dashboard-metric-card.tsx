@@ -5,7 +5,6 @@ import { useCallback, useState } from "react";
 import { BarChart3, Loader2, Settings, Trash2, Users } from "lucide-react";
 import { toast } from "sonner";
 
-import { getTemplate } from "@/app/metric/registry";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useConfirmation } from "@/providers/ConfirmationDialogProvider";
@@ -124,8 +123,7 @@ export function DashboardMetricCard({
     },
   });
 
-  // Direct mutations for transform + save (no Zustand store)
-  const transformMutation = api.dashboard.transformChartWithAI.useMutation();
+  // Direct mutations for save (transform removed - see METRICS_ARCHITECTURE_PLAN.md)
   const updateChartMutation =
     api.dashboard.updateDashboardMetricChart.useMutation();
   const updateMetricMutation = api.metric.update.useMutation({
@@ -150,106 +148,26 @@ export function DashboardMetricCard({
     },
   });
 
+  /**
+   * TODO: Chart refresh will be reimplemented as part of METRICS_ARCHITECTURE_PLAN.md
+   *
+   * The new flow will:
+   * 1. Fetch data via MetricTransformer
+   * 2. Store in MetricDataPoints
+   * 3. Execute ChartTransformer to update graphConfig
+   *
+   * For now, refresh is disabled.
+   */
   const handleRefresh = useCallback(
-    async (userHint?: string) => {
+    async (_userHint?: string) => {
       if (!isIntegrationMetric || !metric.metricTemplate || !metric.integration)
         return;
 
-      const template = getTemplate(metric.metricTemplate);
-      if (!template) {
-        toast.error("Metric template not found");
-        return;
-      }
-
-      setIsProcessing(true);
-      try {
-        const endpointParams =
-          (metric.endpointConfig as Record<string, string>) ?? {};
-        let endpoint = template.metricEndpoint;
-        for (const [key, value] of Object.entries(endpointParams)) {
-          endpoint = endpoint.replace(`{${key}}`, encodeURIComponent(value));
-        }
-
-        // Build body if template has one (e.g., PostHog HogQL queries)
-        let body: unknown = undefined;
-        if (template.requestBody) {
-          let bodyStr =
-            typeof template.requestBody === "string"
-              ? template.requestBody
-              : JSON.stringify(template.requestBody);
-          for (const [key, value] of Object.entries(endpointParams)) {
-            bodyStr = bodyStr.replace(new RegExp(`\\{${key}\\}`, "g"), value);
-          }
-          body = JSON.parse(bodyStr);
-        }
-
-        const rawData = await utils.metric.fetchIntegrationData.fetch({
-          connectionId: metric.integration.connectionId,
-          integrationId: metric.integration.integrationId,
-          endpoint,
-          method: template.method,
-          body,
-        });
-
-        if (!rawData?.data) {
-          toast.error("Failed to fetch data");
-          return;
-        }
-
-        // Log raw data for debugging
-        console.info("[Chart Refresh] Raw API data:", {
-          metricName: metric.name,
-          templateId: metric.metricTemplate,
-          endpoint,
-          dataType: typeof rawData.data,
-          dataLength: Array.isArray(rawData.data)
-            ? rawData.data.length
-            : "not array",
-          data: rawData.data,
-        });
-
-        const chartResult = await transformMutation.mutateAsync({
-          metricConfig: {
-            name: metric.name,
-            description: metric.description ?? undefined,
-            metricTemplate: metric.metricTemplate,
-            endpointConfig: endpointParams,
-          },
-          rawData: rawData.data,
-          userHint,
-        });
-
-        const updated = await updateChartMutation.mutateAsync({
-          dashboardMetricId: dashboardMetric.id,
-          graphType: chartResult.chartType,
-          graphConfig: chartResult as unknown as Record<string, unknown>,
-        });
-
-        const teamId = metric.teamId;
-        utils.dashboard.getDashboardMetrics.setData(undefined, (old) =>
-          old?.map((dm) => (dm.id === updated.id ? updated : dm)),
-        );
-        if (teamId) {
-          utils.dashboard.getDashboardMetrics.setData({ teamId }, (old) =>
-            old?.map((dm) => (dm.id === updated.id ? updated : dm)),
-          );
-        }
-      } catch (error) {
-        console.error("Refresh failed:", error);
-        toast.error("Failed to refresh chart");
-      } finally {
-        setIsProcessing(false);
-        setPrompt("");
-      }
+      toast.info(
+        "Chart refresh is temporarily disabled. Will be available after architecture update.",
+      );
     },
-    [
-      isIntegrationMetric,
-      metric,
-      dashboardMetric.id,
-      transformMutation,
-      updateChartMutation,
-      utils,
-    ],
+    [isIntegrationMetric, metric.metricTemplate, metric.integration],
   );
 
   const handleRemove = async () => {

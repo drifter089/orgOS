@@ -1,7 +1,7 @@
 "use client";
 
+import { MetricDialogBase } from "../base/MetricDialogBase";
 import { GitHubMetricContent } from "./GitHubMetricContent";
-import { MetricDialogBase } from "./MetricDialogBase";
 
 interface GitHubMetricDialogProps {
   trigger?: React.ReactNode;

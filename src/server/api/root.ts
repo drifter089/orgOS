@@ -9,6 +9,7 @@ import { roleRouter } from "@/server/api/routers/role";
 import { systemsCanvasRouter } from "@/server/api/routers/systems-canvas";
 import { taskRouter } from "@/server/api/routers/task";
 import { teamRouter } from "@/server/api/routers/team";
+import { transformerRouter } from "@/server/api/routers/transformer";
 import { createCallerFactory, createTRPCRouter } from "@/server/api/trpc";
 
 /**
@@ -28,6 +29,7 @@ export const appRouter = createTRPCRouter({
   systemsCanvas: systemsCanvasRouter,
   publicView: publicViewRouter,
   adminPortal: adminPortalRouter,
+  transformer: transformerRouter,
 });
 
 // export type definition of API
