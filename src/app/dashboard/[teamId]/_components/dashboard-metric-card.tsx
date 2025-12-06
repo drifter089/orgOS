@@ -179,7 +179,6 @@ export function DashboardMetricCard({
     try {
       const result = await executeMetricTransformerMutation.mutateAsync({
         metricId: metric.id,
-        saveToDb: true,
       });
 
       if (result.success) {

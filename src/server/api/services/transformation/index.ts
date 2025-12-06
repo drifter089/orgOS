@@ -7,14 +7,14 @@
 // Types
 export * from "./types";
 
-// AI Generator - generates transformer code
+// AI Generator - generates transformer code (internal use)
 export {
   generateMetricTransformerCode,
   generateChartTransformerCode,
   regenerateMetricTransformerCode,
 } from "./ai-generator";
 
-// Executor - safely executes transformer code
+// Executor - safely executes transformer code (internal use)
 export {
   executeMetricTransformer,
   executeChartTransformer,
@@ -23,16 +23,14 @@ export {
   testChartTransformer,
 } from "./executor";
 
-// MetricTransformer Service - full workflow for MetricTransformers
+// Unified Transformer - main entry point for metric data transformation
 export {
-  getOrCreateMetricTransformer,
-  executeTransformerForMetric,
-  handleTransformerFailure,
-  saveDataPoints,
+  transformAndSaveMetricData,
+  executeTransformerForPolling,
   getTransformerByTemplateId,
-} from "./metric-transformer";
+} from "./transformer";
 
-// ChartTransformer Service - full workflow for ChartTransformers
+// ChartTransformer Service - for chart configuration
 export {
   createChartTransformer,
   executeChartTransformerForMetric,

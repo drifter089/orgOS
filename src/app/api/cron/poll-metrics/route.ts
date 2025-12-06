@@ -16,9 +16,7 @@ import { env } from "@/env";
 import { getTemplate } from "@/lib/integrations";
 import {
   executeChartTransformerForMetric,
-  executeTransformerForMetric,
-  handleTransformerFailure,
-  saveDataPoints,
+  executeTransformerForPolling,
 } from "@/server/api/services/transformation";
 import { db } from "@/server/db";
 
@@ -112,21 +110,21 @@ export async function GET(request: Request) {
         const template = getTemplate(metric.metricTemplate);
         const isTimeSeries = template?.isTimeSeries !== false;
 
-        // Execute the transformer to fetch and transform data
-        const transformResult = await executeTransformerForMetric({
+        // Execute the unified transformer (single fetch, batch save)
+        const transformResult = await executeTransformerForPolling({
           templateId: metric.metricTemplate,
           integrationId: metric.integration.integrationId,
           connectionId: metric.integration.connectionId,
+          metricId: metric.id,
           endpointConfig:
             (metric.endpointConfig as Record<string, string>) ?? {},
+          isTimeSeries,
         });
 
-        if (!transformResult.success || !transformResult.dataPoints) {
-          // Handle failure
+        if (!transformResult.success) {
           results.failed++;
           results.errors.push(`${metric.name}: ${transformResult.error}`);
 
-          // Update metric with error
           await db.metric.update({
             where: { id: metric.id },
             data: {
@@ -135,27 +133,8 @@ export async function GET(request: Request) {
             },
           });
 
-          // Check if we need to trigger regeneration
-          if (transformResult.error) {
-            await handleTransformerFailure({
-              templateId: metric.metricTemplate,
-              integrationId: metric.integration.integrationId,
-              connectionId: metric.integration.connectionId,
-              endpointConfig:
-                (metric.endpointConfig as Record<string, string>) ?? {},
-              error: transformResult.error,
-            });
-          }
-
           continue;
         }
-
-        // Save data points
-        await saveDataPoints(
-          metric.id,
-          transformResult.dataPoints,
-          isTimeSeries,
-        );
 
         // Update metric timestamps
         await db.metric.update({
@@ -177,7 +156,6 @@ export async function GET(request: Request) {
                 `[CRON] Chart transformer error for ${dm.id}:`,
                 chartError,
               );
-              // Don't fail the whole metric if chart update fails
             }
           }
         }

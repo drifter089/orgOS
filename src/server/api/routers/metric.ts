@@ -5,9 +5,7 @@ import { getTemplate } from "@/lib/integrations";
 import { fetchData } from "@/server/api/services/data-fetching";
 import {
   createChartTransformer,
-  executeTransformerForMetric,
-  getOrCreateMetricTransformer,
-  saveDataPoints,
+  transformAndSaveMetricData,
 } from "@/server/api/services/transformation";
 import { createTRPCRouter, workspaceProcedure } from "@/server/api/trpc";
 import { getIntegrationAndVerifyAccess } from "@/server/api/utils/authorization";
@@ -51,8 +49,8 @@ export const metricRouter = createTRPCRouter({
     }),
 
   /**
-   * Create a metric AND its dashboard metric entry in a single transaction.
-   * Also creates/gets MetricTransformer, fetches initial data, and creates ChartTransformer.
+   * Create a metric with initial data using the unified transformer flow.
+   * Single API fetch, transaction-locked transformer creation, batch data saves.
    */
   create: workspaceProcedure
     .input(
@@ -74,7 +72,7 @@ export const metricRouter = createTRPCRouter({
         ctx.workspace,
       );
 
-      // Get template definition for isTimeSeries flag
+      // Get template definition
       const template = getTemplate(input.templateId);
       if (!template) {
         throw new TRPCError({
@@ -88,20 +86,7 @@ export const metricRouter = createTRPCRouter({
         where: { organizationId: ctx.workspace.organizationId },
       });
 
-      // Step 1: Get or create MetricTransformer for this template
-      // This is shared across all metrics using the same template
-      const { isNew: isNewTransformer } = await getOrCreateMetricTransformer({
-        templateId: input.templateId,
-        integrationId: integration.integrationId,
-        connectionId: input.connectionId,
-        endpointConfig: input.endpointParams,
-      });
-
-      console.info(
-        `[metric.create] MetricTransformer ${isNewTransformer ? "created" : "already exists"} for template: ${input.templateId}`,
-      );
-
-      // Step 2: Create metric + dashboard metric in transaction
+      // Step 1: Create metric + dashboard metric in transaction
       const dashboardMetric = await ctx.db.$transaction(
         async (tx) => {
           const metric = await tx.metric.create({
@@ -114,15 +99,15 @@ export const metricRouter = createTRPCRouter({
               endpointConfig: input.endpointParams,
               teamId: input.teamId,
               pollFrequency: template.defaultPollFrequency ?? "daily",
-              nextPollAt: new Date(), // Ready to poll immediately
+              nextPollAt: new Date(),
             },
           });
 
-          const dm = await tx.dashboardMetric.create({
+          return tx.dashboardMetric.create({
             data: {
               organizationId: ctx.workspace.organizationId,
               metricId: metric.id,
-              graphType: "bar",
+              graphType: "line",
               graphConfig: {},
               size: "medium",
               position: count,
@@ -136,56 +121,41 @@ export const metricRouter = createTRPCRouter({
               },
             },
           });
-
-          return dm;
         },
         { timeout: 15000 },
       );
 
-      // Step 3: Execute transformer and save initial data points
-      const transformResult = await executeTransformerForMetric({
+      // Step 2: Transform and save data (single fetch, batch save)
+      const transformResult = await transformAndSaveMetricData({
         templateId: input.templateId,
         integrationId: integration.integrationId,
         connectionId: input.connectionId,
+        metricId: dashboardMetric.metricId,
         endpointConfig: input.endpointParams,
+        isTimeSeries: template.isTimeSeries !== false,
       });
 
-      if (transformResult.success && transformResult.dataPoints) {
-        const isTimeSeries = template.isTimeSeries !== false; // default true
-        await saveDataPoints(
-          dashboardMetric.metricId,
-          transformResult.dataPoints,
-          isTimeSeries,
-        );
-
+      if (transformResult.success) {
         console.info(
-          `[metric.create] Saved ${transformResult.dataPoints.length} data points for metric: ${dashboardMetric.metricId}`,
+          `[metric.create] Saved ${transformResult.dataPoints?.length ?? 0} data points`,
         );
 
-        // Step 4: Create ChartTransformer with initial chart config
+        // Step 3: Create ChartTransformer
         try {
           await createChartTransformer({
             dashboardMetricId: dashboardMetric.id,
             metricName: input.name,
             metricDescription: input.description ?? template.description,
-            chartType: "line", // Default to line chart for time-series
+            chartType: "line",
             dateRange: "30d",
             aggregation: "none",
           });
-
-          console.info(
-            `[metric.create] Created ChartTransformer for dashboard metric: ${dashboardMetric.id}`,
-          );
         } catch (chartError) {
-          // Log but don't fail the entire metric creation
-          console.error(
-            `[metric.create] Failed to create ChartTransformer:`,
-            chartError,
-          );
+          console.error(`[metric.create] ChartTransformer failed:`, chartError);
         }
       } else {
         console.error(
-          `[metric.create] Failed to execute transformer:`,
+          `[metric.create] Transform failed:`,
           transformResult.error,
         );
       }
@@ -196,7 +166,7 @@ export const metricRouter = createTRPCRouter({
         data: { lastFetchedAt: new Date() },
       });
 
-      // Re-fetch to get updated data (with chart config if created)
+      // Return fresh data
       const result = await ctx.db.dashboardMetric.findUnique({
         where: { id: dashboardMetric.id },
         include: {
@@ -209,7 +179,6 @@ export const metricRouter = createTRPCRouter({
         },
       });
 
-      // Should never happen since we just created it
       if (!result) {
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",

@@ -238,41 +238,19 @@ model MetricDataPoint {
     @@unique([metricId, timestamp])
 }
 
-// MetricTransformer - Transforms raw API data into DataPoints
-// One per template. Shared across ALL orgs.
+// MetricTransformer - AI-generated code that transforms API data into DataPoints
+// One per template. Shared across ALL orgs. Endpoint config comes from template definition.
 model MetricTransformer {
-    id          String @id @default(cuid())
-    templateId  String @unique  // "github-repo-stars", "youtube-video-stats"
+    id              String   @id @default(cuid())
+    templateId      String   @unique
 
-    // Endpoint configuration
-    historicalEndpoint String?   // Endpoint for fetching historical data
-    historicalMethod   String?   // "GET" or "POST" for historical
-    historicalBody     Json?     // Request body for historical POST endpoints
+    // AI-generated JavaScript code: (apiResponse, endpointConfig) => DataPoint[]
+    transformerCode String   @db.Text
 
-    pollingEndpoint    String?   // Endpoint for incremental updates
-    pollingMethod      String?   // "GET" or "POST" for polling
-    pollingBody        Json?     // Request body for polling POST endpoints
-
-    // Transformation code (TypeScript)
-    // If endpoints return same structure: only transformerCode is used
-    // If endpoints return different structures: use historicalTransformerCode for historical
-    transformerCode            String  @db.Text   // Primary transformer (used for polling, and historical if same structure)
-    historicalTransformerCode  String? @db.Text   // Only if historical endpoint returns different structure
-
-    // Documentation (for AI regeneration, debugging)
-    inputExample   Json?   // Example API response (used to generate this transformer)
-    outputExample  Json?   // Example transformed output
-
-    // Versioning & Status
-    version      Int    @default(1)
-    status       String @default("active")  // "active", "deprecated", "failed"
-    failureCount Int    @default(0)         // Increment on failure, reset on success
-
-    createdAt DateTime @default(now())
-    updatedAt DateTime @updatedAt
+    createdAt       DateTime @default(now())
+    updatedAt       DateTime @updatedAt
 
     @@index([templateId])
-    @@index([status])
 }
 
 // ChartTransformer - Transforms DataPoints into ChartConfig

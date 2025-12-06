@@ -1,21 +1,21 @@
 /**
  * Transformer tRPC Router
  *
- * Handles transformer CRUD and execution:
- * - MetricTransformer: Raw API → DataPoints
+ * Handles transformer operations:
+ * - MetricTransformer: Raw API → DataPoints (via unified flow)
  * - ChartTransformer: DataPoints → ChartConfig
  */
 import { z } from "zod";
 
+import { getTemplate } from "@/lib/integrations";
 import {
   createChartTransformer,
   executeChartTransformerForMetric,
-  executeTransformerForMetric,
+  executeTransformerForPolling,
   getChartTransformerByMetricId,
-  getOrCreateMetricTransformer,
   getTransformerByTemplateId,
   regenerateChartTransformer,
-  saveDataPoints,
+  transformAndSaveMetricData,
 } from "@/server/api/services/transformation";
 import { createTRPCRouter, workspaceProcedure } from "@/server/api/trpc";
 import { db } from "@/server/db";
@@ -24,25 +24,6 @@ export const transformerRouter = createTRPCRouter({
   // ===========================================================================
   // MetricTransformer Procedures
   // ===========================================================================
-
-  /**
-   * Get or create a MetricTransformer for a template
-   *
-   * If transformer exists and is active, returns it.
-   * If not, fetches sample data from API and generates new transformer with AI.
-   */
-  getOrCreateMetricTransformer: workspaceProcedure
-    .input(
-      z.object({
-        templateId: z.string(),
-        integrationId: z.string(),
-        connectionId: z.string(),
-        endpointConfig: z.record(z.string()),
-      }),
-    )
-    .mutation(async ({ input }) => {
-      return getOrCreateMetricTransformer(input);
-    }),
 
   /**
    * Get MetricTransformer by templateId
@@ -56,14 +37,12 @@ export const transformerRouter = createTRPCRouter({
   /**
    * Execute MetricTransformer for a specific metric
    *
-   * Fetches data from API and transforms to DataPoints.
-   * Optionally saves to database.
+   * Uses unified flow: single fetch, batch save.
    */
   executeMetricTransformer: workspaceProcedure
     .input(
       z.object({
         metricId: z.string(),
-        saveToDb: z.boolean().default(true),
       }),
     )
     .mutation(async ({ input }) => {
@@ -77,35 +56,73 @@ export const transformerRouter = createTRPCRouter({
         return { success: false, error: "Metric not found or not configured" };
       }
 
-      // Execute the transformer
-      const result = await executeTransformerForMetric({
+      // Get template for isTimeSeries
+      const template = getTemplate(metric.metricTemplate);
+      const isTimeSeries = template?.isTimeSeries !== false;
+
+      // Use the unified transform and save flow
+      const result = await executeTransformerForPolling({
         templateId: metric.metricTemplate,
         integrationId: metric.integration.integrationId,
         connectionId: metric.integration.connectionId,
+        metricId: metric.id,
         endpointConfig: (metric.endpointConfig as Record<string, string>) ?? {},
+        isTimeSeries,
       });
 
-      if (!result.success || !result.dataPoints) {
+      if (!result.success) {
         return { success: false, error: result.error };
       }
 
-      // Optionally save to database
-      if (input.saveToDb && result.dataPoints.length > 0) {
-        // TODO: Get isTimeSeries from template
-        await saveDataPoints(input.metricId, result.dataPoints, true);
+      // Update metric lastFetchedAt
+      await db.metric.update({
+        where: { id: input.metricId },
+        data: { lastFetchedAt: new Date(), lastError: null },
+      });
 
-        // Update metric lastFetchedAt
+      return {
+        success: true,
+        dataPointCount: result.dataPoints?.length ?? 0,
+        dataPoints: result.dataPoints?.slice(0, 10), // Return first 10 for preview
+      };
+    }),
+
+  /**
+   * Force refresh metric data with transformer creation if needed
+   */
+  refreshMetricData: workspaceProcedure
+    .input(z.object({ metricId: z.string() }))
+    .mutation(async ({ input }) => {
+      const metric = await db.metric.findUnique({
+        where: { id: input.metricId },
+        include: { integration: true },
+      });
+
+      if (!metric || !metric.metricTemplate || !metric.integration) {
+        return { success: false, error: "Metric not found or not configured" };
+      }
+
+      const template = getTemplate(metric.metricTemplate);
+      const isTimeSeries = template?.isTimeSeries !== false;
+
+      // Use full unified flow (creates transformer if needed)
+      const result = await transformAndSaveMetricData({
+        templateId: metric.metricTemplate,
+        integrationId: metric.integration.integrationId,
+        connectionId: metric.integration.connectionId,
+        metricId: metric.id,
+        endpointConfig: (metric.endpointConfig as Record<string, string>) ?? {},
+        isTimeSeries,
+      });
+
+      if (result.success) {
         await db.metric.update({
           where: { id: input.metricId },
           data: { lastFetchedAt: new Date(), lastError: null },
         });
       }
 
-      return {
-        success: true,
-        dataPointCount: result.dataPoints.length,
-        dataPoints: result.dataPoints.slice(0, 10), // Return first 10 for preview
-      };
+      return result;
     }),
 
   /**
@@ -135,7 +152,6 @@ export const transformerRouter = createTRPCRouter({
       }),
     )
     .mutation(async ({ input }) => {
-      // Get the dashboard metric and its underlying metric
       const dashboardMetric = await db.dashboardMetric.findUnique({
         where: { id: input.dashboardMetricId },
         include: { metric: true },
@@ -167,8 +183,6 @@ export const transformerRouter = createTRPCRouter({
 
   /**
    * Execute ChartTransformer for a DashboardMetric
-   *
-   * Transforms stored DataPoints into chart config.
    */
   executeChartTransformer: workspaceProcedure
     .input(z.object({ dashboardMetricId: z.string() }))
