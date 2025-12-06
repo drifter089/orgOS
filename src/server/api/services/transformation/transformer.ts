@@ -160,10 +160,15 @@ export async function transformAndSaveMetricData(
 // =============================================================================
 
 /**
- * Get or create transformer with database-level locking
+ * Get or create transformer with optimistic concurrency
  *
- * Uses Prisma transaction to prevent race conditions where multiple
- * requests try to create a transformer for the same template.
+ * IMPORTANT: AI generation happens OUTSIDE the transaction to prevent
+ * connection pool exhaustion. Uses upsert pattern to handle race conditions.
+ *
+ * Flow:
+ * 1. Quick check if transformer exists (no locks)
+ * 2. If not, generate code with AI (slow, outside transaction)
+ * 3. Upsert to DB (short transaction, handles race condition)
  */
 async function getOrCreateTransformerWithLock(
   templateId: string,
@@ -182,88 +187,89 @@ async function getOrCreateTransformerWithLock(
     });
   }
 
-  // Use serializable isolation to prevent race conditions
-  return db.$transaction(
-    async (tx) => {
-      // Check if transformer already exists
-      const existing = await tx.metricTransformer.findUnique({
-        where: { templateId },
-      });
+  // Step 1: Quick check if transformer already exists (no locks)
+  const existing = await db.metricTransformer.findUnique({
+    where: { templateId },
+  });
 
-      if (existing) {
-        return { transformer: existing, isNew: false };
-      }
+  if (existing) {
+    return { transformer: existing, isNew: false };
+  }
 
-      // No transformer exists - generate one
-      console.info(`[Transform] No transformer found, generating with AI...`);
+  // Step 2: No transformer exists - generate one OUTSIDE the transaction
+  // This prevents connection pool exhaustion from long-running AI calls
+  console.info(`[Transform] No transformer found, generating with AI...`);
 
-      const generated = await generateMetricTransformerCode({
-        templateId,
-        integrationId,
-        endpoint: template.metricEndpoint,
-        method: template.method ?? "GET",
-        sampleApiResponse: apiData,
-        metricDescription: template.description,
-        availableParams: template.requiredParams.map((p) => p.name),
-      });
+  const generated = await generateMetricTransformerCode({
+    templateId,
+    integrationId,
+    endpoint: template.metricEndpoint,
+    method: template.method ?? "GET",
+    sampleApiResponse: apiData,
+    metricDescription: template.description,
+    availableParams: template.requiredParams.map((p) => p.name),
+  });
 
-      // Test the transformer
-      const testResult = testMetricTransformer(
-        generated.code,
-        apiData,
-        endpointConfig,
-      );
-
-      let finalCode = generated.code;
-
-      // If first attempt fails, try regenerating once
-      if (!testResult.success) {
-        console.info(`[Transform] First attempt failed, regenerating...`);
-
-        const regenerated = await regenerateMetricTransformerCode({
-          templateId,
-          integrationId,
-          endpoint: template.metricEndpoint,
-          method: template.method ?? "GET",
-          sampleApiResponse: apiData,
-          metricDescription: template.description,
-          availableParams: template.requiredParams.map((p) => p.name),
-          previousCode: generated.code,
-          error: testResult.error,
-        });
-
-        const retestResult = testMetricTransformer(
-          regenerated.code,
-          apiData,
-          endpointConfig,
-        );
-
-        if (!retestResult.success) {
-          throw new TRPCError({
-            code: "INTERNAL_SERVER_ERROR",
-            message: `Failed to generate working transformer: ${retestResult.error}`,
-          });
-        }
-
-        finalCode = regenerated.code;
-      }
-
-      // Save the transformer (no sample data - shared across orgs)
-      const transformer = await tx.metricTransformer.create({
-        data: {
-          templateId,
-          transformerCode: finalCode,
-        },
-      });
-
-      console.info(`[Transform] Transformer created: ${transformer.id}`);
-      return { transformer, isNew: true };
-    },
-    {
-      isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
-      timeout: 60000, // 60 second timeout for AI generation
-    },
+  // Test the transformer
+  const testResult = testMetricTransformer(
+    generated.code,
+    apiData,
+    endpointConfig,
   );
+
+  let finalCode = generated.code;
+
+  // If first attempt fails, try regenerating once
+  if (!testResult.success) {
+    console.info(`[Transform] First attempt failed, regenerating...`);
+
+    const regenerated = await regenerateMetricTransformerCode({
+      templateId,
+      integrationId,
+      endpoint: template.metricEndpoint,
+      method: template.method ?? "GET",
+      sampleApiResponse: apiData,
+      metricDescription: template.description,
+      availableParams: template.requiredParams.map((p) => p.name),
+      previousCode: generated.code,
+      error: testResult.error,
+    });
+
+    const retestResult = testMetricTransformer(
+      regenerated.code,
+      apiData,
+      endpointConfig,
+    );
+
+    if (!retestResult.success) {
+      throw new TRPCError({
+        code: "INTERNAL_SERVER_ERROR",
+        message: `Failed to generate working transformer: ${retestResult.error}`,
+      });
+    }
+
+    finalCode = regenerated.code;
+  }
+
+  // Step 3: Upsert with short transaction to handle race condition
+  // If another request created the transformer while we were generating,
+  // the upsert will just return the existing one (no duplicate)
+  const transformer = await db.metricTransformer.upsert({
+    where: { templateId },
+    create: {
+      templateId,
+      transformerCode: finalCode,
+    },
+    update: {}, // If exists, don't update - first writer wins
+  });
+
+  // Check if we created it or found existing (created by concurrent request)
+  const isNew = transformer.createdAt.getTime() > Date.now() - 5000; // Created in last 5 seconds
+
+  console.info(
+    `[Transform] Transformer ${isNew ? "created" : "found (concurrent)"}: ${transformer.id}`,
+  );
+  return { transformer, isNew };
 }
 
 // =============================================================================

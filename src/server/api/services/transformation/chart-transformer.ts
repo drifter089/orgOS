@@ -387,12 +387,3 @@ export async function getChartTransformerByMetricId(dashboardMetricId: string) {
     where: { dashboardMetricId },
   });
 }
-
-/**
- * Delete ChartTransformer
- */
-export async function deleteChartTransformer(dashboardMetricId: string) {
-  await db.chartTransformer.delete({
-    where: { dashboardMetricId },
-  });
-}

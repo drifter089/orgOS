@@ -169,7 +169,7 @@ This template tracks: ${input.metricDescription}
 
 Parameters available in endpointConfig: ${input.availableParams.join(", ")}
 
-Generate the TypeScript transform function.`;
+Generate the JavaScript transform function.`;
 
   console.info(`[AI-Gen] Calling OpenRouter (claude-sonnet-4)...`);
   const startTime = Date.now();
@@ -261,7 +261,7 @@ Metric description: ${input.metricDescription}`;
     userPrompt += `\n\nUser request: "${input.userPrompt}"`;
   }
 
-  userPrompt += "\n\nGenerate the TypeScript transform function.";
+  userPrompt += "\n\nGenerate the JavaScript transform function.";
 
   console.info(`[AI-Gen-Chart] Calling OpenRouter (claude-sonnet-4)...`);
   const startTime = Date.now();
@@ -357,7 +357,7 @@ ${input.previousCode}`;
 ${input.error}`;
   }
 
-  userPrompt += "\n\nGenerate a FIXED TypeScript transform function.";
+  userPrompt += "\n\nGenerate a FIXED JavaScript transform function.";
 
   console.info(
     `[AI-Regen] Calling OpenRouter (claude-sonnet-4) with temp=0.2...`,

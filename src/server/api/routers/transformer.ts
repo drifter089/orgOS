@@ -5,6 +5,7 @@
  * - MetricTransformer: Raw API → DataPoints (via unified flow)
  * - ChartTransformer: DataPoints → ChartConfig
  */
+import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 
 import { getTemplate } from "@/lib/integrations";
@@ -27,6 +28,7 @@ export const transformerRouter = createTRPCRouter({
 
   /**
    * Get MetricTransformer by templateId
+   * Note: MetricTransformers are shared across all orgs (one per template)
    */
   getMetricTransformer: workspaceProcedure
     .input(z.object({ templateId: z.string() }))
@@ -45,7 +47,7 @@ export const transformerRouter = createTRPCRouter({
         metricId: z.string(),
       }),
     )
-    .mutation(async ({ input }) => {
+    .mutation(async ({ ctx, input }) => {
       // Get the metric with its integration
       const metric = await db.metric.findUnique({
         where: { id: input.metricId },
@@ -54,6 +56,14 @@ export const transformerRouter = createTRPCRouter({
 
       if (!metric || !metric.metricTemplate || !metric.integration) {
         return { success: false, error: "Metric not found or not configured" };
+      }
+
+      // Verify organization ownership
+      if (metric.organizationId !== ctx.workspace.organizationId) {
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "You do not have access to this metric",
+        });
       }
 
       // Get template for isTimeSeries
@@ -92,7 +102,7 @@ export const transformerRouter = createTRPCRouter({
    */
   refreshMetricData: workspaceProcedure
     .input(z.object({ metricId: z.string() }))
-    .mutation(async ({ input }) => {
+    .mutation(async ({ ctx, input }) => {
       const metric = await db.metric.findUnique({
         where: { id: input.metricId },
         include: { integration: true },
@@ -100,6 +110,14 @@ export const transformerRouter = createTRPCRouter({
 
       if (!metric || !metric.metricTemplate || !metric.integration) {
         return { success: false, error: "Metric not found or not configured" };
+      }
+
+      // Verify organization ownership
+      if (metric.organizationId !== ctx.workspace.organizationId) {
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "You do not have access to this metric",
+        });
       }
 
       const template = getTemplate(metric.metricTemplate);
@@ -127,6 +145,8 @@ export const transformerRouter = createTRPCRouter({
 
   /**
    * List all MetricTransformers
+   * Note: MetricTransformers are shared across all orgs (one per template)
+   * This is an admin/debug endpoint
    */
   listMetricTransformers: workspaceProcedure.query(async () => {
     return db.metricTransformer.findMany({
@@ -151,14 +171,25 @@ export const transformerRouter = createTRPCRouter({
         userPrompt: z.string().optional(),
       }),
     )
-    .mutation(async ({ input }) => {
+    .mutation(async ({ ctx, input }) => {
       const dashboardMetric = await db.dashboardMetric.findUnique({
         where: { id: input.dashboardMetricId },
         include: { metric: true },
       });
 
       if (!dashboardMetric) {
-        throw new Error("DashboardMetric not found");
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "DashboardMetric not found",
+        });
+      }
+
+      // Verify organization ownership
+      if (dashboardMetric.organizationId !== ctx.workspace.organizationId) {
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "You do not have access to this dashboard metric",
+        });
       }
 
       return createChartTransformer({
@@ -177,7 +208,26 @@ export const transformerRouter = createTRPCRouter({
    */
   getChartTransformer: workspaceProcedure
     .input(z.object({ dashboardMetricId: z.string() }))
-    .query(async ({ input }) => {
+    .query(async ({ ctx, input }) => {
+      // Verify organization ownership via dashboardMetric
+      const dashboardMetric = await db.dashboardMetric.findUnique({
+        where: { id: input.dashboardMetricId },
+      });
+
+      if (!dashboardMetric) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "DashboardMetric not found",
+        });
+      }
+
+      if (dashboardMetric.organizationId !== ctx.workspace.organizationId) {
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "You do not have access to this dashboard metric",
+        });
+      }
+
       return getChartTransformerByMetricId(input.dashboardMetricId);
     }),
 
@@ -186,7 +236,26 @@ export const transformerRouter = createTRPCRouter({
    */
   executeChartTransformer: workspaceProcedure
     .input(z.object({ dashboardMetricId: z.string() }))
-    .mutation(async ({ input }) => {
+    .mutation(async ({ ctx, input }) => {
+      // Verify organization ownership
+      const dashboardMetric = await db.dashboardMetric.findUnique({
+        where: { id: input.dashboardMetricId },
+      });
+
+      if (!dashboardMetric) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "DashboardMetric not found",
+        });
+      }
+
+      if (dashboardMetric.organizationId !== ctx.workspace.organizationId) {
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "You do not have access to this dashboard metric",
+        });
+      }
+
       return executeChartTransformerForMetric(input.dashboardMetricId);
     }),
 
@@ -203,15 +272,39 @@ export const transformerRouter = createTRPCRouter({
         userPrompt: z.string().optional(),
       }),
     )
-    .mutation(async ({ input }) => {
+    .mutation(async ({ ctx, input }) => {
+      // Verify organization ownership
+      const dashboardMetric = await db.dashboardMetric.findUnique({
+        where: { id: input.dashboardMetricId },
+      });
+
+      if (!dashboardMetric) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "DashboardMetric not found",
+        });
+      }
+
+      if (dashboardMetric.organizationId !== ctx.workspace.organizationId) {
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "You do not have access to this dashboard metric",
+        });
+      }
+
       return regenerateChartTransformer(input);
     }),
 
   /**
-   * List all ChartTransformers
+   * List all ChartTransformers for this organization
    */
-  listChartTransformers: workspaceProcedure.query(async () => {
+  listChartTransformers: workspaceProcedure.query(async ({ ctx }) => {
     return db.chartTransformer.findMany({
+      where: {
+        dashboardMetric: {
+          organizationId: ctx.workspace.organizationId,
+        },
+      },
       include: {
         dashboardMetric: {
           include: { metric: true },
@@ -236,7 +329,26 @@ export const transformerRouter = createTRPCRouter({
         offset: z.number().default(0),
       }),
     )
-    .query(async ({ input }) => {
+    .query(async ({ ctx, input }) => {
+      // Verify organization ownership
+      const metric = await db.metric.findUnique({
+        where: { id: input.metricId },
+      });
+
+      if (!metric) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Metric not found",
+        });
+      }
+
+      if (metric.organizationId !== ctx.workspace.organizationId) {
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "You do not have access to this metric",
+        });
+      }
+
       const dataPoints = await db.metricDataPoint.findMany({
         where: { metricId: input.metricId },
         orderBy: { timestamp: "desc" },
@@ -260,7 +372,26 @@ export const transformerRouter = createTRPCRouter({
    */
   getDataPointsSummary: workspaceProcedure
     .input(z.object({ metricId: z.string() }))
-    .query(async ({ input }) => {
+    .query(async ({ ctx, input }) => {
+      // Verify organization ownership
+      const metric = await db.metric.findUnique({
+        where: { id: input.metricId },
+      });
+
+      if (!metric) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Metric not found",
+        });
+      }
+
+      if (metric.organizationId !== ctx.workspace.organizationId) {
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "You do not have access to this metric",
+        });
+      }
+
       const [total, oldest, newest] = await Promise.all([
         db.metricDataPoint.count({ where: { metricId: input.metricId } }),
         db.metricDataPoint.findFirst({

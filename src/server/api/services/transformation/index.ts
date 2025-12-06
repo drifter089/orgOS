@@ -36,5 +36,4 @@ export {
   executeChartTransformerForMetric,
   regenerateChartTransformer,
   getChartTransformerByMetricId,
-  deleteChartTransformer,
 } from "./chart-transformer";

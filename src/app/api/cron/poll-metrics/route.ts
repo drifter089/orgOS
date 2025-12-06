@@ -51,10 +51,12 @@ function verifyCronSecret(request: Request): boolean {
     return true;
   }
 
-  // If CRON_SECRET is not configured, allow (for development/testing)
+  // In production, CRON_SECRET must be configured - deny by default
   if (!cronSecret) {
-    console.info("[CRON] CRON_SECRET not configured - allowing request");
-    return true;
+    console.error(
+      "[CRON] SECURITY: CRON_SECRET not configured in production - rejecting request",
+    );
+    return false;
   }
 
   return authHeader === `Bearer ${cronSecret}`;
