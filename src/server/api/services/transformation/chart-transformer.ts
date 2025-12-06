@@ -57,7 +57,19 @@ interface ChartTransformResult {
 export async function createChartTransformer(
   input: CreateChartTransformerInput,
 ): Promise<{ transformerId: string }> {
+  console.info(
+    "\n############################################################",
+  );
+  console.info("# CREATE CHART TRANSFORMER");
+  console.info("############################################################");
+  console.info(`[ChartTrans] Dashboard metric ID: ${input.dashboardMetricId}`);
+  console.info(`[ChartTrans] Metric name: ${input.metricName}`);
+  console.info(`[ChartTrans] Chart type: ${input.chartType}`);
+  console.info(`[ChartTrans] Date range: ${input.dateRange}`);
+  console.info(`[ChartTrans] Aggregation: ${input.aggregation}`);
+
   // Get the dashboard metric and its data points
+  console.info(`[ChartTrans] Fetching dashboard metric and data points...`);
   const dashboardMetric = await db.dashboardMetric.findUnique({
     where: { id: input.dashboardMetricId },
     include: {
@@ -73,11 +85,16 @@ export async function createChartTransformer(
   });
 
   if (!dashboardMetric) {
+    console.error(`[ChartTrans] ERROR: DashboardMetric not found`);
     throw new TRPCError({
       code: "NOT_FOUND",
       message: "DashboardMetric not found",
     });
   }
+
+  console.info(
+    `[ChartTrans] Found ${dashboardMetric.metric.dataPoints.length} data points`,
+  );
 
   // Convert to DataPoint format for AI
   const sampleDataPoints = dashboardMetric.metric.dataPoints.map((dp) => ({
@@ -86,7 +103,18 @@ export async function createChartTransformer(
     dimensions: dp.dimensions as Record<string, unknown> | null,
   }));
 
+  if (sampleDataPoints.length === 0) {
+    console.error(
+      `[ChartTrans] ERROR: No data points available for chart generation`,
+    );
+    throw new TRPCError({
+      code: "BAD_REQUEST",
+      message: "No data points available to generate chart",
+    });
+  }
+
   // Generate transformer code
+  console.info(`[ChartTrans] Generating chart transformer code with AI...`);
   const generated = await generateChartTransformerCode({
     metricName: input.metricName,
     metricDescription: input.metricDescription,
@@ -98,6 +126,7 @@ export async function createChartTransformer(
   });
 
   // Test the transformer
+  console.info(`[ChartTrans] Testing generated code...`);
   const testResult = testChartTransformer(generated.code, sampleDataPoints, {
     chartType: input.chartType,
     dateRange: input.dateRange,
@@ -105,11 +134,19 @@ export async function createChartTransformer(
   });
 
   if (!testResult.success) {
+    console.error(
+      `[ChartTrans] ERROR: Chart transformer test failed: ${testResult.error}`,
+    );
+    console.info(
+      "############################################################\n",
+    );
     throw new TRPCError({
       code: "INTERNAL_SERVER_ERROR",
       message: `Failed to generate working chart transformer: ${testResult.error}`,
     });
   }
+
+  console.info(`[ChartTrans] Test SUCCESS! Saving transformer...`);
 
   // Save the transformer
   const transformer = await db.chartTransformer.upsert({
@@ -132,7 +169,10 @@ export async function createChartTransformer(
     },
   });
 
+  console.info(`[ChartTrans] Saved transformer: ${transformer.id}`);
+
   // Update dashboard metric with the chart config
+  console.info(`[ChartTrans] Updating dashboard metric with chart config...`);
   await db.dashboardMetric.update({
     where: { id: input.dashboardMetricId },
     data: {
@@ -141,6 +181,11 @@ export async function createChartTransformer(
       chartTransformerId: transformer.id,
     },
   });
+
+  console.info(`[ChartTrans] Chart config saved to dashboard metric`);
+  console.info(
+    "############################################################\n",
+  );
 
   return { transformerId: transformer.id };
 }

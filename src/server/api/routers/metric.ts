@@ -1,7 +1,14 @@
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 
+import { getTemplate } from "@/lib/integrations";
 import { fetchData } from "@/server/api/services/data-fetching";
+import {
+  createChartTransformer,
+  executeTransformerForMetric,
+  getOrCreateMetricTransformer,
+  saveDataPoints,
+} from "@/server/api/services/transformation";
 import { createTRPCRouter, workspaceProcedure } from "@/server/api/trpc";
 import { getIntegrationAndVerifyAccess } from "@/server/api/utils/authorization";
 
@@ -45,7 +52,7 @@ export const metricRouter = createTRPCRouter({
 
   /**
    * Create a metric AND its dashboard metric entry in a single transaction.
-   * Like cascade delete, but for create - they live and die together.
+   * Also creates/gets MetricTransformer, fetches initial data, and creates ChartTransformer.
    */
   create: workspaceProcedure
     .input(
@@ -60,21 +67,42 @@ export const metricRouter = createTRPCRouter({
     )
     .mutation(async ({ ctx, input }) => {
       // Verify user has access to this connection
-      await getIntegrationAndVerifyAccess(
+      const integration = await getIntegrationAndVerifyAccess(
         ctx.db,
         input.connectionId,
         ctx.user.id,
         ctx.workspace,
       );
 
+      // Get template definition for isTimeSeries flag
+      const template = getTemplate(input.templateId);
+      if (!template) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: `Template not found: ${input.templateId}`,
+        });
+      }
+
       // Get position for dashboard metric
       const count = await ctx.db.dashboardMetric.count({
         where: { organizationId: ctx.workspace.organizationId },
       });
 
-      // Create metric + dashboard metric in transaction
-      // Increase timeout since first-time queries can be slow
-      return ctx.db.$transaction(
+      // Step 1: Get or create MetricTransformer for this template
+      // This is shared across all metrics using the same template
+      const { isNew: isNewTransformer } = await getOrCreateMetricTransformer({
+        templateId: input.templateId,
+        integrationId: integration.integrationId,
+        connectionId: input.connectionId,
+        endpointConfig: input.endpointParams,
+      });
+
+      console.info(
+        `[metric.create] MetricTransformer ${isNewTransformer ? "created" : "already exists"} for template: ${input.templateId}`,
+      );
+
+      // Step 2: Create metric + dashboard metric in transaction
+      const dashboardMetric = await ctx.db.$transaction(
         async (tx) => {
           const metric = await tx.metric.create({
             data: {
@@ -85,11 +113,12 @@ export const metricRouter = createTRPCRouter({
               metricTemplate: input.templateId,
               endpointConfig: input.endpointParams,
               teamId: input.teamId,
+              pollFrequency: template.defaultPollFrequency ?? "daily",
+              nextPollAt: new Date(), // Ready to poll immediately
             },
           });
 
-          // Auto-create dashboard metric entry (empty graphConfig, AI fills later)
-          const dashboardMetric = await tx.dashboardMetric.create({
+          const dm = await tx.dashboardMetric.create({
             data: {
               organizationId: ctx.workspace.organizationId,
               metricId: metric.id,
@@ -108,10 +137,87 @@ export const metricRouter = createTRPCRouter({
             },
           });
 
-          return dashboardMetric;
+          return dm;
         },
         { timeout: 15000 },
-      ); // 15s timeout for slow first-time queries
+      );
+
+      // Step 3: Execute transformer and save initial data points
+      const transformResult = await executeTransformerForMetric({
+        templateId: input.templateId,
+        integrationId: integration.integrationId,
+        connectionId: input.connectionId,
+        endpointConfig: input.endpointParams,
+      });
+
+      if (transformResult.success && transformResult.dataPoints) {
+        const isTimeSeries = template.isTimeSeries !== false; // default true
+        await saveDataPoints(
+          dashboardMetric.metricId,
+          transformResult.dataPoints,
+          isTimeSeries,
+        );
+
+        console.info(
+          `[metric.create] Saved ${transformResult.dataPoints.length} data points for metric: ${dashboardMetric.metricId}`,
+        );
+
+        // Step 4: Create ChartTransformer with initial chart config
+        try {
+          await createChartTransformer({
+            dashboardMetricId: dashboardMetric.id,
+            metricName: input.name,
+            metricDescription: input.description ?? template.description,
+            chartType: "line", // Default to line chart for time-series
+            dateRange: "30d",
+            aggregation: "none",
+          });
+
+          console.info(
+            `[metric.create] Created ChartTransformer for dashboard metric: ${dashboardMetric.id}`,
+          );
+        } catch (chartError) {
+          // Log but don't fail the entire metric creation
+          console.error(
+            `[metric.create] Failed to create ChartTransformer:`,
+            chartError,
+          );
+        }
+      } else {
+        console.error(
+          `[metric.create] Failed to execute transformer:`,
+          transformResult.error,
+        );
+      }
+
+      // Update lastFetchedAt
+      await ctx.db.metric.update({
+        where: { id: dashboardMetric.metricId },
+        data: { lastFetchedAt: new Date() },
+      });
+
+      // Re-fetch to get updated data (with chart config if created)
+      const result = await ctx.db.dashboardMetric.findUnique({
+        where: { id: dashboardMetric.id },
+        include: {
+          metric: {
+            include: {
+              integration: true,
+              roles: true,
+            },
+          },
+        },
+      });
+
+      // Should never happen since we just created it
+      if (!result) {
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Failed to fetch created dashboard metric",
+        });
+      }
+
+      return result;
     }),
 
   update: workspaceProcedure

@@ -83,41 +83,83 @@ function dimensionsToJson(
 export async function getOrCreateMetricTransformer(
   input: GetOrCreateTransformerInput,
 ): Promise<{ transformerId: string; isNew: boolean }> {
+  console.info(
+    "\n############################################################",
+  );
+  console.info("# GET OR CREATE METRIC TRANSFORMER");
+  console.info("############################################################");
+  console.info(`[Transformer] Template: ${input.templateId}`);
+  console.info(`[Transformer] Integration: ${input.integrationId}`);
+  console.info(`[Transformer] Connection: ${input.connectionId}`);
+  console.info(`[Transformer] Endpoint config:`, input.endpointConfig);
+
   // Check if transformer already exists
+  console.info(`[Transformer] Checking for existing transformer...`);
   const existing = await db.metricTransformer.findUnique({
     where: { templateId: input.templateId },
   });
 
   if (existing?.status === "active") {
+    console.info(
+      `[Transformer] Found existing active transformer: ${existing.id}`,
+    );
+    console.info(
+      "############################################################\n",
+    );
     return { transformerId: existing.id, isNew: false };
   }
+
+  console.info(
+    `[Transformer] No active transformer found, creating new one...`,
+  );
 
   // Get template definition
   const template = getTemplate(input.templateId);
   if (!template) {
+    console.error(
+      `[Transformer] ERROR: Template not found: ${input.templateId}`,
+    );
     throw new TRPCError({
       code: "NOT_FOUND",
       message: `Template not found: ${input.templateId}`,
     });
   }
 
+  console.info(`[Transformer] Template loaded: ${template.label}`);
+  console.info(`[Transformer] Metric endpoint: ${template.metricEndpoint}`);
+  console.info(`[Transformer] Method: ${template.method ?? "GET"}`);
+  if (template.requestBody) {
+    console.info(`[Transformer] Has request body: yes`);
+  }
+
   // Fetch sample data from the API
+  console.info(`[Transformer] Fetching sample data from API...`);
   const sampleResponse = await fetchData(
     input.integrationId,
     input.connectionId,
     template.metricEndpoint,
     {
-      method: "GET",
+      method: template.method ?? "GET",
       params: input.endpointConfig,
+      body: template.requestBody,
     },
   );
 
+  console.info(`[Transformer] Sample data fetched successfully`);
+  console.info(`[Transformer] Sample data type: ${typeof sampleResponse.data}`);
+  if (Array.isArray(sampleResponse.data)) {
+    console.info(
+      `[Transformer] Sample data is array with ${sampleResponse.data.length} items`,
+    );
+  }
+
   // Generate transformer code with AI
+  console.info(`[Transformer] Generating transformer code with AI...`);
   const generated = await generateMetricTransformerCode({
     templateId: input.templateId,
     integrationId: input.integrationId,
     endpoint: template.metricEndpoint,
-    method: "GET",
+    method: template.method ?? "GET",
     sampleApiResponse: sampleResponse.data,
     metricDescription: template.description,
     availableParams: template.requiredParams.map(
@@ -126,6 +168,7 @@ export async function getOrCreateMetricTransformer(
   });
 
   // Test the transformer
+  console.info(`[Transformer] Testing generated code...`);
   const testResult = testMetricTransformer(
     generated.code,
     sampleResponse.data,
@@ -133,12 +176,15 @@ export async function getOrCreateMetricTransformer(
   );
 
   if (!testResult.success) {
+    console.error(`[Transformer] First attempt FAILED: ${testResult.error}`);
+    console.info(`[Transformer] Attempting regeneration...`);
+
     // Try regenerating once
     const regenerated = await regenerateMetricTransformerCode({
       templateId: input.templateId,
       integrationId: input.integrationId,
       endpoint: template.metricEndpoint,
-      method: "GET",
+      method: template.method ?? "GET",
       sampleApiResponse: sampleResponse.data,
       metricDescription: template.description,
       availableParams: template.requiredParams.map(
@@ -148,6 +194,7 @@ export async function getOrCreateMetricTransformer(
       error: testResult.error,
     });
 
+    console.info(`[Transformer] Testing regenerated code...`);
     const retestResult = testMetricTransformer(
       regenerated.code,
       sampleResponse.data,
@@ -155,11 +202,17 @@ export async function getOrCreateMetricTransformer(
     );
 
     if (!retestResult.success) {
+      console.error(`[Transformer] REGENERATION FAILED: ${retestResult.error}`);
+      console.info(
+        "############################################################\n",
+      );
       throw new TRPCError({
         code: "INTERNAL_SERVER_ERROR",
         message: `Failed to generate working transformer: ${retestResult.error}`,
       });
     }
+
+    console.info(`[Transformer] Regeneration SUCCESS! Saving to database...`);
 
     // Save the regenerated transformer
     const transformer = await db.metricTransformer.upsert({
@@ -185,8 +238,14 @@ export async function getOrCreateMetricTransformer(
       },
     });
 
+    console.info(`[Transformer] Saved transformer: ${transformer.id}`);
+    console.info(
+      "############################################################\n",
+    );
     return { transformerId: transformer.id, isNew: true };
   }
+
+  console.info(`[Transformer] First attempt SUCCESS! Saving to database...`);
 
   // Save the transformer
   const transformer = await db.metricTransformer.upsert({
@@ -212,6 +271,10 @@ export async function getOrCreateMetricTransformer(
     },
   });
 
+  console.info(`[Transformer] Saved transformer: ${transformer.id}`);
+  console.info(
+    "############################################################\n",
+  );
   return { transformerId: transformer.id, isNew: true };
 }
 
@@ -227,19 +290,34 @@ export async function executeTransformerForMetric(input: {
   endpointConfig: Record<string, string>;
   useHistorical?: boolean;
 }): Promise<TransformResult> {
+  console.info("\n============ EXECUTE TRANSFORMER FOR METRIC ============");
+  console.info(`[Execute] Template: ${input.templateId}`);
+  console.info(`[Execute] Use historical: ${input.useHistorical ?? false}`);
+  console.info(`[Execute] Endpoint config:`, input.endpointConfig);
+
   // Get the transformer
+  console.info(`[Execute] Fetching transformer from database...`);
   const transformer = await db.metricTransformer.findUnique({
     where: { templateId: input.templateId },
   });
 
   if (!transformer) {
+    console.error(
+      `[Execute] ERROR: No transformer found for template: ${input.templateId}`,
+    );
     return {
       success: false,
       error: `No transformer found for template: ${input.templateId}`,
     };
   }
 
+  console.info(`[Execute] Transformer found: ${transformer.id}`);
+  console.info(`[Execute] Transformer status: ${transformer.status}`);
+
   if (transformer.status !== "active") {
+    console.error(
+      `[Execute] ERROR: Transformer is not active: ${transformer.status}`,
+    );
     return {
       success: false,
       error: `Transformer is not active: ${transformer.status}`,
@@ -256,7 +334,10 @@ export async function executeTransformerForMetric(input: {
       ? transformer.historicalTransformerCode
       : transformer.transformerCode;
 
+  console.info(`[Execute] Using endpoint: ${endpoint}`);
+
   if (!endpoint || !code) {
+    console.error(`[Execute] ERROR: Endpoint or code not configured`);
     return {
       success: false,
       error: "Transformer endpoint or code not configured",
@@ -264,6 +345,7 @@ export async function executeTransformerForMetric(input: {
   }
 
   // Fetch data from API
+  console.info(`[Execute] Fetching data from API...`);
   let apiResponse;
   try {
     apiResponse = await fetchData(
@@ -278,14 +360,18 @@ export async function executeTransformerForMetric(input: {
         params: input.endpointConfig,
       },
     );
+    console.info(`[Execute] API data fetched successfully`);
   } catch (error) {
+    const errorMsg = error instanceof Error ? error.message : "Unknown error";
+    console.error(`[Execute] ERROR: Failed to fetch data: ${errorMsg}`);
     return {
       success: false,
-      error: `Failed to fetch data: ${error instanceof Error ? error.message : "Unknown error"}`,
+      error: `Failed to fetch data: ${errorMsg}`,
     };
   }
 
   // Execute the transformer
+  console.info(`[Execute] Executing transformer...`);
   const result = executeMetricTransformer(
     code,
     apiResponse.data,
@@ -293,12 +379,16 @@ export async function executeTransformerForMetric(input: {
   );
 
   if (!result.success) {
+    console.error(
+      `[Execute] ERROR: Transformer execution failed: ${result.error}`,
+    );
     // Increment failure count
     await db.metricTransformer.update({
       where: { templateId: input.templateId },
       data: { failureCount: { increment: 1 } },
     });
 
+    console.info("============ END EXECUTE TRANSFORMER (ERROR) ============\n");
     return {
       success: false,
       error: result.error,
@@ -310,6 +400,11 @@ export async function executeTransformerForMetric(input: {
     where: { templateId: input.templateId },
     data: { failureCount: 0 },
   });
+
+  console.info(
+    `[Execute] SUCCESS: Generated ${result.data?.length} data points`,
+  );
+  console.info("============ END EXECUTE TRANSFORMER ============\n");
 
   return {
     success: true,
@@ -357,8 +452,9 @@ export async function handleTransformerFailure(input: {
       input.connectionId,
       template.metricEndpoint,
       {
-        method: "GET",
+        method: template.method ?? "GET",
         params: input.endpointConfig,
+        body: template.requestBody,
       },
     );
 
@@ -367,7 +463,7 @@ export async function handleTransformerFailure(input: {
       templateId: input.templateId,
       integrationId: input.integrationId,
       endpoint: template.metricEndpoint,
-      method: "GET",
+      method: template.method ?? "GET",
       sampleApiResponse: sampleResponse.data,
       metricDescription: template.description,
       availableParams: template.requiredParams.map(
@@ -427,7 +523,23 @@ export async function saveDataPoints(
   dataPoints: DataPoint[],
   isTimeSeries: boolean,
 ): Promise<void> {
+  console.info("\n------------ SAVE DATA POINTS ------------");
+  console.info(`[SaveDP] Metric ID: ${metricId}`);
+  console.info(`[SaveDP] Data points count: ${dataPoints.length}`);
+  console.info(`[SaveDP] Is time series: ${isTimeSeries}`);
+
+  if (dataPoints.length > 0) {
+    console.info(`[SaveDP] First data point:`, {
+      timestamp: dataPoints[0]!.timestamp,
+      value: dataPoints[0]!.value,
+      dimensions: dataPoints[0]!.dimensions,
+    });
+  }
+
   if (!isTimeSeries) {
+    console.info(
+      `[SaveDP] Snapshot mode: deleting existing and inserting new...`,
+    );
     // For snapshot data (e.g., Google Sheets), replace all existing data
     await db.$transaction([
       db.metricDataPoint.deleteMany({ where: { metricId } }),
@@ -440,7 +552,11 @@ export async function saveDataPoints(
         })),
       }),
     ]);
+    console.info(`[SaveDP] Snapshot save complete`);
   } else {
+    console.info(
+      `[SaveDP] Time-series mode: upserting ${dataPoints.length} data points...`,
+    );
     // For time-series data, upsert each data point
     for (const dp of dataPoints) {
       await db.metricDataPoint.upsert({
@@ -462,7 +578,10 @@ export async function saveDataPoints(
         },
       });
     }
+    console.info(`[SaveDP] Time-series upsert complete`);
   }
+
+  console.info("------------ END SAVE DATA POINTS ------------\n");
 }
 
 /**
