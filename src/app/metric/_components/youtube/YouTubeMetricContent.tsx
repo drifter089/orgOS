@@ -17,7 +17,7 @@ import {
 } from "@/components/ui/select";
 import { api } from "@/trpc/react";
 
-import type { ContentProps } from "./MetricDialogBase";
+import type { ContentProps } from "../base/MetricDialogBase";
 
 type ScopeType = "channel" | "video";
 type MetricType = "views" | "likes" | "subscribers";

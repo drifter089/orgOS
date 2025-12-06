@@ -60,6 +60,10 @@ export const templates: MetricTemplate[] = [
     previewEndpoint: "/v4/spreadsheets/{SPREADSHEET_ID}/values/{SHEET_NAME}",
     metricEndpoint: "/v4/spreadsheets/{SPREADSHEET_ID}/values/{SHEET_NAME}",
 
+    // Architecture config - Snapshot data, not time-series
+    defaultPollFrequency: "daily",
+    isTimeSeries: false,
+
     requiredParams: [
       {
         name: "SPREADSHEET_ID",

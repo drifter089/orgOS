@@ -2,13 +2,26 @@
 
 import { useEffect, useState } from "react";
 
-import { Check, Loader2, RefreshCw, Sparkles } from "lucide-react";
+import { formatDistanceToNow } from "date-fns";
+import {
+  AlertCircle,
+  Check,
+  Clock,
+  Loader2,
+  RefreshCw,
+  Sparkles,
+} from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { getPlatformConfig } from "@/lib/platform-config";
 import { cn } from "@/lib/utils";
 
@@ -22,6 +35,8 @@ interface DashboardMetricSettingsProps {
   hasChartData: boolean;
   integrationId: string | null;
   lastFetchedAt: Date | null;
+  lastError: string | null;
+  pollFrequency: string;
   isProcessing: boolean;
   isUpdating: boolean;
   prompt: string;
@@ -31,14 +46,27 @@ interface DashboardMetricSettingsProps {
   onUpdateMetric: (name: string, description: string) => void;
 }
 
+// Helper to format poll frequency
+function formatPollFrequency(frequency: string): string {
+  const labels: Record<string, string> = {
+    frequent: "Every 15 min",
+    hourly: "Hourly",
+    daily: "Daily",
+    weekly: "Weekly",
+    manual: "Manual",
+  };
+  return labels[frequency] ?? frequency;
+}
+
 export function DashboardMetricSettings({
-  metricId,
   metricName,
   metricDescription,
   chartTransform,
   hasChartData,
   integrationId,
   lastFetchedAt,
+  lastError,
+  pollFrequency,
   isProcessing,
   isUpdating,
   prompt,
@@ -166,18 +194,58 @@ export function DashboardMetricSettings({
           </Button>
         </div>
 
-        {/* Footer Info */}
-        <div className="mt-auto flex shrink-0 items-center justify-between border-t pt-2">
-          {lastFetchedAt && (
-            <span className="text-muted-foreground text-xs">
-              {new Date(lastFetchedAt).toLocaleDateString()}
-            </span>
+        {/* Status Info */}
+        <div className="mt-auto flex shrink-0 flex-col gap-1.5 border-t pt-2">
+          {/* Error indicator */}
+          {lastError && (
+            <div className="text-destructive flex items-center gap-1.5">
+              <AlertCircle className="h-3 w-3" />
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span className="truncate text-xs">{lastError}</span>
+                </TooltipTrigger>
+                <TooltipContent side="top" className="max-w-[300px]">
+                  <p className="text-sm">{lastError}</p>
+                </TooltipContent>
+              </Tooltip>
+            </div>
           )}
-          {hasChartData && chartTransform && (
-            <Badge variant="outline" className="text-xs">
-              {chartTransform.chartType}
-            </Badge>
-          )}
+
+          {/* Footer row with timestamps and badges */}
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              {/* Last updated */}
+              {lastFetchedAt && (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span className="text-muted-foreground flex items-center gap-1 text-xs">
+                      <Clock className="h-3 w-3" />
+                      {formatDistanceToNow(new Date(lastFetchedAt), {
+                        addSuffix: true,
+                      })}
+                    </span>
+                  </TooltipTrigger>
+                  <TooltipContent side="top">
+                    <p className="text-xs">
+                      Last updated: {new Date(lastFetchedAt).toLocaleString()}
+                    </p>
+                  </TooltipContent>
+                </Tooltip>
+              )}
+
+              {/* Poll frequency badge */}
+              <Badge variant="secondary" className="text-xs">
+                {formatPollFrequency(pollFrequency)}
+              </Badge>
+            </div>
+
+            {/* Chart type badge */}
+            {hasChartData && chartTransform && (
+              <Badge variant="outline" className="text-xs">
+                {chartTransform.chartType}
+              </Badge>
+            )}
+          </div>
         </div>
       </CardContent>
     </Card>

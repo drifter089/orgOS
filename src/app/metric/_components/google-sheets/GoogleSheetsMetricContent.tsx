@@ -27,7 +27,7 @@ import {
 } from "@/components/ui/table";
 import { api } from "@/trpc/react";
 
-import type { ContentProps } from "./MetricDialogBase";
+import type { ContentProps } from "../base/MetricDialogBase";
 
 function extractSpreadsheetId(url: string): string | null {
   const regex = /\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/;

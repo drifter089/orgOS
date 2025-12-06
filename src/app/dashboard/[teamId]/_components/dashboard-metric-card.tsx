@@ -2,12 +2,24 @@
 
 import { useCallback, useState } from "react";
 
-import { BarChart3, Loader2, Settings, Trash2, Users } from "lucide-react";
+import {
+  AlertCircle,
+  BarChart3,
+  Loader2,
+  Settings,
+  Trash2,
+  Users,
+} from "lucide-react";
 import { toast } from "sonner";
 
-import { getTemplate } from "@/app/metric/registry";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { useConfirmation } from "@/providers/ConfirmationDialogProvider";
 import type { RouterOutputs } from "@/trpc/react";
 import { api } from "@/trpc/react";
@@ -69,6 +81,7 @@ export function DashboardMetricCard({
   const { metric } = dashboardMetric;
   const isIntegrationMetric = !!metric.integrationId;
   const roles = metric.roles ?? [];
+  const hasError = !!metric.lastError;
 
   const chartTransform =
     dashboardMetric.graphConfig as unknown as ChartTransformResult | null;
@@ -124,10 +137,12 @@ export function DashboardMetricCard({
     },
   });
 
-  // Direct mutations for transform + save (no Zustand store)
-  const transformMutation = api.dashboard.transformChartWithAI.useMutation();
-  const updateChartMutation =
-    api.dashboard.updateDashboardMetricChart.useMutation();
+  // Mutations for transformer operations
+  const executeMetricTransformerMutation =
+    api.transformer.executeMetricTransformer.useMutation();
+  const regenerateChartMutation =
+    api.transformer.regenerateChartTransformer.useMutation();
+
   const updateMetricMutation = api.metric.update.useMutation({
     onSuccess: (updatedMetric) => {
       const teamId = metric.teamId;
@@ -150,105 +165,79 @@ export function DashboardMetricCard({
     },
   });
 
-  const handleRefresh = useCallback(
-    async (userHint?: string) => {
-      if (!isIntegrationMetric || !metric.metricTemplate || !metric.integration)
-        return;
+  /**
+   * Refresh metric data using MetricTransformer
+   * 1. Fetch data via MetricTransformer
+   * 2. Store in MetricDataPoints
+   * 3. Invalidate cache to refresh UI
+   */
+  const handleRefresh = useCallback(async () => {
+    if (!isIntegrationMetric || !metric.metricTemplate || !metric.integration)
+      return;
 
-      const template = getTemplate(metric.metricTemplate);
-      if (!template) {
-        toast.error("Metric template not found");
-        return;
+    setIsProcessing(true);
+    try {
+      const result = await executeMetricTransformerMutation.mutateAsync({
+        metricId: metric.id,
+        saveToDb: true,
+      });
+
+      if (result.success) {
+        toast.success("Data refreshed", {
+          description: `${result.dataPointCount} data points updated`,
+        });
+        // Invalidate dashboard to refetch with new data
+        await utils.dashboard.getDashboardMetrics.invalidate();
+      } else {
+        toast.error("Refresh failed", { description: result.error });
       }
+    } catch (error) {
+      toast.error("Refresh failed", {
+        description: error instanceof Error ? error.message : "Unknown error",
+      });
+    } finally {
+      setIsProcessing(false);
+    }
+  }, [
+    isIntegrationMetric,
+    metric.metricTemplate,
+    metric.integration,
+    metric.id,
+    executeMetricTransformerMutation,
+    utils.dashboard.getDashboardMetrics,
+  ]);
 
+  /**
+   * Regenerate chart with AI using optional prompt
+   */
+  const handleRegenerate = useCallback(
+    async (userPrompt?: string) => {
       setIsProcessing(true);
       try {
-        const endpointParams =
-          (metric.endpointConfig as Record<string, string>) ?? {};
-        let endpoint = template.metricEndpoint;
-        for (const [key, value] of Object.entries(endpointParams)) {
-          endpoint = endpoint.replace(`{${key}}`, encodeURIComponent(value));
-        }
-
-        // Build body if template has one (e.g., PostHog HogQL queries)
-        let body: unknown = undefined;
-        if (template.requestBody) {
-          let bodyStr =
-            typeof template.requestBody === "string"
-              ? template.requestBody
-              : JSON.stringify(template.requestBody);
-          for (const [key, value] of Object.entries(endpointParams)) {
-            bodyStr = bodyStr.replace(new RegExp(`\\{${key}\\}`, "g"), value);
-          }
-          body = JSON.parse(bodyStr);
-        }
-
-        const rawData = await utils.metric.fetchIntegrationData.fetch({
-          connectionId: metric.integration.connectionId,
-          integrationId: metric.integration.integrationId,
-          endpoint,
-          method: template.method,
-          body,
-        });
-
-        if (!rawData?.data) {
-          toast.error("Failed to fetch data");
-          return;
-        }
-
-        // Log raw data for debugging
-        console.info("[Chart Refresh] Raw API data:", {
-          metricName: metric.name,
-          templateId: metric.metricTemplate,
-          endpoint,
-          dataType: typeof rawData.data,
-          dataLength: Array.isArray(rawData.data)
-            ? rawData.data.length
-            : "not array",
-          data: rawData.data,
-        });
-
-        const chartResult = await transformMutation.mutateAsync({
-          metricConfig: {
-            name: metric.name,
-            description: metric.description ?? undefined,
-            metricTemplate: metric.metricTemplate,
-            endpointConfig: endpointParams,
-          },
-          rawData: rawData.data,
-          userHint,
-        });
-
-        const updated = await updateChartMutation.mutateAsync({
+        const result = await regenerateChartMutation.mutateAsync({
           dashboardMetricId: dashboardMetric.id,
-          graphType: chartResult.chartType,
-          graphConfig: chartResult as unknown as Record<string, unknown>,
+          userPrompt,
         });
 
-        const teamId = metric.teamId;
-        utils.dashboard.getDashboardMetrics.setData(undefined, (old) =>
-          old?.map((dm) => (dm.id === updated.id ? updated : dm)),
-        );
-        if (teamId) {
-          utils.dashboard.getDashboardMetrics.setData({ teamId }, (old) =>
-            old?.map((dm) => (dm.id === updated.id ? updated : dm)),
-          );
+        if (result.success) {
+          toast.success("Chart regenerated");
+          // Invalidate to refetch with new chart config
+          await utils.dashboard.getDashboardMetrics.invalidate();
+        } else {
+          toast.error("Regeneration failed", { description: result.error });
         }
       } catch (error) {
-        console.error("Refresh failed:", error);
-        toast.error("Failed to refresh chart");
+        toast.error("Regeneration failed", {
+          description: error instanceof Error ? error.message : "Unknown error",
+        });
       } finally {
         setIsProcessing(false);
-        setPrompt("");
       }
     },
     [
-      isIntegrationMetric,
-      metric,
       dashboardMetric.id,
-      transformMutation,
-      updateChartMutation,
-      utils,
+      regenerateChartMutation,
+      utils.dashboard.getDashboardMetrics,
     ],
   );
 
@@ -263,10 +252,6 @@ export function DashboardMetricCard({
     if (confirmed) {
       deleteMetricMutation.mutate({ id: metric.id });
     }
-  };
-
-  const handleRegenerate = () => {
-    void handleRefresh(prompt);
   };
 
   const handleUpdateMetric = (name: string, description: string) => {
@@ -285,6 +270,24 @@ export function DashboardMetricCard({
       onValueChange={setActiveTab}
       className="relative h-[380px]"
     >
+      {/* Error indicator */}
+      {hasError && (
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Badge
+              variant="destructive"
+              className="absolute top-4 left-3 z-10 h-6 gap-1 px-2"
+            >
+              <AlertCircle className="h-3 w-3" />
+              <span className="text-xs">Error</span>
+            </Badge>
+          </TooltipTrigger>
+          <TooltipContent side="bottom" className="max-w-[300px]">
+            <p className="text-sm">{metric.lastError}</p>
+          </TooltipContent>
+        </Tooltip>
+      )}
+
       <TabsList className="bg-muted/80 absolute top-4 right-3 z-10 h-7 backdrop-blur-sm">
         <TabsTrigger value="chart" className="h-6 px-2 text-xs">
           <BarChart3 className="h-3 w-3" />
@@ -349,12 +352,14 @@ export function DashboardMetricCard({
               hasChartData={hasChartData}
               integrationId={metric.integration?.integrationId ?? null}
               lastFetchedAt={metric.lastFetchedAt}
+              lastError={metric.lastError}
+              pollFrequency={metric.pollFrequency}
               isProcessing={isProcessing}
               isUpdating={updateMetricMutation.isPending}
               prompt={prompt}
               onPromptChange={setPrompt}
-              onRegenerate={handleRegenerate}
-              onRefresh={() => handleRefresh()}
+              onRegenerate={() => handleRegenerate(prompt || undefined)}
+              onRefresh={handleRefresh}
               onUpdateMetric={handleUpdateMetric}
             />
           </TabsContent>

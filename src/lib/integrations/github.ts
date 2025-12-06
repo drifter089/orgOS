@@ -159,6 +159,11 @@ export const templates: MetricTemplate[] = [
 
     metricEndpoint: "/repos/{OWNER}/{REPO}/stats/code_frequency",
 
+    // Architecture config
+    historicalDataLimit: "90d",
+    defaultPollFrequency: "daily",
+    isTimeSeries: true,
+
     requiredParams: [
       {
         name: "OWNER",
@@ -187,6 +192,11 @@ export const templates: MetricTemplate[] = [
     defaultUnit: "commits",
 
     metricEndpoint: "/repos/{OWNER}/{REPO}/stats/commit_activity",
+
+    // Architecture config
+    historicalDataLimit: "90d",
+    defaultPollFrequency: "daily",
+    isTimeSeries: true,
 
     requiredParams: [
       {
@@ -218,6 +228,11 @@ export const templates: MetricTemplate[] = [
     // Search API: /search/issues?q=repo:{OWNER}/{REPO}+is:pr+created:>={SINCE}
     metricEndpoint:
       "/search/issues?q=repo:{OWNER}/{REPO}+is:pr+created:>={SINCE}&per_page=100",
+
+    // Architecture config
+    historicalDataLimit: "90d",
+    defaultPollFrequency: "daily",
+    isTimeSeries: true,
 
     requiredParams: [
       {

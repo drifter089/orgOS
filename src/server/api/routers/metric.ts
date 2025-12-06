@@ -1,7 +1,7 @@
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 
-import { fetchData } from "@/server/api/services/nango";
+import { fetchData } from "@/server/api/services/data-fetching";
 import { createTRPCRouter, workspaceProcedure } from "@/server/api/trpc";
 import { getIntegrationAndVerifyAccess } from "@/server/api/utils/authorization";
 

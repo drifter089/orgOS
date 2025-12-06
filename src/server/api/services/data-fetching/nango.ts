@@ -6,21 +6,13 @@ import { TRPCError } from "@trpc/server";
 import axios from "axios";
 
 import { env } from "@/env";
+import { getDateString } from "@/lib/metrics/utils";
 import { nango } from "@/server/nango";
 
 interface FetchOptions {
   method?: "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
   params?: Record<string, string>;
   body?: unknown;
-}
-
-/**
- * Calculate date in YYYY-MM-DD format relative to today
- */
-function getDateString(daysAgo: number): string {
-  const date = new Date();
-  date.setDate(date.getDate() - daysAgo);
-  return date.toISOString().split("T")[0]!;
 }
 
 export async function fetchData(

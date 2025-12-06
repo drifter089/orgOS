@@ -1,7 +1,7 @@
 "use client";
 
+import { MetricDialogBase } from "../base/MetricDialogBase";
 import { GoogleSheetsMetricContent } from "./GoogleSheetsMetricContent";
-import { MetricDialogBase } from "./MetricDialogBase";
 
 interface GoogleSheetsMetricDialogProps {
   trigger?: React.ReactNode;
