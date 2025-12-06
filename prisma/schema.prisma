@@ -104,10 +104,16 @@ model Metric {
     endpointConfig Json?    // Endpoint parameters (e.g., {videoId: "abc123"})
     lastFetchedAt  DateTime? // Last data refresh timestamp
 
+    // NEW: Polling configuration
+    pollFrequency  String    @default("daily")  // "frequent", "hourly", "daily", "weekly", "manual"
+    nextPollAt     DateTime?                     // When to poll next
+    lastError      String?   @db.Text            // Last error message
+
     team              Team?             @relation(fields: [teamId], references: [id], onDelete: Cascade)
     integration       Integration?      @relation(fields: [integrationId], references: [connectionId], onDelete: Cascade)
     roles             Role[]            // One metric can be used by many roles
     dashboardMetrics  DashboardMetric[] // Dashboard configurations using this metric
+    dataPoints        MetricDataPoint[] // NEW: Relation to data points
 
     createdAt      DateTime @default(now())
     updatedAt      DateTime @updatedAt
@@ -116,6 +122,7 @@ model Metric {
     @@index([teamId])
     @@index([name])
     @@index([integrationId])
+    @@index([nextPollAt])  // NEW: For polling queries
 }
 
 // Nango Integration Connections
@@ -171,6 +178,10 @@ model DashboardMetric {
     position       Int      @default(0) // Display order
     size           String   @default("medium") // "small", "medium", "large"
 
+    // NEW: Chart transformer relation
+    chartTransformerId String?        @unique
+    chartTransformer   ChartTransformer?
+
     metric         Metric   @relation(fields: [metricId], references: [id], onDelete: Cascade)
 
     createdAt      DateTime @default(now())
@@ -196,4 +207,97 @@ model SystemsCanvas {
     updatedAt      DateTime @updatedAt
 
     @@index([organizationId])
+}
+
+// NEW: Metrics Architecture Tables
+
+// MetricDataPoint - Time-series storage for ALL metrics
+// Single table for ALL metrics. No table-per-template.
+model MetricDataPoint {
+    id        String   @id @default(cuid())
+    metricId  String
+    metric    Metric   @relation(fields: [metricId], references: [id], onDelete: Cascade)
+
+    // Time dimension - always required
+    timestamp DateTime
+
+    // Primary value - always filled
+    value     Float
+
+    // Secondary values - optional, for additional related data
+    // e.g., {"additions": 500, "deletions": 200} or {"likes": 50, "comments": 10}
+    dimensions Json?
+
+    createdAt DateTime @default(now())
+
+    // Indexes for time-series queries
+    @@index([metricId, timestamp(sort: Desc)])
+    @@index([timestamp(sort: Desc)])
+
+    // Prevent duplicate data points for same metric at same timestamp
+    @@unique([metricId, timestamp])
+}
+
+// MetricTransformer - Transforms raw API data into DataPoints
+// One per template. Shared across ALL orgs.
+model MetricTransformer {
+    id          String @id @default(cuid())
+    templateId  String @unique  // "github-repo-stars", "youtube-video-stats"
+
+    // Endpoint configuration
+    historicalEndpoint String?   // Endpoint for fetching historical data
+    historicalMethod   String?   // "GET" or "POST" for historical
+    historicalBody     Json?     // Request body for historical POST endpoints
+
+    pollingEndpoint    String?   // Endpoint for incremental updates
+    pollingMethod      String?   // "GET" or "POST" for polling
+    pollingBody        Json?     // Request body for polling POST endpoints
+
+    // Transformation code (TypeScript)
+    // If endpoints return same structure: only transformerCode is used
+    // If endpoints return different structures: use historicalTransformerCode for historical
+    transformerCode            String  @db.Text   // Primary transformer (used for polling, and historical if same structure)
+    historicalTransformerCode  String? @db.Text   // Only if historical endpoint returns different structure
+
+    // Documentation (for AI regeneration, debugging)
+    inputExample   Json?   // Example API response (used to generate this transformer)
+    outputExample  Json?   // Example transformed output
+
+    // Versioning & Status
+    version      Int    @default(1)
+    status       String @default("active")  // "active", "deprecated", "failed"
+    failureCount Int    @default(0)         // Increment on failure, reset on success
+
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+
+    @@index([templateId])
+    @@index([status])
+}
+
+// ChartTransformer - Transforms DataPoints into ChartConfig
+// One per DashboardMetric. User-specific.
+model ChartTransformer {
+    id                String @id @default(cuid())
+    dashboardMetricId String @unique
+    dashboardMetric   DashboardMetric @relation(fields: [dashboardMetricId], references: [id], onDelete: Cascade)
+
+    // Transformation code (TypeScript)
+    transformerCode String @db.Text  // Code: DataPoint[] → ChartConfig
+
+    // User preferences that influenced generation
+    chartType    String    // "line", "bar", "area", "pie", etc.
+    dateRange    String?   // "7d", "30d", "90d", "all"
+    aggregation  String?   // "sum", "avg", "max", "none"
+    preferences  Json?     // Additional preferences
+
+    // Generation context
+    userPrompt   String?   @db.Text // User's natural language request
+
+    version   Int @default(1)
+
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+
+    @@index([dashboardMetricId])
 }

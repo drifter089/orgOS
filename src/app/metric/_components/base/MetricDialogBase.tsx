@@ -114,6 +114,7 @@ export function MetricDialogBase({
       graphConfig: {} as Prisma.JsonValue,
       position: 9999,
       size: "medium",
+      chartTransformerId: null,
       createdAt: new Date(),
       updatedAt: new Date(),
       metric: {
@@ -126,6 +127,9 @@ export function MetricDialogBase({
         endpointConfig: data.endpointParams,
         teamId: teamId ?? null,
         lastFetchedAt: null,
+        pollFrequency: "daily",
+        nextPollAt: null,
+        lastError: null,
         createdAt: new Date(),
         updatedAt: new Date(),
         integration: connection

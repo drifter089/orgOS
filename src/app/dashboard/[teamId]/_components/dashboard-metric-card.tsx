@@ -2,11 +2,24 @@
 
 import { useCallback, useState } from "react";
 
-import { BarChart3, Loader2, Settings, Trash2, Users } from "lucide-react";
+import {
+  AlertCircle,
+  BarChart3,
+  Loader2,
+  Settings,
+  Trash2,
+  Users,
+} from "lucide-react";
 import { toast } from "sonner";
 
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { useConfirmation } from "@/providers/ConfirmationDialogProvider";
 import type { RouterOutputs } from "@/trpc/react";
 import { api } from "@/trpc/react";
@@ -68,6 +81,7 @@ export function DashboardMetricCard({
   const { metric } = dashboardMetric;
   const isIntegrationMetric = !!metric.integrationId;
   const roles = metric.roles ?? [];
+  const hasError = !!metric.lastError;
 
   const chartTransform =
     dashboardMetric.graphConfig as unknown as ChartTransformResult | null;
@@ -123,9 +137,12 @@ export function DashboardMetricCard({
     },
   });
 
-  // Direct mutations for save (transform removed - see METRICS_ARCHITECTURE_PLAN.md)
-  const updateChartMutation =
-    api.dashboard.updateDashboardMetricChart.useMutation();
+  // Mutations for transformer operations
+  const executeMetricTransformerMutation =
+    api.transformer.executeMetricTransformer.useMutation();
+  const regenerateChartMutation =
+    api.transformer.regenerateChartTransformer.useMutation();
+
   const updateMetricMutation = api.metric.update.useMutation({
     onSuccess: (updatedMetric) => {
       const teamId = metric.teamId;
@@ -149,25 +166,79 @@ export function DashboardMetricCard({
   });
 
   /**
-   * TODO: Chart refresh will be reimplemented as part of METRICS_ARCHITECTURE_PLAN.md
-   *
-   * The new flow will:
+   * Refresh metric data using MetricTransformer
    * 1. Fetch data via MetricTransformer
    * 2. Store in MetricDataPoints
-   * 3. Execute ChartTransformer to update graphConfig
-   *
-   * For now, refresh is disabled.
+   * 3. Invalidate cache to refresh UI
    */
-  const handleRefresh = useCallback(
-    async (_userHint?: string) => {
-      if (!isIntegrationMetric || !metric.metricTemplate || !metric.integration)
-        return;
+  const handleRefresh = useCallback(async () => {
+    if (!isIntegrationMetric || !metric.metricTemplate || !metric.integration)
+      return;
 
-      toast.info(
-        "Chart refresh is temporarily disabled. Will be available after architecture update.",
-      );
+    setIsProcessing(true);
+    try {
+      const result = await executeMetricTransformerMutation.mutateAsync({
+        metricId: metric.id,
+        saveToDb: true,
+      });
+
+      if (result.success) {
+        toast.success("Data refreshed", {
+          description: `${result.dataPointCount} data points updated`,
+        });
+        // Invalidate dashboard to refetch with new data
+        await utils.dashboard.getDashboardMetrics.invalidate();
+      } else {
+        toast.error("Refresh failed", { description: result.error });
+      }
+    } catch (error) {
+      toast.error("Refresh failed", {
+        description: error instanceof Error ? error.message : "Unknown error",
+      });
+    } finally {
+      setIsProcessing(false);
+    }
+  }, [
+    isIntegrationMetric,
+    metric.metricTemplate,
+    metric.integration,
+    metric.id,
+    executeMetricTransformerMutation,
+    utils.dashboard.getDashboardMetrics,
+  ]);
+
+  /**
+   * Regenerate chart with AI using optional prompt
+   */
+  const handleRegenerate = useCallback(
+    async (userPrompt?: string) => {
+      setIsProcessing(true);
+      try {
+        const result = await regenerateChartMutation.mutateAsync({
+          dashboardMetricId: dashboardMetric.id,
+          userPrompt,
+        });
+
+        if (result.success) {
+          toast.success("Chart regenerated");
+          // Invalidate to refetch with new chart config
+          await utils.dashboard.getDashboardMetrics.invalidate();
+        } else {
+          toast.error("Regeneration failed", { description: result.error });
+        }
+      } catch (error) {
+        toast.error("Regeneration failed", {
+          description: error instanceof Error ? error.message : "Unknown error",
+        });
+      } finally {
+        setIsProcessing(false);
+      }
     },
-    [isIntegrationMetric, metric.metricTemplate, metric.integration],
+    [
+      dashboardMetric.id,
+      regenerateChartMutation,
+      utils.dashboard.getDashboardMetrics,
+    ],
   );
 
   const handleRemove = async () => {
@@ -181,10 +252,6 @@ export function DashboardMetricCard({
     if (confirmed) {
       deleteMetricMutation.mutate({ id: metric.id });
     }
-  };
-
-  const handleRegenerate = () => {
-    void handleRefresh(prompt);
   };
 
   const handleUpdateMetric = (name: string, description: string) => {
@@ -203,6 +270,24 @@ export function DashboardMetricCard({
       onValueChange={setActiveTab}
       className="relative h-[380px]"
     >
+      {/* Error indicator */}
+      {hasError && (
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Badge
+              variant="destructive"
+              className="absolute top-4 left-3 z-10 h-6 gap-1 px-2"
+            >
+              <AlertCircle className="h-3 w-3" />
+              <span className="text-xs">Error</span>
+            </Badge>
+          </TooltipTrigger>
+          <TooltipContent side="bottom" className="max-w-[300px]">
+            <p className="text-sm">{metric.lastError}</p>
+          </TooltipContent>
+        </Tooltip>
+      )}
+
       <TabsList className="bg-muted/80 absolute top-4 right-3 z-10 h-7 backdrop-blur-sm">
         <TabsTrigger value="chart" className="h-6 px-2 text-xs">
           <BarChart3 className="h-3 w-3" />
@@ -267,12 +352,14 @@ export function DashboardMetricCard({
               hasChartData={hasChartData}
               integrationId={metric.integration?.integrationId ?? null}
               lastFetchedAt={metric.lastFetchedAt}
+              lastError={metric.lastError}
+              pollFrequency={metric.pollFrequency}
               isProcessing={isProcessing}
               isUpdating={updateMetricMutation.isPending}
               prompt={prompt}
               onPromptChange={setPrompt}
-              onRegenerate={handleRegenerate}
-              onRefresh={() => handleRefresh()}
+              onRegenerate={() => handleRegenerate(prompt || undefined)}
+              onRefresh={handleRefresh}
               onUpdateMetric={handleUpdateMetric}
             />
           </TabsContent>
