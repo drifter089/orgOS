@@ -293,13 +293,16 @@ async function saveDataPointsBatch(
 
   if (!isTimeSeries) {
     // Snapshot mode: delete all and insert fresh
+    // Add millisecond offsets to ensure unique timestamps (required by DB constraint)
     console.info(`[SaveDP] Snapshot mode: replacing all data`);
+    const baseTimestamp = dataPoints[0]?.timestamp ?? new Date();
     await db.$transaction([
       db.metricDataPoint.deleteMany({ where: { metricId } }),
       db.metricDataPoint.createMany({
-        data: dataPoints.map((dp) => ({
+        data: dataPoints.map((dp, index) => ({
           metricId,
-          timestamp: dp.timestamp,
+          // Add index as milliseconds offset to ensure unique timestamps
+          timestamp: new Date(baseTimestamp.getTime() + index),
           value: dp.value,
           dimensions: dimensionsToJson(dp.dimensions),
         })),
