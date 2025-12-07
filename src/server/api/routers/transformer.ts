@@ -8,15 +8,13 @@
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 
-import { getTemplate } from "@/lib/integrations";
 import {
   createChartTransformer,
   executeChartTransformerForMetric,
-  executeTransformerForPolling,
   getChartTransformerByMetricId,
   getTransformerByTemplateId,
+  refreshMetricWithCharts,
   regenerateChartTransformer,
-  transformAndSaveMetricData,
 } from "@/server/api/services/transformation";
 import { createTRPCRouter, workspaceProcedure } from "@/server/api/trpc";
 import { db } from "@/server/db";
@@ -39,7 +37,8 @@ export const transformerRouter = createTRPCRouter({
   /**
    * Execute MetricTransformer for a specific metric
    *
-   * Uses unified flow: single fetch, batch save.
+   * Uses the unified refreshMetricWithCharts function (same as cron job).
+   * This fetches data, saves DataPoints, and updates all associated charts.
    */
   executeMetricTransformer: workspaceProcedure
     .input(
@@ -48,17 +47,16 @@ export const transformerRouter = createTRPCRouter({
       }),
     )
     .mutation(async ({ ctx, input }) => {
-      // Get the metric with its integration
+      // Verify organization ownership before calling refresh
       const metric = await db.metric.findUnique({
         where: { id: input.metricId },
-        include: { integration: true },
+        select: { organizationId: true },
       });
 
-      if (!metric || !metric.metricTemplate || !metric.integration) {
-        return { success: false, error: "Metric not found or not configured" };
+      if (!metric) {
+        return { success: false, error: "Metric not found" };
       }
 
-      // Verify organization ownership
       if (metric.organizationId !== ctx.workspace.organizationId) {
         throw new TRPCError({
           code: "FORBIDDEN",
@@ -66,81 +64,16 @@ export const transformerRouter = createTRPCRouter({
         });
       }
 
-      // Get template for isTimeSeries
-      const template = getTemplate(metric.metricTemplate);
-      const isTimeSeries = template?.isTimeSeries !== false;
-
-      // Use the unified transform and save flow
-      const result = await executeTransformerForPolling({
-        templateId: metric.metricTemplate,
-        integrationId: metric.integration.integrationId,
-        connectionId: metric.integration.connectionId,
-        metricId: metric.id,
-        endpointConfig: (metric.endpointConfig as Record<string, string>) ?? {},
-        isTimeSeries,
-      });
-
-      if (!result.success) {
-        return { success: false, error: result.error };
-      }
-
-      // Update metric lastFetchedAt
-      await db.metric.update({
-        where: { id: input.metricId },
-        data: { lastFetchedAt: new Date(), lastError: null },
+      // Use the unified refresh function (same as cron job)
+      const result = await refreshMetricWithCharts({
+        metricId: input.metricId,
       });
 
       return {
-        success: true,
-        dataPointCount: result.dataPoints?.length ?? 0,
-        dataPoints: result.dataPoints?.slice(0, 10), // Return first 10 for preview
+        success: result.success,
+        dataPointCount: result.dataPointCount ?? 0,
+        error: result.error,
       };
-    }),
-
-  /**
-   * Force refresh metric data with transformer creation if needed
-   */
-  refreshMetricData: workspaceProcedure
-    .input(z.object({ metricId: z.string() }))
-    .mutation(async ({ ctx, input }) => {
-      const metric = await db.metric.findUnique({
-        where: { id: input.metricId },
-        include: { integration: true },
-      });
-
-      if (!metric || !metric.metricTemplate || !metric.integration) {
-        return { success: false, error: "Metric not found or not configured" };
-      }
-
-      // Verify organization ownership
-      if (metric.organizationId !== ctx.workspace.organizationId) {
-        throw new TRPCError({
-          code: "FORBIDDEN",
-          message: "You do not have access to this metric",
-        });
-      }
-
-      const template = getTemplate(metric.metricTemplate);
-      const isTimeSeries = template?.isTimeSeries !== false;
-
-      // Use full unified flow (creates transformer if needed)
-      const result = await transformAndSaveMetricData({
-        templateId: metric.metricTemplate,
-        integrationId: metric.integration.integrationId,
-        connectionId: metric.integration.connectionId,
-        metricId: metric.id,
-        endpointConfig: (metric.endpointConfig as Record<string, string>) ?? {},
-        isTimeSeries,
-      });
-
-      if (result.success) {
-        await db.metric.update({
-          where: { id: input.metricId },
-          data: { lastFetchedAt: new Date(), lastError: null },
-        });
-      }
-
-      return result;
     }),
 
   /**

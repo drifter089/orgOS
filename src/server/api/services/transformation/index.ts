@@ -28,6 +28,7 @@ export {
   transformAndSaveMetricData,
   executeTransformerForPolling,
   getTransformerByTemplateId,
+  refreshMetricWithCharts,
 } from "./transformer";
 
 // ChartTransformer Service - for chart configuration

@@ -419,3 +419,119 @@ export async function getTransformerByTemplateId(templateId: string) {
     where: { templateId },
   });
 }
+
+// =============================================================================
+// Unified Refresh Function (used by both cron job and manual refresh)
+// =============================================================================
+
+interface RefreshMetricInput {
+  metricId: string;
+}
+
+interface RefreshMetricResult {
+  success: boolean;
+  dataPointCount?: number;
+  error?: string;
+}
+
+/**
+ * Refresh metric data and update all associated charts
+ *
+ * This is the unified function used by both:
+ * - Cron job (poll-metrics)
+ * - Manual refresh button in dashboard
+ *
+ * It does:
+ * 1. Fetch fresh data from API via MetricTransformer
+ * 2. Save DataPoints to database
+ * 3. Update metric timestamps (lastFetchedAt, lastError)
+ * 4. Re-execute ChartTransformer for all DashboardMetrics
+ *
+ * Note: Does NOT update nextPollAt - that's cron-specific
+ */
+export async function refreshMetricWithCharts(
+  input: RefreshMetricInput,
+): Promise<RefreshMetricResult> {
+  console.info(
+    `[RefreshMetric] Starting refresh for metric: ${input.metricId}`,
+  );
+
+  // Get the metric with its integration and dashboard metrics
+  const metric = await db.metric.findUnique({
+    where: { id: input.metricId },
+    include: {
+      integration: true,
+      dashboardMetrics: {
+        include: { chartTransformer: true },
+      },
+    },
+  });
+
+  if (!metric || !metric.metricTemplate || !metric.integration) {
+    return { success: false, error: "Metric not found or not configured" };
+  }
+
+  // Get template for isTimeSeries
+  const template = getTemplate(metric.metricTemplate);
+  const isTimeSeries = template?.isTimeSeries !== false;
+
+  // Step 1: Execute transformer to fetch and save data
+  const transformResult = await executeTransformerForPolling({
+    templateId: metric.metricTemplate,
+    integrationId: metric.integration.integrationId,
+    connectionId: metric.integration.connectionId,
+    metricId: metric.id,
+    endpointConfig: (metric.endpointConfig as Record<string, string>) ?? {},
+    isTimeSeries,
+  });
+
+  if (!transformResult.success) {
+    // Update metric with error
+    await db.metric.update({
+      where: { id: input.metricId },
+      data: { lastError: transformResult.error },
+    });
+    return { success: false, error: transformResult.error };
+  }
+
+  // Step 2: Update metric timestamps
+  await db.metric.update({
+    where: { id: input.metricId },
+    data: {
+      lastFetchedAt: new Date(),
+      lastError: null,
+    },
+  });
+
+  // Step 3: Update chart configs for all DashboardMetrics
+  // Import dynamically to avoid circular dependency
+  const { executeChartTransformerForMetric } = await import(
+    "./chart-transformer"
+  );
+
+  for (const dm of metric.dashboardMetrics) {
+    if (dm.chartTransformer) {
+      try {
+        await executeChartTransformerForMetric(dm.id);
+        console.info(
+          `[RefreshMetric] Updated chart for dashboard metric: ${dm.id}`,
+        );
+      } catch (chartError) {
+        console.error(
+          `[RefreshMetric] Chart transformer error for ${dm.id}:`,
+          chartError,
+        );
+        // Continue with other charts even if one fails
+      }
+    }
+  }
+
+  console.info(
+    `[RefreshMetric] Completed. ${transformResult.dataPoints?.length ?? 0} data points saved`,
+  );
+
+  return {
+    success: true,
+    dataPointCount: transformResult.dataPoints?.length ?? 0,
+  };
+}

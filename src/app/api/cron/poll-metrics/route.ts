@@ -13,11 +13,7 @@
 import { NextResponse } from "next/server";
 
 import { env } from "@/env";
-import { getTemplate } from "@/lib/integrations";
-import {
-  executeChartTransformerForMetric,
-  executeTransformerForPolling,
-} from "@/server/api/services/transformation";
+import { refreshMetricWithCharts } from "@/server/api/services/transformation";
 import { db } from "@/server/db";
 
 // Batch size per cron run
@@ -86,11 +82,10 @@ export async function GET(request: Request) {
         metricTemplate: { not: null },
         integration: { isNot: null },
       },
-      include: {
-        integration: true,
-        dashboardMetrics: {
-          include: { chartTransformer: true },
-        },
+      select: {
+        id: true,
+        name: true,
+        pollFrequency: true,
       },
       take: BATCH_SIZE,
       orderBy: { nextPollAt: "asc" }, // Process oldest first
@@ -98,39 +93,24 @@ export async function GET(request: Request) {
 
     console.info(`[CRON] Found ${metricsDue.length} metrics due for polling`);
 
-    // Process each metric
+    // Process each metric using the unified refresh function
     for (const metric of metricsDue) {
       results.processed++;
 
-      if (!metric.metricTemplate || !metric.integration) {
-        results.skipped++;
-        continue;
-      }
-
       try {
-        // Get template to determine if time-series
-        const template = getTemplate(metric.metricTemplate);
-        const isTimeSeries = template?.isTimeSeries !== false;
-
-        // Execute the unified transformer (single fetch, batch save)
-        const transformResult = await executeTransformerForPolling({
-          templateId: metric.metricTemplate,
-          integrationId: metric.integration.integrationId,
-          connectionId: metric.integration.connectionId,
+        // Use the same unified function as manual refresh
+        const refreshResult = await refreshMetricWithCharts({
           metricId: metric.id,
-          endpointConfig:
-            (metric.endpointConfig as Record<string, string>) ?? {},
-          isTimeSeries,
         });
 
-        if (!transformResult.success) {
+        if (!refreshResult.success) {
           results.failed++;
-          results.errors.push(`${metric.name}: ${transformResult.error}`);
+          results.errors.push(`${metric.name}: ${refreshResult.error}`);
 
+          // Update nextPollAt even on failure (cron-specific)
           await db.metric.update({
             where: { id: metric.id },
             data: {
-              lastError: transformResult.error,
               nextPollAt: calculateNextPoll(metric.pollFrequency),
             },
           });
@@ -138,29 +118,13 @@ export async function GET(request: Request) {
           continue;
         }
 
-        // Update metric timestamps
+        // Update nextPollAt on success (cron-specific, not done by refreshMetricWithCharts)
         await db.metric.update({
           where: { id: metric.id },
           data: {
-            lastFetchedAt: new Date(),
             nextPollAt: calculateNextPoll(metric.pollFrequency),
-            lastError: null,
           },
         });
-
-        // Update chart configs for all DashboardMetrics
-        for (const dm of metric.dashboardMetrics) {
-          if (dm.chartTransformer) {
-            try {
-              await executeChartTransformerForMetric(dm.id);
-            } catch (chartError) {
-              console.error(
-                `[CRON] Chart transformer error for ${dm.id}:`,
-                chartError,
-              );
-            }
-          }
-        }
 
         results.succeeded++;
         console.info(`[CRON] Successfully polled: ${metric.name}`);
@@ -170,11 +134,10 @@ export async function GET(request: Request) {
           error instanceof Error ? error.message : "Unknown error";
         results.errors.push(`${metric.name}: ${errorMessage}`);
 
-        // Update metric with error
+        // Update nextPollAt even on error (cron-specific)
         await db.metric.update({
           where: { id: metric.id },
           data: {
-            lastError: errorMessage,
             nextPollAt: calculateNextPoll(metric.pollFrequency),
           },
         });
