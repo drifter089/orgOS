@@ -40,7 +40,6 @@ function calculateNextPoll(frequency: string): Date {
  */
 function verifyCronSecret(request: Request): boolean {
   const authHeader = request.headers.get("authorization");
-  const cronSecret = process.env.CRON_SECRET;
 
   // In development, allow without secret
   if (env.NODE_ENV === "development") {
@@ -48,14 +47,14 @@ function verifyCronSecret(request: Request): boolean {
   }
 
   // In production, CRON_SECRET must be configured - deny by default
-  if (!cronSecret) {
+  if (!env.CRON_SECRET) {
     console.error(
       "[CRON] SECURITY: CRON_SECRET not configured in production - rejecting request",
     );
     return false;
   }
 
-  return authHeader === `Bearer ${cronSecret}`;
+  return authHeader === `Bearer ${env.CRON_SECRET}`;
 }
 
 export async function GET(request: Request) {
@@ -63,6 +62,10 @@ export async function GET(request: Request) {
   if (!verifyCronSecret(request)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+
+  // Get frequency filter from query param
+  const { searchParams } = new URL(request.url);
+  const frequency = searchParams.get("frequency");
 
   const startTime = Date.now();
   const results = {
@@ -74,11 +77,11 @@ export async function GET(request: Request) {
   };
 
   try {
-    // Find metrics due for polling
+    // Find metrics due for polling (filtered by frequency if provided)
     const metricsDue = await db.metric.findMany({
       where: {
         nextPollAt: { lte: new Date() },
-        pollFrequency: { not: "manual" },
+        pollFrequency: frequency ?? { not: "manual" },
         metricTemplate: { not: null },
         integration: { isNot: null },
       },
@@ -91,7 +94,9 @@ export async function GET(request: Request) {
       orderBy: { nextPollAt: "asc" }, // Process oldest first
     });
 
-    console.info(`[CRON] Found ${metricsDue.length} metrics due for polling`);
+    console.info(
+      `[CRON] Found ${metricsDue.length} metrics due for polling (frequency: ${frequency ?? "all"})`,
+    );
 
     // Process each metric using the unified refresh function
     for (const metric of metricsDue) {
@@ -149,6 +154,7 @@ export async function GET(request: Request) {
 
     return NextResponse.json({
       success: true,
+      frequency: frequency ?? "all",
       duration: `${duration}ms`,
       ...results,
     });
