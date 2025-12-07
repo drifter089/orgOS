@@ -1,8 +1,8 @@
 /**
- * ChartTransformer Service
+ * Chart Generator Service
  *
  * Handles the full workflow for ChartTransformers:
- * - Generate chart transformer for a DashboardMetric
+ * - Generate chart transformer for a DashboardChart
  * - Execute transformer to generate chart config
  * - Regenerate based on user preferences
  */
@@ -12,7 +12,7 @@ import { TRPCError } from "@trpc/server";
 import type { ChartConfig, DataPoint } from "@/lib/metrics/transformer-types";
 import { db } from "@/server/db";
 
-import { generateChartTransformerCode } from "./ai-generator";
+import { generateChartTransformerCode } from "./ai-code-generator";
 import { executeChartTransformer, testChartTransformer } from "./executor";
 
 /**
@@ -30,7 +30,7 @@ function chartConfigToJson(
 // =============================================================================
 
 interface CreateChartTransformerInput {
-  dashboardMetricId: string;
+  dashboardChartId: string;
   metricName: string;
   metricDescription: string;
   chartType: string;
@@ -50,7 +50,7 @@ interface ChartTransformResult {
 // =============================================================================
 
 /**
- * Create a ChartTransformer for a DashboardMetric
+ * Create a ChartTransformer for a DashboardChart
  *
  * Generates AI code based on actual data points and user preferences.
  */
@@ -62,16 +62,16 @@ export async function createChartTransformer(
   );
   console.info("# CREATE CHART TRANSFORMER");
   console.info("############################################################");
-  console.info(`[ChartTrans] Dashboard metric ID: ${input.dashboardMetricId}`);
+  console.info(`[ChartTrans] Dashboard chart ID: ${input.dashboardChartId}`);
   console.info(`[ChartTrans] Metric name: ${input.metricName}`);
   console.info(`[ChartTrans] Chart type: ${input.chartType}`);
   console.info(`[ChartTrans] Date range: ${input.dateRange}`);
   console.info(`[ChartTrans] Aggregation: ${input.aggregation}`);
 
-  // Get the dashboard metric and its data points
-  console.info(`[ChartTrans] Fetching dashboard metric and data points...`);
-  const dashboardMetric = await db.dashboardMetric.findUnique({
-    where: { id: input.dashboardMetricId },
+  // Get the dashboard chart and its data points
+  console.info(`[ChartTrans] Fetching dashboard chart and data points...`);
+  const dashboardChart = await db.dashboardChart.findUnique({
+    where: { id: input.dashboardChartId },
     include: {
       metric: {
         include: {
@@ -84,20 +84,20 @@ export async function createChartTransformer(
     },
   });
 
-  if (!dashboardMetric) {
-    console.error(`[ChartTrans] ERROR: DashboardMetric not found`);
+  if (!dashboardChart) {
+    console.error(`[ChartTrans] ERROR: DashboardChart not found`);
     throw new TRPCError({
       code: "NOT_FOUND",
-      message: "DashboardMetric not found",
+      message: "DashboardChart not found",
     });
   }
 
   console.info(
-    `[ChartTrans] Found ${dashboardMetric.metric.dataPoints.length} data points`,
+    `[ChartTrans] Found ${dashboardChart.metric.dataPoints.length} data points`,
   );
 
   // Convert to DataPoint format for AI
-  const sampleDataPoints = dashboardMetric.metric.dataPoints.map((dp) => ({
+  const sampleDataPoints = dashboardChart.metric.dataPoints.map((dp) => ({
     timestamp: dp.timestamp,
     value: dp.value,
     dimensions: dp.dimensions as Record<string, unknown> | null,
@@ -150,9 +150,9 @@ export async function createChartTransformer(
 
   // Save the transformer
   const transformer = await db.chartTransformer.upsert({
-    where: { dashboardMetricId: input.dashboardMetricId },
+    where: { dashboardChartId: input.dashboardChartId },
     create: {
-      dashboardMetricId: input.dashboardMetricId,
+      dashboardChartId: input.dashboardChartId,
       transformerCode: generated.code,
       chartType: input.chartType,
       dateRange: input.dateRange,
@@ -171,18 +171,18 @@ export async function createChartTransformer(
 
   console.info(`[ChartTrans] Saved transformer: ${transformer.id}`);
 
-  // Update dashboard metric with the chart config
-  console.info(`[ChartTrans] Updating dashboard metric with chart config...`);
-  await db.dashboardMetric.update({
-    where: { id: input.dashboardMetricId },
+  // Update dashboard chart with the chart config
+  console.info(`[ChartTrans] Updating dashboard chart with chart config...`);
+  await db.dashboardChart.update({
+    where: { id: input.dashboardChartId },
     data: {
-      graphConfig: chartConfigToJson(testResult.data),
-      graphType: input.chartType,
+      chartConfig: chartConfigToJson(testResult.data),
+      chartType: input.chartType,
       chartTransformerId: transformer.id,
     },
   });
 
-  console.info(`[ChartTrans] Chart config saved to dashboard metric`);
+  console.info(`[ChartTrans] Chart config saved to dashboard chart`);
   console.info(
     "############################################################\n",
   );
@@ -191,16 +191,16 @@ export async function createChartTransformer(
 }
 
 /**
- * Execute ChartTransformer for a DashboardMetric
+ * Execute ChartTransformer for a DashboardChart
  *
  * Fetches data points and generates chart config.
  */
-export async function executeChartTransformerForMetric(
-  dashboardMetricId: string,
+export async function executeChartTransformerForDashboardChart(
+  dashboardChartId: string,
 ): Promise<ChartTransformResult> {
   // Get the transformer and data points
-  const dashboardMetric = await db.dashboardMetric.findUnique({
-    where: { id: dashboardMetricId },
+  const dashboardChart = await db.dashboardChart.findUnique({
+    where: { id: dashboardChartId },
     include: {
       chartTransformer: true,
       metric: {
@@ -214,24 +214,24 @@ export async function executeChartTransformerForMetric(
     },
   });
 
-  if (!dashboardMetric) {
+  if (!dashboardChart) {
     return {
       success: false,
-      error: "DashboardMetric not found",
+      error: "DashboardChart not found",
     };
   }
 
-  if (!dashboardMetric.chartTransformer) {
+  if (!dashboardChart.chartTransformer) {
     return {
       success: false,
-      error: "No chart transformer found for this metric",
+      error: "No chart transformer found for this chart",
     };
   }
 
-  const transformer = dashboardMetric.chartTransformer;
+  const transformer = dashboardChart.chartTransformer;
 
   // Convert to DataPoint format
-  const dataPoints: DataPoint[] = dashboardMetric.metric.dataPoints.map(
+  const dataPoints: DataPoint[] = dashboardChart.metric.dataPoints.map(
     (dp) => ({
       timestamp: dp.timestamp,
       value: dp.value,
@@ -257,11 +257,11 @@ export async function executeChartTransformerForMetric(
     };
   }
 
-  // Update the dashboard metric with new chart config
-  await db.dashboardMetric.update({
-    where: { id: dashboardMetricId },
+  // Update the dashboard chart with new chart config
+  await db.dashboardChart.update({
+    where: { id: dashboardChartId },
     data: {
-      graphConfig: chartConfigToJson(result.data),
+      chartConfig: chartConfigToJson(result.data),
     },
   });
 
@@ -275,15 +275,15 @@ export async function executeChartTransformerForMetric(
  * Regenerate ChartTransformer with new preferences
  */
 export async function regenerateChartTransformer(input: {
-  dashboardMetricId: string;
+  dashboardChartId: string;
   chartType?: string;
   dateRange?: string;
   aggregation?: string;
   userPrompt?: string;
 }): Promise<ChartTransformResult> {
   // Get current transformer and data
-  const dashboardMetric = await db.dashboardMetric.findUnique({
-    where: { id: input.dashboardMetricId },
+  const dashboardChart = await db.dashboardChart.findUnique({
+    where: { id: input.dashboardChartId },
     include: {
       chartTransformer: true,
       metric: {
@@ -297,22 +297,22 @@ export async function regenerateChartTransformer(input: {
     },
   });
 
-  if (!dashboardMetric) {
+  if (!dashboardChart) {
     return {
       success: false,
-      error: "DashboardMetric not found",
+      error: "DashboardChart not found",
     };
   }
 
   // Use existing preferences as defaults
-  const currentTransformer = dashboardMetric.chartTransformer;
+  const currentTransformer = dashboardChart.chartTransformer;
   const chartType = input.chartType ?? currentTransformer?.chartType ?? "line";
   const dateRange = input.dateRange ?? currentTransformer?.dateRange ?? "30d";
   const aggregation =
     input.aggregation ?? currentTransformer?.aggregation ?? "none";
 
   // Convert data points
-  const sampleDataPoints = dashboardMetric.metric.dataPoints.map((dp) => ({
+  const sampleDataPoints = dashboardChart.metric.dataPoints.map((dp) => ({
     timestamp: dp.timestamp,
     value: dp.value,
     dimensions: dp.dimensions as Record<string, unknown> | null,
@@ -320,8 +320,8 @@ export async function regenerateChartTransformer(input: {
 
   // Generate new transformer code
   const generated = await generateChartTransformerCode({
-    metricName: dashboardMetric.metric.name,
-    metricDescription: dashboardMetric.metric.description ?? "",
+    metricName: dashboardChart.metric.name,
+    metricDescription: dashboardChart.metric.description ?? "",
     sampleDataPoints,
     chartType,
     dateRange,
@@ -345,9 +345,9 @@ export async function regenerateChartTransformer(input: {
 
   // Update or create transformer
   await db.chartTransformer.upsert({
-    where: { dashboardMetricId: input.dashboardMetricId },
+    where: { dashboardChartId: input.dashboardChartId },
     create: {
-      dashboardMetricId: input.dashboardMetricId,
+      dashboardChartId: input.dashboardChartId,
       transformerCode: generated.code,
       chartType,
       dateRange,
@@ -364,12 +364,12 @@ export async function regenerateChartTransformer(input: {
     },
   });
 
-  // Update dashboard metric with new chart config
-  await db.dashboardMetric.update({
-    where: { id: input.dashboardMetricId },
+  // Update dashboard chart with new chart config
+  await db.dashboardChart.update({
+    where: { id: input.dashboardChartId },
     data: {
-      graphConfig: chartConfigToJson(testResult.data),
-      graphType: chartType,
+      chartConfig: chartConfigToJson(testResult.data),
+      chartType: chartType,
     },
   });
 
@@ -380,10 +380,12 @@ export async function regenerateChartTransformer(input: {
 }
 
 /**
- * Get ChartTransformer by DashboardMetric ID
+ * Get ChartTransformer by DashboardChart ID
  */
-export async function getChartTransformerByMetricId(dashboardMetricId: string) {
+export async function getChartTransformerByDashboardChartId(
+  dashboardChartId: string,
+) {
   return db.chartTransformer.findUnique({
-    where: { dashboardMetricId },
+    where: { dashboardChartId },
   });
 }

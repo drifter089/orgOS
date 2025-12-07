@@ -100,7 +100,7 @@ model Metric {
 
     // Integration-backed metrics
     integrationId  String?  // Reference to Integration connectionId
-    metricTemplate String?  // Template identifier (e.g., "github-stars-total")
+    templateId     String?  // Template identifier (e.g., "github-stars-total")
     endpointConfig Json?    // Endpoint parameters (e.g., {videoId: "abc123"})
     lastFetchedAt  DateTime? // Last data refresh timestamp
 
@@ -112,8 +112,8 @@ model Metric {
     team              Team?             @relation(fields: [teamId], references: [id], onDelete: Cascade)
     integration       Integration?      @relation(fields: [integrationId], references: [connectionId], onDelete: Cascade)
     roles             Role[]            // One metric can be used by many roles
-    dashboardMetrics  DashboardMetric[] // Dashboard configurations using this metric
-    dataPoints        MetricDataPoint[] // NEW: Relation to data points
+    dashboardCharts   DashboardChart[]  // Dashboard chart configurations using this metric
+    dataPoints        MetricDataPoint[] // Relation to data points
 
     createdAt      DateTime @default(now())
     updatedAt      DateTime @updatedAt
@@ -132,7 +132,7 @@ model Integration {
 
     // Nango connection identifiers
     connectionId   String   @unique // UUID from Nango (required for API calls)
-    integrationId  String   // Provider name: 'github', 'google', 'slack', etc.
+    providerId     String   // Provider name: 'github', 'google', 'slack', etc.
 
     // User-defined display name (e.g., "Work GitHub", "Personal")
     displayName    String?
@@ -159,26 +159,26 @@ model Integration {
     @@index([organizationId])
     @@index([connectionId])
     @@index([connectedBy])
-    @@index([integrationId])
+    @@index([providerId])
     @@index([status])
 }
 
 // Dashboard & Visualization System
 
-model DashboardMetric {
+model DashboardChart {
     id             String   @id @default(cuid())
     organizationId String   // WorkOS organization ID
     metricId       String   // Metric being displayed
 
-    // Graph configuration
-    graphType      String   // "line", "bar", "area", "pie", "kpi"
-    graphConfig    Json     @default("{}") // Labels, colors, axis titles, etc.
+    // Chart configuration
+    chartType      String   // "line", "bar", "area", "pie", "kpi"
+    chartConfig    Json     @default("{}") // Labels, colors, axis titles, etc.
 
     // Layout properties
     position       Int      @default(0) // Display order
     size           String   @default("medium") // "small", "medium", "large"
 
-    // NEW: Chart transformer relation
+    // Chart transformer relation
     chartTransformerId String?        @unique
     chartTransformer   ChartTransformer?
 
@@ -197,8 +197,8 @@ model SystemsCanvas {
     id             String   @id @default(cuid())
     organizationId String   @unique // One canvas per organization
 
-    // Store only positions and edges (metric data is in DashboardMetric)
-    // Node IDs match DashboardMetric.id for linking
+    // Store only positions and edges (metric data is in DashboardChart)
+    // Node IDs match DashboardChart.id for linking
     reactFlowNodes Json     @default("[]") // Array of { id, position }
     reactFlowEdges Json     @default("[]") // Array of edge connection data
     viewport       Json?    // { x, y, zoom } for canvas position
@@ -238,9 +238,9 @@ model MetricDataPoint {
     @@unique([metricId, timestamp])
 }
 
-// MetricTransformer - AI-generated code that transforms API data into DataPoints
+// DataIngestionTransformer - AI-generated code that transforms API data into DataPoints
 // One per template. Shared across ALL orgs. Endpoint config comes from template definition.
-model MetricTransformer {
+model DataIngestionTransformer {
     id              String   @id @default(cuid())
     templateId      String   @unique
 
@@ -254,11 +254,11 @@ model MetricTransformer {
 }
 
 // ChartTransformer - Transforms DataPoints into ChartConfig
-// One per DashboardMetric. User-specific.
+// One per DashboardChart. User-specific.
 model ChartTransformer {
-    id                String @id @default(cuid())
-    dashboardMetricId String @unique
-    dashboardMetric   DashboardMetric @relation(fields: [dashboardMetricId], references: [id], onDelete: Cascade)
+    id               String @id @default(cuid())
+    dashboardChartId String @unique
+    dashboardChart   DashboardChart @relation(fields: [dashboardChartId], references: [id], onDelete: Cascade)
 
     // Transformation code (TypeScript)
     transformerCode String @db.Text  // Code: DataPoint[] → ChartConfig
@@ -277,5 +277,5 @@ model ChartTransformer {
     createdAt DateTime @default(now())
     updatedAt DateTime @updatedAt
 
-    @@index([dashboardMetricId])
+    @@index([dashboardChartId])
 }

@@ -5,7 +5,7 @@ import { api } from "@/trpc/react";
 
 import { DashboardMetricCard } from "./dashboard-metric-card";
 
-type DashboardMetrics = RouterOutputs["dashboard"]["getDashboardMetrics"];
+type DashboardMetrics = RouterOutputs["dashboard"]["getDashboardCharts"];
 
 interface DashboardClientProps {
   teamId: string;
@@ -16,7 +16,7 @@ export function DashboardClient({
   teamId,
   initialDashboardMetrics,
 }: DashboardClientProps) {
-  const { data: dashboardMetrics } = api.dashboard.getDashboardMetrics.useQuery(
+  const { data: dashboardCharts } = api.dashboard.getDashboardCharts.useQuery(
     { teamId },
     {
       initialData: initialDashboardMetrics,
@@ -25,15 +25,15 @@ export function DashboardClient({
 
   return (
     <div className="space-y-6">
-      {dashboardMetrics.length > 0 && (
+      {dashboardCharts.length > 0 && (
         <div>
           <p className="text-muted-foreground text-sm">
-            {`Showing ${dashboardMetrics.length} metric${dashboardMetrics.length === 1 ? "" : "s"}`}
+            {`Showing ${dashboardCharts.length} metric${dashboardCharts.length === 1 ? "" : "s"}`}
           </p>
         </div>
       )}
 
-      {dashboardMetrics.length === 0 ? (
+      {dashboardCharts.length === 0 ? (
         <div className="flex flex-col items-center justify-center rounded-lg border-2 border-dashed py-16">
           <div className="space-y-2 text-center">
             <h3 className="text-lg font-semibold">No KPIs yet</h3>
@@ -45,7 +45,7 @@ export function DashboardClient({
         </div>
       ) : (
         <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-          {dashboardMetrics.map((dashboardMetric) => (
+          {dashboardCharts.map((dashboardMetric) => (
             <DashboardMetricCard
               key={dashboardMetric.id}
               dashboardMetric={dashboardMetric}

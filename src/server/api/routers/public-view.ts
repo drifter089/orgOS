@@ -62,7 +62,7 @@ export const publicViewRouter = createTRPCRouter({
         });
       }
 
-      const dashboardMetrics = await ctx.db.dashboardMetric.findMany({
+      const dashboardCharts = await ctx.db.dashboardChart.findMany({
         where: {
           organizationId: team.organizationId,
           metric: { teamId: input.teamId },
@@ -83,7 +83,7 @@ export const publicViewRouter = createTRPCRouter({
           id: team.id,
           name: team.name,
         },
-        dashboardMetrics,
+        dashboardCharts,
       };
     }),
 });

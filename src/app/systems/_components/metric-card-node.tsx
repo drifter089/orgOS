@@ -8,7 +8,7 @@ import { DashboardMetricCard } from "@/app/dashboard/[teamId]/_components/dashbo
 import { cn } from "@/lib/utils";
 import type { RouterOutputs } from "@/trpc/react";
 
-type DashboardMetrics = RouterOutputs["dashboard"]["getDashboardMetrics"];
+type DashboardMetrics = RouterOutputs["dashboard"]["getDashboardCharts"];
 type DashboardMetricWithRelations = DashboardMetrics[number];
 
 export type MetricCardNodeData = {

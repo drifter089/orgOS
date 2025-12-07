@@ -5,7 +5,7 @@ import { getTemplate } from "@/lib/integrations";
 import { fetchData } from "@/server/api/services/data-fetching";
 import {
   createChartTransformer,
-  transformAndSaveMetricData,
+  ingestMetricData,
 } from "@/server/api/services/transformation";
 import { createTRPCRouter, workspaceProcedure } from "@/server/api/trpc";
 import { getIntegrationAndVerifyAccess } from "@/server/api/utils/authorization";
@@ -81,13 +81,13 @@ export const metricRouter = createTRPCRouter({
         });
       }
 
-      // Get position for dashboard metric
-      const count = await ctx.db.dashboardMetric.count({
+      // Get position for dashboard chart
+      const count = await ctx.db.dashboardChart.count({
         where: { organizationId: ctx.workspace.organizationId },
       });
 
-      // Step 1: Create metric + dashboard metric in transaction
-      const dashboardMetric = await ctx.db.$transaction(
+      // Step 1: Create metric + dashboard chart in transaction
+      const dashboardChart = await ctx.db.$transaction(
         async (tx) => {
           const metric = await tx.metric.create({
             data: {
@@ -95,7 +95,7 @@ export const metricRouter = createTRPCRouter({
               description: input.description,
               organizationId: ctx.workspace.organizationId,
               integrationId: input.connectionId,
-              metricTemplate: input.templateId,
+              templateId: input.templateId,
               endpointConfig: input.endpointParams,
               teamId: input.teamId,
               pollFrequency: template.defaultPollFrequency ?? "daily",
@@ -103,12 +103,12 @@ export const metricRouter = createTRPCRouter({
             },
           });
 
-          return tx.dashboardMetric.create({
+          return tx.dashboardChart.create({
             data: {
               organizationId: ctx.workspace.organizationId,
               metricId: metric.id,
-              graphType: "line",
-              graphConfig: {},
+              chartType: "line",
+              chartConfig: {},
               size: "medium",
               position: count,
             },
@@ -126,11 +126,11 @@ export const metricRouter = createTRPCRouter({
       );
 
       // Step 2: Transform and save data (single fetch, batch save)
-      const transformResult = await transformAndSaveMetricData({
+      const transformResult = await ingestMetricData({
         templateId: input.templateId,
-        integrationId: integration.integrationId,
+        integrationId: integration.providerId,
         connectionId: input.connectionId,
-        metricId: dashboardMetric.metricId,
+        metricId: dashboardChart.metricId,
         endpointConfig: input.endpointParams,
         isTimeSeries: template.isTimeSeries !== false,
       });
@@ -143,7 +143,7 @@ export const metricRouter = createTRPCRouter({
         // Step 3: Create ChartTransformer
         try {
           await createChartTransformer({
-            dashboardMetricId: dashboardMetric.id,
+            dashboardChartId: dashboardChart.id,
             metricName: input.name,
             metricDescription: input.description ?? template.description,
             chartType: "line",
@@ -162,13 +162,13 @@ export const metricRouter = createTRPCRouter({
 
       // Update lastFetchedAt
       await ctx.db.metric.update({
-        where: { id: dashboardMetric.metricId },
+        where: { id: dashboardChart.metricId },
         data: { lastFetchedAt: new Date() },
       });
 
       // Return fresh data
-      const result = await ctx.db.dashboardMetric.findUnique({
-        where: { id: dashboardMetric.id },
+      const result = await ctx.db.dashboardChart.findUnique({
+        where: { id: dashboardChart.id },
         include: {
           metric: {
             include: {
@@ -182,7 +182,7 @@ export const metricRouter = createTRPCRouter({
       if (!result) {
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
-          message: "Failed to fetch created dashboard metric",
+          message: "Failed to fetch created dashboard chart",
         });
       }
 

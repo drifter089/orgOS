@@ -13,7 +13,7 @@
 import { NextResponse } from "next/server";
 
 import { env } from "@/env";
-import { refreshMetricWithCharts } from "@/server/api/services/transformation";
+import { refreshMetricAndCharts } from "@/server/api/services/transformation";
 import { db } from "@/server/db";
 
 // Batch size per cron run
@@ -82,7 +82,7 @@ export async function GET(request: Request) {
       where: {
         nextPollAt: { lte: new Date() },
         pollFrequency: frequency ?? { not: "manual" },
-        metricTemplate: { not: null },
+        templateId: { not: null },
         integration: { isNot: null },
       },
       select: {
@@ -104,7 +104,7 @@ export async function GET(request: Request) {
 
       try {
         // Use the same unified function as manual refresh
-        const refreshResult = await refreshMetricWithCharts({
+        const refreshResult = await refreshMetricAndCharts({
           metricId: metric.id,
         });
 
@@ -123,7 +123,7 @@ export async function GET(request: Request) {
           continue;
         }
 
-        // Update nextPollAt on success (cron-specific, not done by refreshMetricWithCharts)
+        // Update nextPollAt on success (cron-specific, not done by refreshMetricAndCharts)
         await db.metric.update({
           where: { id: metric.id },
           data: {

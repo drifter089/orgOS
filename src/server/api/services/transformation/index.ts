@@ -7,34 +7,34 @@
 // Types
 export * from "./types";
 
-// AI Generator - generates transformer code (internal use)
+// AI Code Generator - generates transformer code (internal use)
 export {
-  generateMetricTransformerCode,
+  generateDataIngestionTransformerCode,
   generateChartTransformerCode,
-  regenerateMetricTransformerCode,
-} from "./ai-generator";
+  regenerateDataIngestionTransformerCode,
+} from "./ai-code-generator";
 
 // Executor - safely executes transformer code (internal use)
 export {
-  executeMetricTransformer,
+  executeDataIngestionTransformer,
   executeChartTransformer,
   validateTransformerCode,
-  testMetricTransformer,
+  testDataIngestionTransformer,
   testChartTransformer,
 } from "./executor";
 
-// Unified Transformer - main entry point for metric data transformation
+// Data Pipeline - main entry point for metric data ingestion
 export {
-  transformAndSaveMetricData,
-  executeTransformerForPolling,
-  getTransformerByTemplateId,
-  refreshMetricWithCharts,
-} from "./transformer";
+  ingestMetricData,
+  refreshMetricDataPoints,
+  getDataIngestionTransformerByTemplateId,
+  refreshMetricAndCharts,
+} from "./data-pipeline";
 
-// ChartTransformer Service - for chart configuration
+// Chart Generator - for chart configuration
 export {
   createChartTransformer,
-  executeChartTransformerForMetric,
+  executeChartTransformerForDashboardChart,
   regenerateChartTransformer,
-  getChartTransformerByMetricId,
-} from "./chart-transformer";
+  getChartTransformerByDashboardChartId,
+} from "./chart-generator";

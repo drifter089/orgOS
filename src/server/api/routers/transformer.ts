@@ -1,8 +1,8 @@
 /**
- * Transformer tRPC Router
+ * Data Router (formerly Transformer Router)
  *
- * Handles transformer operations:
- * - MetricTransformer: Raw API → DataPoints (via unified flow)
+ * Handles data pipeline operations:
+ * - DataIngestionTransformer: Raw API → DataPoints (via unified flow)
  * - ChartTransformer: DataPoints → ChartConfig
  */
 import { TRPCError } from "@trpc/server";
@@ -10,10 +10,10 @@ import { z } from "zod";
 
 import {
   createChartTransformer,
-  executeChartTransformerForMetric,
-  getChartTransformerByMetricId,
-  getTransformerByTemplateId,
-  refreshMetricWithCharts,
+  executeChartTransformerForDashboardChart,
+  getChartTransformerByDashboardChartId,
+  getDataIngestionTransformerByTemplateId,
+  refreshMetricAndCharts,
   regenerateChartTransformer,
 } from "@/server/api/services/transformation";
 import { createTRPCRouter, workspaceProcedure } from "@/server/api/trpc";
@@ -21,26 +21,26 @@ import { db } from "@/server/db";
 
 export const transformerRouter = createTRPCRouter({
   // ===========================================================================
-  // MetricTransformer Procedures
+  // DataIngestionTransformer Procedures
   // ===========================================================================
 
   /**
-   * Get MetricTransformer by templateId
-   * Note: MetricTransformers are shared across all orgs (one per template)
+   * Get DataIngestionTransformer by templateId
+   * Note: DataIngestionTransformers are shared across all orgs (one per template)
    */
-  getMetricTransformer: workspaceProcedure
+  getDataIngestionTransformer: workspaceProcedure
     .input(z.object({ templateId: z.string() }))
     .query(async ({ input }) => {
-      return getTransformerByTemplateId(input.templateId);
+      return getDataIngestionTransformerByTemplateId(input.templateId);
     }),
 
   /**
-   * Execute MetricTransformer for a specific metric
+   * Refresh metric data and update charts
    *
-   * Uses the unified refreshMetricWithCharts function (same as cron job).
+   * Uses the unified refreshMetricAndCharts function (same as cron job).
    * This fetches data, saves DataPoints, and updates all associated charts.
    */
-  executeMetricTransformer: workspaceProcedure
+  refreshMetric: workspaceProcedure
     .input(
       z.object({
         metricId: z.string(),
@@ -65,7 +65,7 @@ export const transformerRouter = createTRPCRouter({
       }
 
       // Use the unified refresh function (same as cron job)
-      const result = await refreshMetricWithCharts({
+      const result = await refreshMetricAndCharts({
         metricId: input.metricId,
       });
 
@@ -77,12 +77,12 @@ export const transformerRouter = createTRPCRouter({
     }),
 
   /**
-   * List all MetricTransformers
-   * Note: MetricTransformers are shared across all orgs (one per template)
+   * List all DataIngestionTransformers
+   * Note: DataIngestionTransformers are shared across all orgs (one per template)
    * This is an admin/debug endpoint
    */
-  listMetricTransformers: workspaceProcedure.query(async () => {
-    return db.metricTransformer.findMany({
+  listDataIngestionTransformers: workspaceProcedure.query(async () => {
+    return db.dataIngestionTransformer.findMany({
       orderBy: { updatedAt: "desc" },
     });
   }),
@@ -92,12 +92,12 @@ export const transformerRouter = createTRPCRouter({
   // ===========================================================================
 
   /**
-   * Create or update ChartTransformer for a DashboardMetric
+   * Create or update ChartTransformer for a DashboardChart
    */
   createChartTransformer: workspaceProcedure
     .input(
       z.object({
-        dashboardMetricId: z.string(),
+        dashboardChartId: z.string(),
         chartType: z.string().default("line"),
         dateRange: z.string().default("30d"),
         aggregation: z.string().default("none"),
@@ -105,30 +105,30 @@ export const transformerRouter = createTRPCRouter({
       }),
     )
     .mutation(async ({ ctx, input }) => {
-      const dashboardMetric = await db.dashboardMetric.findUnique({
-        where: { id: input.dashboardMetricId },
+      const dashboardChart = await db.dashboardChart.findUnique({
+        where: { id: input.dashboardChartId },
         include: { metric: true },
       });
 
-      if (!dashboardMetric) {
+      if (!dashboardChart) {
         throw new TRPCError({
           code: "NOT_FOUND",
-          message: "DashboardMetric not found",
+          message: "DashboardChart not found",
         });
       }
 
       // Verify organization ownership
-      if (dashboardMetric.organizationId !== ctx.workspace.organizationId) {
+      if (dashboardChart.organizationId !== ctx.workspace.organizationId) {
         throw new TRPCError({
           code: "FORBIDDEN",
-          message: "You do not have access to this dashboard metric",
+          message: "You do not have access to this dashboard chart",
         });
       }
 
       return createChartTransformer({
-        dashboardMetricId: input.dashboardMetricId,
-        metricName: dashboardMetric.metric.name,
-        metricDescription: dashboardMetric.metric.description ?? "",
+        dashboardChartId: input.dashboardChartId,
+        metricName: dashboardChart.metric.name,
+        metricDescription: dashboardChart.metric.description ?? "",
         chartType: input.chartType,
         dateRange: input.dateRange,
         aggregation: input.aggregation,
@@ -137,59 +137,59 @@ export const transformerRouter = createTRPCRouter({
     }),
 
   /**
-   * Get ChartTransformer by DashboardMetric ID
+   * Get ChartTransformer by DashboardChart ID
    */
   getChartTransformer: workspaceProcedure
-    .input(z.object({ dashboardMetricId: z.string() }))
+    .input(z.object({ dashboardChartId: z.string() }))
     .query(async ({ ctx, input }) => {
-      // Verify organization ownership via dashboardMetric
-      const dashboardMetric = await db.dashboardMetric.findUnique({
-        where: { id: input.dashboardMetricId },
+      // Verify organization ownership via dashboardChart
+      const dashboardChart = await db.dashboardChart.findUnique({
+        where: { id: input.dashboardChartId },
       });
 
-      if (!dashboardMetric) {
+      if (!dashboardChart) {
         throw new TRPCError({
           code: "NOT_FOUND",
-          message: "DashboardMetric not found",
+          message: "DashboardChart not found",
         });
       }
 
-      if (dashboardMetric.organizationId !== ctx.workspace.organizationId) {
+      if (dashboardChart.organizationId !== ctx.workspace.organizationId) {
         throw new TRPCError({
           code: "FORBIDDEN",
-          message: "You do not have access to this dashboard metric",
+          message: "You do not have access to this dashboard chart",
         });
       }
 
-      return getChartTransformerByMetricId(input.dashboardMetricId);
+      return getChartTransformerByDashboardChartId(input.dashboardChartId);
     }),
 
   /**
-   * Execute ChartTransformer for a DashboardMetric
+   * Execute ChartTransformer for a DashboardChart
    */
   executeChartTransformer: workspaceProcedure
-    .input(z.object({ dashboardMetricId: z.string() }))
+    .input(z.object({ dashboardChartId: z.string() }))
     .mutation(async ({ ctx, input }) => {
       // Verify organization ownership
-      const dashboardMetric = await db.dashboardMetric.findUnique({
-        where: { id: input.dashboardMetricId },
+      const dashboardChart = await db.dashboardChart.findUnique({
+        where: { id: input.dashboardChartId },
       });
 
-      if (!dashboardMetric) {
+      if (!dashboardChart) {
         throw new TRPCError({
           code: "NOT_FOUND",
-          message: "DashboardMetric not found",
+          message: "DashboardChart not found",
         });
       }
 
-      if (dashboardMetric.organizationId !== ctx.workspace.organizationId) {
+      if (dashboardChart.organizationId !== ctx.workspace.organizationId) {
         throw new TRPCError({
           code: "FORBIDDEN",
-          message: "You do not have access to this dashboard metric",
+          message: "You do not have access to this dashboard chart",
         });
       }
 
-      return executeChartTransformerForMetric(input.dashboardMetricId);
+      return executeChartTransformerForDashboardChart(input.dashboardChartId);
     }),
 
   /**
@@ -198,7 +198,7 @@ export const transformerRouter = createTRPCRouter({
   regenerateChartTransformer: workspaceProcedure
     .input(
       z.object({
-        dashboardMetricId: z.string(),
+        dashboardChartId: z.string(),
         chartType: z.string().optional(),
         dateRange: z.string().optional(),
         aggregation: z.string().optional(),
@@ -207,21 +207,21 @@ export const transformerRouter = createTRPCRouter({
     )
     .mutation(async ({ ctx, input }) => {
       // Verify organization ownership
-      const dashboardMetric = await db.dashboardMetric.findUnique({
-        where: { id: input.dashboardMetricId },
+      const dashboardChart = await db.dashboardChart.findUnique({
+        where: { id: input.dashboardChartId },
       });
 
-      if (!dashboardMetric) {
+      if (!dashboardChart) {
         throw new TRPCError({
           code: "NOT_FOUND",
-          message: "DashboardMetric not found",
+          message: "DashboardChart not found",
         });
       }
 
-      if (dashboardMetric.organizationId !== ctx.workspace.organizationId) {
+      if (dashboardChart.organizationId !== ctx.workspace.organizationId) {
         throw new TRPCError({
           code: "FORBIDDEN",
-          message: "You do not have access to this dashboard metric",
+          message: "You do not have access to this dashboard chart",
         });
       }
 
@@ -234,12 +234,12 @@ export const transformerRouter = createTRPCRouter({
   listChartTransformers: workspaceProcedure.query(async ({ ctx }) => {
     return db.chartTransformer.findMany({
       where: {
-        dashboardMetric: {
+        dashboardChart: {
           organizationId: ctx.workspace.organizationId,
         },
       },
       include: {
-        dashboardMetric: {
+        dashboardChart: {
           include: { metric: true },
         },
       },

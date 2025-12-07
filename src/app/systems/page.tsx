@@ -5,15 +5,15 @@ import { SystemsStoreProvider } from "./store/systems-store";
 import type { StoredEdge, StoredNode } from "./utils/canvas-serialization";
 
 export default async function SystemsPage() {
-  const [dashboardMetrics, canvasState] = await Promise.all([
-    api.dashboard.getAllDashboardMetricsWithCharts(),
+  const [dashboardCharts, canvasState] = await Promise.all([
+    api.dashboard.getAllDashboardChartsWithData(),
     api.systemsCanvas.get(),
   ]);
 
   const savedNodes = (canvasState?.reactFlowNodes ?? []) as StoredNode[];
   const savedEdges = (canvasState?.reactFlowEdges ?? []) as StoredEdge[];
 
-  if (dashboardMetrics.length === 0) {
+  if (dashboardCharts.length === 0) {
     return (
       <div className="flex h-screen w-full items-center justify-center">
         <p className="text-muted-foreground">
@@ -30,7 +30,7 @@ export default async function SystemsPage() {
         <div className="flex h-screen w-full overflow-hidden">
           <div className="relative h-full w-full flex-1 overflow-hidden">
             <SystemsCanvasWrapper
-              dashboardMetrics={dashboardMetrics}
+              dashboardCharts={dashboardCharts}
               savedNodes={savedNodes}
               savedEdges={savedEdges}
             />

@@ -28,18 +28,18 @@ interface DataPointRaw {
 // =============================================================================
 
 /**
- * Execute MetricTransformer code
+ * Execute DataIngestionTransformer code
  *
  * Transforms raw API response into DataPoints.
  * Code receives: apiResponse, endpointConfig
  * Code returns: DataPoint[]
  */
-export function executeMetricTransformer(
+export function executeDataIngestionTransformer(
   code: string,
   apiResponse: unknown,
   endpointConfig: Record<string, string>,
 ): ExecutionResult<DataPoint[]> {
-  console.info("\n---------- EXECUTOR: MetricTransformer ----------");
+  console.info("\n---------- EXECUTOR: DataIngestionTransformer ----------");
   console.info(`[Executor] Endpoint config:`, endpointConfig);
   console.info(`[Executor] API response type: ${typeof apiResponse}`);
   if (Array.isArray(apiResponse)) {
@@ -301,14 +301,14 @@ export function validateTransformerCode(code: string): {
 }
 
 /**
- * Test MetricTransformer with sample data
+ * Test DataIngestionTransformer with sample data
  */
-export function testMetricTransformer(
+export function testDataIngestionTransformer(
   code: string,
   sampleApiResponse: unknown,
   sampleEndpointConfig: Record<string, string>,
 ): ExecutionResult<DataPoint[]> {
-  console.info("\n========== TEST: MetricTransformer ==========");
+  console.info("\n========== TEST: DataIngestionTransformer ==========");
 
   // First validate syntax
   const syntaxCheck = validateTransformerCode(code);
@@ -323,7 +323,7 @@ export function testMetricTransformer(
 
   // Then try to execute
   console.info(`[Test] Syntax OK, executing with sample data...`);
-  const result = executeMetricTransformer(
+  const result = executeDataIngestionTransformer(
     code,
     sampleApiResponse,
     sampleEndpointConfig,

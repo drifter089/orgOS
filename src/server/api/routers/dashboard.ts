@@ -6,35 +6,33 @@ import { createTRPCRouter, workspaceProcedure } from "@/server/api/trpc";
 
 export const dashboardRouter = createTRPCRouter({
   /**
-   * Get all dashboard metrics with charts (non-empty graphConfig) across all teams
-   * Used by the default dashboard page to show all metrics
+   * Get all dashboard charts with data (non-empty chartConfig) across all teams
+   * Used by the default dashboard page to show all charts
    */
-  getAllDashboardMetricsWithCharts: workspaceProcedure.query(
-    async ({ ctx }) => {
-      const dashboardMetrics = await ctx.db.dashboardMetric.findMany({
-        where: {
-          organizationId: ctx.workspace.organizationId,
-          NOT: { graphConfig: { equals: {} } },
-        },
-        include: {
-          metric: {
-            include: {
-              integration: true,
-              roles: true,
-              team: true,
-            },
+  getAllDashboardChartsWithData: workspaceProcedure.query(async ({ ctx }) => {
+    const dashboardCharts = await ctx.db.dashboardChart.findMany({
+      where: {
+        organizationId: ctx.workspace.organizationId,
+        NOT: { chartConfig: { equals: {} } },
+      },
+      include: {
+        metric: {
+          include: {
+            integration: true,
+            roles: true,
+            team: true,
           },
         },
-        orderBy: { position: "asc" },
-      });
-      return dashboardMetrics;
-    },
-  ),
+      },
+      orderBy: { position: "asc" },
+    });
+    return dashboardCharts;
+  }),
 
-  getDashboardMetrics: workspaceProcedure
+  getDashboardCharts: workspaceProcedure
     .input(z.object({ teamId: z.string().optional() }).optional())
     .query(async ({ ctx, input }) => {
-      const dashboardMetrics = await ctx.db.dashboardMetric.findMany({
+      const dashboardCharts = await ctx.db.dashboardChart.findMany({
         where: {
           organizationId: ctx.workspace.organizationId,
           ...(input?.teamId && {
@@ -52,47 +50,47 @@ export const dashboardRouter = createTRPCRouter({
         orderBy: { position: "asc" },
       });
 
-      return dashboardMetrics;
+      return dashboardCharts;
     }),
 
   /**
-   * Update only the chart data for a dashboard metric
+   * Update only the chart data for a dashboard chart
    * Used after AI transformation completes (called from client)
    */
-  updateDashboardMetricChart: workspaceProcedure
+  updateDashboardChart: workspaceProcedure
     .input(
       z.object({
-        dashboardMetricId: z.string(),
-        graphType: z.string(),
-        graphConfig: z.record(z.unknown()),
+        dashboardChartId: z.string(),
+        chartType: z.string(),
+        chartConfig: z.record(z.unknown()),
       }),
     )
     .mutation(async ({ ctx, input }) => {
       // Verify ownership
-      const existing = await ctx.db.dashboardMetric.findUnique({
-        where: { id: input.dashboardMetricId },
+      const existing = await ctx.db.dashboardChart.findUnique({
+        where: { id: input.dashboardChartId },
         select: { organizationId: true },
       });
 
       if (!existing) {
         throw new TRPCError({
           code: "NOT_FOUND",
-          message: "Dashboard metric not found",
+          message: "Dashboard chart not found",
         });
       }
 
       if (existing.organizationId !== ctx.workspace.organizationId) {
         throw new TRPCError({
           code: "FORBIDDEN",
-          message: "Access denied to this dashboard metric",
+          message: "Access denied to this dashboard chart",
         });
       }
 
-      return ctx.db.dashboardMetric.update({
-        where: { id: input.dashboardMetricId },
+      return ctx.db.dashboardChart.update({
+        where: { id: input.dashboardChartId },
         data: {
-          graphType: input.graphType,
-          graphConfig: input.graphConfig as Prisma.InputJsonValue,
+          chartType: input.chartType,
+          chartConfig: input.chartConfig as Prisma.InputJsonValue,
           metric: {
             update: {
               lastFetchedAt: new Date(),
@@ -109,13 +107,4 @@ export const dashboardRouter = createTRPCRouter({
         },
       });
     }),
-
-  /**
-   * TODO: Transform raw API data into chart format using ChartTransformer
-   * See METRICS_ARCHITECTURE_PLAN.md for implementation details
-   *
-   * This procedure was removed as part of the pre-refactor cleanup.
-   * The new architecture will use saved ChartTransformer code instead of
-   * calling AI on every transformation.
-   */
 });

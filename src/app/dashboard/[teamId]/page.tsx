@@ -10,7 +10,7 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
   const { teamId } = await params;
 
   await Promise.all([
-    api.dashboard.getDashboardMetrics.prefetch({ teamId }),
+    api.dashboard.getDashboardCharts.prefetch({ teamId }),
     api.integration.listWithStats.prefetch(),
   ]);
 

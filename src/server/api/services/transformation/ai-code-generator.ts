@@ -1,8 +1,8 @@
 /**
- * AI Generator Service
+ * AI Code Generator Service
  *
  * Uses OpenRouter (Claude) to generate TypeScript transformer code.
- * - MetricTransformer: Raw API → DataPoints
+ * - DataIngestionTransformer: Raw API → DataPoints
  * - ChartTransformer: DataPoints → ChartConfig
  */
 import { createOpenRouter } from "@openrouter/ai-sdk-provider";
@@ -14,7 +14,7 @@ import { env } from "@/env";
 // Types
 // =============================================================================
 
-interface GenerateMetricTransformerInput {
+interface GenerateDataIngestionTransformerInput {
   templateId: string;
   integrationId: string;
   endpoint: string;
@@ -140,12 +140,14 @@ function getOpenRouterClient() {
 }
 
 /**
- * Generate MetricTransformer code using AI
+ * Generate DataIngestionTransformer code using AI
  */
-export async function generateMetricTransformerCode(
-  input: GenerateMetricTransformerInput,
+export async function generateDataIngestionTransformerCode(
+  input: GenerateDataIngestionTransformerInput,
 ): Promise<GeneratedCode> {
-  console.info("\n========== AI GENERATOR: MetricTransformer ==========");
+  console.info(
+    "\n========== AI GENERATOR: DataIngestionTransformer ==========",
+  );
   console.info(`[AI-Gen] Template: ${input.templateId}`);
   console.info(`[AI-Gen] Integration: ${input.integrationId}`);
   console.info(`[AI-Gen] Endpoint: ${input.method} ${input.endpoint}`);
@@ -311,16 +313,16 @@ Metric description: ${input.metricDescription}`;
 }
 
 /**
- * Regenerate MetricTransformer code with new sample data
+ * Regenerate DataIngestionTransformer code with new sample data
  */
-export async function regenerateMetricTransformerCode(
-  input: GenerateMetricTransformerInput & {
+export async function regenerateDataIngestionTransformerCode(
+  input: GenerateDataIngestionTransformerInput & {
     previousCode?: string;
     error?: string;
   },
 ): Promise<GeneratedCode> {
   console.info(
-    "\n========== AI GENERATOR: REGENERATE MetricTransformer ==========",
+    "\n========== AI GENERATOR: REGENERATE DataIngestionTransformer ==========",
   );
   console.info(`[AI-Regen] Template: ${input.templateId}`);
   console.info(`[AI-Regen] Integration: ${input.integrationId}`);

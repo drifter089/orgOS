@@ -28,7 +28,7 @@ import { DashboardMetricChart } from "./dashboard-metric-chart";
 import { DashboardMetricRoles } from "./dashboard-metric-roles";
 import { DashboardMetricSettings } from "./dashboard-metric-settings";
 
-type DashboardMetrics = RouterOutputs["dashboard"]["getDashboardMetrics"];
+type DashboardMetrics = RouterOutputs["dashboard"]["getDashboardCharts"];
 type DashboardMetricWithRelations = DashboardMetrics[number];
 
 export type ChartType =
@@ -79,12 +79,12 @@ export function DashboardMetricCard({
 
   const isPending = dashboardMetric.id.startsWith("temp-");
   const { metric } = dashboardMetric;
-  const isIntegrationMetric = !!metric.integrationId;
+  const isIntegrationMetric = !!metric.integration?.providerId;
   const roles = metric.roles ?? [];
   const hasError = !!metric.lastError;
 
   const chartTransform =
-    dashboardMetric.graphConfig as unknown as ChartTransformResult | null;
+    dashboardMetric.chartConfig as unknown as ChartTransformResult | null;
   const hasChartData = !!(
     chartTransform?.chartData && chartTransform.chartData.length > 0
   );
@@ -93,26 +93,26 @@ export function DashboardMetricCard({
     onMutate: async ({ id }) => {
       const teamId = metric.teamId;
 
-      await utils.dashboard.getDashboardMetrics.cancel();
+      await utils.dashboard.getDashboardCharts.cancel();
       if (teamId) {
-        await utils.dashboard.getDashboardMetrics.cancel({ teamId });
+        await utils.dashboard.getDashboardCharts.cancel({ teamId });
       }
 
       const previousUnscopedMetrics =
-        utils.dashboard.getDashboardMetrics.getData();
+        utils.dashboard.getDashboardCharts.getData();
       const previousTeamMetrics = teamId
-        ? utils.dashboard.getDashboardMetrics.getData({ teamId })
+        ? utils.dashboard.getDashboardCharts.getData({ teamId })
         : undefined;
 
       if (previousUnscopedMetrics) {
-        utils.dashboard.getDashboardMetrics.setData(
+        utils.dashboard.getDashboardCharts.setData(
           undefined,
           previousUnscopedMetrics.filter((dm) => dm.metric.id !== id),
         );
       }
 
       if (teamId && previousTeamMetrics) {
-        utils.dashboard.getDashboardMetrics.setData(
+        utils.dashboard.getDashboardCharts.setData(
           { teamId },
           previousTeamMetrics.filter((dm) => dm.metric.id !== id),
         );
@@ -122,13 +122,13 @@ export function DashboardMetricCard({
     },
     onError: (err, _variables, context) => {
       if (context?.previousUnscopedMetrics) {
-        utils.dashboard.getDashboardMetrics.setData(
+        utils.dashboard.getDashboardCharts.setData(
           undefined,
           context.previousUnscopedMetrics,
         );
       }
       if (context?.teamId && context?.previousTeamMetrics) {
-        utils.dashboard.getDashboardMetrics.setData(
+        utils.dashboard.getDashboardCharts.setData(
           { teamId: context.teamId },
           context.previousTeamMetrics,
         );
@@ -138,15 +138,14 @@ export function DashboardMetricCard({
   });
 
   // Mutations for transformer operations
-  const executeMetricTransformerMutation =
-    api.transformer.executeMetricTransformer.useMutation();
+  const refreshMetricMutation = api.transformer.refreshMetric.useMutation();
   const regenerateChartMutation =
     api.transformer.regenerateChartTransformer.useMutation();
 
   const updateMetricMutation = api.metric.update.useMutation({
     onSuccess: (updatedMetric) => {
       const teamId = metric.teamId;
-      utils.dashboard.getDashboardMetrics.setData(undefined, (old) =>
+      utils.dashboard.getDashboardCharts.setData(undefined, (old) =>
         old?.map((dm) =>
           dm.metric.id === updatedMetric.id
             ? { ...dm, metric: { ...dm.metric, ...updatedMetric } }
@@ -154,7 +153,7 @@ export function DashboardMetricCard({
         ),
       );
       if (teamId) {
-        utils.dashboard.getDashboardMetrics.setData({ teamId }, (old) =>
+        utils.dashboard.getDashboardCharts.setData({ teamId }, (old) =>
           old?.map((dm) =>
             dm.metric.id === updatedMetric.id
               ? { ...dm, metric: { ...dm.metric, ...updatedMetric } }
@@ -172,12 +171,12 @@ export function DashboardMetricCard({
    * 3. Invalidate cache to refresh UI
    */
   const handleRefresh = useCallback(async () => {
-    if (!isIntegrationMetric || !metric.metricTemplate || !metric.integration)
+    if (!isIntegrationMetric || !metric.templateId || !metric.integration)
       return;
 
     setIsProcessing(true);
     try {
-      const result = await executeMetricTransformerMutation.mutateAsync({
+      const result = await refreshMetricMutation.mutateAsync({
         metricId: metric.id,
       });
 
@@ -186,7 +185,7 @@ export function DashboardMetricCard({
           description: `${result.dataPointCount} data points updated`,
         });
         // Invalidate dashboard to refetch with new data
-        await utils.dashboard.getDashboardMetrics.invalidate();
+        await utils.dashboard.getDashboardCharts.invalidate();
       } else {
         toast.error("Refresh failed", { description: result.error });
       }
@@ -199,11 +198,11 @@ export function DashboardMetricCard({
     }
   }, [
     isIntegrationMetric,
-    metric.metricTemplate,
+    metric.templateId,
     metric.integration,
     metric.id,
-    executeMetricTransformerMutation,
-    utils.dashboard.getDashboardMetrics,
+    refreshMetricMutation,
+    utils.dashboard.getDashboardCharts,
   ]);
 
   /**
@@ -214,14 +213,14 @@ export function DashboardMetricCard({
       setIsProcessing(true);
       try {
         const result = await regenerateChartMutation.mutateAsync({
-          dashboardMetricId: dashboardMetric.id,
+          dashboardChartId: dashboardMetric.id,
           userPrompt,
         });
 
         if (result.success) {
           toast.success("Chart regenerated");
           // Invalidate to refetch with new chart config
-          await utils.dashboard.getDashboardMetrics.invalidate();
+          await utils.dashboard.getDashboardCharts.invalidate();
         } else {
           toast.error("Regeneration failed", { description: result.error });
         }
@@ -236,7 +235,7 @@ export function DashboardMetricCard({
     [
       dashboardMetric.id,
       regenerateChartMutation,
-      utils.dashboard.getDashboardMetrics,
+      utils.dashboard.getDashboardCharts,
     ],
   );
 
@@ -327,7 +326,7 @@ export function DashboardMetricCard({
             isIntegrationMetric={isIntegrationMetric}
             isPending={isPending}
             isProcessing={isProcessing}
-            integrationId={metric.integration?.integrationId}
+            integrationId={metric.integration?.providerId}
           />
         </TabsContent>
 
@@ -349,7 +348,7 @@ export function DashboardMetricCard({
               metricDescription={metric.description}
               chartTransform={chartTransform}
               hasChartData={hasChartData}
-              integrationId={metric.integration?.integrationId ?? null}
+              integrationId={metric.integration?.providerId ?? null}
               lastFetchedAt={metric.lastFetchedAt}
               lastError={metric.lastError}
               pollFrequency={metric.pollFrequency}

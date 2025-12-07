@@ -31,7 +31,7 @@ export interface ContentProps {
   connection: {
     id: string;
     connectionId: string;
-    integrationId: string;
+    providerId: string;
     displayName?: string | null;
     createdAt: Date;
   };
@@ -54,8 +54,8 @@ interface MetricDialogBaseProps {
   children: (props: ContentProps) => React.ReactNode;
 }
 
-type DashboardMetricWithRelations =
-  RouterOutputs["dashboard"]["getDashboardMetrics"][number];
+type DashboardChartWithRelations =
+  RouterOutputs["dashboard"]["getDashboardCharts"][number];
 
 export function MetricDialogBase({
   integrationId,
@@ -84,7 +84,7 @@ export function MetricDialogBase({
   const connection = integrationQuery.data?.active.find((int) =>
     connectionIdProp
       ? int.connectionId === connectionIdProp
-      : int.integrationId === integrationId,
+      : int.providerId === integrationId,
   );
 
   // Single mutation - creates metric + dashboard metric in transaction
@@ -105,13 +105,13 @@ export function MetricDialogBase({
     setError(null);
     const tempId = `temp-${Date.now()}`;
 
-    // Build optimistic dashboard metric (no chart data - will be generated later)
-    const optimisticDashboardMetric: DashboardMetricWithRelations = {
+    // Build optimistic dashboard chart (no chart data - will be generated later)
+    const optimisticDashboardChart: DashboardChartWithRelations = {
       id: tempId,
       organizationId: "",
       metricId: tempId,
-      graphType: "bar",
-      graphConfig: {} as Prisma.JsonValue,
+      chartType: "bar",
+      chartConfig: {} as Prisma.JsonValue,
       position: 9999,
       size: "medium",
       chartTransformerId: null,
@@ -123,7 +123,7 @@ export function MetricDialogBase({
         description: data.description ?? null,
         organizationId: "",
         integrationId: data.connectionId,
-        metricTemplate: data.templateId,
+        templateId: data.templateId,
         endpointConfig: data.endpointParams,
         teamId: teamId ?? null,
         lastFetchedAt: null,
@@ -136,7 +136,7 @@ export function MetricDialogBase({
           ? {
               id: connection.id,
               connectionId: connection.connectionId,
-              integrationId: connection.integrationId,
+              providerId: connection.providerId,
               displayName: connection.displayName ?? null,
               organizationId: "",
               connectedBy: "",
@@ -153,12 +153,12 @@ export function MetricDialogBase({
     };
 
     // Optimistic update - add to dashboard cache immediately
-    utils.dashboard.getDashboardMetrics.setData(undefined, (old) =>
-      old ? [...old, optimisticDashboardMetric] : [optimisticDashboardMetric],
+    utils.dashboard.getDashboardCharts.setData(undefined, (old) =>
+      old ? [...old, optimisticDashboardChart] : [optimisticDashboardChart],
     );
     if (teamId) {
-      utils.dashboard.getDashboardMetrics.setData({ teamId }, (old) =>
-        old ? [...old, optimisticDashboardMetric] : [optimisticDashboardMetric],
+      utils.dashboard.getDashboardCharts.setData({ teamId }, (old) =>
+        old ? [...old, optimisticDashboardChart] : [optimisticDashboardChart],
       );
     }
 
@@ -166,8 +166,8 @@ export function MetricDialogBase({
     if (teamId) {
       utils.metric.getByTeamId.setData({ teamId }, (old) =>
         old
-          ? [...old, optimisticDashboardMetric.metric]
-          : [optimisticDashboardMetric.metric],
+          ? [...old, optimisticDashboardChart.metric]
+          : [optimisticDashboardChart.metric],
       );
     }
 
@@ -183,32 +183,32 @@ export function MetricDialogBase({
 
     try {
       // Create the metric (chart generation will be implemented in new architecture)
-      const realDashboardMetric = await createMutation.mutateAsync({
+      const realDashboardChart = await createMutation.mutateAsync({
         ...data,
         teamId,
       });
 
       // Swap temp→real ID in dashboard cache
-      utils.dashboard.getDashboardMetrics.setData(undefined, (old) =>
-        old?.map((dm) => (dm.id === tempId ? realDashboardMetric : dm)),
+      utils.dashboard.getDashboardCharts.setData(undefined, (old) =>
+        old?.map((dc) => (dc.id === tempId ? realDashboardChart : dc)),
       );
       if (teamId) {
-        utils.dashboard.getDashboardMetrics.setData({ teamId }, (old) =>
-          old?.map((dm) => (dm.id === tempId ? realDashboardMetric : dm)),
+        utils.dashboard.getDashboardCharts.setData({ teamId }, (old) =>
+          old?.map((dc) => (dc.id === tempId ? realDashboardChart : dc)),
         );
         // Swap temp→real ID in metric tabs cache
         utils.metric.getByTeamId.setData({ teamId }, (old) =>
-          old?.map((m) => (m.id === tempId ? realDashboardMetric.metric : m)),
+          old?.map((m) => (m.id === tempId ? realDashboardChart.metric : m)),
         );
       }
     } catch {
       // Metric creation failed - rollback all caches
-      utils.dashboard.getDashboardMetrics.setData(undefined, (old) =>
-        old?.filter((dm) => dm.id !== tempId),
+      utils.dashboard.getDashboardCharts.setData(undefined, (old) =>
+        old?.filter((dc) => dc.id !== tempId),
       );
       if (teamId) {
-        utils.dashboard.getDashboardMetrics.setData({ teamId }, (old) =>
-          old?.filter((dm) => dm.id !== tempId),
+        utils.dashboard.getDashboardCharts.setData({ teamId }, (old) =>
+          old?.filter((dc) => dc.id !== tempId),
         );
         utils.metric.getByTeamId.setData({ teamId }, (old) =>
           old?.filter((m) => m.id !== tempId),
