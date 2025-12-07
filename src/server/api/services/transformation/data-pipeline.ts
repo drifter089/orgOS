@@ -23,10 +23,6 @@ import {
   testDataIngestionTransformer,
 } from "./executor";
 
-// =============================================================================
-// Types
-// =============================================================================
-
 interface TransformAndSaveInput {
   templateId: string;
   integrationId: string;
@@ -43,10 +39,6 @@ interface TransformResult {
   error?: string;
 }
 
-// =============================================================================
-// Helper Functions
-// =============================================================================
-
 function dimensionsToJson(
   dimensions: Record<string, unknown> | null,
 ): Prisma.NullableJsonNullValueInput | Prisma.InputJsonValue {
@@ -54,18 +46,9 @@ function dimensionsToJson(
   return dimensions as Prisma.InputJsonValue;
 }
 
-// =============================================================================
-// Main Entry Point
-// =============================================================================
-
 /**
- * Ingest metric data - UNIFIED FLOW
- *
- * This is the main entry point. It:
- * 1. Fetches data ONCE from the API
- * 2. Gets or creates transformer (with lock to prevent race condition)
- * 3. Executes transformer on the data
- * 4. Saves data points in batch
+ * Main entry point for metric data ingestion.
+ * Fetches data once, gets/creates transformer, executes it, and saves results.
  */
 export async function ingestMetricData(
   input: TransformAndSaveInput,
@@ -74,14 +57,12 @@ export async function ingestMetricData(
     `[Transform] Starting: ${input.templateId} for metric ${input.metricId}`,
   );
 
-  // Get template definition
   const template = getTemplate(input.templateId);
   if (!template) {
     console.error(`[Transform] ERROR: Template not found: ${input.templateId}`);
     return { success: false, error: `Template not found: ${input.templateId}` };
   }
 
-  // Step 1: Fetch data ONCE from API
   let apiData: unknown;
   try {
     const response = await fetchData(
@@ -101,7 +82,6 @@ export async function ingestMetricData(
     return { success: false, error: `Failed to fetch data: ${errorMsg}` };
   }
 
-  // Step 2: Get or create transformer (with lock)
   const { transformer, isNew } = await getOrCreateDataIngestionTransformer(
     input.templateId,
     input.integrationId,
@@ -118,7 +98,6 @@ export async function ingestMetricData(
     console.info(`[Transform] Created new transformer: ${transformer.id}`);
   }
 
-  // Step 3: Execute transformer
   const result = executeDataIngestionTransformer(
     transformer.transformerCode,
     apiData,
@@ -130,7 +109,6 @@ export async function ingestMetricData(
     return { success: false, error: result.error };
   }
 
-  // Step 4: Save data points in batch
   const isTimeSeries = input.isTimeSeries !== false;
   await saveDataPointsBatch(input.metricId, result.data, isTimeSeries);
 
@@ -145,20 +123,9 @@ export async function ingestMetricData(
   };
 }
 
-// =============================================================================
-// Transformer Management (with race condition prevention)
-// =============================================================================
-
 /**
- * Get or create DataIngestionTransformer with optimistic concurrency
- *
- * IMPORTANT: AI generation happens OUTSIDE the transaction to prevent
- * connection pool exhaustion. Uses upsert pattern to handle race conditions.
- *
- * Flow:
- * 1. Quick check if transformer exists (no locks)
- * 2. If not, generate code with AI (slow, outside transaction)
- * 3. Upsert to DB (short transaction, handles race condition)
+ * Get or create transformer with optimistic concurrency.
+ * AI generation happens outside transaction to prevent connection pool exhaustion.
  */
 async function getOrCreateDataIngestionTransformer(
   templateId: string,
@@ -179,7 +146,6 @@ async function getOrCreateDataIngestionTransformer(
     });
   }
 
-  // Step 1: Quick check if transformer already exists (no locks)
   const existing = await db.dataIngestionTransformer.findUnique({
     where: { templateId },
   });
@@ -187,9 +153,6 @@ async function getOrCreateDataIngestionTransformer(
   if (existing) {
     return { transformer: existing, isNew: false };
   }
-
-  // Step 2: No transformer exists - generate one OUTSIDE the transaction
-  // This prevents connection pool exhaustion from long-running AI calls
 
   const generated = await generateDataIngestionTransformerCode({
     templateId,
@@ -201,7 +164,6 @@ async function getOrCreateDataIngestionTransformer(
     availableParams: template.requiredParams.map((p) => p.name),
   });
 
-  // Test the transformer
   const testResult = testDataIngestionTransformer(
     generated.code,
     apiData,
@@ -210,7 +172,6 @@ async function getOrCreateDataIngestionTransformer(
 
   let finalCode = generated.code;
 
-  // If first attempt fails, try regenerating once
   if (!testResult.success) {
     const regenerated = await regenerateDataIngestionTransformerCode({
       templateId,
@@ -240,31 +201,18 @@ async function getOrCreateDataIngestionTransformer(
     finalCode = regenerated.code;
   }
 
-  // Step 3: Upsert with short transaction to handle race condition
-  // If another request created the transformer while we were generating,
-  // the upsert will just return the existing one (no duplicate)
+  // Upsert handles race condition - if another request created it, we just use that
   const transformer = await db.dataIngestionTransformer.upsert({
     where: { templateId },
-    create: {
-      templateId,
-      transformerCode: finalCode,
-    },
-    update: {}, // If exists, don't update - first writer wins
+    create: { templateId, transformerCode: finalCode },
+    update: {},
   });
 
-  // Check if we created it or found existing (created by concurrent request)
-  const isNew = transformer.createdAt.getTime() > Date.now() - 5000; // Created in last 5 seconds
+  const isNew = transformer.createdAt.getTime() > Date.now() - 5000;
 
   return { transformer, isNew };
 }
 
-// =============================================================================
-// Data Point Storage (batch operations)
-// =============================================================================
-
-/**
- * Save data points in batch - much faster than sequential upserts
- */
 async function saveDataPointsBatch(
   metricId: string,
   dataPoints: DataPoint[],
@@ -275,15 +223,13 @@ async function saveDataPointsBatch(
   }
 
   if (!isTimeSeries) {
-    // Snapshot mode: delete all and insert fresh
-    // Add millisecond offsets to ensure unique timestamps (required by DB constraint)
+    // Snapshot mode: delete all and insert fresh with unique timestamps
     const baseTimestamp = dataPoints[0]?.timestamp ?? new Date();
     await db.$transaction([
       db.metricDataPoint.deleteMany({ where: { metricId } }),
       db.metricDataPoint.createMany({
         data: dataPoints.map((dp, index) => ({
           metricId,
-          // Add index as milliseconds offset to ensure unique timestamps
           timestamp: new Date(baseTimestamp.getTime() + index),
           value: dp.value,
           dimensions: dimensionsToJson(dp.dimensions),
@@ -291,10 +237,7 @@ async function saveDataPointsBatch(
       }),
     ]);
   } else {
-    // Time-series mode: batch upsert using raw SQL for performance
-
-    // Delete existing data points for timestamps we're about to insert
-    // Then insert all new data points - this is faster than individual upserts
+    // Time-series mode: delete-then-insert is faster than individual upserts
     const timestamps = dataPoints.map((dp) => dp.timestamp);
 
     await db.$transaction([
@@ -316,15 +259,7 @@ async function saveDataPointsBatch(
   }
 }
 
-// =============================================================================
-// Utility Functions (for polling/background jobs)
-// =============================================================================
-
-/**
- * Refresh metric data points
- *
- * Used by background jobs to refresh metric data.
- */
+/** Used by background jobs to refresh metric data. */
 export async function refreshMetricDataPoints(input: {
   templateId: string;
   integrationId: string;
@@ -333,17 +268,14 @@ export async function refreshMetricDataPoints(input: {
   endpointConfig: Record<string, string>;
   isTimeSeries?: boolean;
 }): Promise<TransformResult> {
-  // Get template
   const template = getTemplate(input.templateId);
   if (!template) {
     return { success: false, error: `Template not found: ${input.templateId}` };
   }
 
-  // Get transformer
   const transformer = await db.dataIngestionTransformer.findUnique({
     where: { templateId: input.templateId },
   });
-
   if (!transformer) {
     return {
       success: false,
@@ -351,7 +283,6 @@ export async function refreshMetricDataPoints(input: {
     };
   }
 
-  // Fetch fresh data
   let apiData: unknown;
   try {
     const response = await fetchData(
@@ -370,27 +301,21 @@ export async function refreshMetricDataPoints(input: {
     return { success: false, error: `Failed to fetch data: ${errorMsg}` };
   }
 
-  // Execute transformer
   const result = executeDataIngestionTransformer(
     transformer.transformerCode,
     apiData,
     input.endpointConfig,
   );
-
   if (!result.success || !result.data) {
     return { success: false, error: result.error };
   }
 
-  // Save data points
   const isTimeSeries = input.isTimeSeries !== false;
   await saveDataPointsBatch(input.metricId, result.data, isTimeSeries);
 
   return { success: true, dataPoints: result.data };
 }
 
-/**
- * Get DataIngestionTransformer by template ID
- */
 export async function getDataIngestionTransformerByTemplateId(
   templateId: string,
 ) {
@@ -398,10 +323,6 @@ export async function getDataIngestionTransformerByTemplateId(
     where: { templateId },
   });
 }
-
-// =============================================================================
-// Unified Refresh Function (used by both cron job and manual refresh)
-// =============================================================================
 
 interface RefreshMetricInput {
   metricId: string;
@@ -413,32 +334,15 @@ interface RefreshMetricResult {
   error?: string;
 }
 
-/**
- * Refresh metric data and update all associated charts
- *
- * This is the unified function used by both:
- * - Cron job (poll-metrics)
- * - Manual refresh button in dashboard
- *
- * It does:
- * 1. Fetch fresh data from API via DataIngestionTransformer
- * 2. Save DataPoints to database
- * 3. Update metric timestamps (lastFetchedAt, lastError)
- * 4. Re-execute ChartTransformer for all DashboardCharts
- *
- * Note: Does NOT update nextPollAt - that's cron-specific
- */
+/** Refresh metric data and update all associated charts. Used by cron and manual refresh. */
 export async function refreshMetricAndCharts(
   input: RefreshMetricInput,
 ): Promise<RefreshMetricResult> {
-  // Get the metric with its integration and dashboard charts
   const metric = await db.metric.findUnique({
     where: { id: input.metricId },
     include: {
       integration: true,
-      dashboardCharts: {
-        include: { chartTransformer: true },
-      },
+      dashboardCharts: { include: { chartTransformer: true } },
     },
   });
 
@@ -446,11 +350,9 @@ export async function refreshMetricAndCharts(
     return { success: false, error: "Metric not found or not configured" };
   }
 
-  // Get template for isTimeSeries
   const template = getTemplate(metric.templateId);
   const isTimeSeries = template?.isTimeSeries !== false;
 
-  // Step 1: Execute transformer to fetch and save data
   const transformResult = await refreshMetricDataPoints({
     templateId: metric.templateId,
     integrationId: metric.integration.providerId,
@@ -461,7 +363,6 @@ export async function refreshMetricAndCharts(
   });
 
   if (!transformResult.success) {
-    // Update metric with error
     await db.metric.update({
       where: { id: input.metricId },
       data: { lastError: transformResult.error },
@@ -469,17 +370,12 @@ export async function refreshMetricAndCharts(
     return { success: false, error: transformResult.error };
   }
 
-  // Step 2: Update metric timestamps
   await db.metric.update({
     where: { id: input.metricId },
-    data: {
-      lastFetchedAt: new Date(),
-      lastError: null,
-    },
+    data: { lastFetchedAt: new Date(), lastError: null },
   });
 
-  // Step 3: Update chart configs for all DashboardCharts
-  // Import dynamically to avoid circular dependency
+  // Dynamic import to avoid circular dependency
   const { executeChartTransformerForDashboardChart } = await import(
     "./chart-generator"
   );

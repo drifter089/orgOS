@@ -1,15 +1,5 @@
-/**
- * Transformer Executor
- *
- * Safely executes AI-generated transformer code.
- * - Validates output against expected schema
- * - No DB access, no network access - pure data transformation
- */
+/** Safely executes AI-generated transformer code with validation. */
 import type { ChartConfig, DataPoint } from "@/lib/metrics/transformer-types";
-
-// =============================================================================
-// Types
-// =============================================================================
 
 interface ExecutionResult<T> {
   success: boolean;
@@ -23,39 +13,19 @@ interface DataPointRaw {
   dimensions: Record<string, unknown> | null;
 }
 
-// =============================================================================
-// Execution Functions
-// =============================================================================
-
-/**
- * Execute DataIngestionTransformer code
- *
- * Transforms raw API response into DataPoints.
- * Code receives: apiResponse, endpointConfig
- * Code returns: DataPoint[]
- */
+/** Execute DataIngestionTransformer: API response → DataPoints */
 export function executeDataIngestionTransformer(
   code: string,
   apiResponse: unknown,
   endpointConfig: Record<string, string>,
 ): ExecutionResult<DataPoint[]> {
   try {
-    // Create a function from the code string
-    // The code should define a function called 'transform'
-    const wrappedCode = `
-      ${code}
-      return transform(apiResponse, endpointConfig);
-    `;
-
-    // Create the function with limited scope
+    const wrappedCode = `${code}\nreturn transform(apiResponse, endpointConfig);`;
     // eslint-disable-next-line @typescript-eslint/no-implied-eval
     const executor = new Function("apiResponse", "endpointConfig", wrappedCode);
-
-    // Execute with the provided data
     // eslint-disable-next-line @typescript-eslint/no-unsafe-call
     const result = executor(apiResponse, endpointConfig) as DataPointRaw[];
 
-    // Validate the result
     if (!Array.isArray(result)) {
       return {
         success: false,
@@ -63,13 +33,11 @@ export function executeDataIngestionTransformer(
       };
     }
 
-    // Validate and normalize each data point
     const validatedPoints: DataPoint[] = result.map((point, index) => {
       if (typeof point !== "object" || point === null) {
         throw new Error(`DataPoint at index ${index} is not an object`);
       }
 
-      // Validate timestamp
       let timestamp: Date;
       if (point.timestamp instanceof Date) {
         timestamp = point.timestamp;
@@ -81,12 +49,10 @@ export function executeDataIngestionTransformer(
       } else {
         throw new Error(`DataPoint at index ${index} has invalid timestamp`);
       }
-
       if (isNaN(timestamp.getTime())) {
         throw new Error(`DataPoint at index ${index} has invalid timestamp`);
       }
 
-      // Validate value
       const value =
         typeof point.value === "number"
           ? point.value
@@ -95,7 +61,6 @@ export function executeDataIngestionTransformer(
         throw new Error(`DataPoint at index ${index} has invalid value`);
       }
 
-      // Validate dimensions
       const dimensions =
         point.dimensions === null || point.dimensions === undefined
           ? null
@@ -122,34 +87,19 @@ export function executeDataIngestionTransformer(
   }
 }
 
-/**
- * Execute ChartTransformer code
- *
- * Transforms DataPoints into chart configuration.
- * Code receives: dataPoints, preferences
- * Code returns: ChartConfig
- */
+/** Execute ChartTransformer: DataPoints → ChartConfig */
 export function executeChartTransformer(
   code: string,
   dataPoints: DataPoint[],
   preferences: { chartType: string; dateRange: string; aggregation: string },
 ): ExecutionResult<ChartConfig> {
   try {
-    // Create a function from the code string
-    const wrappedCode = `
-      ${code}
-      return transform(dataPoints, preferences);
-    `;
-
-    // Create the function with limited scope
+    const wrappedCode = `${code}\nreturn transform(dataPoints, preferences);`;
     // eslint-disable-next-line @typescript-eslint/no-implied-eval
     const executor = new Function("dataPoints", "preferences", wrappedCode);
-
-    // Execute with the provided data
     // eslint-disable-next-line @typescript-eslint/no-unsafe-call
     const result = executor(dataPoints, preferences) as ChartConfig;
 
-    // Validate the result
     if (typeof result !== "object" || result === null) {
       return {
         success: false,
@@ -157,7 +107,6 @@ export function executeChartTransformer(
       };
     }
 
-    // Validate required fields
     const requiredFields = [
       "chartType",
       "chartData",
@@ -175,20 +124,11 @@ export function executeChartTransformer(
       }
     }
 
-    // Validate chartData is an array
     if (!Array.isArray(result.chartData)) {
-      return {
-        success: false,
-        error: "chartData must be an array",
-      };
+      return { success: false, error: "chartData must be an array" };
     }
-
-    // Validate dataKeys is an array
     if (!Array.isArray(result.dataKeys)) {
-      return {
-        success: false,
-        error: "dataKeys must be an array",
-      };
+      return { success: false, error: "dataKeys must be an array" };
     }
 
     return {
@@ -207,46 +147,31 @@ export function executeChartTransformer(
   }
 }
 
-/**
- * Validate transformer code syntax without executing
- */
 export function validateTransformerCode(code: string): {
   valid: boolean;
   error?: string;
 } {
   try {
-    // Try to create the function - this will catch syntax errors
     // eslint-disable-next-line @typescript-eslint/no-implied-eval
     new Function(code);
     return { valid: true };
   } catch (error) {
-    const errorMsg =
-      error instanceof Error ? error.message : "Invalid code syntax";
     return {
       valid: false,
-      error: errorMsg,
+      error: error instanceof Error ? error.message : "Invalid code syntax",
     };
   }
 }
 
-/**
- * Test DataIngestionTransformer with sample data
- */
 export function testDataIngestionTransformer(
   code: string,
   sampleApiResponse: unknown,
   sampleEndpointConfig: Record<string, string>,
 ): ExecutionResult<DataPoint[]> {
-  // First validate syntax
   const syntaxCheck = validateTransformerCode(code);
   if (!syntaxCheck.valid) {
-    return {
-      success: false,
-      error: `Syntax error: ${syntaxCheck.error}`,
-    };
+    return { success: false, error: `Syntax error: ${syntaxCheck.error}` };
   }
-
-  // Then try to execute
   return executeDataIngestionTransformer(
     code,
     sampleApiResponse,
@@ -254,23 +179,14 @@ export function testDataIngestionTransformer(
   );
 }
 
-/**
- * Test ChartTransformer with sample data
- */
 export function testChartTransformer(
   code: string,
   sampleDataPoints: DataPoint[],
   preferences: { chartType: string; dateRange: string; aggregation: string },
 ): ExecutionResult<ChartConfig> {
-  // First validate syntax
   const syntaxCheck = validateTransformerCode(code);
   if (!syntaxCheck.valid) {
-    return {
-      success: false,
-      error: `Syntax error: ${syntaxCheck.error}`,
-    };
+    return { success: false, error: `Syntax error: ${syntaxCheck.error}` };
   }
-
-  // Then try to execute
   return executeChartTransformer(code, sampleDataPoints, preferences);
 }

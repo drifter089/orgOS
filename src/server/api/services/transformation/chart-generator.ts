@@ -1,11 +1,4 @@
-/**
- * Chart Generator Service
- *
- * Handles the full workflow for ChartTransformers:
- * - Generate chart transformer for a DashboardChart
- * - Execute transformer to generate chart config
- * - Regenerate based on user preferences
- */
+/** Chart transformer creation, execution, and regeneration. */
 import type { Prisma } from "@prisma/client";
 import { TRPCError } from "@trpc/server";
 
@@ -15,19 +8,12 @@ import { db } from "@/server/db";
 import { generateChartTransformerCode } from "./ai-code-generator";
 import { executeChartTransformer, testChartTransformer } from "./executor";
 
-/**
- * Convert ChartConfig to JSON-compatible format for Prisma
- */
 function chartConfigToJson(
   config: ChartConfig | undefined,
 ): Prisma.InputJsonValue | undefined {
   if (!config) return undefined;
   return config as unknown as Prisma.InputJsonValue;
 }
-
-// =============================================================================
-// Types
-// =============================================================================
 
 interface CreateChartTransformerInput {
   dashboardChartId: string;
@@ -45,19 +31,10 @@ interface ChartTransformResult {
   error?: string;
 }
 
-// =============================================================================
-// Service Functions
-// =============================================================================
-
-/**
- * Create a ChartTransformer for a DashboardChart
- *
- * Generates AI code based on actual data points and user preferences.
- */
+/** Create a ChartTransformer using AI based on actual data points. */
 export async function createChartTransformer(
   input: CreateChartTransformerInput,
 ): Promise<{ transformerId: string }> {
-  // Get the dashboard chart and its data points
   const dashboardChart = await db.dashboardChart.findUnique({
     where: { id: input.dashboardChartId },
     include: {
@@ -79,7 +56,6 @@ export async function createChartTransformer(
     });
   }
 
-  // Convert to DataPoint format for AI
   const sampleDataPoints = dashboardChart.metric.dataPoints.map((dp) => ({
     timestamp: dp.timestamp,
     value: dp.value,
@@ -93,7 +69,6 @@ export async function createChartTransformer(
     });
   }
 
-  // Generate transformer code
   const generated = await generateChartTransformerCode({
     metricName: input.metricName,
     metricDescription: input.metricDescription,
@@ -104,13 +79,11 @@ export async function createChartTransformer(
     userPrompt: input.userPrompt,
   });
 
-  // Test the transformer
   const testResult = testChartTransformer(generated.code, sampleDataPoints, {
     chartType: input.chartType,
     dateRange: input.dateRange,
     aggregation: input.aggregation,
   });
-
   if (!testResult.success) {
     throw new TRPCError({
       code: "INTERNAL_SERVER_ERROR",
@@ -118,7 +91,6 @@ export async function createChartTransformer(
     });
   }
 
-  // Save the transformer
   const transformer = await db.chartTransformer.upsert({
     where: { dashboardChartId: input.dashboardChartId },
     create: {
@@ -139,7 +111,6 @@ export async function createChartTransformer(
     },
   });
 
-  // Update dashboard chart with the chart config
   await db.dashboardChart.update({
     where: { id: input.dashboardChartId },
     data: {
@@ -152,15 +123,10 @@ export async function createChartTransformer(
   return { transformerId: transformer.id };
 }
 
-/**
- * Execute ChartTransformer for a DashboardChart
- *
- * Fetches data points and generates chart config.
- */
+/** Execute an existing ChartTransformer and update the chart config. */
 export async function executeChartTransformerForDashboardChart(
   dashboardChartId: string,
 ): Promise<ChartTransformResult> {
-  // Get the transformer and data points
   const dashboardChart = await db.dashboardChart.findUnique({
     where: { id: dashboardChartId },
     include: {
@@ -177,12 +143,8 @@ export async function executeChartTransformerForDashboardChart(
   });
 
   if (!dashboardChart) {
-    return {
-      success: false,
-      error: "DashboardChart not found",
-    };
+    return { success: false, error: "DashboardChart not found" };
   }
-
   if (!dashboardChart.chartTransformer) {
     return {
       success: false,
@@ -191,8 +153,6 @@ export async function executeChartTransformerForDashboardChart(
   }
 
   const transformer = dashboardChart.chartTransformer;
-
-  // Convert to DataPoint format
   const dataPoints: DataPoint[] = dashboardChart.metric.dataPoints.map(
     (dp) => ({
       timestamp: dp.timestamp,
@@ -201,7 +161,6 @@ export async function executeChartTransformerForDashboardChart(
     }),
   );
 
-  // Execute the transformer
   const result = executeChartTransformer(
     transformer.transformerCode,
     dataPoints,
@@ -213,29 +172,18 @@ export async function executeChartTransformerForDashboardChart(
   );
 
   if (!result.success) {
-    return {
-      success: false,
-      error: result.error,
-    };
+    return { success: false, error: result.error };
   }
 
-  // Update the dashboard chart with new chart config
   await db.dashboardChart.update({
     where: { id: dashboardChartId },
-    data: {
-      chartConfig: chartConfigToJson(result.data),
-    },
+    data: { chartConfig: chartConfigToJson(result.data) },
   });
 
-  return {
-    success: true,
-    chartConfig: result.data,
-  };
+  return { success: true, chartConfig: result.data };
 }
 
-/**
- * Regenerate ChartTransformer with new preferences
- */
+/** Regenerate ChartTransformer with new preferences. */
 export async function regenerateChartTransformer(input: {
   dashboardChartId: string;
   chartType?: string;
@@ -243,7 +191,6 @@ export async function regenerateChartTransformer(input: {
   aggregation?: string;
   userPrompt?: string;
 }): Promise<ChartTransformResult> {
-  // Get current transformer and data
   const dashboardChart = await db.dashboardChart.findUnique({
     where: { id: input.dashboardChartId },
     include: {
@@ -260,27 +207,21 @@ export async function regenerateChartTransformer(input: {
   });
 
   if (!dashboardChart) {
-    return {
-      success: false,
-      error: "DashboardChart not found",
-    };
+    return { success: false, error: "DashboardChart not found" };
   }
 
-  // Use existing preferences as defaults
   const currentTransformer = dashboardChart.chartTransformer;
   const chartType = input.chartType ?? currentTransformer?.chartType ?? "line";
   const dateRange = input.dateRange ?? currentTransformer?.dateRange ?? "30d";
   const aggregation =
     input.aggregation ?? currentTransformer?.aggregation ?? "none";
 
-  // Convert data points
   const sampleDataPoints = dashboardChart.metric.dataPoints.map((dp) => ({
     timestamp: dp.timestamp,
     value: dp.value,
     dimensions: dp.dimensions as Record<string, unknown> | null,
   }));
 
-  // Generate new transformer code
   const generated = await generateChartTransformerCode({
     metricName: dashboardChart.metric.name,
     metricDescription: dashboardChart.metric.description ?? "",
@@ -291,13 +232,11 @@ export async function regenerateChartTransformer(input: {
     userPrompt: input.userPrompt,
   });
 
-  // Test the transformer
   const testResult = testChartTransformer(generated.code, sampleDataPoints, {
     chartType,
     dateRange,
     aggregation,
   });
-
   if (!testResult.success) {
     return {
       success: false,
@@ -305,7 +244,6 @@ export async function regenerateChartTransformer(input: {
     };
   }
 
-  // Update or create transformer
   await db.chartTransformer.upsert({
     where: { dashboardChartId: input.dashboardChartId },
     create: {
@@ -326,24 +264,14 @@ export async function regenerateChartTransformer(input: {
     },
   });
 
-  // Update dashboard chart with new chart config
   await db.dashboardChart.update({
     where: { id: input.dashboardChartId },
-    data: {
-      chartConfig: chartConfigToJson(testResult.data),
-      chartType: chartType,
-    },
+    data: { chartConfig: chartConfigToJson(testResult.data), chartType },
   });
 
-  return {
-    success: true,
-    chartConfig: testResult.data,
-  };
+  return { success: true, chartConfig: testResult.data };
 }
 
-/**
- * Get ChartTransformer by DashboardChart ID
- */
 export async function getChartTransformerByDashboardChartId(
   dashboardChartId: string,
 ) {
