@@ -1,8 +1,20 @@
 {
   "crons": [
     {
-      "path": "/api/cron/poll-metrics",
+      "path": "/api/cron/poll-metrics?frequency=frequent",
       "schedule": "*/15 * * * *"
+    },
+    {
+      "path": "/api/cron/poll-metrics?frequency=hourly",
+      "schedule": "0 * * * *"
+    },
+    {
+      "path": "/api/cron/poll-metrics?frequency=daily",
+      "schedule": "0 0 * * *"
+    },
+    {
+      "path": "/api/cron/poll-metrics?frequency=weekly",
+      "schedule": "0 0 * * 0"
     }
   ]
 }
