@@ -20,6 +20,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import type { ChartTransformResult } from "@/lib/metrics/transformer-types";
 import { useConfirmation } from "@/providers/ConfirmationDialogProvider";
 import type { RouterOutputs } from "@/trpc/react";
 import { api } from "@/trpc/react";
@@ -31,31 +32,11 @@ import { DashboardMetricSettings } from "./dashboard-metric-settings";
 type DashboardMetrics = RouterOutputs["dashboard"]["getDashboardCharts"];
 type DashboardMetricWithRelations = DashboardMetrics[number];
 
-export type ChartType =
-  | "line"
-  | "bar"
-  | "area"
-  | "pie"
-  | "radar"
-  | "radial"
-  | "kpi";
-
-export interface ChartTransformResult {
-  chartType: ChartType;
-  chartData: Array<Record<string, string | number>>;
-  chartConfig: Record<string, { label: string; color: string }>;
-  xAxisKey: string;
-  dataKeys: string[];
-  title: string;
-  description: string;
-  xAxisLabel: string;
-  yAxisLabel: string;
-  showLegend: boolean;
-  showTooltip: boolean;
-  stacked?: boolean;
-  centerLabel?: { value: string; label: string };
-  reasoning: string;
-}
+// Re-export for components that import from here
+export type {
+  ChartType,
+  ChartTransformResult,
+} from "@/lib/metrics/transformer-types";
 
 export interface DisplayedChart {
   id: string;

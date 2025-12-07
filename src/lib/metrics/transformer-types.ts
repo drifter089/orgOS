@@ -2,6 +2,10 @@
  * Types for AI-generated transformer code
  * Used by both MetricTransformer and ChartTransformer
  */
+import type { ChartType } from "./utils";
+
+// Re-export ChartType for convenience
+export type { ChartType } from "./utils";
 
 // =============================================================================
 // Data Point Types
@@ -31,7 +35,7 @@ export interface TransformContext {
  * Complete chart configuration for rendering
  */
 export interface ChartConfig {
-  chartType: string;
+  chartType: ChartType;
   chartData: Record<string, unknown>[];
   chartConfig: Record<string, { label: string; color: string }>;
   xAxisKey: string;
@@ -43,6 +47,21 @@ export interface ChartConfig {
   showLegend?: boolean;
   showTooltip?: boolean;
   stacked?: boolean;
+}
+
+/**
+ * Full chart transformation result with metadata
+ * Used by dashboard components for rendering charts
+ */
+export interface ChartTransformResult extends ChartConfig {
+  title: string;
+  description: string;
+  xAxisLabel: string;
+  yAxisLabel: string;
+  showLegend: boolean;
+  showTooltip: boolean;
+  centerLabel?: { value: string; label: string };
+  reasoning: string;
 }
 
 // =============================================================================

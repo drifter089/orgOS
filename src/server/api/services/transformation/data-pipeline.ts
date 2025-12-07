@@ -71,13 +71,8 @@ export async function ingestMetricData(
   input: TransformAndSaveInput,
 ): Promise<TransformResult> {
   console.info(
-    "\n############################################################",
+    `[Transform] Starting: ${input.templateId} for metric ${input.metricId}`,
   );
-  console.info("# INGEST METRIC DATA");
-  console.info("############################################################");
-  console.info(`[Transform] Template: ${input.templateId}`);
-  console.info(`[Transform] Metric ID: ${input.metricId}`);
-  console.info(`[Transform] Endpoint config:`, input.endpointConfig);
 
   // Get template definition
   const template = getTemplate(input.templateId);
@@ -87,7 +82,6 @@ export async function ingestMetricData(
   }
 
   // Step 1: Fetch data ONCE from API
-  console.info(`[Transform] Fetching data from API...`);
   let apiData: unknown;
   try {
     const response = await fetchData(
@@ -101,7 +95,6 @@ export async function ingestMetricData(
       },
     );
     apiData = response.data;
-    console.info(`[Transform] Data fetched successfully`);
   } catch (error) {
     const errorMsg = error instanceof Error ? error.message : "Unknown error";
     console.error(`[Transform] ERROR: Failed to fetch data: ${errorMsg}`);
@@ -109,7 +102,6 @@ export async function ingestMetricData(
   }
 
   // Step 2: Get or create transformer (with lock)
-  console.info(`[Transform] Getting or creating transformer...`);
   const { transformer, isNew } = await getOrCreateDataIngestionTransformer(
     input.templateId,
     input.integrationId,
@@ -122,12 +114,11 @@ export async function ingestMetricData(
     return { success: false, error: "Failed to get or create transformer" };
   }
 
-  console.info(
-    `[Transform] Transformer ${isNew ? "created" : "found"}: ${transformer.id}`,
-  );
+  if (isNew) {
+    console.info(`[Transform] Created new transformer: ${transformer.id}`);
+  }
 
   // Step 3: Execute transformer
-  console.info(`[Transform] Executing transformer...`);
   const result = executeDataIngestionTransformer(
     transformer.transformerCode,
     apiData,
@@ -135,20 +126,16 @@ export async function ingestMetricData(
   );
 
   if (!result.success || !result.data) {
-    console.error(`[Transform] ERROR: Transform failed: ${result.error}`);
+    console.error(`[Transform] Transform failed: ${result.error}`);
     return { success: false, error: result.error };
   }
-
-  console.info(
-    `[Transform] Transform successful: ${result.data.length} data points`,
-  );
 
   // Step 4: Save data points in batch
   const isTimeSeries = input.isTimeSeries !== false;
   await saveDataPointsBatch(input.metricId, result.data, isTimeSeries);
 
   console.info(
-    "############################################################\n",
+    `[Transform] Completed: ${result.data.length} data points saved`,
   );
 
   return {
@@ -203,7 +190,6 @@ async function getOrCreateDataIngestionTransformer(
 
   // Step 2: No transformer exists - generate one OUTSIDE the transaction
   // This prevents connection pool exhaustion from long-running AI calls
-  console.info(`[Transform] No transformer found, generating with AI...`);
 
   const generated = await generateDataIngestionTransformerCode({
     templateId,
@@ -226,8 +212,6 @@ async function getOrCreateDataIngestionTransformer(
 
   // If first attempt fails, try regenerating once
   if (!testResult.success) {
-    console.info(`[Transform] First attempt failed, regenerating...`);
-
     const regenerated = await regenerateDataIngestionTransformerCode({
       templateId,
       integrationId,
@@ -271,9 +255,6 @@ async function getOrCreateDataIngestionTransformer(
   // Check if we created it or found existing (created by concurrent request)
   const isNew = transformer.createdAt.getTime() > Date.now() - 5000; // Created in last 5 seconds
 
-  console.info(
-    `[Transform] Transformer ${isNew ? "created" : "found (concurrent)"}: ${transformer.id}`,
-  );
   return { transformer, isNew };
 }
 
@@ -289,17 +270,13 @@ async function saveDataPointsBatch(
   dataPoints: DataPoint[],
   isTimeSeries: boolean,
 ): Promise<void> {
-  console.info(`[SaveDP] Saving ${dataPoints.length} data points (batch mode)`);
-
   if (dataPoints.length === 0) {
-    console.info(`[SaveDP] No data points to save`);
     return;
   }
 
   if (!isTimeSeries) {
     // Snapshot mode: delete all and insert fresh
     // Add millisecond offsets to ensure unique timestamps (required by DB constraint)
-    console.info(`[SaveDP] Snapshot mode: replacing all data`);
     const baseTimestamp = dataPoints[0]?.timestamp ?? new Date();
     await db.$transaction([
       db.metricDataPoint.deleteMany({ where: { metricId } }),
@@ -315,7 +292,6 @@ async function saveDataPointsBatch(
     ]);
   } else {
     // Time-series mode: batch upsert using raw SQL for performance
-    console.info(`[SaveDP] Time-series mode: batch upsert`);
 
     // Delete existing data points for timestamps we're about to insert
     // Then insert all new data points - this is faster than individual upserts
@@ -338,8 +314,6 @@ async function saveDataPointsBatch(
       }),
     ]);
   }
-
-  console.info(`[SaveDP] Batch save complete`);
 }
 
 // =============================================================================
@@ -359,8 +333,6 @@ export async function refreshMetricDataPoints(input: {
   endpointConfig: Record<string, string>;
   isTimeSeries?: boolean;
 }): Promise<TransformResult> {
-  console.info(`[Polling] Refreshing metric: ${input.metricId}`);
-
   // Get template
   const template = getTemplate(input.templateId);
   if (!template) {
@@ -459,10 +431,6 @@ interface RefreshMetricResult {
 export async function refreshMetricAndCharts(
   input: RefreshMetricInput,
 ): Promise<RefreshMetricResult> {
-  console.info(
-    `[RefreshMetric] Starting refresh for metric: ${input.metricId}`,
-  );
-
   // Get the metric with its integration and dashboard charts
   const metric = await db.metric.findUnique({
     where: { id: input.metricId },
@@ -520,9 +488,6 @@ export async function refreshMetricAndCharts(
     if (dc.chartTransformer) {
       try {
         await executeChartTransformerForDashboardChart(dc.id);
-        console.info(
-          `[RefreshMetric] Updated chart for dashboard chart: ${dc.id}`,
-        );
       } catch (chartError) {
         console.error(
           `[RefreshMetric] Chart transformer error for ${dc.id}:`,
@@ -532,10 +497,6 @@ export async function refreshMetricAndCharts(
       }
     }
   }
-
-  console.info(
-    `[RefreshMetric] Completed. ${transformResult.dataPoints?.length ?? 0} data points saved`,
-  );
 
   return {
     success: true,

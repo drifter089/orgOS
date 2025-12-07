@@ -145,19 +145,6 @@ function getOpenRouterClient() {
 export async function generateDataIngestionTransformerCode(
   input: GenerateDataIngestionTransformerInput,
 ): Promise<GeneratedCode> {
-  console.info(
-    "\n========== AI GENERATOR: DataIngestionTransformer ==========",
-  );
-  console.info(`[AI-Gen] Template: ${input.templateId}`);
-  console.info(`[AI-Gen] Integration: ${input.integrationId}`);
-  console.info(`[AI-Gen] Endpoint: ${input.method} ${input.endpoint}`);
-  console.info(
-    `[AI-Gen] Available params: ${input.availableParams.join(", ")}`,
-  );
-  console.info(`[AI-Gen] API Response sample (first 500 chars):`);
-  console.info(JSON.stringify(input.sampleApiResponse, null, 2).slice(0, 500));
-  console.info("...");
-
   const openrouter = getOpenRouterClient();
 
   const userPrompt = `Template: ${input.templateId}
@@ -173,9 +160,6 @@ Parameters available in endpointConfig: ${input.availableParams.join(", ")}
 
 Generate the JavaScript transform function.`;
 
-  console.info(`[AI-Gen] Calling OpenRouter (claude-sonnet-4)...`);
-  const startTime = Date.now();
-
   const result = await generateText({
     model: openrouter("anthropic/claude-sonnet-4"),
     system: METRIC_TRANSFORMER_SYSTEM_PROMPT,
@@ -184,19 +168,17 @@ Generate the JavaScript transform function.`;
     temperature: 0.1,
   });
 
-  console.info(`[AI-Gen] Response received in ${Date.now() - startTime}ms`);
-  console.info(`[AI-Gen] Raw AI response (first 300 chars):`);
-  console.info(result.text.slice(0, 300));
-  console.info("...");
-
   // Clean the code - remove markdown code blocks if present
   let code = result.text.trim();
-  const originalCode = code;
 
   if (code.startsWith("```typescript")) {
     code = code.slice("```typescript".length);
   } else if (code.startsWith("```ts")) {
     code = code.slice("```ts".length);
+  } else if (code.startsWith("```javascript")) {
+    code = code.slice("```javascript".length);
+  } else if (code.startsWith("```js")) {
+    code = code.slice("```js".length);
   } else if (code.startsWith("```")) {
     code = code.slice(3);
   }
@@ -204,14 +186,6 @@ Generate the JavaScript transform function.`;
     code = code.slice(0, -3);
   }
   code = code.trim();
-
-  console.info(
-    `[AI-Gen] Cleaned code (removed markdown: ${originalCode !== code}):`,
-  );
-  console.info("--- BEGIN GENERATED CODE ---");
-  console.info(code);
-  console.info("--- END GENERATED CODE ---");
-  console.info("========== END AI GENERATOR ==========\n");
 
   return {
     code,
@@ -225,18 +199,6 @@ Generate the JavaScript transform function.`;
 export async function generateChartTransformerCode(
   input: GenerateChartTransformerInput,
 ): Promise<GeneratedCode> {
-  console.info("\n========== AI GENERATOR: ChartTransformer ==========");
-  console.info(`[AI-Gen-Chart] Metric: ${input.metricName}`);
-  console.info(`[AI-Gen-Chart] Chart type: ${input.chartType}`);
-  console.info(`[AI-Gen-Chart] Date range: ${input.dateRange}`);
-  console.info(`[AI-Gen-Chart] Aggregation: ${input.aggregation}`);
-  console.info(
-    `[AI-Gen-Chart] Data points count: ${input.sampleDataPoints.length}`,
-  );
-  if (input.userPrompt) {
-    console.info(`[AI-Gen-Chart] User prompt: ${input.userPrompt}`);
-  }
-
   const openrouter = getOpenRouterClient();
 
   const dataPointSample = input.sampleDataPoints.slice(0, 10).map((dp) => ({
@@ -244,9 +206,6 @@ export async function generateChartTransformerCode(
     value: dp.value,
     dimensions: dp.dimensions,
   }));
-
-  console.info(`[AI-Gen-Chart] Sample data points (first 3):`);
-  console.info(JSON.stringify(dataPointSample.slice(0, 3), null, 2));
 
   let userPrompt = `DataPoint sample (first ${dataPointSample.length}):
 ${JSON.stringify(dataPointSample, null, 2)}
@@ -265,9 +224,6 @@ Metric description: ${input.metricDescription}`;
 
   userPrompt += "\n\nGenerate the JavaScript transform function.";
 
-  console.info(`[AI-Gen-Chart] Calling OpenRouter (claude-sonnet-4)...`);
-  const startTime = Date.now();
-
   const result = await generateText({
     model: openrouter("anthropic/claude-sonnet-4"),
     system: CHART_TRANSFORMER_SYSTEM_PROMPT,
@@ -276,18 +232,17 @@ Metric description: ${input.metricDescription}`;
     temperature: 0.1,
   });
 
-  console.info(
-    `[AI-Gen-Chart] Response received in ${Date.now() - startTime}ms`,
-  );
-
   // Clean the code
   let code = result.text.trim();
-  const originalCode = code;
 
   if (code.startsWith("```typescript")) {
     code = code.slice("```typescript".length);
   } else if (code.startsWith("```ts")) {
     code = code.slice("```ts".length);
+  } else if (code.startsWith("```javascript")) {
+    code = code.slice("```javascript".length);
+  } else if (code.startsWith("```js")) {
+    code = code.slice("```js".length);
   } else if (code.startsWith("```")) {
     code = code.slice(3);
   }
@@ -295,14 +250,6 @@ Metric description: ${input.metricDescription}`;
     code = code.slice(0, -3);
   }
   code = code.trim();
-
-  console.info(
-    `[AI-Gen-Chart] Cleaned code (removed markdown: ${originalCode !== code}):`,
-  );
-  console.info("--- BEGIN GENERATED CHART CODE ---");
-  console.info(code);
-  console.info("--- END GENERATED CHART CODE ---");
-  console.info("========== END AI GENERATOR: ChartTransformer ==========\n");
 
   return {
     code,
@@ -321,21 +268,6 @@ export async function regenerateDataIngestionTransformerCode(
     error?: string;
   },
 ): Promise<GeneratedCode> {
-  console.info(
-    "\n========== AI GENERATOR: REGENERATE DataIngestionTransformer ==========",
-  );
-  console.info(`[AI-Regen] Template: ${input.templateId}`);
-  console.info(`[AI-Regen] Integration: ${input.integrationId}`);
-  if (input.error) {
-    console.info(`[AI-Regen] Previous error: ${input.error}`);
-  }
-  if (input.previousCode) {
-    console.info(`[AI-Regen] Previous code that failed:`);
-    console.info("--- BEGIN FAILED CODE ---");
-    console.info(input.previousCode);
-    console.info("--- END FAILED CODE ---");
-  }
-
   const openrouter = getOpenRouterClient();
 
   let userPrompt = `Template: ${input.templateId}
@@ -361,11 +293,6 @@ ${input.error}`;
 
   userPrompt += "\n\nGenerate a FIXED JavaScript transform function.";
 
-  console.info(
-    `[AI-Regen] Calling OpenRouter (claude-sonnet-4) with temp=0.2...`,
-  );
-  const startTime = Date.now();
-
   const result = await generateText({
     model: openrouter("anthropic/claude-sonnet-4"),
     system: METRIC_TRANSFORMER_SYSTEM_PROMPT,
@@ -374,16 +301,17 @@ ${input.error}`;
     temperature: 0.2,
   });
 
-  console.info(`[AI-Regen] Response received in ${Date.now() - startTime}ms`);
-
   // Clean the code
   let code = result.text.trim();
-  const originalCode = code;
 
   if (code.startsWith("```typescript")) {
     code = code.slice("```typescript".length);
   } else if (code.startsWith("```ts")) {
     code = code.slice("```ts".length);
+  } else if (code.startsWith("```javascript")) {
+    code = code.slice("```javascript".length);
+  } else if (code.startsWith("```js")) {
+    code = code.slice("```js".length);
   } else if (code.startsWith("```")) {
     code = code.slice(3);
   }
@@ -391,14 +319,6 @@ ${input.error}`;
     code = code.slice(0, -3);
   }
   code = code.trim();
-
-  console.info(
-    `[AI-Regen] Cleaned code (removed markdown: ${originalCode !== code}):`,
-  );
-  console.info("--- BEGIN REGENERATED CODE ---");
-  console.info(code);
-  console.info("--- END REGENERATED CODE ---");
-  console.info("========== END AI GENERATOR: REGENERATE ==========\n");
 
   return {
     code,
