@@ -2,6 +2,11 @@ import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 
 import { createTRPCRouter, publicProcedure } from "@/server/api/trpc";
+import {
+  cacheStrategy,
+  dashboardCache,
+  singleItemCache,
+} from "@/server/api/utils/cache-strategy";
 
 // Read-only procedures for publicly shared teams/dashboards (no auth required)
 export const publicViewRouter = createTRPCRouter({
@@ -15,6 +20,7 @@ export const publicViewRouter = createTRPCRouter({
             include: { metric: true },
           },
         },
+        ...cacheStrategy(singleItemCache),
       });
 
       if (!team) {
@@ -46,6 +52,7 @@ export const publicViewRouter = createTRPCRouter({
           shareToken: true,
           organizationId: true,
         },
+        ...cacheStrategy(singleItemCache),
       });
 
       if (!team) {
@@ -76,6 +83,7 @@ export const publicViewRouter = createTRPCRouter({
           },
         },
         orderBy: { position: "asc" },
+        ...cacheStrategy(dashboardCache),
       });
 
       return {
