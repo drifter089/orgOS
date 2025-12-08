@@ -46,6 +46,7 @@ export const roleRouter = createTRPCRouter({
         metricId: z.string().optional(),
         nodeId: z.string(),
         assignedUserId: z.string().nullable().optional(),
+        effortPoints: z.number().int().optional(),
         color: z
           .string()
           .regex(/^#[0-9A-F]{6}$/i)
@@ -74,6 +75,7 @@ export const roleRouter = createTRPCRouter({
           nodeId: input.nodeId,
           color: input.color ?? "#3b82f6",
           assignedUserId: input.assignedUserId ?? null,
+          effortPoints: input.effortPoints ?? null,
         },
         include: { metric: true },
       });
@@ -88,6 +90,7 @@ export const roleRouter = createTRPCRouter({
         accountabilities: z.string().optional(),
         metricId: z.string().optional(),
         assignedUserId: z.string().optional().nullable(),
+        effortPoints: z.number().int().optional().nullable(),
         color: z
           .string()
           .regex(/^#[0-9A-F]{6}$/i)
@@ -112,6 +115,7 @@ export const roleRouter = createTRPCRouter({
         accountabilities?: string | null;
         metricId?: string | null;
         assignedUserId?: string | null;
+        effortPoints?: number | null;
         color?: string;
       } = {
         title: input.title,
@@ -126,6 +130,10 @@ export const roleRouter = createTRPCRouter({
 
       if (Object.prototype.hasOwnProperty.call(input, "metricId")) {
         data.metricId = input.metricId ?? null;
+      }
+
+      if (Object.prototype.hasOwnProperty.call(input, "effortPoints")) {
+        data.effortPoints = input.effortPoints ?? null;
       }
 
       return ctx.db.role.update({

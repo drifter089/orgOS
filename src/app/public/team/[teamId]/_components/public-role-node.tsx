@@ -3,7 +3,7 @@
 import { memo } from "react";
 
 import { Handle, type Node, type NodeProps, Position } from "@xyflow/react";
-import { TrendingUp, User } from "lucide-react";
+import { Gauge, TrendingUp, User } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import {
@@ -12,6 +12,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { stripHtml } from "@/lib/html-utils";
 import { cn } from "@/lib/utils";
 
 import { RoleViewDialog } from "./role-view-dialog";
@@ -27,6 +28,7 @@ export type PublicRoleNodeData = {
   metricUnit?: string;
   assignedUserId?: string | null;
   assignedUserName?: string;
+  effortPoints?: number | null;
   color?: string;
 };
 
@@ -37,37 +39,76 @@ function PublicRoleNodeComponent({
   selected,
 }: NodeProps<PublicRoleNode>) {
   const color = data.color ?? "#3b82f6";
+
+  // Strip HTML and truncate for display
+  const plainPurpose = stripHtml(data.purpose);
   const truncatedPurpose =
-    data.purpose.length > 80
-      ? data.purpose.substring(0, 80) + "..."
-      : data.purpose;
+    plainPurpose.length > 100
+      ? plainPurpose.substring(0, 100) + "..."
+      : plainPurpose;
 
   return (
     <div
       className={cn(
-        "bg-card group relative rounded-lg border transition-all duration-200 hover:shadow-lg",
-        "max-w-[320px] min-w-[320px]",
+        "bg-card group relative flex flex-col rounded-lg border transition-all duration-200 hover:shadow-lg",
+        "h-[160px] w-[320px]",
         selected && "ring-primary ring-2 ring-offset-2",
       )}
       style={{
         borderColor: color,
       }}
     >
+      {/* Top Handles - Bidirectional */}
       <Handle
         type="target"
         position={Position.Top}
+        id="top-target"
         className={cn(
           "!bg-primary !border-background !h-3 !w-3 !border-2",
           "transition-transform hover:!scale-125",
         )}
+        style={{ left: "45%" }}
+      />
+      <Handle
+        type="source"
+        position={Position.Top}
+        id="top-source"
+        className={cn(
+          "!bg-primary !border-background !h-3 !w-3 !border-2",
+          "transition-transform hover:!scale-125",
+        )}
+        style={{ left: "55%" }}
+      />
+
+      {/* Right Handles - Bidirectional */}
+      <Handle
+        type="target"
+        position={Position.Right}
+        id="right-target"
+        className={cn(
+          "!bg-primary !border-background !h-3 !w-3 !border-2",
+          "transition-transform hover:!scale-125",
+        )}
+        style={{ top: "45%" }}
+      />
+      <Handle
+        type="source"
+        position={Position.Right}
+        id="right-source"
+        className={cn(
+          "!bg-primary !border-background !h-3 !w-3 !border-2",
+          "transition-transform hover:!scale-125",
+        )}
+        style={{ top: "55%" }}
       />
 
       <div className="nodrag absolute top-1 right-1 z-10 opacity-0 transition-opacity group-hover:opacity-100">
         <RoleViewDialog data={data} />
       </div>
 
+      {/* Header */}
       <div
-        className="flex items-center gap-2 rounded-t-md px-4 py-3"
+        className="flex shrink-0 items-center gap-2 rounded-t-md px-4 py-2"
         style={{
           backgroundColor: `${color}15`,
         }}
@@ -76,7 +117,9 @@ function PublicRoleNodeComponent({
         <h3 className="truncate text-sm font-semibold">{data.title}</h3>
       </div>
 
-      <div className="space-y-2 px-4 py-3">
+      {/* Body */}
+      <div className="flex min-h-0 flex-1 flex-col gap-1.5 overflow-hidden px-4 py-2">
+        {/* Purpose */}
         <TooltipProvider>
           <Tooltip>
             <TooltipTrigger asChild>
@@ -84,42 +127,95 @@ function PublicRoleNodeComponent({
                 {truncatedPurpose}
               </p>
             </TooltipTrigger>
-            {data.purpose.length > 80 && (
+            {plainPurpose.length > 100 && (
               <TooltipContent className="max-w-xs">
-                <p className="text-xs">{data.purpose}</p>
+                <p className="text-xs">{plainPurpose}</p>
               </TooltipContent>
             )}
           </Tooltip>
         </TooltipProvider>
 
-        {data.metricName && (
-          <div className="flex items-center gap-2 text-xs">
-            <TrendingUp className="text-muted-foreground h-3 w-3" />
-            <span className="font-medium">{data.metricName}</span>
-            {data.metricValue !== undefined && data.metricValue !== null && (
-              <Badge variant="secondary" className="text-xs">
-                {data.metricValue.toFixed(1)} {data.metricUnit ?? ""}
-              </Badge>
-            )}
-          </div>
-        )}
+        {/* Metric & Assigned User - at bottom */}
+        <div className="mt-auto space-y-1">
+          {/* Metric */}
+          {data.metricName && (
+            <div className="flex items-center gap-2 text-xs">
+              <TrendingUp className="text-muted-foreground h-3 w-3 shrink-0" />
+              <span className="truncate font-medium">{data.metricName}</span>
+              {data.metricValue !== undefined && data.metricValue !== null && (
+                <Badge variant="secondary" className="shrink-0 text-xs">
+                  {data.metricValue.toFixed(1)} {data.metricUnit ?? ""}
+                </Badge>
+              )}
+            </div>
+          )}
 
-        {data.assignedUserName && (
-          <div className="flex items-center gap-2 border-t pt-1 text-xs">
-            <User className="text-muted-foreground h-3 w-3" />
-            <span className="text-muted-foreground">Assigned:</span>
-            <span className="font-medium">{data.assignedUserName}</span>
-          </div>
-        )}
+          {/* Assigned User */}
+          {data.assignedUserName && (
+            <div className="flex items-center gap-2 text-xs">
+              <User className="text-muted-foreground h-3 w-3 shrink-0" />
+              <span className="truncate font-medium">
+                {data.assignedUserName}
+              </span>
+            </div>
+          )}
+        </div>
       </div>
 
+      {/* Footer - Effort Points */}
+      {data.effortPoints && (
+        <div className="border-border/50 shrink-0 border-t px-4 py-1.5">
+          <div className="text-muted-foreground flex items-center gap-1.5 text-xs">
+            <Gauge className="h-3.5 w-3.5" />
+            <span>
+              {data.effortPoints} {data.effortPoints === 1 ? "point" : "points"}
+            </span>
+          </div>
+        </div>
+      )}
+
+      {/* Bottom Handles - Bidirectional */}
       <Handle
-        type="source"
+        type="target"
         position={Position.Bottom}
+        id="bottom-target"
         className={cn(
           "!bg-primary !border-background !h-3 !w-3 !border-2",
           "transition-transform hover:!scale-125",
         )}
+        style={{ left: "45%" }}
+      />
+      <Handle
+        type="source"
+        position={Position.Bottom}
+        id="bottom-source"
+        className={cn(
+          "!bg-primary !border-background !h-3 !w-3 !border-2",
+          "transition-transform hover:!scale-125",
+        )}
+        style={{ left: "55%" }}
+      />
+
+      {/* Left Handles - Bidirectional */}
+      <Handle
+        type="target"
+        position={Position.Left}
+        id="left-target"
+        className={cn(
+          "!bg-primary !border-background !h-3 !w-3 !border-2",
+          "transition-transform hover:!scale-125",
+        )}
+        style={{ top: "45%" }}
+      />
+      <Handle
+        type="source"
+        position={Position.Left}
+        id="left-source"
+        className={cn(
+          "!bg-primary !border-background !h-3 !w-3 !border-2",
+          "transition-transform hover:!scale-125",
+        )}
+        style={{ top: "55%" }}
       />
     </div>
   );

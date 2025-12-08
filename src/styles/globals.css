@@ -576,3 +576,70 @@
 .animate-tab-slide-in {
   animation: tab-slide-in 0.35s ease-out;
 }
+
+/* TipTap Editor Styles - Compact for form fields */
+.tiptap {
+  @apply text-sm;
+  outline: none;
+  line-height: 1.4;
+}
+
+.tiptap p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  float: left;
+  color: var(--muted-foreground);
+  pointer-events: none;
+  height: 0;
+}
+
+.tiptap h1,
+.tiptap h2,
+.tiptap h3 {
+  @apply text-base leading-tight font-semibold;
+  margin: 0;
+}
+
+.tiptap a {
+  @apply text-primary underline;
+}
+
+.tiptap ul,
+.tiptap ol {
+  @apply m-0 pl-4;
+}
+
+.tiptap ul {
+  @apply list-disc;
+}
+
+.tiptap ol {
+  @apply list-decimal;
+}
+
+.tiptap li {
+  @apply m-0 p-0;
+}
+
+.tiptap p {
+  @apply m-0;
+}
+
+.tiptap strong {
+  @apply font-semibold;
+}
+
+.tiptap em {
+  @apply italic;
+}
+
+.tiptap blockquote {
+  @apply border-primary/50 m-0 border-l-2 pl-2 italic;
+}
+
+.tiptap code {
+  @apply bg-muted rounded px-1 py-0.5 font-mono text-xs;
+}
+
+.tiptap > * + * {
+  margin-top: 0.25em;
+}

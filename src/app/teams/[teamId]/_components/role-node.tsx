@@ -3,7 +3,14 @@
 import { memo, useCallback, useState } from "react";
 
 import { Handle, type Node, type NodeProps, Position } from "@xyflow/react";
-import { Loader2, Settings, Trash2, TrendingUp, User } from "lucide-react";
+import {
+  Gauge,
+  Loader2,
+  Settings,
+  Trash2,
+  TrendingUp,
+  User,
+} from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -13,6 +20,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { stripHtml } from "@/lib/html-utils";
 import { cn } from "@/lib/utils";
 import { useConfirmation } from "@/providers/ConfirmationDialogProvider";
 
@@ -30,6 +38,7 @@ export type RoleNodeData = {
   metricUnit?: string;
   assignedUserId?: string | null;
   assignedUserName?: string;
+  effortPoints?: number | null;
   color?: string;
   isPending?: boolean;
 };
@@ -66,34 +75,79 @@ function RoleNodeComponent({ data, selected, id }: NodeProps<RoleNode>) {
   }, [setEditingNodeId, id]);
 
   const color = data.color ?? "#3b82f6";
+
+  // Strip HTML and truncate for display
+  const plainPurpose = stripHtml(data.purpose);
   const truncatedPurpose =
-    data.purpose.length > 80
-      ? data.purpose.substring(0, 80) + "..."
-      : data.purpose;
+    plainPurpose.length > 100
+      ? plainPurpose.substring(0, 100) + "..."
+      : plainPurpose;
 
   const isPending = data.isPending ?? false;
+
+  // Double-click to edit (only if not pending)
+  const handleDoubleClick = useCallback(() => {
+    if (!isPending) {
+      setEditingNodeId(id);
+    }
+  }, [isPending, setEditingNodeId, id]);
 
   return (
     <div
       className={cn(
-        "bg-card group relative rounded-lg border transition-all duration-200 hover:shadow-lg",
-        "max-w-[320px] min-w-[320px]",
+        "bg-card group relative flex flex-col rounded-lg border transition-all duration-200 hover:shadow-lg",
+        "h-[160px] w-[320px]",
         selected && "ring-primary ring-2 ring-offset-2",
-        isPending && "cursor-not-allowed opacity-60",
+        isPending && "opacity-70",
         isDeleting && "opacity-50",
       )}
       style={{
         borderColor: color,
       }}
+      onDoubleClick={handleDoubleClick}
     >
-      {/* Top Handle */}
+      {/* Top Handles - Bidirectional */}
       <Handle
         type="target"
         position={Position.Top}
+        id="top-target"
         className={cn(
           "!bg-primary !border-background !h-3 !w-3 !border-2",
           "transition-transform hover:!scale-125",
         )}
+        style={{ left: "45%" }}
+      />
+      <Handle
+        type="source"
+        position={Position.Top}
+        id="top-source"
+        className={cn(
+          "!bg-primary !border-background !h-3 !w-3 !border-2",
+          "transition-transform hover:!scale-125",
+        )}
+        style={{ left: "55%" }}
+      />
+
+      {/* Right Handles - Bidirectional */}
+      <Handle
+        type="target"
+        position={Position.Right}
+        id="right-target"
+        className={cn(
+          "!bg-primary !border-background !h-3 !w-3 !border-2",
+          "transition-transform hover:!scale-125",
+        )}
+        style={{ top: "45%" }}
+      />
+      <Handle
+        type="source"
+        position={Position.Right}
+        id="right-source"
+        className={cn(
+          "!bg-primary !border-background !h-3 !w-3 !border-2",
+          "transition-transform hover:!scale-125",
+        )}
+        style={{ top: "55%" }}
       />
 
       {/* Action Buttons - Positioned in top-right corner */}
@@ -136,7 +190,7 @@ function RoleNodeComponent({ data, selected, id }: NodeProps<RoleNode>) {
 
       {/* Header */}
       <div
-        className="flex items-center gap-2 rounded-t-md px-4 py-3"
+        className="flex shrink-0 items-center gap-2 rounded-t-md px-4 py-2"
         style={{
           backgroundColor: `${color}15`,
         }}
@@ -159,7 +213,7 @@ function RoleNodeComponent({ data, selected, id }: NodeProps<RoleNode>) {
       </div>
 
       {/* Body */}
-      <div className="space-y-2 px-4 py-3">
+      <div className="flex min-h-0 flex-1 flex-col gap-1.5 overflow-hidden px-4 py-2">
         {/* Purpose */}
         <TooltipProvider>
           <Tooltip>
@@ -168,45 +222,95 @@ function RoleNodeComponent({ data, selected, id }: NodeProps<RoleNode>) {
                 {truncatedPurpose}
               </p>
             </TooltipTrigger>
-            {data.purpose.length > 80 && (
+            {plainPurpose.length > 100 && (
               <TooltipContent className="max-w-xs">
-                <p className="text-xs">{data.purpose}</p>
+                <p className="text-xs">{plainPurpose}</p>
               </TooltipContent>
             )}
           </Tooltip>
         </TooltipProvider>
 
-        {/* Metric */}
-        {data.metricName && (
-          <div className="flex items-center gap-2 text-xs">
-            <TrendingUp className="text-muted-foreground h-3 w-3" />
-            <span className="font-medium">{data.metricName}</span>
-            {data.metricValue !== undefined && data.metricValue !== null && (
-              <Badge variant="secondary" className="text-xs">
-                {data.metricValue.toFixed(1)} {data.metricUnit ?? ""}
-              </Badge>
-            )}
-          </div>
-        )}
+        {/* Metric & Assigned User - at bottom */}
+        <div className="mt-auto space-y-1">
+          {/* Metric */}
+          {data.metricName && (
+            <div className="flex items-center gap-2 text-xs">
+              <TrendingUp className="text-muted-foreground h-3 w-3 shrink-0" />
+              <span className="truncate font-medium">{data.metricName}</span>
+              {data.metricValue !== undefined && data.metricValue !== null && (
+                <Badge variant="secondary" className="shrink-0 text-xs">
+                  {data.metricValue.toFixed(1)} {data.metricUnit ?? ""}
+                </Badge>
+              )}
+            </div>
+          )}
 
-        {/* Assigned User */}
-        {data.assignedUserName && (
-          <div className="flex items-center gap-2 border-t pt-1 text-xs">
-            <User className="text-muted-foreground h-3 w-3" />
-            <span className="text-muted-foreground">Assigned:</span>
-            <span className="font-medium">{data.assignedUserName}</span>
-          </div>
-        )}
+          {/* Assigned User */}
+          {data.assignedUserName && (
+            <div className="flex items-center gap-2 text-xs">
+              <User className="text-muted-foreground h-3 w-3 shrink-0" />
+              <span className="truncate font-medium">
+                {data.assignedUserName}
+              </span>
+            </div>
+          )}
+        </div>
       </div>
 
-      {/* Bottom Handle */}
+      {/* Footer - Effort Points */}
+      {data.effortPoints && (
+        <div className="border-border/50 shrink-0 border-t px-4 py-1.5">
+          <div className="text-muted-foreground flex items-center gap-1.5 text-xs">
+            <Gauge className="h-3.5 w-3.5" />
+            <span>
+              {data.effortPoints} {data.effortPoints === 1 ? "point" : "points"}
+            </span>
+          </div>
+        </div>
+      )}
+
+      {/* Bottom Handles - Bidirectional */}
       <Handle
-        type="source"
+        type="target"
         position={Position.Bottom}
+        id="bottom-target"
         className={cn(
           "!bg-primary !border-background !h-3 !w-3 !border-2",
           "transition-transform hover:!scale-125",
         )}
+        style={{ left: "45%" }}
+      />
+      <Handle
+        type="source"
+        position={Position.Bottom}
+        id="bottom-source"
+        className={cn(
+          "!bg-primary !border-background !h-3 !w-3 !border-2",
+          "transition-transform hover:!scale-125",
+        )}
+        style={{ left: "55%" }}
+      />
+
+      {/* Left Handles - Bidirectional */}
+      <Handle
+        type="target"
+        position={Position.Left}
+        id="left-target"
+        className={cn(
+          "!bg-primary !border-background !h-3 !w-3 !border-2",
+          "transition-transform hover:!scale-125",
+        )}
+        style={{ top: "45%" }}
+      />
+      <Handle
+        type="source"
+        position={Position.Left}
+        id="left-source"
+        className={cn(
+          "!bg-primary !border-background !h-3 !w-3 !border-2",
+          "transition-transform hover:!scale-125",
+        )}
+        style={{ top: "55%" }}
       />
     </div>
   );
