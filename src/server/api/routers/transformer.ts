@@ -17,11 +17,6 @@ import {
   regenerateChartTransformer,
 } from "@/server/api/services/transformation";
 import { createTRPCRouter, workspaceProcedure } from "@/server/api/trpc";
-import {
-  cacheStrategy,
-  listCache,
-  timeSeriesCache,
-} from "@/server/api/utils/cache-strategy";
 import { db } from "@/server/db";
 
 export const transformerRouter = createTRPCRouter({
@@ -89,7 +84,6 @@ export const transformerRouter = createTRPCRouter({
   listDataIngestionTransformers: workspaceProcedure.query(async () => {
     return db.dataIngestionTransformer.findMany({
       orderBy: { updatedAt: "desc" },
-      ...cacheStrategy(listCache),
     });
   }),
 
@@ -250,7 +244,6 @@ export const transformerRouter = createTRPCRouter({
         },
       },
       orderBy: { updatedAt: "desc" },
-      ...cacheStrategy(listCache),
     });
   }),
 
@@ -294,12 +287,10 @@ export const transformerRouter = createTRPCRouter({
         orderBy: { timestamp: "desc" },
         take: input.limit,
         skip: input.offset,
-        ...cacheStrategy(timeSeriesCache),
       });
 
       const total = await db.metricDataPoint.count({
         where: { metricId: input.metricId },
-        ...cacheStrategy(timeSeriesCache),
       });
 
       return {
@@ -337,17 +328,14 @@ export const transformerRouter = createTRPCRouter({
       const [total, oldest, newest] = await Promise.all([
         db.metricDataPoint.count({
           where: { metricId: input.metricId },
-          ...cacheStrategy(timeSeriesCache),
         }),
         db.metricDataPoint.findFirst({
           where: { metricId: input.metricId },
           orderBy: { timestamp: "asc" },
-          ...cacheStrategy(timeSeriesCache),
         }),
         db.metricDataPoint.findFirst({
           where: { metricId: input.metricId },
           orderBy: { timestamp: "desc" },
-          ...cacheStrategy(timeSeriesCache),
         }),
       ]);
 

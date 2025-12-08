@@ -14,7 +14,6 @@ export const teamRouter = createTRPCRouter({
       where: { organizationId: ctx.workspace.organizationId },
       include: { _count: { select: { roles: true, metrics: true } } },
       orderBy: { updatedAt: "desc" },
-      ...cacheStrategy(shortLivedCache),
     });
   }),
 
