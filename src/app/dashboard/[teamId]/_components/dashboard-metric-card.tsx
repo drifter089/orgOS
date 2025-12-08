@@ -2,18 +2,10 @@
 
 import { useCallback, useState } from "react";
 
-import {
-  AlertCircle,
-  BarChart3,
-  Loader2,
-  Settings,
-  Trash2,
-  Users,
-} from "lucide-react";
+import { AlertCircle, BarChart3, Settings, Users } from "lucide-react";
 import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Tooltip,
@@ -241,7 +233,7 @@ export function DashboardMetricCard({
     });
   };
 
-  const title = chartTransform?.title ?? metric.name;
+  const title = metric.name;
 
   return (
     <Tabs
@@ -267,32 +259,27 @@ export function DashboardMetricCard({
         </Tooltip>
       )}
 
-      <TabsList className="bg-muted/80 absolute top-4 right-3 z-10 h-7 backdrop-blur-sm">
-        <TabsTrigger value="chart" className="h-6 px-2 text-xs">
+      <TabsList className="absolute top-0 right-0 z-10 h-7 gap-0 border-b border-l bg-transparent p-0">
+        <TabsTrigger
+          value="chart"
+          className="data-[state=active]:bg-muted data-[state=active]:text-foreground text-muted-foreground hover:bg-muted/50 hover:text-foreground h-7 rounded-none border-r px-3 text-xs transition-colors"
+        >
           <BarChart3 className="h-3 w-3" />
         </TabsTrigger>
-        <TabsTrigger value="roles" className="h-6 px-2 text-xs">
+        <TabsTrigger
+          value="roles"
+          className="data-[state=active]:bg-muted data-[state=active]:text-foreground text-muted-foreground hover:bg-muted/50 hover:text-foreground h-7 rounded-none border-r px-3 text-xs transition-colors"
+        >
           <Users className="h-3 w-3" />
         </TabsTrigger>
         {isIntegrationMetric && (
-          <TabsTrigger value="settings" className="h-6 px-2 text-xs">
+          <TabsTrigger
+            value="settings"
+            className="data-[state=active]:bg-muted data-[state=active]:text-foreground text-muted-foreground hover:bg-muted/50 hover:text-foreground h-7 rounded-none px-3 text-xs transition-colors"
+          >
             <Settings className="h-3 w-3" />
           </TabsTrigger>
         )}
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={handleRemove}
-          disabled={isPending || deleteMetricMutation.isPending}
-          className="ml-1 h-6 w-6 flex-shrink-0 rounded-md"
-          title="Remove from dashboard"
-        >
-          {deleteMetricMutation.isPending ? (
-            <Loader2 className="h-3 w-3 animate-spin" />
-          ) : (
-            <Trash2 className="text-muted-foreground hover:text-destructive h-3 w-3" />
-          )}
-        </Button>
       </TabsList>
 
       <div className="relative h-full w-full overflow-hidden">
@@ -335,11 +322,13 @@ export function DashboardMetricCard({
               pollFrequency={metric.pollFrequency}
               isProcessing={isProcessing}
               isUpdating={updateMetricMutation.isPending}
+              isDeleting={isPending || deleteMetricMutation.isPending}
               prompt={prompt}
               onPromptChange={setPrompt}
               onRegenerate={() => handleRegenerate(prompt || undefined)}
               onRefresh={handleRefresh}
               onUpdateMetric={handleUpdateMetric}
+              onDelete={handleRemove}
             />
           </TabsContent>
         )}
