@@ -73,6 +73,7 @@ export function TeamEdge({
         metricId: null,
         nodeId: variables.nodeId,
         assignedUserId: null,
+        effortPoints: null,
         color: variables.color ?? "#3b82f6",
         createdAt: new Date(),
         updatedAt: new Date(),

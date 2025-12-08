@@ -72,6 +72,7 @@ model Role {
     purpose        String   @db.Text
     accountabilities String? @db.Text
     metricId       String?  // Optional metric reference
+    effortPoints   Int?     // Story points (1, 2, 3, 5, 8, 13, 20, 40)
 
     // Optional assignment
     assignedUserId String?  // WorkOS user ID

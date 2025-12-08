@@ -83,6 +83,7 @@ export function PublicTeamCanvas({ team }: PublicTeamCanvasProps) {
           metricId: role?.metric?.id,
           metricName: role?.metric?.name,
           assignedUserId: role?.assignedUserId ?? null,
+          effortPoints: role?.effortPoints ?? null,
           color: role?.color ?? "#3b82f6",
         },
       };

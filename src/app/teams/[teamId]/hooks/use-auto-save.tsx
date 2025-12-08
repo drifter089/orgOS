@@ -1,20 +1,22 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef } from "react";
 
 import { toast } from "sonner";
 
 import { api } from "@/trpc/react";
 
-import { useTeamStore } from "../store/team-store";
+import { useTeamStore, useTeamStoreApi } from "../store/team-store";
 import { serializeEdges, serializeNodes } from "../utils/canvas-serialization";
 
 const AUTO_SAVE_DELAY = 2000; // 2 seconds
 
 /**
- * Auto-save hook that debounces saves when the canvas state changes
+ * Auto-save hook that debounces saves when the canvas state changes.
+ * Includes beforeunload warning and flush-on-unmount to prevent data loss.
  */
 export function useAutoSave() {
+  const storeApi = useTeamStoreApi();
   const teamId = useTeamStore((state) => state.teamId);
   const nodes = useTeamStore((state) => state.nodes);
   const edges = useTeamStore((state) => state.edges);
@@ -60,6 +62,55 @@ export function useAutoSave() {
       pendingSnapshotRef.current = null;
     },
   });
+
+  // Flush save immediately (for unmount/beforeunload)
+  const flushSave = useCallback(() => {
+    const {
+      isDirty: currentDirty,
+      nodes: currentNodes,
+      edges: currentEdges,
+    } = storeApi.getState();
+
+    if (!currentDirty) return;
+
+    // Clear pending timeout
+    if (saveTimeoutRef.current) {
+      clearTimeout(saveTimeoutRef.current);
+      saveTimeoutRef.current = undefined;
+    }
+
+    // Use sendBeacon for reliable save during page unload
+    const serializedNodes = serializeNodes(currentNodes);
+    const serializedEdges = serializeEdges(currentEdges);
+
+    const payload = JSON.stringify({
+      id: teamId,
+      reactFlowNodes: serializedNodes,
+      reactFlowEdges: serializedEdges,
+    });
+
+    // Try sendBeacon first (works during unload), fall back to sync mutation
+    if (typeof navigator !== "undefined" && navigator.sendBeacon) {
+      navigator.sendBeacon(`/api/team-save?teamId=${teamId}`, payload);
+    }
+  }, [storeApi, teamId]);
+
+  // Warn user before leaving if there are unsaved changes
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      const { isDirty: currentDirty, isSaving } = storeApi.getState();
+      if (currentDirty || isSaving) {
+        // Flush save before leaving
+        flushSave();
+        // Show browser's default "unsaved changes" warning
+        e.preventDefault();
+        return "";
+      }
+    };
+
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+  }, [storeApi, flushSave]);
 
   useEffect(() => {
     // Clear existing timeout
