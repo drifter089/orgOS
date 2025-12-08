@@ -3,9 +3,9 @@ import { z } from "zod";
 
 import { createTRPCRouter, publicProcedure } from "@/server/api/trpc";
 import {
+  authCheckCache,
   cacheStrategy,
   dashboardCache,
-  singleItemCache,
 } from "@/server/api/utils/cache-strategy";
 
 // Read-only procedures for publicly shared teams/dashboards (no auth required)
@@ -20,7 +20,7 @@ export const publicViewRouter = createTRPCRouter({
             include: { metric: true },
           },
         },
-        ...cacheStrategy(singleItemCache),
+        ...cacheStrategy(authCheckCache),
       });
 
       if (!team) {
@@ -52,7 +52,7 @@ export const publicViewRouter = createTRPCRouter({
           shareToken: true,
           organizationId: true,
         },
-        ...cacheStrategy(singleItemCache),
+        ...cacheStrategy(authCheckCache),
       });
 
       if (!team) {
