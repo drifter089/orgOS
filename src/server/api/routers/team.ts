@@ -3,6 +3,10 @@ import { z } from "zod";
 
 import { createTRPCRouter, workspaceProcedure } from "@/server/api/trpc";
 import { getTeamAndVerifyAccess } from "@/server/api/utils/authorization";
+import {
+  cacheStrategy,
+  shortLivedCache,
+} from "@/server/api/utils/cache-strategy";
 
 export const teamRouter = createTRPCRouter({
   getAll: workspaceProcedure.query(async ({ ctx }) => {
@@ -26,6 +30,7 @@ export const teamRouter = createTRPCRouter({
       return ctx.db.team.findUnique({
         where: { id: input.id },
         include: { roles: { include: { metric: true } } },
+        ...cacheStrategy(shortLivedCache),
       });
     }),
 

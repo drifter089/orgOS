@@ -1,6 +1,10 @@
 import { z } from "zod";
 
 import { createTRPCRouter, workspaceProcedure } from "@/server/api/trpc";
+import {
+  cacheStrategy,
+  shortLivedCache,
+} from "@/server/api/utils/cache-strategy";
 
 const storedNodeSchema = z.object({
   id: z.string(),
@@ -30,6 +34,7 @@ export const systemsCanvasRouter = createTRPCRouter({
   get: workspaceProcedure.query(async ({ ctx }) => {
     const canvas = await ctx.db.systemsCanvas.findUnique({
       where: { organizationId: ctx.workspace.organizationId },
+      ...cacheStrategy(shortLivedCache),
     });
 
     if (!canvas) {

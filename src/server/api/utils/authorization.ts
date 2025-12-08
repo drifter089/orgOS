@@ -135,7 +135,9 @@ export async function getTeamAndVerifyAccess(
   userId: string,
   workspaceContext?: WorkspaceContext,
 ) {
-  const team = await db.team.findUnique({ where: { id: teamId } });
+  const team = await db.team.findUnique({
+    where: { id: teamId },
+  });
 
   if (!team) {
     throw new TRPCError({ code: "NOT_FOUND", message: "Team not found" });

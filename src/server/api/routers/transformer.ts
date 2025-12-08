@@ -326,7 +326,9 @@ export const transformerRouter = createTRPCRouter({
       }
 
       const [total, oldest, newest] = await Promise.all([
-        db.metricDataPoint.count({ where: { metricId: input.metricId } }),
+        db.metricDataPoint.count({
+          where: { metricId: input.metricId },
+        }),
         db.metricDataPoint.findFirst({
           where: { metricId: input.metricId },
           orderBy: { timestamp: "asc" },

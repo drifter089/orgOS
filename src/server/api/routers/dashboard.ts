@@ -3,6 +3,10 @@ import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 
 import { createTRPCRouter, workspaceProcedure } from "@/server/api/trpc";
+import {
+  cacheStrategy,
+  shortLivedCache,
+} from "@/server/api/utils/cache-strategy";
 
 export const dashboardRouter = createTRPCRouter({
   /**
@@ -25,6 +29,7 @@ export const dashboardRouter = createTRPCRouter({
         },
       },
       orderBy: { position: "asc" },
+      ...cacheStrategy(shortLivedCache),
     });
     return dashboardCharts;
   }),
@@ -48,6 +53,7 @@ export const dashboardRouter = createTRPCRouter({
           },
         },
         orderBy: { position: "asc" },
+        ...cacheStrategy(shortLivedCache),
       });
 
       return dashboardCharts;
