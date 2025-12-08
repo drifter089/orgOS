@@ -35,6 +35,25 @@ export function TeamSetupStep({ onNext, onBack }: TeamSetupStepProps) {
         growth, or operations.
       </p>
 
+      {/* Example team names */}
+      <motion.div
+        className="mt-8 flex flex-wrap gap-2"
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.2, duration: 0.3 }}
+      >
+        {["growth", "product", "operations"].map((example) => (
+          <button
+            key={example}
+            onClick={() => setTeamName(example)}
+            className="border-border text-muted-foreground hover:border-foreground/30 hover:text-foreground rounded-sm border px-3 py-1.5 font-sans text-xs transition-colors"
+            style={{ letterSpacing: "-0.02em" }}
+          >
+            {example}
+          </button>
+        ))}
+      </motion.div>
+
       <div className="mt-10 space-y-6">
         <div>
           <label
