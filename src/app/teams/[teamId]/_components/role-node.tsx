@@ -20,6 +20,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { stripHtml } from "@/lib/html-utils";
 import { cn } from "@/lib/utils";
 import { useConfirmation } from "@/providers/ConfirmationDialogProvider";
 
@@ -41,24 +42,6 @@ export type RoleNodeData = {
   color?: string;
   isPending?: boolean;
 };
-
-/**
- * Strip HTML tags from a string (for displaying TipTap content as plain text)
- */
-function stripHtml(html: string): string {
-  if (!html) return "";
-  // Remove HTML tags and decode common entities
-  return html
-    .replace(/<[^>]*>/g, " ")
-    .replace(/&nbsp;/g, " ")
-    .replace(/&amp;/g, "&")
-    .replace(/&lt;/g, "<")
-    .replace(/&gt;/g, ">")
-    .replace(/&quot;/g, '"')
-    .replace(/&#39;/g, "'")
-    .replace(/\s+/g, " ")
-    .trim();
-}
 
 export type RoleNode = Node<RoleNodeData, "role-node">;
 
@@ -132,6 +115,7 @@ function RoleNodeComponent({ data, selected, id }: NodeProps<RoleNode>) {
           "!bg-primary !border-background !h-3 !w-3 !border-2",
           "transition-transform hover:!scale-125",
         )}
+        style={{ left: "45%" }}
       />
       <Handle
         type="source"
@@ -141,6 +125,7 @@ function RoleNodeComponent({ data, selected, id }: NodeProps<RoleNode>) {
           "!bg-primary !border-background !h-3 !w-3 !border-2",
           "transition-transform hover:!scale-125",
         )}
+        style={{ left: "55%" }}
       />
 
       {/* Right Handles - Bidirectional */}
@@ -152,6 +137,7 @@ function RoleNodeComponent({ data, selected, id }: NodeProps<RoleNode>) {
           "!bg-primary !border-background !h-3 !w-3 !border-2",
           "transition-transform hover:!scale-125",
         )}
+        style={{ top: "45%" }}
       />
       <Handle
         type="source"
@@ -161,6 +147,7 @@ function RoleNodeComponent({ data, selected, id }: NodeProps<RoleNode>) {
           "!bg-primary !border-background !h-3 !w-3 !border-2",
           "transition-transform hover:!scale-125",
         )}
+        style={{ top: "55%" }}
       />
 
       {/* Action Buttons - Positioned in top-right corner */}
@@ -291,6 +278,7 @@ function RoleNodeComponent({ data, selected, id }: NodeProps<RoleNode>) {
           "!bg-primary !border-background !h-3 !w-3 !border-2",
           "transition-transform hover:!scale-125",
         )}
+        style={{ left: "45%" }}
       />
       <Handle
         type="source"
@@ -300,6 +288,7 @@ function RoleNodeComponent({ data, selected, id }: NodeProps<RoleNode>) {
           "!bg-primary !border-background !h-3 !w-3 !border-2",
           "transition-transform hover:!scale-125",
         )}
+        style={{ left: "55%" }}
       />
 
       {/* Left Handles - Bidirectional */}
@@ -311,6 +300,7 @@ function RoleNodeComponent({ data, selected, id }: NodeProps<RoleNode>) {
           "!bg-primary !border-background !h-3 !w-3 !border-2",
           "transition-transform hover:!scale-125",
         )}
+        style={{ top: "45%" }}
       />
       <Handle
         type="source"
@@ -320,6 +310,7 @@ function RoleNodeComponent({ data, selected, id }: NodeProps<RoleNode>) {
           "!bg-primary !border-background !h-3 !w-3 !border-2",
           "transition-transform hover:!scale-125",
         )}
+        style={{ top: "55%" }}
       />
     </div>
   );
