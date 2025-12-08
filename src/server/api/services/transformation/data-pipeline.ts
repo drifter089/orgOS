@@ -98,7 +98,7 @@ export async function ingestMetricData(
     console.info(`[Transform] Created new transformer: ${transformer.id}`);
   }
 
-  const result = executeDataIngestionTransformer(
+  const result = await executeDataIngestionTransformer(
     transformer.transformerCode,
     apiData,
     input.endpointConfig,
@@ -164,7 +164,7 @@ async function getOrCreateDataIngestionTransformer(
     availableParams: template.requiredParams.map((p) => p.name),
   });
 
-  const testResult = testDataIngestionTransformer(
+  const testResult = await testDataIngestionTransformer(
     generated.code,
     apiData,
     endpointConfig,
@@ -185,7 +185,7 @@ async function getOrCreateDataIngestionTransformer(
       error: testResult.error,
     });
 
-    const retestResult = testDataIngestionTransformer(
+    const retestResult = await testDataIngestionTransformer(
       regenerated.code,
       apiData,
       endpointConfig,
@@ -301,7 +301,7 @@ export async function refreshMetricDataPoints(input: {
     return { success: false, error: `Failed to fetch data: ${errorMsg}` };
   }
 
-  const result = executeDataIngestionTransformer(
+  const result = await executeDataIngestionTransformer(
     transformer.transformerCode,
     apiData,
     input.endpointConfig,

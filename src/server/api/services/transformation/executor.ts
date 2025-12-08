@@ -1,5 +1,12 @@
-/** Safely executes AI-generated transformer code with validation. */
+/**
+ * Safely executes AI-generated transformer code in an isolated sandbox.
+ *
+ * All code runs in a V8 isolate with no access to Node.js APIs,
+ * environment variables, or the file system.
+ */
 import type { ChartConfig, DataPoint } from "@/lib/metrics/transformer-types";
+
+import { runInSandbox } from "./sandbox";
 
 interface ExecutionResult<T> {
   success: boolean;
@@ -14,26 +21,30 @@ interface DataPointRaw {
 }
 
 /** Execute DataIngestionTransformer: API response → DataPoints */
-export function executeDataIngestionTransformer(
+export async function executeDataIngestionTransformer(
   code: string,
   apiResponse: unknown,
   endpointConfig: Record<string, string>,
-): ExecutionResult<DataPoint[]> {
-  try {
-    const wrappedCode = `${code}\nreturn transform(apiResponse, endpointConfig);`;
-    // eslint-disable-next-line @typescript-eslint/no-implied-eval
-    const executor = new Function("apiResponse", "endpointConfig", wrappedCode);
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-call
-    const result = executor(apiResponse, endpointConfig) as DataPointRaw[];
+): Promise<ExecutionResult<DataPoint[]>> {
+  const result = await runInSandbox<DataPointRaw[]>(code, {
+    apiResponse,
+    endpointConfig,
+  });
 
-    if (!Array.isArray(result)) {
+  if (!result.success || !result.data) {
+    return { success: false, error: result.error };
+  }
+
+  // Validate and normalize the data points
+  try {
+    if (!Array.isArray(result.data)) {
       return {
         success: false,
         error: "Transformer must return an array of DataPoints",
       };
     }
 
-    const validatedPoints: DataPoint[] = result.map((point, index) => {
+    const validatedPoints: DataPoint[] = result.data.map((point, index) => {
       if (typeof point !== "object" || point === null) {
         throw new Error(`DataPoint at index ${index} is not an object`);
       }
@@ -71,36 +82,39 @@ export function executeDataIngestionTransformer(
       return { timestamp, value, dimensions };
     });
 
-    return {
-      success: true,
-      data: validatedPoints,
-    };
+    return { success: true, data: validatedPoints };
   } catch (error) {
     const errorMsg =
-      error instanceof Error ? error.message : "Unknown execution error";
-    console.error(`[Executor] Error: ${errorMsg}`);
-
-    return {
-      success: false,
-      error: errorMsg,
-    };
+      error instanceof Error ? error.message : "Validation error";
+    return { success: false, error: errorMsg };
   }
 }
 
 /** Execute ChartTransformer: DataPoints → ChartConfig */
-export function executeChartTransformer(
+export async function executeChartTransformer(
   code: string,
   dataPoints: DataPoint[],
   preferences: { chartType: string; dateRange: string; aggregation: string },
-): ExecutionResult<ChartConfig> {
-  try {
-    const wrappedCode = `${code}\nreturn transform(dataPoints, preferences);`;
-    // eslint-disable-next-line @typescript-eslint/no-implied-eval
-    const executor = new Function("dataPoints", "preferences", wrappedCode);
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-call
-    const result = executor(dataPoints, preferences) as ChartConfig;
+): Promise<ExecutionResult<ChartConfig>> {
+  // Convert Date objects to ISO strings for sandbox serialization
+  const serializedDataPoints = dataPoints.map((dp) => ({
+    ...dp,
+    timestamp:
+      dp.timestamp instanceof Date ? dp.timestamp.toISOString() : dp.timestamp,
+  }));
 
-    if (typeof result !== "object" || result === null) {
+  const result = await runInSandbox<ChartConfig>(code, {
+    dataPoints: serializedDataPoints,
+    preferences,
+  });
+
+  if (!result.success || !result.data) {
+    return { success: false, error: result.error };
+  }
+
+  // Validate the chart config
+  try {
+    if (typeof result.data !== "object" || result.data === null) {
       return {
         success: false,
         error: "ChartTransformer must return a ChartConfig object",
@@ -116,7 +130,7 @@ export function executeChartTransformer(
       "title",
     ];
     for (const field of requiredFields) {
-      if (!(field in result)) {
+      if (!(field in result.data)) {
         return {
           success: false,
           error: `ChartConfig missing required field: ${field}`,
@@ -124,26 +138,18 @@ export function executeChartTransformer(
       }
     }
 
-    if (!Array.isArray(result.chartData)) {
+    if (!Array.isArray(result.data.chartData)) {
       return { success: false, error: "chartData must be an array" };
     }
-    if (!Array.isArray(result.dataKeys)) {
+    if (!Array.isArray(result.data.dataKeys)) {
       return { success: false, error: "dataKeys must be an array" };
     }
 
-    return {
-      success: true,
-      data: result,
-    };
+    return { success: true, data: result.data };
   } catch (error) {
     const errorMsg =
-      error instanceof Error ? error.message : "Unknown execution error";
-    console.error(`[Executor-Chart] Error: ${errorMsg}`);
-
-    return {
-      success: false,
-      error: errorMsg,
-    };
+      error instanceof Error ? error.message : "Validation error";
+    return { success: false, error: errorMsg };
   }
 }
 
@@ -163,11 +169,11 @@ export function validateTransformerCode(code: string): {
   }
 }
 
-export function testDataIngestionTransformer(
+export async function testDataIngestionTransformer(
   code: string,
   sampleApiResponse: unknown,
   sampleEndpointConfig: Record<string, string>,
-): ExecutionResult<DataPoint[]> {
+): Promise<ExecutionResult<DataPoint[]>> {
   const syntaxCheck = validateTransformerCode(code);
   if (!syntaxCheck.valid) {
     return { success: false, error: `Syntax error: ${syntaxCheck.error}` };
@@ -179,11 +185,11 @@ export function testDataIngestionTransformer(
   );
 }
 
-export function testChartTransformer(
+export async function testChartTransformer(
   code: string,
   sampleDataPoints: DataPoint[],
   preferences: { chartType: string; dateRange: string; aggregation: string },
-): ExecutionResult<ChartConfig> {
+): Promise<ExecutionResult<ChartConfig>> {
   const syntaxCheck = validateTransformerCode(code);
   if (!syntaxCheck.valid) {
     return { success: false, error: `Syntax error: ${syntaxCheck.error}` };

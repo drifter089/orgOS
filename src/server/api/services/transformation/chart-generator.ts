@@ -79,7 +79,7 @@ export async function createChartTransformer(
     userPrompt: input.userPrompt,
   });
 
-  const testResult = testChartTransformer(generated.code, sampleDataPoints, {
+  const testResult = await testChartTransformer(generated.code, sampleDataPoints, {
     chartType: input.chartType,
     dateRange: input.dateRange,
     aggregation: input.aggregation,
@@ -161,7 +161,7 @@ export async function executeChartTransformerForDashboardChart(
     }),
   );
 
-  const result = executeChartTransformer(
+  const result = await executeChartTransformer(
     transformer.transformerCode,
     dataPoints,
     {
@@ -232,7 +232,7 @@ export async function regenerateChartTransformer(input: {
     userPrompt: input.userPrompt,
   });
 
-  const testResult = testChartTransformer(generated.code, sampleDataPoints, {
+  const testResult = await testChartTransformer(generated.code, sampleDataPoints, {
     chartType,
     dateRange,
     aggregation,
