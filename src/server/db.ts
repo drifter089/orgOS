@@ -10,17 +10,17 @@ const createPrismaClient = () => {
       env.NODE_ENV === "development" ? ["query", "error", "warn"] : ["error"],
   });
 
-  // Always extend with Accelerate (connection pooling)
-  const acceleratedClient = client.$extends(withAccelerate());
+  // Conditionally enable Optimize only in development when API key is set
+  const shouldUseOptimize = Boolean(
+    env.OPTIMIZE_API_KEY && env.NODE_ENV === "development",
+  );
 
-  // Only extend with Optimize (query insights) in development when API key is set
-  if (env.OPTIMIZE_API_KEY && env.NODE_ENV === "development") {
-    return acceleratedClient.$extends(
-      withOptimize({ apiKey: env.OPTIMIZE_API_KEY }),
-    );
-  }
-
-  return acceleratedClient;
+  return client.$extends(withAccelerate()).$extends(
+    withOptimize({
+      apiKey: env.OPTIMIZE_API_KEY ?? "",
+      enable: shouldUseOptimize,
+    }),
+  );
 };
 
 const globalForPrisma = globalThis as unknown as {
