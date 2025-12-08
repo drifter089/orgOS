@@ -11,14 +11,14 @@ interface DashboardPageClientProps {
 
 export function DashboardPageClient({ teamId }: DashboardPageClientProps) {
   // Data is already hydrated from server prefetch - instant availability
-  const { data: dashboardMetrics } = api.dashboard.getDashboardMetrics.useQuery(
-    { teamId },
-  );
+  const { data: dashboardCharts } = api.dashboard.getDashboardCharts.useQuery({
+    teamId,
+  });
   const { data: integrations } = api.integration.listWithStats.useQuery();
 
   // Data should be available from server prefetch
   // Fallback loading state in case of edge cases
-  if (!dashboardMetrics || !integrations) {
+  if (!dashboardCharts || !integrations) {
     return (
       <div className="container mx-auto px-4 py-8 pt-24">
         <div className="mb-8">
@@ -40,7 +40,7 @@ export function DashboardPageClient({ teamId }: DashboardPageClientProps) {
 
       <DashboardClient
         teamId={teamId}
-        initialDashboardMetrics={dashboardMetrics}
+        initialDashboardMetrics={dashboardCharts}
       />
       <DashboardSidebar teamId={teamId} initialIntegrations={integrations} />
     </div>

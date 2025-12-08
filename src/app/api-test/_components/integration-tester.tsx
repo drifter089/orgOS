@@ -88,9 +88,9 @@ export function IntegrationTester() {
   );
 
   // Get service config based on selected integration (no API call - direct import)
-  const serviceConfig = selectedIntegration?.integrationId
+  const serviceConfig = selectedIntegration?.providerId
     ? SERVICE_CONFIGS[
-        selectedIntegration.integrationId as keyof typeof SERVICE_CONFIGS
+        selectedIntegration.providerId as keyof typeof SERVICE_CONFIGS
       ]
     : null;
 
@@ -217,7 +217,7 @@ export function IntegrationTester() {
     void testEndpoint(
       endpoint,
       selectedIntegrationConnectionId,
-      selectedIntegration.integrationId,
+      selectedIntegration.providerId,
     );
   };
 
@@ -236,7 +236,7 @@ export function IntegrationTester() {
       await testEndpoint(
         endpoint,
         selectedIntegrationConnectionId,
-        selectedIntegration.integrationId,
+        selectedIntegration.providerId,
       );
     }
 
@@ -327,10 +327,8 @@ export function IntegrationTester() {
                   value={integration.connectionId}
                 >
                   <div className="flex items-center gap-2">
-                    {getServiceIcon(integration.integrationId)}
-                    <span className="capitalize">
-                      {integration.integrationId}
-                    </span>
+                    {getServiceIcon(integration.providerId)}
+                    <span className="capitalize">{integration.providerId}</span>
                     <span className="text-muted-foreground text-xs">
                       ({integration.connectionId.slice(0, 8)}...)
                     </span>
@@ -386,7 +384,7 @@ export function IntegrationTester() {
       {selectedIntegrationConnectionId && serviceConfig && (
         <div className="space-y-4">
           <div className="flex items-center gap-2">
-            {getServiceIcon(selectedIntegration?.integrationId ?? "")}
+            {getServiceIcon(selectedIntegration?.providerId ?? "")}
             <h3 className="text-xl font-semibold">
               {serviceConfig.name} Endpoints
             </h3>

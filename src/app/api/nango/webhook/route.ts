@@ -104,7 +104,7 @@ async function handleConnectionCreation(payload: NangoWebhookPayload) {
     },
     create: {
       connectionId,
-      integrationId: providerConfigKey,
+      providerId: providerConfigKey,
       organizationId,
       connectedBy: endUser.endUserId,
       status: "active",

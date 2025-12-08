@@ -15,8 +15,8 @@ export const integrationRouter = createTRPCRouter({
 
     const byProvider: Record<string, number> = {};
     integrations.forEach((integration) => {
-      byProvider[integration.integrationId] =
-        (byProvider[integration.integrationId] ?? 0) + 1;
+      byProvider[integration.providerId] =
+        (byProvider[integration.providerId] ?? 0) + 1;
     });
 
     return {
@@ -49,7 +49,7 @@ export const integrationRouter = createTRPCRouter({
       // Try to delete from Nango (triggers webhook that deletes from DB)
       try {
         await nango.deleteConnection(
-          integration.integrationId,
+          integration.providerId,
           input.connectionId,
         );
       } catch (error) {

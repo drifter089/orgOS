@@ -75,12 +75,6 @@ export const PLATFORM_CONFIG: Record<string, PlatformConfig> = {
     bgColor: "bg-green-600",
     textColor: "text-white",
   },
-  "google-sheets": {
-    name: "Google Sheets",
-    useLucideIcon: true,
-    bgColor: "bg-green-600",
-    textColor: "text-white",
-  },
   google: {
     name: "Google",
     logo: "https://cdn.simpleicons.org/google/FFFFFF",

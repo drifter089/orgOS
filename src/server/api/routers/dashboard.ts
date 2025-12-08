@@ -2,40 +2,37 @@ import type { Prisma } from "@prisma/client";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 
-import { transformMetricWithAI } from "@/server/api/services/chart-tools/ai-transformer";
 import { createTRPCRouter, workspaceProcedure } from "@/server/api/trpc";
 
 export const dashboardRouter = createTRPCRouter({
   /**
-   * Get all dashboard metrics with charts (non-empty graphConfig) across all teams
-   * Used by the default dashboard page to show all metrics
+   * Get all dashboard charts with data (non-empty chartConfig) across all teams
+   * Used by the default dashboard page to show all charts
    */
-  getAllDashboardMetricsWithCharts: workspaceProcedure.query(
-    async ({ ctx }) => {
-      const dashboardMetrics = await ctx.db.dashboardMetric.findMany({
-        where: {
-          organizationId: ctx.workspace.organizationId,
-          NOT: { graphConfig: { equals: {} } },
-        },
-        include: {
-          metric: {
-            include: {
-              integration: true,
-              roles: true,
-              team: true,
-            },
+  getAllDashboardChartsWithData: workspaceProcedure.query(async ({ ctx }) => {
+    const dashboardCharts = await ctx.db.dashboardChart.findMany({
+      where: {
+        organizationId: ctx.workspace.organizationId,
+        NOT: { chartConfig: { equals: {} } },
+      },
+      include: {
+        metric: {
+          include: {
+            integration: true,
+            roles: true,
+            team: true,
           },
         },
-        orderBy: { position: "asc" },
-      });
-      return dashboardMetrics;
-    },
-  ),
+      },
+      orderBy: { position: "asc" },
+    });
+    return dashboardCharts;
+  }),
 
-  getDashboardMetrics: workspaceProcedure
+  getDashboardCharts: workspaceProcedure
     .input(z.object({ teamId: z.string().optional() }).optional())
     .query(async ({ ctx, input }) => {
-      const dashboardMetrics = await ctx.db.dashboardMetric.findMany({
+      const dashboardCharts = await ctx.db.dashboardChart.findMany({
         where: {
           organizationId: ctx.workspace.organizationId,
           ...(input?.teamId && {
@@ -53,47 +50,47 @@ export const dashboardRouter = createTRPCRouter({
         orderBy: { position: "asc" },
       });
 
-      return dashboardMetrics;
+      return dashboardCharts;
     }),
 
   /**
-   * Update only the chart data for a dashboard metric
+   * Update only the chart data for a dashboard chart
    * Used after AI transformation completes (called from client)
    */
-  updateDashboardMetricChart: workspaceProcedure
+  updateDashboardChart: workspaceProcedure
     .input(
       z.object({
-        dashboardMetricId: z.string(),
-        graphType: z.string(),
-        graphConfig: z.record(z.unknown()),
+        dashboardChartId: z.string(),
+        chartType: z.string(),
+        chartConfig: z.record(z.unknown()),
       }),
     )
     .mutation(async ({ ctx, input }) => {
       // Verify ownership
-      const existing = await ctx.db.dashboardMetric.findUnique({
-        where: { id: input.dashboardMetricId },
+      const existing = await ctx.db.dashboardChart.findUnique({
+        where: { id: input.dashboardChartId },
         select: { organizationId: true },
       });
 
       if (!existing) {
         throw new TRPCError({
           code: "NOT_FOUND",
-          message: "Dashboard metric not found",
+          message: "Dashboard chart not found",
         });
       }
 
       if (existing.organizationId !== ctx.workspace.organizationId) {
         throw new TRPCError({
           code: "FORBIDDEN",
-          message: "Access denied to this dashboard metric",
+          message: "Access denied to this dashboard chart",
         });
       }
 
-      return ctx.db.dashboardMetric.update({
-        where: { id: input.dashboardMetricId },
+      return ctx.db.dashboardChart.update({
+        where: { id: input.dashboardChartId },
         data: {
-          graphType: input.graphType,
-          graphConfig: input.graphConfig as Prisma.InputJsonValue,
+          chartType: input.chartType,
+          chartConfig: input.chartConfig as Prisma.InputJsonValue,
           metric: {
             update: {
               lastFetchedAt: new Date(),
@@ -109,54 +106,5 @@ export const dashboardRouter = createTRPCRouter({
           },
         },
       });
-    }),
-
-  /**
-   * Transform raw API data into chart format using AI
-   * Called from frontend with pre-fetched data for faster UX
-   */
-  transformChartWithAI: workspaceProcedure
-    .input(
-      z.object({
-        metricConfig: z.object({
-          name: z.string(),
-          description: z.string().optional(),
-          metricTemplate: z.string(),
-          endpointConfig: z.record(z.string()),
-        }),
-        rawData: z.unknown(),
-        userHint: z.string().optional(),
-      }),
-    )
-    .mutation(async ({ input }) => {
-      // Create a metric-like object for the AI transformer
-      const metricLike = {
-        id: "",
-        name: input.metricConfig.name,
-        description: input.metricConfig.description ?? null,
-        organizationId: "",
-        teamId: null,
-        integrationId: null,
-        metricTemplate: input.metricConfig.metricTemplate,
-        endpointConfig: input.metricConfig.endpointConfig,
-        lastFetchedAt: null,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      };
-
-      const result = await transformMetricWithAI(
-        metricLike,
-        input.rawData,
-        input.userHint,
-      );
-
-      if (!result.success || !result.data) {
-        throw new TRPCError({
-          code: "INTERNAL_SERVER_ERROR",
-          message: result.error ?? "AI transformation failed",
-        });
-      }
-
-      return result.data;
     }),
 });

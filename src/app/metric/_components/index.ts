@@ -1,11 +1,9 @@
-// Metric creation dialogs
-export { GitHubMetricDialog } from "./GitHubMetricDialog";
-export { PostHogMetricDialog } from "./PostHogMetricDialog";
-export { YouTubeMetricDialog } from "./YouTubeMetricDialog";
-export { GoogleSheetsMetricDialog } from "./GoogleSheetsMetricDialog";
+// Base components
+export { MetricDialogBase, MetricTabsDisplay } from "./base";
+export type { ContentProps } from "./base";
 
-// Metric display
-export { MetricTabsDisplay } from "./MetricTabsDisplay";
-
-// Types
-export type { ContentProps } from "./MetricDialogBase";
+// Integration-specific dialogs
+export { GitHubMetricDialog } from "./github";
+export { YouTubeMetricDialog } from "./youtube";
+export { PostHogMetricDialog } from "./posthog";
+export { GoogleSheetsMetricDialog } from "./google-sheets";

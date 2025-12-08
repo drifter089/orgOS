@@ -7,7 +7,7 @@ export const env = createEnv({
    * isn't built with invalid env vars.
    */
   server: {
-    DATABASE_URL: z.string().url(),
+    DATABASE_URL: z.string().min(1),
     NODE_ENV: z
       .enum(["development", "test", "production"])
       .default("development"),
@@ -17,6 +17,7 @@ export const env = createEnv({
     OPENROUTER_API_KEY: z.string().min(1).optional(),
     LINEAR_API_KEY: z.string().optional(),
     LINEAR_TEAM_ID: z.string().optional(),
+    CRON_SECRET: z.string().min(32).optional(),
   },
 
   /**
@@ -41,6 +42,7 @@ export const env = createEnv({
     OPENROUTER_API_KEY: process.env.OPENROUTER_API_KEY,
     LINEAR_API_KEY: process.env.LINEAR_API_KEY,
     LINEAR_TEAM_ID: process.env.LINEAR_TEAM_ID,
+    CRON_SECRET: process.env.CRON_SECRET,
     // NEXT_PUBLIC_CLIENTVAR: process.env.NEXT_PUBLIC_CLIENTVAR,
   },
   /**

@@ -5,7 +5,7 @@ import { DashboardMetricChart } from "@/app/dashboard/[teamId]/_components/dashb
 import type { RouterOutputs } from "@/trpc/react";
 
 type PublicDashboardMetrics =
-  RouterOutputs["publicView"]["getDashboardByShareToken"]["dashboardMetrics"];
+  RouterOutputs["publicView"]["getDashboardByShareToken"]["dashboardCharts"];
 type PublicDashboardMetricWithRelations = PublicDashboardMetrics[number];
 
 interface PublicDashboardMetricCardProps {
@@ -20,10 +20,10 @@ export function PublicDashboardMetricCard({
   dashboardMetric,
 }: PublicDashboardMetricCardProps) {
   const { metric } = dashboardMetric;
-  const isIntegrationMetric = !!metric.integrationId;
+  const isIntegrationMetric = !!metric.integration?.providerId;
 
   const chartTransform =
-    dashboardMetric.graphConfig as unknown as ChartTransformResult | null;
+    dashboardMetric.chartConfig as unknown as ChartTransformResult | null;
   const hasChartData = !!(
     chartTransform?.chartData && chartTransform.chartData.length > 0
   );
@@ -39,7 +39,7 @@ export function PublicDashboardMetricCard({
         isIntegrationMetric={isIntegrationMetric}
         isPending={false}
         isProcessing={false}
-        integrationId={metric.integration?.integrationId}
+        integrationId={metric.integration?.providerId}
       />
     </div>
   );

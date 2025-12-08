@@ -35,7 +35,7 @@ export function PublicDashboardClient({
     );
   }
 
-  const { dashboardMetrics } = data;
+  const { dashboardCharts } = data;
 
   return (
     <div className="container mx-auto px-4 py-8">
@@ -44,14 +44,14 @@ export function PublicDashboardClient({
           <Eye className="h-3.5 w-3.5" />
           Preview
         </Badge>
-        {dashboardMetrics.length > 0 && (
+        {dashboardCharts.length > 0 && (
           <p className="text-muted-foreground text-sm">
-            {`Showing ${dashboardMetrics.length} metric${dashboardMetrics.length === 1 ? "" : "s"}`}
+            {`Showing ${dashboardCharts.length} metric${dashboardCharts.length === 1 ? "" : "s"}`}
           </p>
         )}
       </div>
 
-      {dashboardMetrics.length === 0 ? (
+      {dashboardCharts.length === 0 ? (
         <div className="flex flex-col items-center justify-center rounded-lg border-2 border-dashed py-16">
           <div className="space-y-2 text-center">
             <h3 className="text-lg font-semibold">No KPIs configured</h3>
@@ -62,7 +62,7 @@ export function PublicDashboardClient({
         </div>
       ) : (
         <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-          {dashboardMetrics.map((dashboardMetric) => (
+          {dashboardCharts.map((dashboardMetric) => (
             <PublicDashboardMetricCard
               key={dashboardMetric.id}
               dashboardMetric={dashboardMetric}

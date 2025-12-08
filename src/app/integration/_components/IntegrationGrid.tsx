@@ -169,8 +169,8 @@ export function IntegrationGrid({
   return (
     <div className={cn("grid gap-3", gridClasses[gridCols])}>
       {integrations.map((integration) => {
-        const config = getPlatformConfig(integration.integrationId);
-        const MetricDialog = MetricDialogs?.[integration.integrationId];
+        const config = getPlatformConfig(integration.providerId);
+        const MetricDialog = MetricDialogs?.[integration.providerId];
 
         return (
           <div
@@ -178,7 +178,7 @@ export function IntegrationGrid({
             className="space-y-3"
             onMouseEnter={() =>
               handleIntegrationHover(
-                integration.integrationId,
+                integration.providerId,
                 integration.connectionId,
               )
             }

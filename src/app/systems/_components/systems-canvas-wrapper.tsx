@@ -22,14 +22,14 @@ import { type MetricCardNode } from "./metric-card-node";
 import { SystemsCanvas } from "./systems-canvas";
 
 type DashboardMetrics =
-  RouterOutputs["dashboard"]["getAllDashboardMetricsWithCharts"];
+  RouterOutputs["dashboard"]["getAllDashboardChartsWithData"];
 
 const CARD_WIDTH = 540;
 const CARD_HEIGHT = 450;
 const COLUMNS = 3;
 
 function buildInitialNodes(
-  dashboardMetrics: DashboardMetrics,
+  dashboardCharts: DashboardMetrics,
   savedNodes: SystemsStoredNode[],
 ): SystemsNode[] {
   // Build metric card nodes
@@ -40,7 +40,7 @@ function buildInitialNodes(
     }
   });
 
-  const metricCardNodes: MetricCardNode[] = dashboardMetrics.map(
+  const metricCardNodes: MetricCardNode[] = dashboardCharts.map(
     (dm, index): MetricCardNode => {
       const savedPosition = savedPositions.get(dm.id);
       const col = index % COLUMNS;
@@ -99,11 +99,11 @@ function buildInitialNodes(
 }
 
 export function SystemsCanvasWrapper({
-  dashboardMetrics,
+  dashboardCharts,
   savedNodes,
   savedEdges,
 }: {
-  dashboardMetrics: DashboardMetrics;
+  dashboardCharts: DashboardMetrics;
   savedNodes: SystemsStoredNode[];
   savedEdges: StoredEdge[];
 }) {
@@ -112,7 +112,7 @@ export function SystemsCanvasWrapper({
   const setInitialized = useSystemsStore((state) => state.setInitialized);
 
   useEffect(() => {
-    const initialNodes = buildInitialNodes(dashboardMetrics, savedNodes);
+    const initialNodes = buildInitialNodes(dashboardCharts, savedNodes);
     setNodes(initialNodes);
     setEdges(savedEdges as unknown as Parameters<typeof setEdges>[0]);
 
@@ -123,7 +123,7 @@ export function SystemsCanvasWrapper({
 
     return () => clearTimeout(timer);
   }, [
-    dashboardMetrics,
+    dashboardCharts,
     savedNodes,
     savedEdges,
     setNodes,

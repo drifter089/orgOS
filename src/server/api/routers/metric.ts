@@ -1,7 +1,12 @@
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 
-import { fetchData } from "@/server/api/services/nango";
+import { getTemplate } from "@/lib/integrations";
+import { fetchData } from "@/server/api/services/data-fetching";
+import {
+  createChartTransformer,
+  ingestMetricData,
+} from "@/server/api/services/transformation";
 import { createTRPCRouter, workspaceProcedure } from "@/server/api/trpc";
 import { getIntegrationAndVerifyAccess } from "@/server/api/utils/authorization";
 
@@ -44,8 +49,8 @@ export const metricRouter = createTRPCRouter({
     }),
 
   /**
-   * Create a metric AND its dashboard metric entry in a single transaction.
-   * Like cascade delete, but for create - they live and die together.
+   * Create a metric with initial data using the unified transformer flow.
+   * Single API fetch, transaction-locked transformer creation, batch data saves.
    */
   create: workspaceProcedure
     .input(
@@ -60,21 +65,29 @@ export const metricRouter = createTRPCRouter({
     )
     .mutation(async ({ ctx, input }) => {
       // Verify user has access to this connection
-      await getIntegrationAndVerifyAccess(
+      const integration = await getIntegrationAndVerifyAccess(
         ctx.db,
         input.connectionId,
         ctx.user.id,
         ctx.workspace,
       );
 
-      // Get position for dashboard metric
-      const count = await ctx.db.dashboardMetric.count({
+      // Get template definition
+      const template = getTemplate(input.templateId);
+      if (!template) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: `Template not found: ${input.templateId}`,
+        });
+      }
+
+      // Get position for dashboard chart
+      const count = await ctx.db.dashboardChart.count({
         where: { organizationId: ctx.workspace.organizationId },
       });
 
-      // Create metric + dashboard metric in transaction
-      // Increase timeout since first-time queries can be slow
-      return ctx.db.$transaction(
+      // Step 1: Create metric + dashboard chart in transaction
+      const dashboardChart = await ctx.db.$transaction(
         async (tx) => {
           const metric = await tx.metric.create({
             data: {
@@ -82,19 +95,20 @@ export const metricRouter = createTRPCRouter({
               description: input.description,
               organizationId: ctx.workspace.organizationId,
               integrationId: input.connectionId,
-              metricTemplate: input.templateId,
+              templateId: input.templateId,
               endpointConfig: input.endpointParams,
               teamId: input.teamId,
+              pollFrequency: template.defaultPollFrequency ?? "daily",
+              nextPollAt: new Date(),
             },
           });
 
-          // Auto-create dashboard metric entry (empty graphConfig, AI fills later)
-          const dashboardMetric = await tx.dashboardMetric.create({
+          return tx.dashboardChart.create({
             data: {
               organizationId: ctx.workspace.organizationId,
               metricId: metric.id,
-              graphType: "bar",
-              graphConfig: {},
+              chartType: "line",
+              chartConfig: {},
               size: "medium",
               position: count,
             },
@@ -107,11 +121,72 @@ export const metricRouter = createTRPCRouter({
               },
             },
           });
-
-          return dashboardMetric;
         },
         { timeout: 15000 },
-      ); // 15s timeout for slow first-time queries
+      );
+
+      // Step 2: Transform and save data (single fetch, batch save)
+      const transformResult = await ingestMetricData({
+        templateId: input.templateId,
+        integrationId: integration.providerId,
+        connectionId: input.connectionId,
+        metricId: dashboardChart.metricId,
+        endpointConfig: input.endpointParams,
+        isTimeSeries: template.isTimeSeries !== false,
+      });
+
+      if (transformResult.success) {
+        console.info(
+          `[metric.create] Saved ${transformResult.dataPoints?.length ?? 0} data points`,
+        );
+
+        // Step 3: Create ChartTransformer
+        try {
+          await createChartTransformer({
+            dashboardChartId: dashboardChart.id,
+            metricName: input.name,
+            metricDescription: input.description ?? template.description,
+            chartType: "line",
+            dateRange: "30d",
+            aggregation: "none",
+          });
+        } catch (chartError) {
+          console.error(`[metric.create] ChartTransformer failed:`, chartError);
+        }
+      } else {
+        console.error(
+          `[metric.create] Transform failed:`,
+          transformResult.error,
+        );
+      }
+
+      // Update lastFetchedAt
+      await ctx.db.metric.update({
+        where: { id: dashboardChart.metricId },
+        data: { lastFetchedAt: new Date() },
+      });
+
+      // Return fresh data
+      const result = await ctx.db.dashboardChart.findUnique({
+        where: { id: dashboardChart.id },
+        include: {
+          metric: {
+            include: {
+              integration: true,
+              roles: true,
+            },
+          },
+        },
+      });
+
+      if (!result) {
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Failed to fetch created dashboard chart",
+        });
+      }
+
+      return result;
     }),
 
   update: workspaceProcedure

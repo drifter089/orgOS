@@ -100,14 +100,20 @@ model Metric {
 
     // Integration-backed metrics
     integrationId  String?  // Reference to Integration connectionId
-    metricTemplate String?  // Template identifier (e.g., "github-stars-total")
+    templateId     String?  // Template identifier (e.g., "github-stars-total")
     endpointConfig Json?    // Endpoint parameters (e.g., {videoId: "abc123"})
     lastFetchedAt  DateTime? // Last data refresh timestamp
+
+    // NEW: Polling configuration
+    pollFrequency  String    @default("daily")  // "frequent", "hourly", "daily", "weekly", "manual"
+    nextPollAt     DateTime?                     // When to poll next
+    lastError      String?   @db.Text            // Last error message
 
     team              Team?             @relation(fields: [teamId], references: [id], onDelete: Cascade)
     integration       Integration?      @relation(fields: [integrationId], references: [connectionId], onDelete: Cascade)
     roles             Role[]            // One metric can be used by many roles
-    dashboardMetrics  DashboardMetric[] // Dashboard configurations using this metric
+    dashboardCharts   DashboardChart[]  // Dashboard chart configurations using this metric
+    dataPoints        MetricDataPoint[] // Relation to data points
 
     createdAt      DateTime @default(now())
     updatedAt      DateTime @updatedAt
@@ -116,6 +122,7 @@ model Metric {
     @@index([teamId])
     @@index([name])
     @@index([integrationId])
+    @@index([nextPollAt])  // NEW: For polling queries
 }
 
 // Nango Integration Connections
@@ -125,7 +132,7 @@ model Integration {
 
     // Nango connection identifiers
     connectionId   String   @unique // UUID from Nango (required for API calls)
-    integrationId  String   // Provider name: 'github', 'google', 'slack', etc.
+    providerId     String   // Provider name: 'github', 'google', 'slack', etc.
 
     // User-defined display name (e.g., "Work GitHub", "Personal")
     displayName    String?
@@ -152,24 +159,28 @@ model Integration {
     @@index([organizationId])
     @@index([connectionId])
     @@index([connectedBy])
-    @@index([integrationId])
+    @@index([providerId])
     @@index([status])
 }
 
 // Dashboard & Visualization System
 
-model DashboardMetric {
+model DashboardChart {
     id             String   @id @default(cuid())
     organizationId String   // WorkOS organization ID
     metricId       String   // Metric being displayed
 
-    // Graph configuration
-    graphType      String   // "line", "bar", "area", "pie", "kpi"
-    graphConfig    Json     @default("{}") // Labels, colors, axis titles, etc.
+    // Chart configuration
+    chartType      String   // "line", "bar", "area", "pie", "kpi"
+    chartConfig    Json     @default("{}") // Labels, colors, axis titles, etc.
 
     // Layout properties
     position       Int      @default(0) // Display order
     size           String   @default("medium") // "small", "medium", "large"
+
+    // Chart transformer relation
+    chartTransformerId String?        @unique
+    chartTransformer   ChartTransformer?
 
     metric         Metric   @relation(fields: [metricId], references: [id], onDelete: Cascade)
 
@@ -186,8 +197,8 @@ model SystemsCanvas {
     id             String   @id @default(cuid())
     organizationId String   @unique // One canvas per organization
 
-    // Store only positions and edges (metric data is in DashboardMetric)
-    // Node IDs match DashboardMetric.id for linking
+    // Store only positions and edges (metric data is in DashboardChart)
+    // Node IDs match DashboardChart.id for linking
     reactFlowNodes Json     @default("[]") // Array of { id, position }
     reactFlowEdges Json     @default("[]") // Array of edge connection data
     viewport       Json?    // { x, y, zoom } for canvas position
@@ -196,4 +207,75 @@ model SystemsCanvas {
     updatedAt      DateTime @updatedAt
 
     @@index([organizationId])
+}
+
+// NEW: Metrics Architecture Tables
+
+// MetricDataPoint - Time-series storage for ALL metrics
+// Single table for ALL metrics. No table-per-template.
+model MetricDataPoint {
+    id        String   @id @default(cuid())
+    metricId  String
+    metric    Metric   @relation(fields: [metricId], references: [id], onDelete: Cascade)
+
+    // Time dimension - always required
+    timestamp DateTime
+
+    // Primary value - always filled
+    value     Float
+
+    // Secondary values - optional, for additional related data
+    // e.g., {"additions": 500, "deletions": 200} or {"likes": 50, "comments": 10}
+    dimensions Json?
+
+    createdAt DateTime @default(now())
+
+    // Indexes for time-series queries
+    @@index([metricId, timestamp(sort: Desc)])
+    @@index([timestamp(sort: Desc)])
+
+    // Prevent duplicate data points for same metric at same timestamp
+    @@unique([metricId, timestamp])
+}
+
+// DataIngestionTransformer - AI-generated code that transforms API data into DataPoints
+// One per template. Shared across ALL orgs. Endpoint config comes from template definition.
+model DataIngestionTransformer {
+    id              String   @id @default(cuid())
+    templateId      String   @unique
+
+    // AI-generated JavaScript code: (apiResponse, endpointConfig) => DataPoint[]
+    transformerCode String   @db.Text
+
+    createdAt       DateTime @default(now())
+    updatedAt       DateTime @updatedAt
+
+    @@index([templateId])
+}
+
+// ChartTransformer - Transforms DataPoints into ChartConfig
+// One per DashboardChart. User-specific.
+model ChartTransformer {
+    id               String @id @default(cuid())
+    dashboardChartId String @unique
+    dashboardChart   DashboardChart @relation(fields: [dashboardChartId], references: [id], onDelete: Cascade)
+
+    // Transformation code (TypeScript)
+    transformerCode String @db.Text  // Code: DataPoint[] → ChartConfig
+
+    // User preferences that influenced generation
+    chartType    String    // "line", "bar", "area", "pie", etc.
+    dateRange    String?   // "7d", "30d", "90d", "all"
+    aggregation  String?   // "sum", "avg", "max", "none"
+    preferences  Json?     // Additional preferences
+
+    // Generation context
+    userPrompt   String?   @db.Text // User's natural language request
+
+    version   Int @default(1)
+
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+
+    @@index([dashboardChartId])
 }

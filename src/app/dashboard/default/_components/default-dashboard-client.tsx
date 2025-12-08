@@ -6,10 +6,10 @@ import { api } from "@/trpc/react";
 import { DashboardMetricCard } from "../../[teamId]/_components/dashboard-metric-card";
 
 export function DefaultDashboardClient() {
-  const { data: dashboardMetrics } =
-    api.dashboard.getAllDashboardMetricsWithCharts.useQuery();
+  const { data: dashboardCharts } =
+    api.dashboard.getAllDashboardChartsWithData.useQuery();
 
-  if (!dashboardMetrics) {
+  if (!dashboardCharts) {
     return (
       <div className="container mx-auto px-4 py-8 pt-24">
         <div className="mb-8">
@@ -32,13 +32,13 @@ export function DefaultDashboardClient() {
       <div className="space-y-6">
         <div>
           <p className="text-muted-foreground text-sm">
-            {dashboardMetrics.length === 0
+            {dashboardCharts.length === 0
               ? "No metrics with visualizations yet."
-              : `Showing ${dashboardMetrics.length} metric${dashboardMetrics.length === 1 ? "" : "s"}`}
+              : `Showing ${dashboardCharts.length} metric${dashboardCharts.length === 1 ? "" : "s"}`}
           </p>
         </div>
 
-        {dashboardMetrics.length === 0 ? (
+        {dashboardCharts.length === 0 ? (
           <div className="flex flex-col items-center justify-center rounded-lg border-2 border-dashed py-16">
             <div className="space-y-2 text-center">
               <h3 className="text-lg font-semibold">No visualizations yet</h3>
@@ -50,7 +50,7 @@ export function DefaultDashboardClient() {
           </div>
         ) : (
           <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-            {dashboardMetrics.map((dashboardMetric) => (
+            {dashboardCharts.map((dashboardMetric) => (
               <div key={dashboardMetric.id} className="relative">
                 {dashboardMetric.metric.team && (
                   <Badge

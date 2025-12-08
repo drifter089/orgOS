@@ -144,7 +144,7 @@ export function DashboardSidebar({
                           className={cn(
                             "h-8 w-1 rounded-full",
                             getPlatformConfig(
-                              metric.integration?.integrationId ?? "unknown",
+                              metric.integration?.providerId ?? "unknown",
                             ).bgColor,
                           )}
                         />
@@ -164,7 +164,7 @@ export function DashboardSidebar({
                             )}
                           </div>
                           <p className="text-muted-foreground text-xs capitalize">
-                            {metric.integration?.integrationId ?? "unknown"}
+                            {metric.integration?.providerId ?? "unknown"}
                           </p>
                         </div>
                       </div>

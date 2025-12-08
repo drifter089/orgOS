@@ -31,6 +31,11 @@ export const templates: MetricTemplate[] = [
 
     metricEndpoint: "/api/projects/{PROJECT_ID}/query/",
     method: "POST",
+
+    // Architecture config
+    historicalDataLimit: "90d",
+    defaultPollFrequency: "hourly",
+    isTimeSeries: true,
     // Use toDate() for grouping and explicit column in GROUP BY (more reliable than aliases)
     requestBody: JSON.stringify({
       query: {

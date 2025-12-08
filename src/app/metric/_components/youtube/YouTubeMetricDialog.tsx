@@ -1,6 +1,6 @@
 "use client";
 
-import { MetricDialogBase } from "./MetricDialogBase";
+import { MetricDialogBase } from "../base/MetricDialogBase";
 import { YouTubeMetricContent } from "./YouTubeMetricContent";
 
 interface YouTubeMetricDialogProps {
