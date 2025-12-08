@@ -10,6 +10,7 @@ import {
   Loader2,
   RefreshCw,
   Sparkles,
+  Trash2,
 } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
@@ -39,11 +40,13 @@ interface DashboardMetricSettingsProps {
   pollFrequency: string;
   isProcessing: boolean;
   isUpdating: boolean;
+  isDeleting: boolean;
   prompt: string;
   onPromptChange: (value: string) => void;
   onRegenerate: () => void;
   onRefresh: () => void;
   onUpdateMetric: (name: string, description: string) => void;
+  onDelete: () => void;
 }
 
 // Helper to format poll frequency
@@ -69,30 +72,25 @@ export function DashboardMetricSettings({
   pollFrequency,
   isProcessing,
   isUpdating,
+  isDeleting,
   prompt,
   onPromptChange,
   onRegenerate,
   onRefresh,
   onUpdateMetric,
+  onDelete,
 }: DashboardMetricSettingsProps) {
   const [name, setName] = useState(metricName);
-  const [description, setDescription] = useState(metricDescription ?? "");
-  const [hasChanges, setHasChanges] = useState(false);
 
   useEffect(() => {
     setName(metricName);
-    setDescription(metricDescription ?? "");
-  }, [metricName, metricDescription]);
+  }, [metricName]);
 
-  useEffect(() => {
-    const nameChanged = name !== metricName;
-    const descChanged = description !== (metricDescription ?? "");
-    setHasChanges(nameChanged || descChanged);
-  }, [name, description, metricName, metricDescription]);
+  const hasChanges = name !== metricName;
 
   const handleSave = () => {
     if (hasChanges && name.trim()) {
-      onUpdateMetric(name.trim(), description.trim());
+      onUpdateMetric(name.trim(), metricDescription ?? "");
     }
   };
 
@@ -118,7 +116,7 @@ export function DashboardMetricSettings({
         </div>
       </CardHeader>
 
-      <CardContent className="flex min-h-0 flex-1 flex-col gap-2.5 overflow-y-auto px-4 pt-0">
+      <CardContent className="flex min-h-0 flex-1 flex-col gap-2 px-4 pt-0">
         {/* Name with save button */}
         <div className="flex items-center gap-2">
           <Input
@@ -143,22 +141,13 @@ export function DashboardMetricSettings({
           </Button>
         </div>
 
-        {/* Description */}
-        <Input
-          placeholder="Description (optional)"
-          value={description}
-          onChange={(e) => setDescription(e.target.value)}
-          disabled={isUpdating}
-          className="h-8 text-xs"
-        />
-
         {/* AI Prompt */}
         <Textarea
           placeholder="AI prompt: 'pie chart', 'by month', 'show trends'..."
           value={prompt}
           onChange={(e) => onPromptChange(e.target.value)}
           disabled={isProcessing}
-          className="min-h-[80px] flex-1 resize-none text-sm"
+          className="min-h-[60px] flex-1 resize-none text-sm"
           onKeyDown={(e) => {
             if (e.key === "Enter" && !e.shiftKey && !isProcessing) {
               e.preventDefault();
@@ -246,6 +235,21 @@ export function DashboardMetricSettings({
               </Badge>
             )}
           </div>
+
+          {/* Delete button */}
+          <Button
+            variant="destructive"
+            onClick={onDelete}
+            disabled={isDeleting}
+            className="mt-1 w-full"
+          >
+            {isDeleting ? (
+              <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
+            ) : (
+              <Trash2 className="mr-1.5 h-4 w-4" />
+            )}
+            Delete metric
+          </Button>
         </div>
       </CardContent>
     </Card>
