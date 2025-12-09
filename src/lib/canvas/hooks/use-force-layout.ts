@@ -144,26 +144,28 @@ export function useForceLayout({
         forceCollide((d) => collisionRadius(d as Node)),
       )
       .on("tick", () => {
-        setNodes((nodes) =>
-          nodes.map((node, i) => {
-            if (simulationNodes[i]) {
-              const { x, y } = simulationNodes[i];
-              const dragging = draggingNodeRef.current?.id === node.id;
+        setNodes((nodes) => {
+          const simNodeMap = new Map(simulationNodes.map((sn) => [sn.id, sn]));
 
-              if (dragging) {
-                simulationNodes[i].fx = node.position.x;
-                simulationNodes[i].fy = node.position.y;
-                return node;
-              } else {
-                delete simulationNodes[i].fx;
-                delete simulationNodes[i].fy;
-              }
+          return nodes.map((node) => {
+            const simNode = simNodeMap.get(node.id);
+            if (!simNode) return node;
 
-              return { ...node, position: { x: x ?? 0, y: y ?? 0 } };
+            const dragging = draggingNodeRef.current?.id === node.id;
+            if (dragging) {
+              simNode.fx = node.position.x;
+              simNode.fy = node.position.y;
+              return node;
             }
-            return node;
-          }),
-        );
+
+            delete simNode.fx;
+            delete simNode.fy;
+            return {
+              ...node,
+              position: { x: simNode.x ?? 0, y: simNode.y ?? 0 },
+            };
+          });
+        });
       });
 
     simulationRef.current = simulation;
