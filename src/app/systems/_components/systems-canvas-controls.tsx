@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback } from "react";
+import { useCallback, useEffect, useRef } from "react";
 
 import { Panel, useReactFlow } from "@xyflow/react";
 import { Pencil, Redo2, Route, Type, Undo2 } from "lucide-react";
@@ -52,17 +52,45 @@ export function SystemsCanvasControls({
     (state) => state.setIsForceLayoutEnabled,
   );
 
+  const forceLayoutTimerRef = useRef<NodeJS.Timeout | null>(null);
+
   const handleAddText = useCallback(() => {
     takeSnapshot();
-    // Get the center of the current viewport
     const { x, y, zoom } = reactFlowInstance.getViewport();
     const centerX = -x / zoom + window.innerWidth / 2 / zoom;
     const centerY = -y / zoom + window.innerHeight / 2 / zoom;
 
-    // Create text node at center and enter edit mode
     const nodeId = addTextNode({ x: centerX, y: centerY });
     setEditingTextNodeId(nodeId);
   }, [reactFlowInstance, addTextNode, setEditingTextNodeId, takeSnapshot]);
+
+  const handleToggleForceLayout = useCallback(() => {
+    if (!isForceLayoutEnabled) {
+      setIsForceLayoutEnabled(true);
+      toast.info("Force layout enabled", {
+        description: "Nodes will auto-arrange. Turns off in 6 seconds.",
+        duration: 4000,
+      });
+
+      forceLayoutTimerRef.current = setTimeout(() => {
+        setIsForceLayoutEnabled(false);
+      }, 6000);
+    } else {
+      setIsForceLayoutEnabled(false);
+      if (forceLayoutTimerRef.current) {
+        clearTimeout(forceLayoutTimerRef.current);
+        forceLayoutTimerRef.current = null;
+      }
+    }
+  }, [isForceLayoutEnabled, setIsForceLayoutEnabled]);
+
+  useEffect(() => {
+    return () => {
+      if (forceLayoutTimerRef.current) {
+        clearTimeout(forceLayoutTimerRef.current);
+      }
+    };
+  }, []);
 
   return (
     <Panel
@@ -160,7 +188,7 @@ export function SystemsCanvasControls({
           <Tooltip>
             <TooltipTrigger asChild>
               <Button
-                onClick={() => setIsForceLayoutEnabled(!isForceLayoutEnabled)}
+                onClick={handleToggleForceLayout}
                 variant={isForceLayoutEnabled ? "default" : "outline"}
                 size="lg"
                 className={cn(
