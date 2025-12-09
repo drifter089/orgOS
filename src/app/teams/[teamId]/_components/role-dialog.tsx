@@ -1,13 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Gauge, Plus, Sparkles } from "lucide-react";
 import { nanoid } from "nanoid";
 import { useForm } from "react-hook-form";
-import { toast } from "sonner";
-import { z } from "zod";
 
 import { FormLabelWithTooltip } from "@/components/form-label-with-tooltip";
 import { Button } from "@/components/ui/button";
@@ -40,61 +38,25 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { ROLE_COLORS, markdownToHtml } from "@/lib/utils";
 import { api } from "@/trpc/react";
 
+import { useCreateRole } from "../hooks/use-create-role";
 import type { SuggestedRole } from "../hooks/use-role-suggestions";
-import { useTeamStore, useTeamStoreApi } from "../store/team-store";
+import { useUpdateRole } from "../hooks/use-update-role";
+import { useTeamStoreApi } from "../store/team-store";
+import {
+  type RoleFormData,
+  getViewportCenter,
+  roleFormSchema,
+} from "../utils/role-schema";
 import { AIRoleSuggestions } from "./ai-role-suggestions";
 import { type RoleNodeData } from "./role-node";
 import { EFFORT_POINT_OPTIONS, ROLE_FIELD_TOOLTIPS } from "./role-tooltips";
 
-const roleSchema = z.object({
-  title: z.string().min(1, "Title is required").max(100),
-  purpose: z.string().min(1, "Purpose is required"),
-  accountabilities: z.string().optional(),
-  metricId: z.string().optional(),
-  assignedUserId: z.string().nullable().optional(),
-  effortPoints: z.number().int().nullable().optional(),
-  color: z
-    .string()
-    .regex(/^#[0-9A-F]{6}$/i)
-    .optional(),
-});
-
-type RoleForm = z.infer<typeof roleSchema>;
-
-/** Calculate the center position of the current viewport in flow coordinates */
-function getViewportCenter(
-  reactFlowInstance: {
-    screenToFlowPosition: (position: { x: number; y: number }) => {
-      x: number;
-      y: number;
-    };
-  } | null,
-): { x: number; y: number } {
-  if (!reactFlowInstance) {
-    return { x: 400, y: 300 };
-  }
-
-  const container = document.querySelector(".react-flow");
-  if (!container) {
-    return { x: 400, y: 300 };
-  }
-
-  const rect = container.getBoundingClientRect();
-  const screenCenterX = rect.left + rect.width / 2;
-  const screenCenterY = rect.top + rect.height / 2;
-
-  return reactFlowInstance.screenToFlowPosition({
-    x: screenCenterX,
-    y: screenCenterY,
-  });
-}
-
 interface RoleDialogProps {
   teamId: string;
-  roleData?: RoleNodeData & { nodeId: string }; // For edit mode
-  trigger?: React.ReactNode; // Custom trigger (for node double-click)
-  open?: boolean; // Controlled open state
-  onOpenChange?: (open: boolean) => void; // Controlled open state
+  roleData?: RoleNodeData & { nodeId: string };
+  trigger?: React.ReactNode;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }
 
 export function RoleDialog({
@@ -112,11 +74,9 @@ export function RoleDialog({
 
   const isEditMode = !!roleData;
   const storeApi = useTeamStoreApi();
-  const setNodes = useTeamStore((state) => state.setNodes);
-  const markDirty = useTeamStore((state) => state.markDirty);
 
-  const form = useForm<RoleForm>({
-    resolver: zodResolver(roleSchema),
+  const form = useForm<RoleFormData>({
+    resolver: zodResolver(roleFormSchema),
     defaultValues: {
       title: "",
       purpose: "",
@@ -131,319 +91,96 @@ export function RoleDialog({
   // Reset form when roleData changes or dialog opens
   useEffect(() => {
     if (open) {
-      if (roleData) {
-        form.reset({
-          title: roleData.title,
-          purpose: roleData.purpose,
-          accountabilities: roleData.accountabilities ?? "",
-          metricId: roleData.metricId ?? "",
-          assignedUserId: roleData.assignedUserId ?? null,
-          effortPoints: roleData.effortPoints ?? null,
-          color: roleData.color ?? ROLE_COLORS[0],
-        });
-      } else {
-        form.reset({
-          title: "",
-          purpose: "",
-          accountabilities: "",
-          metricId: "",
-          assignedUserId: null,
-          effortPoints: null,
-          color: ROLE_COLORS[0],
-        });
-      }
+      form.reset(
+        roleData
+          ? {
+              title: roleData.title,
+              purpose: roleData.purpose,
+              accountabilities: roleData.accountabilities ?? "",
+              metricId: roleData.metricId ?? "",
+              assignedUserId: roleData.assignedUserId ?? null,
+              effortPoints: roleData.effortPoints ?? null,
+              color: roleData.color ?? ROLE_COLORS[0],
+            }
+          : {
+              title: "",
+              purpose: "",
+              accountabilities: "",
+              metricId: "",
+              assignedUserId: null,
+              effortPoints: null,
+              color: ROLE_COLORS[0],
+            },
+      );
     }
   }, [open, roleData, form]);
 
-  // Fetch metrics for dropdown (only metrics belonging to this team)
+  // Fetch metrics and members for dropdowns
   const { data: metrics = [] } = api.metric.getByTeamId.useQuery({ teamId });
-
-  // Fetch organization members for assignment
   const { data: members = [] } = api.organization.getMembers.useQuery();
 
-  const utils = api.useUtils();
+  // Shared callbacks for hooks
+  const getMetric = useCallback(
+    (metricId: string) => metrics.find((m) => m.id === metricId),
+    [metrics],
+  );
+  const getMember = useCallback(
+    (userId: string) => members.find((m) => m.id === userId),
+    [members],
+  );
+  const onBeforeMutate = useCallback(() => {
+    setOpen(false);
+    form.reset();
+  }, [setOpen, form]);
 
-  const createRole = api.role.create.useMutation({
-    onMutate: async (variables) => {
-      setOpen(false);
-      form.reset();
-
-      await utils.role.getByTeam.cancel({ teamId });
-
-      const previousRoles = utils.role.getByTeam.getData({ teamId });
-      const currentNodes = storeApi.getState().nodes;
-      const previousNodes = [...currentNodes];
+  // Mutation hooks
+  const createRole = useCreateRole({
+    teamId,
+    getNodeOptions: useCallback(() => {
       const reactFlowInstance = storeApi.getState().reactFlowInstance;
-
-      const tempRoleId = `temp-role-${nanoid(8)}`;
-      const nodeId = variables.nodeId;
-
-      const selectedMetric = variables.metricId
-        ? metrics.find((m) => m.id === variables.metricId)
-        : null;
-
-      const optimisticRole = {
-        id: tempRoleId,
-        title: variables.title,
-        purpose: variables.purpose,
-        accountabilities: variables.accountabilities ?? null,
-        teamId: variables.teamId,
-        metricId: variables.metricId ?? null,
-        nodeId: variables.nodeId,
-        assignedUserId: variables.assignedUserId ?? null,
-        effortPoints: variables.effortPoints ?? null,
-        color: variables.color ?? "#3b82f6",
-        createdAt: new Date(),
-        updatedAt: new Date(),
-        metric: selectedMetric
-          ? selectedMetric
-          : variables.metricId
-            ? {
-                id: variables.metricId,
-                name: "Loading...",
-                description: null,
-                organizationId: "",
-                type: "number" as const,
-                targetValue: null,
-                currentValue: null,
-                unit: null,
-                mockDataPrompt: null,
-                createdAt: new Date(),
-                updatedAt: new Date(),
-              }
-            : null,
-        isPending: true,
-      };
-
-      const position = getViewportCenter(reactFlowInstance);
-
-      const optimisticNode = {
-        id: nodeId,
-        type: "role-node" as const,
-        position,
-        data: {
-          roleId: tempRoleId,
-          title: variables.title,
-          purpose: variables.purpose,
-          accountabilities: variables.accountabilities ?? undefined,
-          metricId: variables.metricId ?? undefined,
-          metricName: selectedMetric?.name ?? undefined,
-          assignedUserId: variables.assignedUserId ?? null,
-          assignedUserName: variables.assignedUserId
-            ? (() => {
-                const member = members.find(
-                  (m) => m.id === variables.assignedUserId,
-                );
-                if (member) {
-                  return (
-                    [member.firstName, member.lastName]
-                      .filter(Boolean)
-                      .join(" ") || member.email
-                  );
-                }
-                return `User ${variables.assignedUserId?.substring(0, 8)}`;
-              })()
-            : undefined,
-          color: variables.color ?? "#3b82f6",
-          isPending: true,
-        },
-      };
-
-      setNodes([...currentNodes, optimisticNode]);
-      markDirty();
-
-      utils.role.getByTeam.setData({ teamId }, (old) => {
-        const roleWithPending = optimisticRole as typeof old extends
-          | (infer T)[]
-          | undefined
-          ? T
-          : never;
-        if (!old) return [roleWithPending];
-        return [...old, roleWithPending];
-      });
-
-      return { previousRoles, previousNodes, tempRoleId, nodeId };
-    },
-    onSuccess: (newRole, _variables, context) => {
-      if (!context) return;
-
-      // Use fresh state to preserve user's node position changes during mutation
-      const currentNodes = storeApi.getState().nodes;
-      const updatedNodes = currentNodes.map((node) => {
-        if (node.id === context.nodeId && node.type === "role-node") {
-          return {
-            ...node,
-            data: {
-              ...node.data,
-              roleId: newRole.id,
-              metricName: newRole.metric?.name ?? undefined,
-              isPending: undefined,
-            },
-          };
-        }
-        return node;
-      });
-      setNodes(updatedNodes);
-
-      utils.role.getByTeam.setData({ teamId }, (old) => {
-        if (!old) return [newRole];
-        return old.map((role) =>
-          role.id === context.tempRoleId ? newRole : role,
-        );
-      });
-    },
-    onError: (error, variables, context) => {
-      if (context?.previousRoles) {
-        utils.role.getByTeam.setData({ teamId }, context.previousRoles);
-      }
-      if (context?.previousNodes) {
-        setNodes(context.previousNodes);
-      }
-      toast.error("Failed to create role", {
-        description: error.message ?? "An unexpected error occurred",
-      });
-    },
+      return { position: getViewportCenter(reactFlowInstance) };
+    }, [storeApi]),
+    getMetric,
+    getMember,
+    onBeforeMutate,
   });
 
-  const updateRole = api.role.update.useMutation({
-    onMutate: async (variables) => {
-      setOpen(false);
-      form.reset();
-
-      await utils.role.getByTeam.cancel({ teamId });
-
-      const previousRoles = utils.role.getByTeam.getData({ teamId });
-      const currentNodes = storeApi.getState().nodes;
-      const previousNodes = [...currentNodes];
-
-      const selectedMetric = variables.metricId
-        ? metrics.find((m) => m.id === variables.metricId)
-        : null;
-
-      const updatedNodes = currentNodes.map((node) => {
-        if (node.type === "role-node" && node.data.roleId === variables.id) {
-          return {
-            ...node,
-            data: {
-              ...node.data,
-              title: variables.title ?? node.data.title,
-              purpose: variables.purpose ?? node.data.purpose,
-              accountabilities: variables.accountabilities ?? undefined,
-              metricId: variables.metricId ?? undefined,
-              metricName: selectedMetric?.name ?? undefined,
-              assignedUserId: variables.assignedUserId ?? null,
-              assignedUserName: variables.assignedUserId
-                ? (() => {
-                    const member = members.find(
-                      (m) => m.id === variables.assignedUserId,
-                    );
-                    if (member) {
-                      return (
-                        [member.firstName, member.lastName]
-                          .filter(Boolean)
-                          .join(" ") || member.email
-                      );
-                    }
-                    return `User ${variables.assignedUserId.substring(0, 8)}`;
-                  })()
-                : undefined,
-              color: variables.color ?? node.data.color,
-            },
-          };
-        }
-        return node;
-      });
-
-      setNodes(updatedNodes);
-      markDirty();
-
-      utils.role.getByTeam.setData({ teamId }, (old) => {
-        if (!old) return old;
-        return old.map((role) =>
-          role.id === variables.id
-            ? {
-                ...role,
-                title: variables.title ?? role.title,
-                purpose: variables.purpose ?? role.purpose,
-                accountabilities: variables.accountabilities ?? null,
-                metricId: variables.metricId ?? null,
-                assignedUserId: variables.assignedUserId ?? null,
-                color: variables.color ?? role.color,
-                metric: selectedMetric ?? null,
-              }
-            : role,
-        );
-      });
-
-      return { previousRoles, previousNodes };
-    },
-    onSuccess: (updatedRole) => {
-      const currentNodes = storeApi.getState().nodes;
-      const updatedNodes = currentNodes.map((node) => {
-        if (node.type === "role-node" && node.data.roleId === updatedRole.id) {
-          return {
-            ...node,
-            data: {
-              ...node.data,
-              metricName: updatedRole.metric?.name ?? undefined,
-            },
-          };
-        }
-        return node;
-      });
-      setNodes(updatedNodes);
-
-      utils.role.getByTeam.setData({ teamId }, (old) => {
-        if (!old) return [updatedRole];
-        return old.map((role) =>
-          role.id === updatedRole.id ? updatedRole : role,
-        );
-      });
-    },
-    onError: (error, _variables, context) => {
-      if (context?.previousRoles) {
-        utils.role.getByTeam.setData({ teamId }, context.previousRoles);
-      }
-      if (context?.previousNodes) {
-        setNodes(context.previousNodes);
-      }
-      toast.error("Failed to update role", {
-        description: error.message ?? "An unexpected error occurred",
-      });
-    },
+  const updateRole = useUpdateRole({
+    teamId,
+    getMetric,
+    getMember,
+    onBeforeMutate,
   });
 
-  function onSubmit(data: RoleForm) {
+  function onSubmit(data: RoleFormData) {
+    const metricId =
+      data.metricId === "__none__" || !data.metricId
+        ? undefined
+        : data.metricId;
+    const assignedUserId =
+      data.assignedUserId === "__none__" ? null : data.assignedUserId;
+
     if (isEditMode && roleData) {
       updateRole.mutate({
         id: roleData.roleId,
         title: data.title,
         purpose: data.purpose,
         accountabilities: data.accountabilities,
-        metricId:
-          data.metricId === "__none__" || !data.metricId
-            ? undefined
-            : data.metricId,
-        assignedUserId:
-          data.assignedUserId === "__none__" ? null : data.assignedUserId,
+        metricId,
+        assignedUserId,
         effortPoints: data.effortPoints,
         color: data.color,
       });
     } else {
-      const nodeId = `role-node-${nanoid(8)}`;
       createRole.mutate({
         teamId,
         title: data.title,
         purpose: data.purpose,
         accountabilities: data.accountabilities,
-        metricId:
-          data.metricId === "__none__" || !data.metricId
-            ? undefined
-            : data.metricId,
-        assignedUserId:
-          data.assignedUserId === "__none__" ? null : data.assignedUserId,
+        metricId,
+        assignedUserId,
         effortPoints: data.effortPoints ?? undefined,
-        nodeId,
+        nodeId: `role-node-${nanoid(8)}`,
         color: data.color,
       });
     }
@@ -460,10 +197,6 @@ export function RoleDialog({
       shouldDirty: true,
     });
     form.setValue("color", role.color, { shouldDirty: true });
-  };
-
-  const handleSelectTitle = (title: string) => {
-    form.setValue("title", title);
   };
 
   const watchedTitle = form.watch("title");
@@ -757,7 +490,7 @@ export function RoleDialog({
             </Form>
           </TooltipProvider>
 
-          {/* AI Suggestions Panel - only show in create mode with animation */}
+          {/* AI Suggestions Panel - only show in create mode */}
           {!isEditMode && (
             <div
               className={`overflow-hidden transition-all duration-300 ease-in-out ${
@@ -767,7 +500,7 @@ export function RoleDialog({
               <AIRoleSuggestions
                 teamId={teamId}
                 onSelectRole={handleSelectSuggestedRole}
-                onSelectTitle={handleSelectTitle}
+                onSelectTitle={(title) => form.setValue("title", title)}
                 currentTitle={watchedTitle}
                 currentPurpose={watchedPurpose}
                 className="shrink-0"
