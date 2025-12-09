@@ -17,7 +17,6 @@ import {
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import { nanoid } from "nanoid";
-import { toast } from "sonner";
 import { useShallow } from "zustand/react/shallow";
 
 import { ZoomSlider } from "@/components/react-flow";
@@ -30,9 +29,9 @@ import {
   useForceLayout,
 } from "@/lib/canvas";
 import { cn, markdownToHtml } from "@/lib/utils";
-import { api } from "@/trpc/react";
 
 import { useAutoSave } from "../hooks/use-auto-save";
+import { useCreateRole } from "../hooks/use-create-role";
 import { useRoleSuggestions } from "../hooks/use-role-suggestions";
 import {
   type TeamEdge as TeamEdgeType,
@@ -166,7 +165,6 @@ export function TeamCanvas() {
   >();
   const { isSaving, lastSaved } = useAutoSave();
   const { consumeNextRole } = useRoleSuggestions(teamId);
-  const utils = api.useUtils();
 
   // Force layout for automatic node positioning
   const forceLayoutEvents = useForceLayout({
@@ -286,134 +284,27 @@ export function TeamCanvas() {
     [forceLayoutEvents, getClosestEdge, storeApi, setEdges, markDirty],
   );
 
-  // Edge drop: create new role when connection drops on empty space
   const pendingDropContextRef = useRef<{
     position: { x: number; y: number };
     sourceNodeId: string;
   } | null>(null);
 
-  const createRole = api.role.create.useMutation({
-    onMutate: async (variables) => {
-      await utils.role.getByTeam.cancel({ teamId });
+  const getNodeOptions = useCallback(() => {
+    const dropContext = pendingDropContextRef.current;
+    const position = dropContext?.position ?? { x: 0, y: 0 };
+    return { position };
+  }, []);
 
-      const previousRoles = utils.role.getByTeam.getData({ teamId });
-      const { nodes: currentNodes, edges: currentEdges } = storeApi.getState();
-      const previousNodes = [...currentNodes];
-      const previousEdges = [...currentEdges];
+  const getEdgeOptions = useCallback((_nodeId: string) => {
+    const dropContext = pendingDropContextRef.current;
+    pendingDropContextRef.current = null;
+    return { sourceNodeId: dropContext?.sourceNodeId };
+  }, []);
 
-      const tempRoleId = `temp-role-${nanoid(8)}`;
-      const nodeId = variables.nodeId;
-
-      const optimisticRole = {
-        id: tempRoleId,
-        title: variables.title,
-        purpose: variables.purpose,
-        accountabilities: variables.accountabilities ?? null,
-        teamId: variables.teamId,
-        metricId: null,
-        nodeId: variables.nodeId,
-        assignedUserId: null,
-        effortPoints: null,
-        color: variables.color ?? "#3b82f6",
-        createdAt: new Date(),
-        updatedAt: new Date(),
-        metric: null,
-        isPending: true,
-      };
-
-      const dropContext = pendingDropContextRef.current;
-      const position = dropContext?.position ?? { x: 0, y: 0 };
-      const sourceNodeId = dropContext?.sourceNodeId;
-
-      const optimisticNode = {
-        id: nodeId,
-        type: "role-node" as const,
-        position,
-        data: {
-          roleId: tempRoleId,
-          title: variables.title,
-          purpose: variables.purpose,
-          accountabilities: variables.accountabilities ?? undefined,
-          color: variables.color ?? "#3b82f6",
-          isPending: true,
-        } as RoleNodeData,
-      };
-
-      setNodes([...currentNodes, optimisticNode]);
-
-      if (sourceNodeId) {
-        const newEdge = {
-          id: `edge-${sourceNodeId}-${nodeId}`,
-          source: sourceNodeId,
-          target: nodeId,
-          type: "team-edge",
-          animated: true,
-          markerEnd: { type: MarkerType.ArrowClosed, width: 20, height: 20 },
-        };
-        setEdges([...currentEdges, newEdge]);
-      }
-
-      markDirty();
-      pendingDropContextRef.current = null;
-
-      utils.role.getByTeam.setData({ teamId }, (old) => {
-        const roleWithPending = optimisticRole as typeof old extends
-          | (infer T)[]
-          | undefined
-          ? T
-          : never;
-        if (!old) return [roleWithPending];
-        return [...old, roleWithPending];
-      });
-
-      return {
-        previousRoles,
-        previousNodes,
-        previousEdges,
-        tempRoleId,
-        nodeId,
-      };
-    },
-    onSuccess: (newRole, _variables, context) => {
-      if (!context) return;
-
-      const currentNodes = storeApi.getState().nodes;
-      const updatedNodes = currentNodes.map((node) => {
-        if (node.id === context.nodeId && node.type === "role-node") {
-          return {
-            ...node,
-            data: {
-              ...node.data,
-              roleId: newRole.id,
-              isPending: undefined,
-            },
-          };
-        }
-        return node;
-      });
-      setNodes(updatedNodes);
-
-      utils.role.getByTeam.setData({ teamId }, (old) => {
-        if (!old) return [newRole];
-        return old.map((role) =>
-          role.id === context.tempRoleId ? newRole : role,
-        );
-      });
-    },
-    onError: (error, _variables, context) => {
-      if (context?.previousRoles) {
-        utils.role.getByTeam.setData({ teamId }, context.previousRoles);
-      }
-      if (context?.previousNodes) {
-        setNodes(context.previousNodes);
-      }
-      if (context?.previousEdges) {
-        setEdges(context.previousEdges);
-      }
-      toast.error("Failed to create role", {
-        description: error.message ?? "An unexpected error occurred",
-      });
-    },
+  const createRole = useCreateRole({
+    teamId,
+    getNodeOptions,
+    getEdgeOptions,
   });
 
   const onConnectEnd = useCallback(
