@@ -20,10 +20,10 @@ import {
   FreehandOverlay,
   SaveStatus,
   useDrawingUndoRedo,
+  useForceLayout,
 } from "@/lib/canvas";
 import { cn } from "@/lib/utils";
 
-import { useForceLayout } from "../hooks/use-force-layout";
 import { useSystemsAutoSave } from "../hooks/use-systems-auto-save";
 import {
   type SystemsNode,
@@ -108,7 +108,11 @@ export function SystemsCanvas() {
   } = useSystemsStore(useShallow(selector));
 
   const { isSaving, lastSaved } = useSystemsAutoSave();
-  const dragEvents = useForceLayout();
+  const dragEvents = useForceLayout({
+    strength: -1200,
+    distance: 300,
+    collisionRadius: (node) => (node.type === "metricCard" ? 300 : 50),
+  });
 
   return (
     <div className="relative h-full w-full">

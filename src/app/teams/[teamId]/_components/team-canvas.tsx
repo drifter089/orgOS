@@ -21,11 +21,11 @@ import {
   FreehandOverlay,
   SaveStatus,
   useDrawingUndoRedo,
+  useForceLayout,
 } from "@/lib/canvas";
 import { cn } from "@/lib/utils";
 
 import { useAutoSave } from "../hooks/use-auto-save";
-import { useForceLayout } from "../hooks/use-force-layout";
 import {
   type TeamEdge as TeamEdgeType,
   type TeamNode,
@@ -142,7 +142,11 @@ export function TeamCanvas() {
   } = useTeamStore(useShallow(selector));
 
   const { isSaving, lastSaved } = useAutoSave();
-  const dragEvents = useForceLayout();
+  const dragEvents = useForceLayout({
+    strength: -800,
+    distance: 200,
+    collisionRadius: (node) => (node.type === "role-node" ? 160 : 80),
+  });
 
   // Get selected role data from editingNodeId
   const selectedRole = useMemo(() => {

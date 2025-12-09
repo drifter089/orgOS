@@ -19,13 +19,6 @@ import {
   forceY,
 } from "d3-force";
 
-import { type SystemsNode } from "../store/systems-store";
-
-type UseForceLayoutOptions = {
-  strength?: number;
-  distance?: number;
-};
-
 type SimNodeType = SimulationNodeDatum & Node;
 type SimEdgeType = SimulationLinkDatum<SimNodeType>;
 
@@ -35,21 +28,30 @@ type DragEvents = {
   stop: ReactFlowProps["onNodeDragStop"];
 };
 
+export type UseForceLayoutOptions = {
+  strength?: number;
+  distance?: number;
+  collisionRadius?: (node: Node) => number;
+};
+
 const elementCountSelector = (state: ReactFlowState) =>
   state.nodes.length + state.edges.length;
 
+const defaultCollisionRadius = () => 100;
+
 /**
- * Continuous force-directed layout hook for systems canvas.
+ * Continuous force-directed layout hook for React Flow canvases.
  * Runs simulation continuously and updates node positions on every tick.
  * Returns drag event handlers to allow interactive dragging while simulation runs.
  */
 export function useForceLayout({
-  strength = -1200,
-  distance = 300,
+  strength = -1000,
+  distance = 200,
+  collisionRadius = defaultCollisionRadius,
 }: UseForceLayoutOptions = {}) {
   const elementCount = useStore(elementCountSelector);
   const nodesInitialized = useNodesInitialized();
-  const { setNodes, getNodes, getEdges } = useReactFlow<SystemsNode>();
+  const { setNodes, getNodes, getEdges } = useReactFlow();
 
   const draggingNodeRef = useRef<Node | null>(null);
   const simulationNodesRef = useRef<SimNodeType[]>([]);
@@ -101,10 +103,6 @@ export function useForceLayout({
       return;
     }
 
-    // Node size constants for collision detection
-    const METRIC_CARD_SIZE = 300;
-    const DEFAULT_SIZE = 100;
-
     const simulationNodes: SimNodeType[] = nodes.map((node) => ({
       ...node,
       x: node.position.x,
@@ -132,12 +130,7 @@ export function useForceLayout({
       .force("y", forceY(avgY).strength(0.05))
       .force(
         "collision",
-        forceCollide((d) => {
-          const node = d;
-          return node.type === "metricCard"
-            ? METRIC_CARD_SIZE
-            : DEFAULT_SIZE / 2;
-        }),
+        forceCollide((d) => collisionRadius(d as Node)),
       )
       .on("tick", () => {
         setNodes((nodes) =>
@@ -174,6 +167,7 @@ export function useForceLayout({
     setNodes,
     strength,
     distance,
+    collisionRadius,
     nodesInitialized,
   ]);
 
