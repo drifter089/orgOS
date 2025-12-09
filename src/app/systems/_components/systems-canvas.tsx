@@ -50,6 +50,7 @@ const selector = (state: SystemsStore) => ({
   onConnect: state.onConnect,
   isDirty: state.isDirty,
   isDrawing: state.isDrawing,
+  isForceLayoutEnabled: state.isForceLayoutEnabled,
 });
 
 /**
@@ -105,10 +106,12 @@ export function SystemsCanvas() {
     onConnect,
     isDirty,
     isDrawing,
+    isForceLayoutEnabled,
   } = useSystemsStore(useShallow(selector));
 
   const { isSaving, lastSaved } = useSystemsAutoSave();
   const dragEvents = useForceLayout({
+    enabled: isForceLayoutEnabled,
     strength: -2000,
     distance: 500,
     collisionRadius: (node) => (node.type === "metricCard" ? 400 : 100),

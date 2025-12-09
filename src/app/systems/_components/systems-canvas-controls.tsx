@@ -3,7 +3,7 @@
 import { useCallback } from "react";
 
 import { Panel, useReactFlow } from "@xyflow/react";
-import { Pencil, Redo2, Type, Undo2 } from "lucide-react";
+import { Pencil, Redo2, Route, Type, Undo2 } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -44,6 +44,12 @@ export function SystemsCanvasControls({
   const addTextNode = useSystemsStore((state) => state.addTextNode);
   const setEditingTextNodeId = useSystemsStore(
     (state) => state.setEditingTextNodeId,
+  );
+  const isForceLayoutEnabled = useSystemsStore(
+    (state) => state.isForceLayoutEnabled,
+  );
+  const setIsForceLayoutEnabled = useSystemsStore(
+    (state) => state.setIsForceLayoutEnabled,
   );
 
   const handleAddText = useCallback(() => {
@@ -147,6 +153,30 @@ export function SystemsCanvasControls({
             </TooltipTrigger>
             <TooltipContent side="right">
               <p>Add text</p>
+            </TooltipContent>
+          </Tooltip>
+
+          {/* Force layout toggle */}
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                onClick={() => setIsForceLayoutEnabled(!isForceLayoutEnabled)}
+                variant={isForceLayoutEnabled ? "default" : "outline"}
+                size="lg"
+                className={cn(
+                  "h-12 w-12 shadow-lg transition-all duration-200 hover:shadow-xl",
+                  isForceLayoutEnabled && "ring-primary ring-2 ring-offset-2",
+                )}
+              >
+                <Route className="h-5 w-5" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="right">
+              <p>
+                {isForceLayoutEnabled
+                  ? "Disable auto-layout"
+                  : "Enable auto-layout"}
+              </p>
             </TooltipContent>
           </Tooltip>
         </div>

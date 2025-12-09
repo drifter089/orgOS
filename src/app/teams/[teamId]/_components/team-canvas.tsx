@@ -65,6 +65,7 @@ const selector = (state: TeamStore) => ({
   setIsDrawing: state.setIsDrawing,
   markDirty: state.markDirty,
   isInitialized: state.isInitialized,
+  isForceLayoutEnabled: state.isForceLayoutEnabled,
 });
 
 /** Registers React Flow instance with store. Must be inside <ReactFlow>. */
@@ -139,10 +140,12 @@ export function TeamCanvas() {
     editingNodeId,
     setEditingNodeId,
     isDrawing,
+    isForceLayoutEnabled,
   } = useTeamStore(useShallow(selector));
 
   const { isSaving, lastSaved } = useAutoSave();
   const dragEvents = useForceLayout({
+    enabled: isForceLayoutEnabled,
     strength: -1500,
     distance: 350,
     collisionRadius: (node) => (node.type === "role-node" ? 250 : 120),

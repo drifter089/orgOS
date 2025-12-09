@@ -29,6 +29,7 @@ type DragEvents = {
 };
 
 export type UseForceLayoutOptions = {
+  enabled?: boolean;
   strength?: number;
   distance?: number;
   collisionRadius?: (node: Node) => number;
@@ -41,10 +42,11 @@ const defaultCollisionRadius = () => 100;
 
 /**
  * Continuous force-directed layout hook for React Flow canvases.
- * Runs simulation continuously and updates node positions on every tick.
+ * Runs simulation continuously when enabled and updates node positions on every tick.
  * Returns drag event handlers to allow interactive dragging while simulation runs.
  */
 export function useForceLayout({
+  enabled = false,
   strength = -1000,
   distance = 200,
   collisionRadius = defaultCollisionRadius,
@@ -62,10 +64,12 @@ export function useForceLayout({
   const dragEvents = useMemo<DragEvents>(
     () => ({
       start: (_event, node) => {
+        if (!enabled) return;
         draggingNodeRef.current = node;
         simulationRef.current?.alpha(0.3).restart();
       },
       drag: (_event, node) => {
+        if (!enabled) return;
         draggingNodeRef.current = node;
         const simNode = simulationNodesRef.current.find(
           (n) => n.id === node.id,
@@ -79,6 +83,7 @@ export function useForceLayout({
         }
       },
       stop: () => {
+        if (!enabled) return;
         if (draggingNodeRef.current) {
           const simNode = simulationNodesRef.current.find(
             (n) => n.id === draggingNodeRef.current?.id,
@@ -92,10 +97,16 @@ export function useForceLayout({
         simulationRef.current?.alpha(1).restart();
       },
     }),
-    [],
+    [enabled],
   );
 
   useEffect(() => {
+    // Stop simulation if disabled
+    if (!enabled) {
+      simulationRef.current?.stop();
+      return;
+    }
+
     const nodes = getNodes();
     const edges = getEdges();
 
@@ -161,6 +172,7 @@ export function useForceLayout({
       simulation.stop();
     };
   }, [
+    enabled,
     elementCount,
     getNodes,
     getEdges,

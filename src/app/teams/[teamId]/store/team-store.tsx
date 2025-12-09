@@ -51,6 +51,7 @@ type TeamState = {
   editingNodeId: string | null;
   editingTextNodeId: string | null;
   isDrawing: boolean;
+  isForceLayoutEnabled: boolean;
 };
 
 type TeamActions = {
@@ -88,6 +89,9 @@ type TeamActions = {
 
   // Drawing mode
   setIsDrawing: (isDrawing: boolean) => void;
+
+  // Force layout
+  setIsForceLayoutEnabled: (enabled: boolean) => void;
 };
 
 export type TeamStore = TeamState & TeamActions;
@@ -110,6 +114,7 @@ export function createTeamStore(
     editingNodeId: null,
     editingTextNodeId: null,
     isDrawing: false,
+    isForceLayoutEnabled: false,
 
     onNodesChange: (changes) => {
       const currentNodes = get().nodes;
@@ -240,6 +245,8 @@ export function createTeamStore(
 
     // Drawing mode
     setIsDrawing: (isDrawing) => set({ isDrawing }),
+    setIsForceLayoutEnabled: (enabled) =>
+      set({ isForceLayoutEnabled: enabled }),
   }));
 }
 
