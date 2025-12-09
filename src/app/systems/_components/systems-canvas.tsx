@@ -23,6 +23,7 @@ import {
 } from "@/lib/canvas";
 import { cn } from "@/lib/utils";
 
+import { useForceLayout } from "../hooks/use-force-layout";
 import { useSystemsAutoSave } from "../hooks/use-systems-auto-save";
 import {
   type SystemsNode,
@@ -107,6 +108,7 @@ export function SystemsCanvas() {
   } = useSystemsStore(useShallow(selector));
 
   const { isSaving, lastSaved } = useSystemsAutoSave();
+  const dragEvents = useForceLayout();
 
   return (
     <div className="relative h-full w-full">
@@ -125,6 +127,9 @@ export function SystemsCanvas() {
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
         onConnect={onConnect}
+        onNodeDragStart={dragEvents.start}
+        onNodeDrag={dragEvents.drag}
+        onNodeDragStop={dragEvents.stop}
         nodeTypes={nodeTypes}
         proOptions={proOptions}
         connectionLineType={ConnectionLineType.SmoothStep}
