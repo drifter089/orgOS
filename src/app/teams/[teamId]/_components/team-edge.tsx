@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback } from "react";
+import { useCallback, useRef } from "react";
 
 import {
   BaseEdge,
@@ -8,13 +8,16 @@ import {
   type EdgeProps,
   MarkerType,
   getBezierPath,
+  useInternalNode,
 } from "@xyflow/react";
 import { nanoid } from "nanoid";
 import { toast } from "sonner";
 
-import { EdgeActionButtons } from "@/lib/canvas";
+import { EdgeActionButtons, getFloatingEdgeParams } from "@/lib/canvas";
+import { markdownToHtml } from "@/lib/utils";
 import { api } from "@/trpc/react";
 
+import { useRoleSuggestions } from "../hooks/use-role-suggestions";
 import { useTeamStore, useTeamStoreApi } from "../store/team-store";
 import { type RoleNodeData } from "./role-node";
 
@@ -22,26 +25,14 @@ export type TeamEdge = Edge;
 
 export function TeamEdge({
   id,
-  sourceX,
-  sourceY,
-  targetX,
-  targetY,
-  sourcePosition,
-  targetPosition,
-  source: _source,
-  target: _target,
+  source,
+  target,
   style = {},
   markerEnd,
   selected,
 }: EdgeProps<TeamEdge>) {
-  const [edgePath, labelX, labelY] = getBezierPath({
-    sourceX,
-    sourceY,
-    sourcePosition,
-    targetX,
-    targetY,
-    targetPosition,
-  });
+  const sourceNode = useInternalNode(source);
+  const targetNode = useInternalNode(target);
 
   const storeApi = useTeamStoreApi();
   const teamId = useTeamStore((state) => state.teamId);
@@ -49,7 +40,11 @@ export function TeamEdge({
   const setEdges = useTeamStore((state) => state.setEdges);
   const markDirty = useTeamStore((state) => state.markDirty);
 
+  const { consumeNextRole } = useRoleSuggestions(teamId);
   const utils = api.useUtils();
+
+  // Ref to store the current edge midpoint position (updated each render)
+  const positionRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
 
   const createRole = api.role.create.useMutation({
     onMutate: async (variables) => {
@@ -68,7 +63,7 @@ export function TeamEdge({
         id: tempRoleId,
         title: variables.title,
         purpose: variables.purpose,
-        accountabilities: null,
+        accountabilities: variables.accountabilities ?? null,
         teamId: variables.teamId,
         metricId: null,
         nodeId: variables.nodeId,
@@ -86,8 +81,11 @@ export function TeamEdge({
       const edge = currentEdges[edgeIndex];
       if (!edge) return { previousRoles, previousNodes, previousEdges };
 
-      // Calculate position between source and target
-      const position = { x: labelX - 140, y: labelY - 50 };
+      // Use the stored position (offset to center the node on the edge midpoint)
+      const position = {
+        x: positionRef.current.x - 140,
+        y: positionRef.current.y - 50,
+      };
 
       const optimisticNode = {
         id: nodeId,
@@ -97,7 +95,7 @@ export function TeamEdge({
           roleId: tempRoleId,
           title: variables.title,
           purpose: variables.purpose,
-          accountabilities: undefined,
+          accountabilities: variables.accountabilities ?? undefined,
           color: variables.color ?? "#3b82f6",
           isPending: true,
         } as RoleNodeData,
@@ -192,14 +190,27 @@ export function TeamEdge({
 
   const handleAddRole = useCallback(() => {
     const nodeId = `role-node-${nanoid(8)}`;
-    createRole.mutate({
-      teamId,
-      title: "New Role",
-      purpose: "Define the purpose of this role",
-      nodeId,
-      color: "#3b82f6",
-    });
-  }, [teamId, createRole]);
+    const suggestion = consumeNextRole();
+
+    if (suggestion) {
+      createRole.mutate({
+        teamId,
+        title: suggestion.title,
+        purpose: markdownToHtml(suggestion.purpose),
+        accountabilities: markdownToHtml(suggestion.accountabilities),
+        nodeId,
+        color: suggestion.color,
+      });
+    } else {
+      createRole.mutate({
+        teamId,
+        title: "New Role",
+        purpose: "Define the purpose of this role",
+        nodeId,
+        color: "#3b82f6",
+      });
+    }
+  }, [teamId, createRole, consumeNextRole]);
 
   const handleDeleteEdge = useCallback(() => {
     const currentEdges = storeApi.getState().edges;
@@ -207,6 +218,28 @@ export function TeamEdge({
     setEdges(newEdges);
     markDirty();
   }, [storeApi, id, setEdges, markDirty]);
+
+  // Early return after all hooks
+  if (!sourceNode || !targetNode) {
+    return null;
+  }
+
+  // Calculate floating edge path
+  const { sx, sy, tx, ty, sourcePos, targetPos } = getFloatingEdgeParams(
+    sourceNode,
+    targetNode,
+  );
+  const [edgePath, labelX, labelY] = getBezierPath({
+    sourceX: sx,
+    sourceY: sy,
+    sourcePosition: sourcePos,
+    targetX: tx,
+    targetY: ty,
+    targetPosition: targetPos,
+  });
+
+  // Update the position ref each render so onMutate has access to current values
+  positionRef.current = { x: labelX, y: labelY };
 
   return (
     <>

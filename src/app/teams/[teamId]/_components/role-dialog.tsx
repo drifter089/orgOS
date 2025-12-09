@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Gauge, Plus } from "lucide-react";
+import { Gauge, Plus, Sparkles } from "lucide-react";
 import { nanoid } from "nanoid";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
@@ -37,9 +37,12 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { ROLE_COLORS, markdownToHtml } from "@/lib/utils";
 import { api } from "@/trpc/react";
 
+import type { SuggestedRole } from "../hooks/use-role-suggestions";
 import { useTeamStore, useTeamStoreApi } from "../store/team-store";
+import { AIRoleSuggestions } from "./ai-role-suggestions";
 import { type RoleNodeData } from "./role-node";
 import { EFFORT_POINT_OPTIONS, ROLE_FIELD_TOOLTIPS } from "./role-tooltips";
 
@@ -86,16 +89,6 @@ function getViewportCenter(
   });
 }
 
-const COLORS = [
-  "#3b82f6", // blue
-  "#10b981", // green
-  "#f59e0b", // amber
-  "#ef4444", // red
-  "#8b5cf6", // purple
-  "#ec4899", // pink
-  "#06b6d4", // cyan
-];
-
 interface RoleDialogProps {
   teamId: string;
   roleData?: RoleNodeData & { nodeId: string }; // For edit mode
@@ -112,6 +105,7 @@ export function RoleDialog({
   onOpenChange,
 }: RoleDialogProps) {
   const [internalOpen, setInternalOpen] = useState(false);
+  const [showAISuggestions, setShowAISuggestions] = useState(true);
   const isControlled = controlledOpen !== undefined;
   const open = isControlled ? controlledOpen : internalOpen;
   const setOpen = isControlled ? onOpenChange! : setInternalOpen;
@@ -130,7 +124,7 @@ export function RoleDialog({
       metricId: "",
       assignedUserId: null,
       effortPoints: null,
-      color: COLORS[0],
+      color: ROLE_COLORS[0],
     },
   });
 
@@ -145,7 +139,7 @@ export function RoleDialog({
           metricId: roleData.metricId ?? "",
           assignedUserId: roleData.assignedUserId ?? null,
           effortPoints: roleData.effortPoints ?? null,
-          color: roleData.color ?? COLORS[0],
+          color: roleData.color ?? ROLE_COLORS[0],
         });
       } else {
         form.reset({
@@ -155,7 +149,7 @@ export function RoleDialog({
           metricId: "",
           assignedUserId: null,
           effortPoints: null,
-          color: COLORS[0],
+          color: ROLE_COLORS[0],
         });
       }
     }
@@ -457,6 +451,24 @@ export function RoleDialog({
 
   const isPending = createRole.isPending || updateRole.isPending;
 
+  const handleSelectSuggestedRole = (role: SuggestedRole) => {
+    form.setValue("title", role.title, { shouldDirty: true });
+    form.setValue("purpose", markdownToHtml(role.purpose), {
+      shouldDirty: true,
+    });
+    form.setValue("accountabilities", markdownToHtml(role.accountabilities), {
+      shouldDirty: true,
+    });
+    form.setValue("color", role.color, { shouldDirty: true });
+  };
+
+  const handleSelectTitle = (title: string) => {
+    form.setValue("title", title);
+  };
+
+  const watchedTitle = form.watch("title");
+  const watchedPurpose = form.watch("purpose");
+
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       {trigger ? (
@@ -469,258 +481,300 @@ export function RoleDialog({
           </Button>
         </DialogTrigger>
       )}
-      <DialogContent className="max-h-[90vh] overflow-y-auto">
+      <DialogContent
+        className={`max-h-[90vh] overflow-y-auto transition-[max-width] duration-300 ease-in-out ${!isEditMode && showAISuggestions ? "sm:max-w-[53rem]" : "sm:max-w-[31rem]"}`}
+      >
         <DialogHeader>
-          <DialogTitle>
-            {isEditMode ? "Edit Role" : "Create New Role"}
-          </DialogTitle>
-          <DialogDescription>
-            {isEditMode
-              ? "Update role details and assignments"
-              : "Add a new role to your team canvas"}
-          </DialogDescription>
+          <div className="flex items-center justify-between">
+            <div>
+              <DialogTitle>
+                {isEditMode ? "Edit Role" : "Create New Role"}
+              </DialogTitle>
+              <DialogDescription>
+                {isEditMode
+                  ? "Update role details and assignments"
+                  : "Add a new role to your team canvas"}
+              </DialogDescription>
+            </div>
+            {!isEditMode && (
+              <Button
+                variant={showAISuggestions ? "secondary" : "outline"}
+                size="sm"
+                onClick={() => setShowAISuggestions(!showAISuggestions)}
+                className="gap-1.5"
+              >
+                <Sparkles className="h-4 w-4" />
+                AI
+              </Button>
+            )}
+          </div>
         </DialogHeader>
 
-        <TooltipProvider>
-          <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-              <FormField
-                control={form.control}
-                name="title"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabelWithTooltip
-                      label="Title"
-                      tooltip={ROLE_FIELD_TOOLTIPS.title}
-                      required
-                    />
-                    <FormControl>
-                      <Input
-                        placeholder="e.g., Product Manager"
-                        {...field}
-                        autoFocus
+        <div
+          className={`flex gap-4 ${!isEditMode && showAISuggestions ? "flex-col sm:flex-row" : ""}`}
+        >
+          <TooltipProvider>
+            <Form {...form}>
+              <form
+                onSubmit={form.handleSubmit(onSubmit)}
+                className={`space-y-4 ${!isEditMode && showAISuggestions ? "flex-1" : "w-full"}`}
+              >
+                <FormField
+                  control={form.control}
+                  name="title"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabelWithTooltip
+                        label="Title"
+                        tooltip={ROLE_FIELD_TOOLTIPS.title}
+                        required
                       />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="purpose"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabelWithTooltip
-                      label="Purpose"
-                      tooltip={ROLE_FIELD_TOOLTIPS.purpose}
-                      required
-                    />
-                    <FormControl>
-                      <RichTextEditor
-                        value={field.value}
-                        onChange={field.onChange}
-                        placeholder="Describe the role's responsibilities..."
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="accountabilities"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabelWithTooltip
-                      label="Accountabilities"
-                      tooltip={ROLE_FIELD_TOOLTIPS.accountabilities}
-                    />
-                    <FormControl>
-                      <RichTextEditor
-                        value={field.value ?? ""}
-                        onChange={field.onChange}
-                        placeholder="List key accountabilities for this role..."
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="metricId"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabelWithTooltip
-                      label="Metric"
-                      tooltip={ROLE_FIELD_TOOLTIPS.metric}
-                    />
-                    <Select
-                      onValueChange={field.onChange}
-                      value={field.value ?? undefined}
-                    >
                       <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select a metric (optional)" />
-                        </SelectTrigger>
+                        <Input
+                          placeholder="e.g., Product Manager"
+                          {...field}
+                          autoFocus
+                        />
                       </FormControl>
-                      <SelectContent>
-                        <SelectItem value="__none__">None</SelectItem>
-                        {metrics.map((metric) => (
-                          <SelectItem key={metric.id} value={metric.id}>
-                            {metric.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
 
-              <FormField
-                control={form.control}
-                name="assignedUserId"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabelWithTooltip
-                      label="Assigned To"
-                      tooltip={ROLE_FIELD_TOOLTIPS.assignedTo}
-                    />
-                    <Select
-                      onValueChange={field.onChange}
-                      value={field.value ?? undefined}
-                    >
+                <FormField
+                  control={form.control}
+                  name="purpose"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabelWithTooltip
+                        label="Purpose"
+                        tooltip={ROLE_FIELD_TOOLTIPS.purpose}
+                        required
+                      />
                       <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select a team member" />
-                        </SelectTrigger>
+                        <RichTextEditor
+                          value={field.value}
+                          onChange={field.onChange}
+                          placeholder="Describe the role's responsibilities..."
+                        />
                       </FormControl>
-                      <SelectContent>
-                        <SelectItem value="__none__">None</SelectItem>
-                        {members.map((member) => (
-                          <SelectItem key={member.id} value={member.id}>
-                            <div className="flex items-center gap-2">
-                              <span>
-                                {member.firstName} {member.lastName}
-                              </span>
-                              <span className="text-muted-foreground text-xs">
-                                {member.email}
-                              </span>
-                            </div>
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
 
-              <FormField
-                control={form.control}
-                name="effortPoints"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabelWithTooltip
-                      label="Effort Points"
-                      tooltip={ROLE_FIELD_TOOLTIPS.effortPoints}
-                    />
-                    <Select
-                      onValueChange={(value) =>
-                        field.onChange(
-                          value === "__none__" ? null : parseInt(value, 10),
-                        )
-                      }
-                      value={field.value?.toString() ?? undefined}
-                    >
+                <FormField
+                  control={form.control}
+                  name="accountabilities"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabelWithTooltip
+                        label="Accountabilities"
+                        tooltip={ROLE_FIELD_TOOLTIPS.accountabilities}
+                      />
                       <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select effort points">
-                            {field.value && (
+                        <RichTextEditor
+                          value={field.value ?? ""}
+                          onChange={field.onChange}
+                          placeholder="List key accountabilities for this role..."
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="metricId"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabelWithTooltip
+                        label="Metric"
+                        tooltip={ROLE_FIELD_TOOLTIPS.metric}
+                      />
+                      <Select
+                        onValueChange={field.onChange}
+                        value={field.value ?? undefined}
+                      >
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select a metric (optional)" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="__none__">None</SelectItem>
+                          {metrics.map((metric) => (
+                            <SelectItem key={metric.id} value={metric.id}>
+                              {metric.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="assignedUserId"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabelWithTooltip
+                        label="Assigned To"
+                        tooltip={ROLE_FIELD_TOOLTIPS.assignedTo}
+                      />
+                      <Select
+                        onValueChange={field.onChange}
+                        value={field.value ?? undefined}
+                      >
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select a team member" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="__none__">None</SelectItem>
+                          {members.map((member) => (
+                            <SelectItem key={member.id} value={member.id}>
+                              <div className="flex items-center gap-2">
+                                <span>
+                                  {member.firstName} {member.lastName}
+                                </span>
+                                <span className="text-muted-foreground text-xs">
+                                  {member.email}
+                                </span>
+                              </div>
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="effortPoints"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabelWithTooltip
+                        label="Effort Points"
+                        tooltip={ROLE_FIELD_TOOLTIPS.effortPoints}
+                      />
+                      <Select
+                        onValueChange={(value) =>
+                          field.onChange(
+                            value === "__none__" ? null : parseInt(value, 10),
+                          )
+                        }
+                        value={field.value?.toString() ?? undefined}
+                      >
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select effort points">
+                              {field.value && (
+                                <div className="flex items-center gap-2">
+                                  <Gauge className="h-4 w-4" />
+                                  <span>
+                                    {field.value}{" "}
+                                    {field.value === 1 ? "point" : "points"}
+                                  </span>
+                                </div>
+                              )}
+                            </SelectValue>
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="__none__">None</SelectItem>
+                          {EFFORT_POINT_OPTIONS.map((points) => (
+                            <SelectItem key={points} value={points.toString()}>
                               <div className="flex items-center gap-2">
                                 <Gauge className="h-4 w-4" />
                                 <span>
-                                  {field.value}{" "}
-                                  {field.value === 1 ? "point" : "points"}
+                                  {points} {points === 1 ? "point" : "points"}
                                 </span>
                               </div>
-                            )}
-                          </SelectValue>
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        <SelectItem value="__none__">None</SelectItem>
-                        {EFFORT_POINT_OPTIONS.map((points) => (
-                          <SelectItem key={points} value={points.toString()}>
-                            <div className="flex items-center gap-2">
-                              <Gauge className="h-4 w-4" />
-                              <span>
-                                {points} {points === 1 ? "point" : "points"}
-                              </span>
-                            </div>
-                          </SelectItem>
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="color"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabelWithTooltip
+                        label="Color"
+                        tooltip={ROLE_FIELD_TOOLTIPS.color}
+                      />
+                      <div className="flex gap-2">
+                        {ROLE_COLORS.map((color) => (
+                          <button
+                            key={color}
+                            type="button"
+                            className="h-8 w-8 rounded-md border-2 transition-all hover:scale-110"
+                            style={{
+                              backgroundColor: color,
+                              borderColor:
+                                field.value === color ? "black" : "transparent",
+                            }}
+                            onClick={() => field.onChange(color)}
+                          />
                         ))}
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+                      </div>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
 
-              <FormField
-                control={form.control}
-                name="color"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabelWithTooltip
-                      label="Color"
-                      tooltip={ROLE_FIELD_TOOLTIPS.color}
-                    />
-                    <div className="flex gap-2">
-                      {COLORS.map((color) => (
-                        <button
-                          key={color}
-                          type="button"
-                          className="h-8 w-8 rounded-md border-2 transition-all hover:scale-110"
-                          style={{
-                            backgroundColor: color,
-                            borderColor:
-                              field.value === color ? "black" : "transparent",
-                          }}
-                          onClick={() => field.onChange(color)}
-                        />
-                      ))}
-                    </div>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+                <DialogFooter>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setOpen(false)}
+                  >
+                    Cancel
+                  </Button>
+                  <Button type="submit" disabled={isPending}>
+                    {isPending
+                      ? isEditMode
+                        ? "Updating..."
+                        : "Creating..."
+                      : isEditMode
+                        ? "Update Role"
+                        : "Create Role"}
+                  </Button>
+                </DialogFooter>
+              </form>
+            </Form>
+          </TooltipProvider>
 
-              <DialogFooter>
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => setOpen(false)}
-                >
-                  Cancel
-                </Button>
-                <Button type="submit" disabled={isPending}>
-                  {isPending
-                    ? isEditMode
-                      ? "Updating..."
-                      : "Creating..."
-                    : isEditMode
-                      ? "Update Role"
-                      : "Create Role"}
-                </Button>
-              </DialogFooter>
-            </form>
-          </Form>
-        </TooltipProvider>
+          {/* AI Suggestions Panel - only show in create mode with animation */}
+          {!isEditMode && (
+            <div
+              className={`overflow-hidden transition-all duration-300 ease-in-out ${
+                showAISuggestions ? "w-64 opacity-100" : "w-0 opacity-0"
+              }`}
+            >
+              <AIRoleSuggestions
+                teamId={teamId}
+                onSelectRole={handleSelectSuggestedRole}
+                onSelectTitle={handleSelectTitle}
+                currentTitle={watchedTitle}
+                currentPurpose={watchedPurpose}
+                className="shrink-0"
+              />
+            </div>
+          )}
+        </div>
       </DialogContent>
     </Dialog>
   );

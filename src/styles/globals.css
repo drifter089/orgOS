@@ -643,3 +643,9 @@
 .tiptap > * + * {
   margin-top: 0.25em;
 }
+
+/* Proximity connect temp edge preview */
+.react-flow__edge.temp .react-flow__edge-path {
+  stroke-dasharray: 5;
+  stroke-opacity: 0.5;
+}
