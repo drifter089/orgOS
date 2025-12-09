@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback } from "react";
+import { useCallback, useRef } from "react";
 
 import {
   BaseEdge,
@@ -14,44 +14,12 @@ import { nanoid } from "nanoid";
 import { toast } from "sonner";
 
 import { EdgeActionButtons, getFloatingEdgeParams } from "@/lib/canvas";
+import { markdownToHtml } from "@/lib/utils";
 import { api } from "@/trpc/react";
 
 import { useRoleSuggestions } from "../hooks/use-role-suggestions";
 import { useTeamStore, useTeamStoreApi } from "../store/team-store";
 import { type RoleNodeData } from "./role-node";
-
-/** Convert markdown bullet points to HTML for TipTap editor */
-function markdownToHtml(text: string): string {
-  if (!text) return "";
-
-  const lines = text.split("\n");
-  const result: string[] = [];
-  let inList = false;
-
-  for (const line of lines) {
-    const trimmed = line.trim();
-
-    if (trimmed.startsWith("- ") || trimmed.startsWith("* ")) {
-      if (!inList) {
-        result.push("<ul>");
-        inList = true;
-      }
-      result.push(`<li>${trimmed.slice(2)}</li>`);
-    } else if (trimmed) {
-      if (inList) {
-        result.push("</ul>");
-        inList = false;
-      }
-      result.push(`<p>${trimmed}</p>`);
-    }
-  }
-
-  if (inList) {
-    result.push("</ul>");
-  }
-
-  return result.join("");
-}
 
 export type TeamEdge = Edge;
 
@@ -74,6 +42,9 @@ export function TeamEdge({
 
   const { consumeNextRole } = useRoleSuggestions(teamId);
   const utils = api.useUtils();
+
+  // Ref to store the current edge midpoint position (updated each render)
+  const positionRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
 
   const createRole = api.role.create.useMutation({
     onMutate: async (variables) => {
@@ -110,8 +81,11 @@ export function TeamEdge({
       const edge = currentEdges[edgeIndex];
       if (!edge) return { previousRoles, previousNodes, previousEdges };
 
-      // Calculate position between source and target
-      const position = { x: labelX - 140, y: labelY - 50 };
+      // Use the stored position (offset to center the node on the edge midpoint)
+      const position = {
+        x: positionRef.current.x - 140,
+        y: positionRef.current.y - 50,
+      };
 
       const optimisticNode = {
         id: nodeId,
@@ -263,6 +237,9 @@ export function TeamEdge({
     targetY: ty,
     targetPosition: targetPos,
   });
+
+  // Update the position ref each render so onMutate has access to current values
+  positionRef.current = { x: labelX, y: labelY };
 
   return (
     <>

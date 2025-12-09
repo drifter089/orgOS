@@ -10,6 +10,7 @@ import { generateText } from "ai";
 import { z } from "zod";
 
 import { env } from "@/env";
+import { ROLE_COLORS } from "@/lib/utils";
 
 // =============================================================================
 // Types
@@ -28,20 +29,6 @@ export interface RoleEnhancement {
   purposeSuggestion?: string;
   accountabilitiesSuggestion?: string;
 }
-
-// =============================================================================
-// Constants
-// =============================================================================
-
-const COLORS = [
-  "#3b82f6", // blue
-  "#10b981", // green
-  "#f59e0b", // amber
-  "#ef4444", // red
-  "#8b5cf6", // purple
-  "#ec4899", // pink
-  "#06b6d4", // cyan
-];
 
 // =============================================================================
 // Schemas for Validation
@@ -187,7 +174,7 @@ Remember: Respond with ONLY valid JSON, no markdown, no explanations.`;
   // Assign colors to roles
   return validated.roles.map((role, index) => ({
     ...role,
-    color: COLORS[index % COLORS.length]!,
+    color: ROLE_COLORS[index % ROLE_COLORS.length]!,
   }));
 }
 

@@ -29,7 +29,7 @@ import {
   useDrawingUndoRedo,
   useForceLayout,
 } from "@/lib/canvas";
-import { cn } from "@/lib/utils";
+import { cn, markdownToHtml } from "@/lib/utils";
 import { api } from "@/trpc/react";
 
 import { useAutoSave } from "../hooks/use-auto-save";
@@ -79,39 +79,6 @@ const selector = (state: TeamStore) => ({
 });
 
 const MIN_PROXIMITY_DISTANCE = 150;
-
-/** Convert markdown bullet points to HTML for TipTap editor */
-function markdownToHtml(text: string): string {
-  if (!text) return "";
-
-  const lines = text.split("\n");
-  const result: string[] = [];
-  let inList = false;
-
-  for (const line of lines) {
-    const trimmed = line.trim();
-
-    if (trimmed.startsWith("- ") || trimmed.startsWith("* ")) {
-      if (!inList) {
-        result.push("<ul>");
-        inList = true;
-      }
-      result.push(`<li>${trimmed.slice(2)}</li>`);
-    } else if (trimmed) {
-      if (inList) {
-        result.push("</ul>");
-        inList = false;
-      }
-      result.push(`<p>${trimmed}</p>`);
-    }
-  }
-
-  if (inList) {
-    result.push("</ul>");
-  }
-
-  return result.join("");
-}
 
 /** Registers React Flow instance with store. Must be inside <ReactFlow>. */
 function ReactFlowInstanceRegistrar() {

@@ -37,6 +37,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { ROLE_COLORS, markdownToHtml } from "@/lib/utils";
 import { api } from "@/trpc/react";
 
 import type { SuggestedRole } from "../hooks/use-role-suggestions";
@@ -44,39 +45,6 @@ import { useTeamStore, useTeamStoreApi } from "../store/team-store";
 import { AIRoleSuggestions } from "./ai-role-suggestions";
 import { type RoleNodeData } from "./role-node";
 import { EFFORT_POINT_OPTIONS, ROLE_FIELD_TOOLTIPS } from "./role-tooltips";
-
-/** Convert markdown bullet points to HTML for TipTap editor */
-function markdownToHtml(text: string): string {
-  if (!text) return "";
-
-  const lines = text.split("\n");
-  const result: string[] = [];
-  let inList = false;
-
-  for (const line of lines) {
-    const trimmed = line.trim();
-
-    if (trimmed.startsWith("- ") || trimmed.startsWith("* ")) {
-      if (!inList) {
-        result.push("<ul>");
-        inList = true;
-      }
-      result.push(`<li>${trimmed.slice(2)}</li>`);
-    } else if (trimmed) {
-      if (inList) {
-        result.push("</ul>");
-        inList = false;
-      }
-      result.push(`<p>${trimmed}</p>`);
-    }
-  }
-
-  if (inList) {
-    result.push("</ul>");
-  }
-
-  return result.join("");
-}
 
 const roleSchema = z.object({
   title: z.string().min(1, "Title is required").max(100),
@@ -121,16 +89,6 @@ function getViewportCenter(
   });
 }
 
-const COLORS = [
-  "#3b82f6", // blue
-  "#10b981", // green
-  "#f59e0b", // amber
-  "#ef4444", // red
-  "#8b5cf6", // purple
-  "#ec4899", // pink
-  "#06b6d4", // cyan
-];
-
 interface RoleDialogProps {
   teamId: string;
   roleData?: RoleNodeData & { nodeId: string }; // For edit mode
@@ -166,7 +124,7 @@ export function RoleDialog({
       metricId: "",
       assignedUserId: null,
       effortPoints: null,
-      color: COLORS[0],
+      color: ROLE_COLORS[0],
     },
   });
 
@@ -181,7 +139,7 @@ export function RoleDialog({
           metricId: roleData.metricId ?? "",
           assignedUserId: roleData.assignedUserId ?? null,
           effortPoints: roleData.effortPoints ?? null,
-          color: roleData.color ?? COLORS[0],
+          color: roleData.color ?? ROLE_COLORS[0],
         });
       } else {
         form.reset({
@@ -191,7 +149,7 @@ export function RoleDialog({
           metricId: "",
           assignedUserId: null,
           effortPoints: null,
-          color: COLORS[0],
+          color: ROLE_COLORS[0],
         });
       }
     }
@@ -758,7 +716,7 @@ export function RoleDialog({
                         tooltip={ROLE_FIELD_TOOLTIPS.color}
                       />
                       <div className="flex gap-2">
-                        {COLORS.map((color) => (
+                        {ROLE_COLORS.map((color) => (
                           <button
                             key={color}
                             type="button"
