@@ -1,6 +1,7 @@
 import {
   GitHubMetricDialog,
   GoogleSheetsMetricDialog,
+  LinearMetricDialog,
   PostHogMetricDialog,
   YouTubeMetricDialog,
 } from "@/app/metric/_components";
@@ -35,6 +36,7 @@ export default async function IntegrationPage() {
           posthog: PostHogMetricDialog,
           youtube: YouTubeMetricDialog,
           "google-sheet": GoogleSheetsMetricDialog,
+          linear: LinearMetricDialog,
         }}
       />
     </div>
