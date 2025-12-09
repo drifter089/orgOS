@@ -19,6 +19,7 @@ export * from "./store/create-canvas-store";
 
 // Hooks
 export * from "./hooks/use-auto-save";
+export * from "./hooks/use-force-layout";
 
 // Components
 export * from "./components/save-status";

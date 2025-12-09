@@ -2,6 +2,8 @@
 
 import { useEffect } from "react";
 
+import { ReactFlowProvider } from "@xyflow/react";
+
 import {
   type FreehandNodeData,
   type FreehandNodeType,
@@ -131,5 +133,9 @@ export function SystemsCanvasWrapper({
     setInitialized,
   ]);
 
-  return <SystemsCanvas />;
+  return (
+    <ReactFlowProvider>
+      <SystemsCanvas />
+    </ReactFlowProvider>
+  );
 }

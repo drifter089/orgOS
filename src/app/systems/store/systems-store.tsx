@@ -38,6 +38,7 @@ type SystemsState = {
   isSaving: boolean;
   isInitialized: boolean;
   isDrawing: boolean;
+  isForceLayoutEnabled: boolean;
   editingTextNodeId: string | null;
 };
 
@@ -53,6 +54,7 @@ type SystemsActions = {
   setSaving: (saving: boolean) => void;
   setLastSaved: (date: Date) => void;
   setIsDrawing: (isDrawing: boolean) => void;
+  setIsForceLayoutEnabled: (enabled: boolean) => void;
   // Text node actions
   setEditingTextNodeId: (nodeId: string | null) => void;
   addTextNode: (position: { x: number; y: number }, text?: string) => string;
@@ -72,6 +74,7 @@ export function createSystemsStore() {
     isSaving: false,
     isInitialized: false,
     isDrawing: false,
+    isForceLayoutEnabled: false,
     editingTextNodeId: null,
 
     onNodesChange: (changes) => {
@@ -128,6 +131,8 @@ export function createSystemsStore() {
     setSaving: (saving) => set({ isSaving: saving }),
     setLastSaved: (date) => set({ lastSaved: date }),
     setIsDrawing: (isDrawing) => set({ isDrawing }),
+    setIsForceLayoutEnabled: (enabled) =>
+      set({ isForceLayoutEnabled: enabled }),
 
     // Text node actions
     setEditingTextNodeId: (nodeId) => set({ editingTextNodeId: nodeId }),

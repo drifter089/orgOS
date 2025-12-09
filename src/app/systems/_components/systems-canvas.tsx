@@ -8,6 +8,7 @@ import {
   ConnectionLineType,
   type ProOptions,
   ReactFlow,
+  SelectionMode,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import { useShallow } from "zustand/react/shallow";
@@ -19,6 +20,7 @@ import {
   FreehandOverlay,
   SaveStatus,
   useDrawingUndoRedo,
+  useForceLayout,
 } from "@/lib/canvas";
 import { cn } from "@/lib/utils";
 
@@ -48,6 +50,7 @@ const selector = (state: SystemsStore) => ({
   onConnect: state.onConnect,
   isDirty: state.isDirty,
   isDrawing: state.isDrawing,
+  isForceLayoutEnabled: state.isForceLayoutEnabled,
 });
 
 /**
@@ -103,9 +106,16 @@ export function SystemsCanvas() {
     onConnect,
     isDirty,
     isDrawing,
+    isForceLayoutEnabled,
   } = useSystemsStore(useShallow(selector));
 
   const { isSaving, lastSaved } = useSystemsAutoSave();
+  const dragEvents = useForceLayout({
+    enabled: isForceLayoutEnabled,
+    strength: -2000,
+    distance: 500,
+    collisionRadius: (node) => (node.type === "metricCard" ? 400 : 100),
+  });
 
   return (
     <div className="relative h-full w-full">
@@ -124,6 +134,9 @@ export function SystemsCanvas() {
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
         onConnect={onConnect}
+        onNodeDragStart={dragEvents.start}
+        onNodeDrag={dragEvents.drag}
+        onNodeDragStop={dragEvents.stop}
         nodeTypes={nodeTypes}
         proOptions={proOptions}
         connectionLineType={ConnectionLineType.SmoothStep}
@@ -136,9 +149,11 @@ export function SystemsCanvas() {
         minZoom={0.1}
         maxZoom={1.5}
         panOnScroll={!isDrawing}
-        panOnDrag={!isDrawing}
+        panOnDrag={isDrawing ? false : [1, 2]}
         zoomOnScroll={!isDrawing}
-        selectNodesOnDrag={!isDrawing}
+        selectNodesOnDrag={false}
+        selectionOnDrag={!isDrawing}
+        selectionMode={SelectionMode.Partial}
         className={cn(
           "bg-background",
           "transition-opacity duration-200",

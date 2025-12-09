@@ -8,6 +8,7 @@ import {
   MarkerType,
   type ProOptions,
   ReactFlow,
+  SelectionMode,
   useReactFlow,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
@@ -20,6 +21,7 @@ import {
   FreehandOverlay,
   SaveStatus,
   useDrawingUndoRedo,
+  useForceLayout,
 } from "@/lib/canvas";
 import { cn } from "@/lib/utils";
 
@@ -63,6 +65,7 @@ const selector = (state: TeamStore) => ({
   setIsDrawing: state.setIsDrawing,
   markDirty: state.markDirty,
   isInitialized: state.isInitialized,
+  isForceLayoutEnabled: state.isForceLayoutEnabled,
 });
 
 /** Registers React Flow instance with store. Must be inside <ReactFlow>. */
@@ -137,9 +140,16 @@ export function TeamCanvas() {
     editingNodeId,
     setEditingNodeId,
     isDrawing,
+    isForceLayoutEnabled,
   } = useTeamStore(useShallow(selector));
 
   const { isSaving, lastSaved } = useAutoSave();
+  const dragEvents = useForceLayout({
+    enabled: isForceLayoutEnabled,
+    strength: -1500,
+    distance: 350,
+    collisionRadius: (node) => (node.type === "role-node" ? 250 : 120),
+  });
 
   // Get selected role data from editingNodeId
   const selectedRole = useMemo(() => {
@@ -177,6 +187,9 @@ export function TeamCanvas() {
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
         onConnect={onConnect}
+        onNodeDragStart={dragEvents.start}
+        onNodeDrag={dragEvents.drag}
+        onNodeDragStop={dragEvents.stop}
         nodeTypes={nodeTypes}
         edgeTypes={edgeTypes}
         proOptions={proOptions}
@@ -191,9 +204,11 @@ export function TeamCanvas() {
           isSaving && "opacity-90",
         )}
         panOnScroll={!isDrawing}
-        panOnDrag={!isDrawing}
+        panOnDrag={isDrawing ? false : [1, 2]}
         zoomOnScroll={!isDrawing}
-        selectNodesOnDrag={!isDrawing}
+        selectNodesOnDrag={false}
+        selectionOnDrag={!isDrawing}
+        selectionMode={SelectionMode.Partial}
         defaultEdgeOptions={{
           type: "team-edge",
           animated: true,
