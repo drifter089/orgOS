@@ -109,9 +109,9 @@ export function SystemsCanvas() {
 
   const { isSaving, lastSaved } = useSystemsAutoSave();
   const dragEvents = useForceLayout({
-    strength: -1200,
-    distance: 300,
-    collisionRadius: (node) => (node.type === "metricCard" ? 300 : 50),
+    strength: -1500,
+    distance: 400,
+    collisionRadius: (node) => (node.type === "metricCard" ? 350 : 80),
   });
 
   return (
