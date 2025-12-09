@@ -143,9 +143,9 @@ export function TeamCanvas() {
 
   const { isSaving, lastSaved } = useAutoSave();
   const dragEvents = useForceLayout({
-    strength: -1000,
-    distance: 250,
-    collisionRadius: (node) => (node.type === "role-node" ? 200 : 100),
+    strength: -1500,
+    distance: 350,
+    collisionRadius: (node) => (node.type === "role-node" ? 250 : 120),
   });
 
   // Get selected role data from editingNodeId
