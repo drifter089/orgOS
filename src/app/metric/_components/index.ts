@@ -7,3 +7,4 @@ export { GitHubMetricDialog } from "./github";
 export { YouTubeMetricDialog } from "./youtube";
 export { PostHogMetricDialog } from "./posthog";
 export { GoogleSheetsMetricDialog } from "./google-sheets";
+export { LinearMetricDialog } from "./linear";

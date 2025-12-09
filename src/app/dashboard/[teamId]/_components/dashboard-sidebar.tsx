@@ -11,6 +11,7 @@ import {
 import {
   GitHubMetricDialog,
   GoogleSheetsMetricDialog,
+  LinearMetricDialog,
   MetricTabsDisplay,
   PostHogMetricDialog,
   YouTubeMetricDialog,
@@ -116,6 +117,7 @@ export function DashboardSidebar({
                     posthog: PostHogMetricDialog,
                     youtube: YouTubeMetricDialog,
                     "google-sheet": GoogleSheetsMetricDialog,
+                    linear: LinearMetricDialog,
                   }}
                 />
               </div>

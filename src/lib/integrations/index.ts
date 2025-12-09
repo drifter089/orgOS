@@ -6,11 +6,12 @@ import type { MetricTemplate } from "@/lib/metrics/types";
 
 import * as github from "./github";
 import * as googleSheets from "./google-sheets";
+import * as linear from "./linear";
 import * as posthog from "./posthog";
 import * as youtube from "./youtube";
 
 // Re-export modules
-export { github, youtube, posthog, googleSheets };
+export { github, youtube, posthog, googleSheets, linear };
 
 // Re-export types for convenience
 export type {
@@ -28,6 +29,7 @@ export function getAllTemplates(): MetricTemplate[] {
     ...youtube.templates,
     ...posthog.templates,
     ...googleSheets.templates,
+    ...linear.templates,
   ];
 }
 

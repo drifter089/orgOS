@@ -94,12 +94,23 @@ export async function fetchData(
       };
     } else {
       // For relative paths, use Nango proxy (existing behavior)
+      // Linear's GraphQL API requires specific headers to prevent CSRF
+      const isGraphQL = finalEndpoint.includes("/graphql");
+      const headers: Record<string, string> = {};
+
+      if (isGraphQL) {
+        headers["Content-Type"] = "application/json";
+        // Linear requires this header for CSRF protection
+        headers["apollo-require-preflight"] = "true";
+      }
+
       const response = await nango.proxy({
         connectionId,
         providerConfigKey: integrationId,
         endpoint: finalEndpoint,
         method: options?.method ?? "GET",
         ...(finalBody ? { data: finalBody } : {}),
+        ...(Object.keys(headers).length > 0 ? { headers } : {}),
       });
 
       // GitHub stats endpoints return 202 or empty {} while computing
