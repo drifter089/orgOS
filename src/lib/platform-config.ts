@@ -24,7 +24,7 @@ export const PLATFORM_CONFIG: Record<string, PlatformConfig> = {
   linear: {
     name: "Linear",
     logo: "https://cdn.simpleicons.org/linear/FFFFFF",
-    bgColor: "bg-indigo-600",
+    bgColor: "bg-[#5E6AD2]",
     textColor: "text-white",
   },
   jira: {
