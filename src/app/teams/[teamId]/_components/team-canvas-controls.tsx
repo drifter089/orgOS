@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback } from "react";
+import { useCallback, useEffect, useRef } from "react";
 
 import { Panel, useReactFlow } from "@xyflow/react";
 import { Pencil, Redo2, Route, Type, Undo2 } from "lucide-react";
@@ -15,7 +15,6 @@ import {
 } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 
-import { useTeamLayout } from "../hooks/use-team-layout";
 import { useTeamStore } from "../store/team-store";
 
 type TeamCanvasControlsProps = {
@@ -41,24 +40,57 @@ export function TeamCanvasControls({
   canRedo,
   takeSnapshot,
 }: TeamCanvasControlsProps) {
-  const runLayout = useTeamLayout();
   const reactFlowInstance = useReactFlow();
   const addTextNode = useTeamStore((state) => state.addTextNode);
   const setEditingTextNodeId = useTeamStore(
     (state) => state.setEditingTextNodeId,
   );
+  const isForceLayoutEnabled = useTeamStore(
+    (state) => state.isForceLayoutEnabled,
+  );
+  const setIsForceLayoutEnabled = useTeamStore(
+    (state) => state.setIsForceLayoutEnabled,
+  );
+
+  const forceLayoutTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   const handleAddText = useCallback(() => {
     takeSnapshot();
-    // Get the center of the current viewport
     const { x, y, zoom } = reactFlowInstance.getViewport();
     const centerX = -x / zoom + window.innerWidth / 2 / zoom;
     const centerY = -y / zoom + window.innerHeight / 2 / zoom;
 
-    // Create text node at center and enter edit mode
     const nodeId = addTextNode({ x: centerX, y: centerY });
     setEditingTextNodeId(nodeId);
   }, [reactFlowInstance, addTextNode, setEditingTextNodeId, takeSnapshot]);
+
+  const handleToggleForceLayout = useCallback(() => {
+    if (!isForceLayoutEnabled) {
+      setIsForceLayoutEnabled(true);
+      toast.info("Force layout enabled", {
+        description: "Nodes will auto-arrange. Turns off in 6 seconds.",
+        duration: 4000,
+      });
+
+      forceLayoutTimerRef.current = setTimeout(() => {
+        setIsForceLayoutEnabled(false);
+      }, 6000);
+    } else {
+      setIsForceLayoutEnabled(false);
+      if (forceLayoutTimerRef.current) {
+        clearTimeout(forceLayoutTimerRef.current);
+        forceLayoutTimerRef.current = null;
+      }
+    }
+  }, [isForceLayoutEnabled, setIsForceLayoutEnabled]);
+
+  useEffect(() => {
+    return () => {
+      if (forceLayoutTimerRef.current) {
+        clearTimeout(forceLayoutTimerRef.current);
+      }
+    };
+  }, []);
 
   return (
     <Panel
@@ -152,20 +184,27 @@ export function TeamCanvasControls({
             </TooltipContent>
           </Tooltip>
 
-          {/* Force layout button */}
+          {/* Force layout toggle */}
           <Tooltip>
             <TooltipTrigger asChild>
               <Button
-                onClick={runLayout}
-                variant="default"
+                onClick={handleToggleForceLayout}
+                variant={isForceLayoutEnabled ? "default" : "outline"}
                 size="lg"
-                className="h-12 w-12 shadow-lg transition-all duration-200 hover:shadow-xl"
+                className={cn(
+                  "h-12 w-12 shadow-lg transition-all duration-200 hover:shadow-xl",
+                  isForceLayoutEnabled && "ring-primary ring-2 ring-offset-2",
+                )}
               >
                 <Route className="h-5 w-5" />
               </Button>
             </TooltipTrigger>
             <TooltipContent side="right">
-              <p>Force layout</p>
+              <p>
+                {isForceLayoutEnabled
+                  ? "Disable auto-layout"
+                  : "Enable auto-layout"}
+              </p>
             </TooltipContent>
           </Tooltip>
         </div>

@@ -2,6 +2,8 @@
 
 import React, { useEffect } from "react";
 
+import { ReactFlowProvider } from "@xyflow/react";
+
 import { api } from "@/trpc/react";
 
 import { type TeamNode, useTeamStore } from "../store/team-store";
@@ -41,21 +43,24 @@ export function TeamCanvasWrapper({
     return () => clearTimeout(timer);
   }, [initialNodes, initialEdges, setNodes, setEdges, setInitialized]);
 
+  // Prefetch AI role suggestions
   useEffect(() => {
     void utils.aiRole.generateSuggestions.prefetch({ teamId });
   }, [teamId, utils.aiRole.generateSuggestions]);
 
   return (
-    <div className="relative h-full w-full">
-      <div className="absolute top-4 left-4 z-20">
-        <ShareTeamDialog
-          teamId={teamId}
-          initialShareToken={shareToken}
-          initialIsPubliclyShared={isPubliclyShared}
-        />
-      </div>
+    <ReactFlowProvider>
+      <div className="relative h-full w-full">
+        <div className="absolute top-4 left-4 z-20">
+          <ShareTeamDialog
+            teamId={teamId}
+            initialShareToken={shareToken}
+            initialIsPubliclyShared={isPubliclyShared}
+          />
+        </div>
 
-      <TeamCanvas />
-    </div>
+        <TeamCanvas />
+      </div>
+    </ReactFlowProvider>
   );
 }

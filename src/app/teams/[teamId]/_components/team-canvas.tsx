@@ -11,7 +11,7 @@ import {
   type Node,
   type ProOptions,
   ReactFlow,
-  ReactFlowProvider,
+  SelectionMode,
   useReactFlow,
   useStoreApi,
 } from "@xyflow/react";
@@ -27,6 +27,7 @@ import {
   FreehandOverlay,
   SaveStatus,
   useDrawingUndoRedo,
+  useForceLayout,
 } from "@/lib/canvas";
 import { cn } from "@/lib/utils";
 import { api } from "@/trpc/react";
@@ -74,6 +75,7 @@ const selector = (state: TeamStore) => ({
   setIsDrawing: state.setIsDrawing,
   markDirty: state.markDirty,
   isInitialized: state.isInitialized,
+  isForceLayoutEnabled: state.isForceLayoutEnabled,
 });
 
 const MIN_PROXIMITY_DISTANCE = 150;
@@ -171,7 +173,7 @@ function TeamCanvasInner() {
   );
 }
 
-function TeamCanvasContent() {
+export function TeamCanvas() {
   const {
     nodes,
     edges,
@@ -186,6 +188,7 @@ function TeamCanvasContent() {
     setEditingNodeId,
     isDrawing,
     markDirty,
+    isForceLayoutEnabled,
   } = useTeamStore(useShallow(selector));
 
   const storeApi = useTeamStoreApi();
@@ -198,6 +201,15 @@ function TeamCanvasContent() {
   const { consumeNextRole } = useRoleSuggestions(teamId);
   const utils = api.useUtils();
 
+  // Force layout for automatic node positioning
+  const forceLayoutEvents = useForceLayout({
+    enabled: isForceLayoutEnabled,
+    strength: -1500,
+    distance: 350,
+    collisionRadius: (node) => (node.type === "role-node" ? 250 : 120),
+  });
+
+  // Proximity edge detection - find closest node when dragging
   const getClosestEdge = useCallback(
     (node: Node) => {
       const { nodeLookup } = reactFlowStore.getState();
@@ -247,11 +259,22 @@ function TeamCanvasContent() {
     [reactFlowStore, getInternalNode],
   );
 
+  // Combined drag handlers: force layout + proximity edge detection
+  const onNodeDragStart = useCallback(
+    (event: React.MouseEvent, node: Node, nodes: Node[]) => {
+      forceLayoutEvents.start?.(event, node, nodes);
+    },
+    [forceLayoutEvents],
+  );
+
   const onNodeDrag = useCallback(
-    (_: React.MouseEvent, node: Node) => {
+    (event: React.MouseEvent, node: Node, nodes: Node[]) => {
+      // Force layout physics
+      forceLayoutEvents.drag?.(event, node, nodes);
+
+      // Proximity edge detection (show temp edge when close to another node)
       const closeEdge = getClosestEdge(node);
       const currentEdges = storeApi.getState().edges;
-
       const nextEdges = currentEdges.filter((e) => e.className !== "temp");
 
       if (
@@ -266,14 +289,17 @@ function TeamCanvasContent() {
 
       setEdges(nextEdges);
     },
-    [getClosestEdge, storeApi, setEdges],
+    [forceLayoutEvents, getClosestEdge, storeApi, setEdges],
   );
 
   const onNodeDragStop = useCallback(
-    (_: React.MouseEvent, node: Node) => {
+    (event: React.MouseEvent, node: Node, nodes: Node[]) => {
+      // Force layout physics
+      forceLayoutEvents.stop?.(event, node, nodes);
+
+      // Finalize proximity edge (convert temp edge to permanent)
       const closeEdge = getClosestEdge(node);
       const currentEdges = storeApi.getState().edges;
-
       const nextEdges = currentEdges.filter((e) => e.className !== "temp");
 
       if (
@@ -290,9 +316,10 @@ function TeamCanvasContent() {
 
       setEdges(nextEdges);
     },
-    [getClosestEdge, storeApi, setEdges, markDirty],
+    [forceLayoutEvents, getClosestEdge, storeApi, setEdges, markDirty],
   );
 
+  // Edge drop: create new role when connection drops on empty space
   const pendingDropContextRef = useRef<{
     position: { x: number; y: number };
     sourceNodeId: string;
@@ -501,6 +528,7 @@ function TeamCanvasContent() {
         onEdgesChange={onEdgesChange}
         onConnect={onConnect}
         onConnectEnd={onConnectEnd}
+        onNodeDragStart={onNodeDragStart}
         onNodeDrag={onNodeDrag}
         onNodeDragStop={onNodeDragStop}
         nodeTypes={nodeTypes}
@@ -518,9 +546,11 @@ function TeamCanvasContent() {
           isSaving && "opacity-90",
         )}
         panOnScroll={!isDrawing}
-        panOnDrag={!isDrawing}
+        panOnDrag={isDrawing ? false : [1, 2]}
         zoomOnScroll={!isDrawing}
-        selectNodesOnDrag={!isDrawing}
+        selectNodesOnDrag={false}
+        selectionOnDrag={!isDrawing}
+        selectionMode={SelectionMode.Partial}
         defaultEdgeOptions={{
           type: "team-edge",
           animated: true,
@@ -544,14 +574,5 @@ function TeamCanvasContent() {
         />
       )}
     </div>
-  );
-}
-
-/** TeamCanvas wrapped with ReactFlowProvider for hook access outside ReactFlow */
-export function TeamCanvas() {
-  return (
-    <ReactFlowProvider>
-      <TeamCanvasContent />
-    </ReactFlowProvider>
   );
 }
