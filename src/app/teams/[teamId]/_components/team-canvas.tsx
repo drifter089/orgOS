@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useRef } from "react";
 import {
   Background,
   BackgroundVariant,
+  type Connection,
   ConnectionMode,
   type FinalConnectionState,
   MarkerType,
@@ -17,6 +18,7 @@ import {
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import { nanoid } from "nanoid";
+import { toast } from "sonner";
 import { useShallow } from "zustand/react/shallow";
 
 import { ZoomSlider } from "@/components/react-flow";
@@ -30,7 +32,9 @@ import {
 } from "@/lib/canvas";
 import { cn, markdownToHtml } from "@/lib/utils";
 
+import { useChartDragContext } from "../context/chart-drag-context";
 import { useAutoSave } from "../hooks/use-auto-save";
+import { useChartDragDrop } from "../hooks/use-chart-drag-drop";
 import { useCreateRole } from "../hooks/use-create-role";
 import { useRoleSuggestions } from "../hooks/use-role-suggestions";
 import {
@@ -40,8 +44,9 @@ import {
   useTeamStore,
   useTeamStoreApi,
 } from "../store/team-store";
+import { ChartNodeMemo } from "./chart-node";
 import { RoleDialog } from "./role-dialog";
-import { type RoleNodeData, RoleNodeMemo } from "./role-node";
+import { RoleNodeMemo } from "./role-node";
 import { TeamCanvasControls } from "./team-canvas-controls";
 import { TeamEdge } from "./team-edge";
 import { TextNodeMemo } from "./text-node";
@@ -49,6 +54,7 @@ import { TextNodeMemo } from "./text-node";
 const nodeTypes = {
   "role-node": RoleNodeMemo,
   "text-node": TextNodeMemo,
+  "chart-node": ChartNodeMemo,
   freehand: FreehandNode,
 };
 
@@ -65,7 +71,6 @@ const selector = (state: TeamStore) => ({
   onNodesChange: state.onNodesChange,
   onEdgesChange: state.onEdgesChange,
   onConnect: state.onConnect,
-  setNodes: state.setNodes,
   setEdges: state.setEdges,
   isDirty: state.isDirty,
   editingNodeId: state.editingNodeId,
@@ -147,7 +152,6 @@ export function TeamCanvas() {
     onNodesChange,
     onEdgesChange,
     onConnect,
-    setNodes,
     setEdges,
     isDirty,
     editingNodeId,
@@ -165,13 +169,33 @@ export function TeamCanvas() {
   >();
   const { isSaving, lastSaved } = useAutoSave();
   const { consumeNextRole } = useRoleSuggestions(teamId);
+  const {
+    onDrop: onChartDrop,
+    onDragOver: onChartDragOver,
+    chartNodesOnCanvas,
+    toggleChartNodeVisibility,
+  } = useChartDragDrop();
+  const { setChartNodesOnCanvas, registerToggleCallback } =
+    useChartDragContext();
+
+  useEffect(() => {
+    setChartNodesOnCanvas(chartNodesOnCanvas);
+  }, [chartNodesOnCanvas, setChartNodesOnCanvas]);
+
+  useEffect(() => {
+    registerToggleCallback(toggleChartNodeVisibility);
+  }, [registerToggleCallback, toggleChartNodeVisibility]);
 
   // Force layout for automatic node positioning
   const forceLayoutEvents = useForceLayout({
     enabled: isForceLayoutEnabled,
     strength: -1500,
     distance: 350,
-    collisionRadius: (node) => (node.type === "role-node" ? 250 : 120),
+    collisionRadius: (node) => {
+      if (node.type === "chart-node") return 350; // Larger collision radius for chart nodes
+      if (node.type === "role-node") return 250;
+      return 120;
+    },
   });
 
   // Proximity edge detection - find closest node when dragging
@@ -274,7 +298,8 @@ export function TeamCanvas() {
             ne.source === closeEdge.source && ne.target === closeEdge.target,
         )
       ) {
-        const { className: _, ...edgeWithoutTemp } = closeEdge;
+        const { className: _tempClass, ...edgeWithoutTemp } = closeEdge;
+        void _tempClass;
         nextEdges.push(edgeWithoutTemp);
         markDirty();
       }
@@ -367,6 +392,46 @@ export function TeamCanvas() {
     }
   }, [selectedRole, editingNodeId, setEditingNodeId]);
 
+  const isValidConnection = useCallback(
+    (connection: Connection | TeamEdgeType) => {
+      const sourceNode = nodes.find((n) => n.id === connection.source);
+      const targetNode = nodes.find((n) => n.id === connection.target);
+
+      if (
+        sourceNode?.type === "role-node" &&
+        targetNode?.type === "chart-node"
+      ) {
+        const existingChartConnection = edges.find(
+          (e) =>
+            e.source === connection.source &&
+            nodes.find((n) => n.id === e.target)?.type === "chart-node",
+        );
+        if (existingChartConnection) {
+          toast.warning("This role is already connected to a chart");
+          return false;
+        }
+      }
+
+      if (
+        sourceNode?.type === "chart-node" &&
+        targetNode?.type === "role-node"
+      ) {
+        const existingChartConnection = edges.find(
+          (e) =>
+            e.target === connection.target &&
+            nodes.find((n) => n.id === e.source)?.type === "chart-node",
+        );
+        if (existingChartConnection) {
+          toast.warning("This role is already connected to a chart");
+          return false;
+        }
+      }
+
+      return true;
+    },
+    [nodes, edges],
+  );
+
   return (
     <div className="relative h-full w-full">
       {/* Save Status Indicator */}
@@ -389,6 +454,9 @@ export function TeamCanvas() {
         onNodeDragStart={onNodeDragStart}
         onNodeDrag={onNodeDrag}
         onNodeDragStop={onNodeDragStop}
+        onDrop={onChartDrop}
+        onDragOver={onChartDragOver}
+        isValidConnection={isValidConnection}
         nodeTypes={nodeTypes}
         edgeTypes={edgeTypes}
         proOptions={proOptions}

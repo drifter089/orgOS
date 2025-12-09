@@ -27,6 +27,8 @@ export type TeamStoredNodeData = {
   // For freehand node
   points?: Points;
   initialSize?: { width: number; height: number };
+  // For chart-node
+  dashboardMetricId?: string;
 };
 
 /**

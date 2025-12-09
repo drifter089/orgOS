@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
-import { Loader2 } from "lucide-react";
+import { Check, Eye, EyeOff, GripVertical, Loader2 } from "lucide-react";
 
 import {
   AddPlatformButton,
@@ -16,22 +16,37 @@ import {
   PostHogMetricDialog,
   YouTubeMetricDialog,
 } from "@/app/metric/_components";
+import type { ChartDragData } from "@/app/teams/[teamId]/hooks/use-chart-drag-drop";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { getPlatformConfig } from "@/lib/platform-config";
 import { cn } from "@/lib/utils";
-import type { RouterOutputs } from "@/trpc/react";
+import { type RouterOutputs, api } from "@/trpc/react";
 
 import { DashboardSheetEdgeTrigger } from "./dashboard-sheet-edge-trigger";
 
 type IntegrationsWithStats = RouterOutputs["integration"]["listWithStats"];
+type DashboardMetrics = RouterOutputs["dashboard"]["getDashboardCharts"];
+type DashboardMetricWithRelations = DashboardMetrics[number];
 
 interface DashboardSidebarProps {
   teamId: string;
   initialIntegrations: IntegrationsWithStats;
   onMetricCreated?: () => void;
   side?: "left" | "right";
+  // Drag-drop props (optional, for team canvas integration)
+  enableDragDrop?: boolean;
+  chartNodesOnCanvas?: Set<string>;
+  onToggleChartVisibility?: (
+    dashboardMetric: DashboardMetricWithRelations,
+  ) => void;
 }
 
 export function DashboardSidebar({
@@ -39,8 +54,53 @@ export function DashboardSidebar({
   initialIntegrations,
   onMetricCreated,
   side = "right",
+  enableDragDrop = false,
+  chartNodesOnCanvas,
+  onToggleChartVisibility,
 }: DashboardSidebarProps) {
   const [isOpen, setIsOpen] = useState(false);
+  const [isDragging, setIsDragging] = useState<string | null>(null);
+
+  // Fetch dashboard charts when drag-drop is enabled
+  const dashboardChartsQuery = api.dashboard.getDashboardCharts.useQuery(
+    { teamId },
+    { enabled: enableDragDrop },
+  );
+
+  // Create a map from metric ID to dashboard chart
+  const metricToDashboardChart = useMemo(() => {
+    const map = new Map<string, DashboardMetricWithRelations>();
+    if (dashboardChartsQuery.data) {
+      for (const dc of dashboardChartsQuery.data) {
+        map.set(dc.metric.id, dc);
+      }
+    }
+    return map;
+  }, [dashboardChartsQuery.data]);
+
+  // Handle drag start
+  const handleDragStart = useCallback(
+    (e: React.DragEvent, dashboardMetric: DashboardMetricWithRelations) => {
+      const dragData: ChartDragData = {
+        type: "chart-node",
+        dashboardMetricId: dashboardMetric.id,
+        dashboardMetric,
+      };
+      e.dataTransfer.setData("application/reactflow", JSON.stringify(dragData));
+      e.dataTransfer.effectAllowed = "copy";
+
+      // Set a custom drag image to ensure visibility
+      const dragElement = e.currentTarget as HTMLElement;
+      e.dataTransfer.setDragImage(dragElement, 50, 25);
+
+      setIsDragging(dashboardMetric.metric.id);
+    },
+    [],
+  );
+
+  const handleDragEnd = useCallback(() => {
+    setIsDragging(null);
+  }, []);
 
   useEffect(() => {
     if (isOpen) {
@@ -67,8 +127,10 @@ export function DashboardSidebar({
     <>
       <div
         className={cn(
-          "fixed inset-0 z-[51] bg-black/40 backdrop-blur-sm transition-opacity duration-300",
+          "fixed inset-0 z-[51] bg-black/20 transition-opacity duration-300",
           isOpen ? "opacity-100" : "pointer-events-none opacity-0",
+          // Allow pointer events to pass through during drag
+          isDragging && "pointer-events-none",
         )}
         onClick={() => setIsOpen(false)}
       />
@@ -126,7 +188,16 @@ export function DashboardSidebar({
 
               {/* Metrics Tabs */}
               <div className="space-y-4">
-                <h3 className="font-semibold">Your Metrics</h3>
+                <div className="flex items-center justify-between">
+                  <h3 className="font-semibold">Your Metrics</h3>
+                  {/* Loading indicator for drag-drop functionality */}
+                  {enableDragDrop && dashboardChartsQuery.isLoading && (
+                    <Badge variant="secondary" className="text-xs">
+                      <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                      Loading charts...
+                    </Badge>
+                  )}
+                </div>
                 <MetricTabsDisplay
                   teamId={teamId}
                   className="w-full"
@@ -134,14 +205,47 @@ export function DashboardSidebar({
                   tabTriggerClassName="text-xs border shrink-0"
                   renderMetricCard={(metric) => {
                     const isSyncing = metric.id.startsWith("temp-");
+                    const dashboardChart = metricToDashboardChart.get(
+                      metric.id,
+                    );
+                    const isOnCanvas =
+                      dashboardChart &&
+                      chartNodesOnCanvas?.has(dashboardChart.id);
+                    const isChartDataLoading =
+                      enableDragDrop && dashboardChartsQuery.isLoading;
+                    const canDrag =
+                      enableDragDrop && dashboardChart && !isSyncing;
+                    const isCurrentlyDragging = isDragging === metric.id;
+
                     return (
                       <div
                         key={metric.id}
+                        draggable={canDrag ? true : undefined}
+                        onDragStart={(e) => {
+                          e.stopPropagation();
+                          if (canDrag && dashboardChart) {
+                            handleDragStart(e, dashboardChart);
+                          }
+                        }}
+                        onDragEnd={handleDragEnd}
                         className={cn(
                           "group hover:bg-accent/50 relative flex items-center gap-3 rounded-lg border p-3",
                           isSyncing && "opacity-70",
+                          canDrag && "cursor-grab active:cursor-grabbing",
+                          isCurrentlyDragging && "border-primary opacity-50",
+                          isOnCanvas && "border-primary/50 bg-primary/5",
                         )}
                       >
+                        {/* Drag handle indicator - show skeleton while loading */}
+                        {enableDragDrop &&
+                          (isChartDataLoading ? (
+                            <div className="bg-muted h-4 w-4 shrink-0 animate-pulse rounded" />
+                          ) : canDrag ? (
+                            <GripVertical className="text-muted-foreground/50 group-hover:text-muted-foreground h-4 w-4 shrink-0 transition-colors" />
+                          ) : (
+                            <div className="h-4 w-4 shrink-0" /> // Spacer when no chart data
+                          ))}
+
                         <div
                           className={cn(
                             "h-8 w-1 rounded-full",
@@ -164,11 +268,52 @@ export function DashboardSidebar({
                                 Syncing
                               </Badge>
                             )}
+                            {/* On canvas badge */}
+                            {isOnCanvas && (
+                              <Badge
+                                variant="outline"
+                                className="border-primary/30 text-primary shrink-0 text-xs"
+                              >
+                                <Check className="mr-1 h-3 w-3" />
+                                On canvas
+                              </Badge>
+                            )}
                           </div>
                           <p className="text-muted-foreground text-xs capitalize">
                             {metric.integration?.providerId ?? "unknown"}
                           </p>
                         </div>
+
+                        {/* Eye toggle button - show skeleton while loading */}
+                        {enableDragDrop &&
+                          (isChartDataLoading ? (
+                            <div className="bg-muted h-7 w-7 shrink-0 animate-pulse rounded" />
+                          ) : dashboardChart && onToggleChartVisibility ? (
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-7 w-7 shrink-0 opacity-0 transition-opacity group-hover:opacity-100"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    onToggleChartVisibility(dashboardChart);
+                                  }}
+                                >
+                                  {isOnCanvas ? (
+                                    <EyeOff className="h-4 w-4" />
+                                  ) : (
+                                    <Eye className="h-4 w-4" />
+                                  )}
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent side="left">
+                                {isOnCanvas
+                                  ? "Remove from canvas"
+                                  : "Add to canvas"}
+                              </TooltipContent>
+                            </Tooltip>
+                          ) : null)}
                       </div>
                     );
                   }}

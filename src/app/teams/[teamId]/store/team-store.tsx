@@ -19,6 +19,7 @@ import { type StoreApi, create, useStore } from "zustand";
 
 import { type FreehandNodeType } from "@/lib/canvas";
 
+import { type ChartNode } from "../_components/chart-node";
 import { type RoleNodeData } from "../_components/role-node";
 import { type TextNodeFontSize } from "../types/canvas";
 
@@ -30,7 +31,7 @@ export type TextNodeData = {
 
 export type TextNode = Node<TextNodeData, "text-node">;
 export type RoleNode = Node<RoleNodeData, "role-node">;
-export type TeamNode = RoleNode | TextNode | FreehandNodeType;
+export type TeamNode = RoleNode | TextNode | ChartNode | FreehandNodeType;
 export type TeamEdge = Edge;
 
 type TeamState = {
