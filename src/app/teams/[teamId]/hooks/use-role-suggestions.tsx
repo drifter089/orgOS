@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import type { SuggestedRole } from "@/server/api/services/ai/role-generator";
 import { api } from "@/trpc/react";
@@ -116,6 +116,7 @@ export function useRoleEnhancement(teamId: string) {
     title?: string;
     purpose?: string;
   } | null>(null);
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const {
     data: enhancement,
@@ -136,20 +137,32 @@ export function useRoleEnhancement(teamId: string) {
     },
   );
 
-  // Debounce the input changes
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+      }
+    };
+  }, []);
+
   const requestEnhancement = useCallback(
     (input: { title?: string; purpose?: string }) => {
-      // Only request if there's meaningful input
+      // Clear any existing timeout
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+        timeoutRef.current = null;
+      }
+
       if (!input.title && !input.purpose) {
         setDebouncedInput(null);
         return;
       }
-      // Debounce by setting state after a delay
-      const timeoutId = setTimeout(() => {
-        setDebouncedInput(input);
-      }, 500); // 500ms debounce
 
-      return () => clearTimeout(timeoutId);
+      timeoutRef.current = setTimeout(() => {
+        setDebouncedInput(input);
+        timeoutRef.current = null;
+      }, 500);
     },
     [],
   );
