@@ -1,4 +1,5 @@
 import { adminPortalRouter } from "@/server/api/routers/admin-portal";
+import { aiRoleRouter } from "@/server/api/routers/ai-role";
 import { dashboardRouter } from "@/server/api/routers/dashboard";
 import { feedbackRouter } from "@/server/api/routers/feedback";
 import { integrationRouter } from "@/server/api/routers/integration";
@@ -22,6 +23,7 @@ export const appRouter = createTRPCRouter({
   organization: organizationRouter,
   team: teamRouter,
   role: roleRouter,
+  aiRole: aiRoleRouter,
   metric: metricRouter,
   integration: integrationRouter,
   dashboard: dashboardRouter,

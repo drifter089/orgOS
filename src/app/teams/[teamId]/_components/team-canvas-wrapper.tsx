@@ -2,6 +2,8 @@
 
 import React, { useEffect } from "react";
 
+import { api } from "@/trpc/react";
+
 import { type TeamNode, useTeamStore } from "../store/team-store";
 import { type StoredEdge } from "../types/canvas";
 import { ShareTeamDialog } from "./share-team-dialog";
@@ -25,6 +27,7 @@ export function TeamCanvasWrapper({
   const setNodes = useTeamStore((state) => state.setNodes);
   const setEdges = useTeamStore((state) => state.setEdges);
   const setInitialized = useTeamStore((state) => state.setInitialized);
+  const utils = api.useUtils();
 
   useEffect(() => {
     setNodes(initialNodes);
@@ -37,6 +40,10 @@ export function TeamCanvasWrapper({
 
     return () => clearTimeout(timer);
   }, [initialNodes, initialEdges, setNodes, setEdges, setInitialized]);
+
+  useEffect(() => {
+    void utils.aiRole.generateSuggestions.prefetch({ teamId });
+  }, [teamId, utils.aiRole.generateSuggestions]);
 
   return (
     <div className="relative h-full w-full">

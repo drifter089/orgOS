@@ -15,8 +15,42 @@ import { toast } from "sonner";
 import { EdgeActionButtons } from "@/lib/canvas";
 import { api } from "@/trpc/react";
 
+import { useRoleSuggestions } from "../hooks/use-role-suggestions";
 import { useTeamStore, useTeamStoreApi } from "../store/team-store";
 import { type RoleNodeData } from "./role-node";
+
+/** Convert markdown bullet points to HTML for TipTap editor */
+function markdownToHtml(text: string): string {
+  if (!text) return "";
+
+  const lines = text.split("\n");
+  const result: string[] = [];
+  let inList = false;
+
+  for (const line of lines) {
+    const trimmed = line.trim();
+
+    if (trimmed.startsWith("- ") || trimmed.startsWith("* ")) {
+      if (!inList) {
+        result.push("<ul>");
+        inList = true;
+      }
+      result.push(`<li>${trimmed.slice(2)}</li>`);
+    } else if (trimmed) {
+      if (inList) {
+        result.push("</ul>");
+        inList = false;
+      }
+      result.push(`<p>${trimmed}</p>`);
+    }
+  }
+
+  if (inList) {
+    result.push("</ul>");
+  }
+
+  return result.join("");
+}
 
 export type TeamEdge = Edge;
 
@@ -49,6 +83,7 @@ export function TeamEdge({
   const setEdges = useTeamStore((state) => state.setEdges);
   const markDirty = useTeamStore((state) => state.markDirty);
 
+  const { consumeNextRole } = useRoleSuggestions(teamId);
   const utils = api.useUtils();
 
   const createRole = api.role.create.useMutation({
@@ -68,7 +103,7 @@ export function TeamEdge({
         id: tempRoleId,
         title: variables.title,
         purpose: variables.purpose,
-        accountabilities: null,
+        accountabilities: variables.accountabilities ?? null,
         teamId: variables.teamId,
         metricId: null,
         nodeId: variables.nodeId,
@@ -97,7 +132,7 @@ export function TeamEdge({
           roleId: tempRoleId,
           title: variables.title,
           purpose: variables.purpose,
-          accountabilities: undefined,
+          accountabilities: variables.accountabilities ?? undefined,
           color: variables.color ?? "#3b82f6",
           isPending: true,
         } as RoleNodeData,
@@ -192,14 +227,27 @@ export function TeamEdge({
 
   const handleAddRole = useCallback(() => {
     const nodeId = `role-node-${nanoid(8)}`;
-    createRole.mutate({
-      teamId,
-      title: "New Role",
-      purpose: "Define the purpose of this role",
-      nodeId,
-      color: "#3b82f6",
-    });
-  }, [teamId, createRole]);
+    const suggestion = consumeNextRole();
+
+    if (suggestion) {
+      createRole.mutate({
+        teamId,
+        title: suggestion.title,
+        purpose: markdownToHtml(suggestion.purpose),
+        accountabilities: markdownToHtml(suggestion.accountabilities),
+        nodeId,
+        color: suggestion.color,
+      });
+    } else {
+      createRole.mutate({
+        teamId,
+        title: "New Role",
+        purpose: "Define the purpose of this role",
+        nodeId,
+        color: "#3b82f6",
+      });
+    }
+  }, [teamId, createRole, consumeNextRole]);
 
   const handleDeleteEdge = useCallback(() => {
     const currentEdges = storeApi.getState().edges;
