@@ -25,6 +25,7 @@ export * from "./components/save-status";
 
 // Edges
 export * from "./edges/edge-action-buttons";
+export * from "./edges/floating-edge-utils";
 
 // Freehand drawing
 export * from "./freehand";

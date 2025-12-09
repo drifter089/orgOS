@@ -8,11 +8,12 @@ import {
   type EdgeProps,
   MarkerType,
   getBezierPath,
+  useInternalNode,
 } from "@xyflow/react";
 import { nanoid } from "nanoid";
 import { toast } from "sonner";
 
-import { EdgeActionButtons } from "@/lib/canvas";
+import { EdgeActionButtons, getFloatingEdgeParams } from "@/lib/canvas";
 import { api } from "@/trpc/react";
 
 import { useRoleSuggestions } from "../hooks/use-role-suggestions";
@@ -56,26 +57,14 @@ export type TeamEdge = Edge;
 
 export function TeamEdge({
   id,
-  sourceX,
-  sourceY,
-  targetX,
-  targetY,
-  sourcePosition,
-  targetPosition,
-  source: _source,
-  target: _target,
+  source,
+  target,
   style = {},
   markerEnd,
   selected,
 }: EdgeProps<TeamEdge>) {
-  const [edgePath, labelX, labelY] = getBezierPath({
-    sourceX,
-    sourceY,
-    sourcePosition,
-    targetX,
-    targetY,
-    targetPosition,
-  });
+  const sourceNode = useInternalNode(source);
+  const targetNode = useInternalNode(target);
 
   const storeApi = useTeamStoreApi();
   const teamId = useTeamStore((state) => state.teamId);
@@ -255,6 +244,25 @@ export function TeamEdge({
     setEdges(newEdges);
     markDirty();
   }, [storeApi, id, setEdges, markDirty]);
+
+  // Early return after all hooks
+  if (!sourceNode || !targetNode) {
+    return null;
+  }
+
+  // Calculate floating edge path
+  const { sx, sy, tx, ty, sourcePos, targetPos } = getFloatingEdgeParams(
+    sourceNode,
+    targetNode,
+  );
+  const [edgePath, labelX, labelY] = getBezierPath({
+    sourceX: sx,
+    sourceY: sy,
+    sourcePosition: sourcePos,
+    targetX: tx,
+    targetY: ty,
+    targetPosition: targetPos,
+  });
 
   return (
     <>

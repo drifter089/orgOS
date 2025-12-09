@@ -106,48 +106,24 @@ function RoleNodeComponent({ data, selected, id }: NodeProps<RoleNode>) {
       }}
       onDoubleClick={handleDoubleClick}
     >
-      {/* Top Handles - Bidirectional */}
-      <Handle
-        type="target"
-        position={Position.Top}
-        id="top-target"
-        className={cn(
-          "!bg-primary !border-background !h-3 !w-3 !border-2",
-          "transition-transform hover:!scale-125",
-        )}
-        style={{ left: "45%" }}
-      />
+      {/* Single handle per side - floating edges calculate best connection point */}
       <Handle
         type="source"
         position={Position.Top}
-        id="top-source"
+        id="top"
         className={cn(
           "!bg-primary !border-background !h-3 !w-3 !border-2",
           "transition-transform hover:!scale-125",
         )}
-        style={{ left: "55%" }}
-      />
-
-      {/* Right Handles - Bidirectional */}
-      <Handle
-        type="target"
-        position={Position.Right}
-        id="right-target"
-        className={cn(
-          "!bg-primary !border-background !h-3 !w-3 !border-2",
-          "transition-transform hover:!scale-125",
-        )}
-        style={{ top: "45%" }}
       />
       <Handle
         type="source"
         position={Position.Right}
-        id="right-source"
+        id="right"
         className={cn(
           "!bg-primary !border-background !h-3 !w-3 !border-2",
           "transition-transform hover:!scale-125",
         )}
-        style={{ top: "55%" }}
       />
 
       {/* Action Buttons - Positioned in top-right corner */}
@@ -269,48 +245,23 @@ function RoleNodeComponent({ data, selected, id }: NodeProps<RoleNode>) {
         </div>
       )}
 
-      {/* Bottom Handles - Bidirectional */}
-      <Handle
-        type="target"
-        position={Position.Bottom}
-        id="bottom-target"
-        className={cn(
-          "!bg-primary !border-background !h-3 !w-3 !border-2",
-          "transition-transform hover:!scale-125",
-        )}
-        style={{ left: "45%" }}
-      />
       <Handle
         type="source"
         position={Position.Bottom}
-        id="bottom-source"
+        id="bottom"
         className={cn(
           "!bg-primary !border-background !h-3 !w-3 !border-2",
           "transition-transform hover:!scale-125",
         )}
-        style={{ left: "55%" }}
-      />
-
-      {/* Left Handles - Bidirectional */}
-      <Handle
-        type="target"
-        position={Position.Left}
-        id="left-target"
-        className={cn(
-          "!bg-primary !border-background !h-3 !w-3 !border-2",
-          "transition-transform hover:!scale-125",
-        )}
-        style={{ top: "45%" }}
       />
       <Handle
         type="source"
         position={Position.Left}
-        id="left-source"
+        id="left"
         className={cn(
           "!bg-primary !border-background !h-3 !w-3 !border-2",
           "transition-transform hover:!scale-125",
         )}
-        style={{ top: "55%" }}
       />
     </div>
   );

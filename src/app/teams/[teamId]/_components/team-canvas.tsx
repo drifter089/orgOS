@@ -5,11 +5,15 @@ import { useCallback, useEffect, useMemo, useRef } from "react";
 import {
   Background,
   BackgroundVariant,
+  ConnectionMode,
   type FinalConnectionState,
   MarkerType,
+  type Node,
   type ProOptions,
   ReactFlow,
+  ReactFlowProvider,
   useReactFlow,
+  useStoreApi,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import { nanoid } from "nanoid";
@@ -71,6 +75,8 @@ const selector = (state: TeamStore) => ({
   markDirty: state.markDirty,
   isInitialized: state.isInitialized,
 });
+
+const MIN_PROXIMITY_DISTANCE = 150;
 
 /** Convert markdown bullet points to HTML for TipTap editor */
 function markdownToHtml(text: string): string {
@@ -165,7 +171,7 @@ function TeamCanvasInner() {
   );
 }
 
-export function TeamCanvas() {
+function TeamCanvasContent() {
   const {
     nodes,
     edges,
@@ -183,10 +189,109 @@ export function TeamCanvas() {
   } = useTeamStore(useShallow(selector));
 
   const storeApi = useTeamStoreApi();
-  const { screenToFlowPosition } = useReactFlow<TeamNode, TeamEdgeType>();
+  const reactFlowStore = useStoreApi();
+  const { screenToFlowPosition, getInternalNode } = useReactFlow<
+    TeamNode,
+    TeamEdgeType
+  >();
   const { isSaving, lastSaved } = useAutoSave();
   const { consumeNextRole } = useRoleSuggestions(teamId);
   const utils = api.useUtils();
+
+  const getClosestEdge = useCallback(
+    (node: Node) => {
+      const { nodeLookup } = reactFlowStore.getState();
+      const internalNode = getInternalNode(node.id);
+
+      if (!internalNode) return null;
+
+      let closestDistance = Number.MAX_VALUE;
+      let closestNodeId: string | null = null;
+      let closestNodeX = 0;
+
+      for (const [id, n] of nodeLookup) {
+        if (id !== internalNode.id) {
+          const dx =
+            n.internals.positionAbsolute.x -
+            internalNode.internals.positionAbsolute.x;
+          const dy =
+            n.internals.positionAbsolute.y -
+            internalNode.internals.positionAbsolute.y;
+          const d = Math.sqrt(dx * dx + dy * dy);
+
+          if (d < closestDistance && d < MIN_PROXIMITY_DISTANCE) {
+            closestDistance = d;
+            closestNodeId = id;
+            closestNodeX = n.internals.positionAbsolute.x;
+          }
+        }
+      }
+
+      if (!closestNodeId) return null;
+
+      const closeNodeIsSource =
+        closestNodeX < internalNode.internals.positionAbsolute.x;
+
+      return {
+        id: closeNodeIsSource
+          ? `edge-${closestNodeId}-${node.id}`
+          : `edge-${node.id}-${closestNodeId}`,
+        source: closeNodeIsSource ? closestNodeId : node.id,
+        target: closeNodeIsSource ? node.id : closestNodeId,
+        type: "team-edge" as const,
+        animated: true,
+        markerEnd: { type: MarkerType.ArrowClosed, width: 20, height: 20 },
+        className: "temp",
+      };
+    },
+    [reactFlowStore, getInternalNode],
+  );
+
+  const onNodeDrag = useCallback(
+    (_: React.MouseEvent, node: Node) => {
+      const closeEdge = getClosestEdge(node);
+      const currentEdges = storeApi.getState().edges;
+
+      const nextEdges = currentEdges.filter((e) => e.className !== "temp");
+
+      if (
+        closeEdge &&
+        !nextEdges.find(
+          (ne) =>
+            ne.source === closeEdge.source && ne.target === closeEdge.target,
+        )
+      ) {
+        nextEdges.push(closeEdge);
+      }
+
+      setEdges(nextEdges);
+    },
+    [getClosestEdge, storeApi, setEdges],
+  );
+
+  const onNodeDragStop = useCallback(
+    (_: React.MouseEvent, node: Node) => {
+      const closeEdge = getClosestEdge(node);
+      const currentEdges = storeApi.getState().edges;
+
+      const nextEdges = currentEdges.filter((e) => e.className !== "temp");
+
+      if (
+        closeEdge &&
+        !nextEdges.find(
+          (ne) =>
+            ne.source === closeEdge.source && ne.target === closeEdge.target,
+        )
+      ) {
+        const { className: _, ...edgeWithoutTemp } = closeEdge;
+        nextEdges.push(edgeWithoutTemp);
+        markDirty();
+      }
+
+      setEdges(nextEdges);
+    },
+    [getClosestEdge, storeApi, setEdges, markDirty],
+  );
 
   const pendingDropContextRef = useRef<{
     position: { x: number; y: number };
@@ -396,9 +501,12 @@ export function TeamCanvas() {
         onEdgesChange={onEdgesChange}
         onConnect={onConnect}
         onConnectEnd={onConnectEnd}
+        onNodeDrag={onNodeDrag}
+        onNodeDragStop={onNodeDragStop}
         nodeTypes={nodeTypes}
         edgeTypes={edgeTypes}
         proOptions={proOptions}
+        connectionMode={ConnectionMode.Loose}
         fitView
         fitViewOptions={{
           maxZoom: 0.65,
@@ -436,5 +544,14 @@ export function TeamCanvas() {
         />
       )}
     </div>
+  );
+}
+
+/** TeamCanvas wrapped with ReactFlowProvider for hook access outside ReactFlow */
+export function TeamCanvas() {
+  return (
+    <ReactFlowProvider>
+      <TeamCanvasContent />
+    </ReactFlowProvider>
   );
 }
