@@ -2,6 +2,8 @@
 
 import React, { useEffect } from "react";
 
+import { ReactFlowProvider } from "@xyflow/react";
+
 import { type TeamNode, useTeamStore } from "../store/team-store";
 import { type StoredEdge } from "../types/canvas";
 import { ShareTeamDialog } from "./share-team-dialog";
@@ -39,16 +41,18 @@ export function TeamCanvasWrapper({
   }, [initialNodes, initialEdges, setNodes, setEdges, setInitialized]);
 
   return (
-    <div className="relative h-full w-full">
-      <div className="absolute top-4 left-4 z-20">
-        <ShareTeamDialog
-          teamId={teamId}
-          initialShareToken={shareToken}
-          initialIsPubliclyShared={isPubliclyShared}
-        />
-      </div>
+    <ReactFlowProvider>
+      <div className="relative h-full w-full">
+        <div className="absolute top-4 left-4 z-20">
+          <ShareTeamDialog
+            teamId={teamId}
+            initialShareToken={shareToken}
+            initialIsPubliclyShared={isPubliclyShared}
+          />
+        </div>
 
-      <TeamCanvas />
-    </div>
+        <TeamCanvas />
+      </div>
+    </ReactFlowProvider>
   );
 }

@@ -25,6 +25,7 @@ import {
 import { cn } from "@/lib/utils";
 
 import { useAutoSave } from "../hooks/use-auto-save";
+import { useForceLayout } from "../hooks/use-force-layout";
 import {
   type TeamEdge as TeamEdgeType,
   type TeamNode,
@@ -141,6 +142,7 @@ export function TeamCanvas() {
   } = useTeamStore(useShallow(selector));
 
   const { isSaving, lastSaved } = useAutoSave();
+  const dragEvents = useForceLayout();
 
   // Get selected role data from editingNodeId
   const selectedRole = useMemo(() => {
@@ -178,6 +180,9 @@ export function TeamCanvas() {
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
         onConnect={onConnect}
+        onNodeDragStart={dragEvents.start}
+        onNodeDrag={dragEvents.drag}
+        onNodeDragStop={dragEvents.stop}
         nodeTypes={nodeTypes}
         edgeTypes={edgeTypes}
         proOptions={proOptions}

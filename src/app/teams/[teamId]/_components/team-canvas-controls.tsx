@@ -3,7 +3,7 @@
 import { useCallback } from "react";
 
 import { Panel, useReactFlow } from "@xyflow/react";
-import { Pencil, Redo2, Route, Type, Undo2 } from "lucide-react";
+import { Pencil, Redo2, Type, Undo2 } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -15,7 +15,6 @@ import {
 } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 
-import { useTeamLayout } from "../hooks/use-team-layout";
 import { useTeamStore } from "../store/team-store";
 
 type TeamCanvasControlsProps = {
@@ -41,7 +40,6 @@ export function TeamCanvasControls({
   canRedo,
   takeSnapshot,
 }: TeamCanvasControlsProps) {
-  const runLayout = useTeamLayout();
   const reactFlowInstance = useReactFlow();
   const addTextNode = useTeamStore((state) => state.addTextNode);
   const setEditingTextNodeId = useTeamStore(
@@ -149,23 +147,6 @@ export function TeamCanvasControls({
             </TooltipTrigger>
             <TooltipContent side="right">
               <p>Add text</p>
-            </TooltipContent>
-          </Tooltip>
-
-          {/* Force layout button */}
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                onClick={runLayout}
-                variant="default"
-                size="lg"
-                className="h-12 w-12 shadow-lg transition-all duration-200 hover:shadow-xl"
-              >
-                <Route className="h-5 w-5" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent side="right">
-              <p>Force layout</p>
             </TooltipContent>
           </Tooltip>
         </div>
