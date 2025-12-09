@@ -8,6 +8,7 @@ import {
   ConnectionLineType,
   type ProOptions,
   ReactFlow,
+  SelectionMode,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import { useShallow } from "zustand/react/shallow";
@@ -136,9 +137,11 @@ export function SystemsCanvas() {
         minZoom={0.1}
         maxZoom={1.5}
         panOnScroll={!isDrawing}
-        panOnDrag={!isDrawing}
+        panOnDrag={isDrawing ? false : [1, 2]}
         zoomOnScroll={!isDrawing}
-        selectNodesOnDrag={!isDrawing}
+        selectNodesOnDrag={false}
+        selectionOnDrag={!isDrawing}
+        selectionMode={SelectionMode.Partial}
         className={cn(
           "bg-background",
           "transition-opacity duration-200",

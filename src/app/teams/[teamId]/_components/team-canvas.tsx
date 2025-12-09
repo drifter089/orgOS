@@ -8,6 +8,7 @@ import {
   MarkerType,
   type ProOptions,
   ReactFlow,
+  SelectionMode,
   useReactFlow,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
@@ -191,9 +192,11 @@ export function TeamCanvas() {
           isSaving && "opacity-90",
         )}
         panOnScroll={!isDrawing}
-        panOnDrag={!isDrawing}
+        panOnDrag={isDrawing ? false : [1, 2]}
         zoomOnScroll={!isDrawing}
-        selectNodesOnDrag={!isDrawing}
+        selectNodesOnDrag={false}
+        selectionOnDrag={!isDrawing}
+        selectionMode={SelectionMode.Partial}
         defaultEdgeOptions={{
           type: "team-edge",
           animated: true,
