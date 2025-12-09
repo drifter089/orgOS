@@ -18,6 +18,7 @@ import {
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import { nanoid } from "nanoid";
+import { toast } from "sonner";
 import { useShallow } from "zustand/react/shallow";
 
 import { ZoomSlider } from "@/components/react-flow";
@@ -45,7 +46,7 @@ import {
 } from "../store/team-store";
 import { ChartNodeMemo } from "./chart-node";
 import { RoleDialog } from "./role-dialog";
-import { type RoleNodeData, RoleNodeMemo } from "./role-node";
+import { RoleNodeMemo } from "./role-node";
 import { TeamCanvasControls } from "./team-canvas-controls";
 import { TeamEdge } from "./team-edge";
 import { TextNodeMemo } from "./text-node";
@@ -70,7 +71,6 @@ const selector = (state: TeamStore) => ({
   onNodesChange: state.onNodesChange,
   onEdgesChange: state.onEdgesChange,
   onConnect: state.onConnect,
-  setNodes: state.setNodes,
   setEdges: state.setEdges,
   isDirty: state.isDirty,
   editingNodeId: state.editingNodeId,
@@ -152,7 +152,6 @@ export function TeamCanvas() {
     onNodesChange,
     onEdgesChange,
     onConnect,
-    setNodes,
     setEdges,
     isDirty,
     editingNodeId,
@@ -178,7 +177,6 @@ export function TeamCanvas() {
   } = useChartDragDrop();
   const { setChartNodesOnCanvas, registerToggleCallback } =
     useChartDragContext();
-  const utils = api.useUtils();
 
   useEffect(() => {
     setChartNodesOnCanvas(chartNodesOnCanvas);
