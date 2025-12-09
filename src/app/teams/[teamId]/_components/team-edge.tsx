@@ -11,15 +11,17 @@ import {
   useInternalNode,
 } from "@xyflow/react";
 import { nanoid } from "nanoid";
-import { toast } from "sonner";
 
 import { EdgeActionButtons, getFloatingEdgeParams } from "@/lib/canvas";
 import { markdownToHtml } from "@/lib/utils";
-import { api } from "@/trpc/react";
 
+import { useCreateRole } from "../hooks/use-create-role";
 import { useRoleSuggestions } from "../hooks/use-role-suggestions";
-import { useTeamStore, useTeamStoreApi } from "../store/team-store";
-import { type RoleNodeData } from "./role-node";
+import {
+  type TeamEdge as TeamEdgeType,
+  useTeamStore,
+  useTeamStoreApi,
+} from "../store/team-store";
 
 export type TeamEdge = Edge;
 
@@ -36,156 +38,60 @@ export function TeamEdge({
 
   const storeApi = useTeamStoreApi();
   const teamId = useTeamStore((state) => state.teamId);
-  const setNodes = useTeamStore((state) => state.setNodes);
   const setEdges = useTeamStore((state) => state.setEdges);
   const markDirty = useTeamStore((state) => state.markDirty);
 
   const { consumeNextRole } = useRoleSuggestions(teamId);
-  const utils = api.useUtils();
 
-  // Ref to store the current edge midpoint position (updated each render)
   const positionRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
 
-  const createRole = api.role.create.useMutation({
-    onMutate: async (variables) => {
-      await utils.role.getByTeam.cancel({ teamId });
-
-      const previousRoles = utils.role.getByTeam.getData({ teamId });
-      // Get current state from store to avoid stale closures
-      const { nodes: currentNodes, edges: currentEdges } = storeApi.getState();
-      const previousNodes = [...currentNodes];
-      const previousEdges = [...currentEdges];
-
-      const tempRoleId = `temp-role-${nanoid(8)}`;
-      const nodeId = variables.nodeId;
-
-      const optimisticRole = {
-        id: tempRoleId,
-        title: variables.title,
-        purpose: variables.purpose,
-        accountabilities: variables.accountabilities ?? null,
-        teamId: variables.teamId,
-        metricId: null,
-        nodeId: variables.nodeId,
-        assignedUserId: null,
-        effortPoints: null,
-        color: variables.color ?? "#3b82f6",
-        createdAt: new Date(),
-        updatedAt: new Date(),
-        metric: null,
-        isPending: true,
-      };
-
-      // Find the edge we're adding the node to
-      const edgeIndex = currentEdges.findIndex((e) => e.id === id);
-      const edge = currentEdges[edgeIndex];
-      if (!edge) return { previousRoles, previousNodes, previousEdges };
-
-      // Use the stored position (offset to center the node on the edge midpoint)
-      const position = {
+  const getNodeOptions = useCallback(() => {
+    // Offset to center node on edge midpoint
+    return {
+      position: {
         x: positionRef.current.x - 140,
         y: positionRef.current.y - 50,
-      };
+      },
+    };
+  }, []);
 
-      const optimisticNode = {
-        id: nodeId,
-        type: "role-node" as const,
-        position,
-        data: {
-          roleId: tempRoleId,
-          title: variables.title,
-          purpose: variables.purpose,
-          accountabilities: variables.accountabilities ?? undefined,
-          color: variables.color ?? "#3b82f6",
-          isPending: true,
-        } as RoleNodeData,
-      };
+  const getEdgeOptions = useCallback(
+    (_nodeId: string) => ({
+      createEdges: (newNodeId: string, currentEdges: TeamEdgeType[]) => {
+        const edgeIndex = currentEdges.findIndex((e) => e.id === id);
+        const edge = currentEdges[edgeIndex];
+        if (!edge) return currentEdges;
 
-      // Remove the old edge and add two new edges
-      const newEdges = [
-        ...currentEdges.slice(0, edgeIndex),
-        ...currentEdges.slice(edgeIndex + 1),
-        {
-          id: `edge-${edge.source}-${nodeId}`,
-          source: edge.source,
-          target: nodeId,
-          type: "team-edge",
-          animated: true,
-          markerEnd: { type: MarkerType.ArrowClosed, width: 20, height: 20 },
-        },
-        {
-          id: `edge-${nodeId}-${edge.target}`,
-          source: nodeId,
-          target: edge.target,
-          type: "team-edge",
-          animated: true,
-          markerEnd: { type: MarkerType.ArrowClosed, width: 20, height: 20 },
-        },
-      ];
+        // Split edge: remove old, add two new edges
+        return [
+          ...currentEdges.slice(0, edgeIndex),
+          ...currentEdges.slice(edgeIndex + 1),
+          {
+            id: `edge-${edge.source}-${newNodeId}`,
+            source: edge.source,
+            target: newNodeId,
+            type: "team-edge",
+            animated: true,
+            markerEnd: { type: MarkerType.ArrowClosed, width: 20, height: 20 },
+          },
+          {
+            id: `edge-${newNodeId}-${edge.target}`,
+            source: newNodeId,
+            target: edge.target,
+            type: "team-edge",
+            animated: true,
+            markerEnd: { type: MarkerType.ArrowClosed, width: 20, height: 20 },
+          },
+        ];
+      },
+    }),
+    [id],
+  );
 
-      setNodes([...currentNodes, optimisticNode]);
-      setEdges(newEdges);
-      markDirty();
-
-      utils.role.getByTeam.setData({ teamId }, (old) => {
-        const roleWithPending = optimisticRole as typeof old extends
-          | (infer T)[]
-          | undefined
-          ? T
-          : never;
-        if (!old) return [roleWithPending];
-        return [...old, roleWithPending];
-      });
-
-      return {
-        previousRoles,
-        previousNodes,
-        previousEdges,
-        tempRoleId,
-        nodeId,
-      };
-    },
-    onSuccess: (newRole, _variables, context) => {
-      if (!context) return;
-
-      // Use fresh state to preserve user's node position changes during mutation
-      const currentNodes = storeApi.getState().nodes;
-      const updatedNodes = currentNodes.map((node) => {
-        if (node.id === context.nodeId && node.type === "role-node") {
-          return {
-            ...node,
-            data: {
-              ...node.data,
-              roleId: newRole.id,
-              isPending: undefined,
-            },
-          };
-        }
-        return node;
-      });
-      setNodes(updatedNodes);
-
-      utils.role.getByTeam.setData({ teamId }, (old) => {
-        if (!old) return [newRole];
-        return old.map((role) =>
-          role.id === context.tempRoleId ? newRole : role,
-        );
-      });
-    },
-    onError: (error, variables, context) => {
-      if (context?.previousRoles) {
-        utils.role.getByTeam.setData({ teamId }, context.previousRoles);
-      }
-      if (context?.previousNodes) {
-        setNodes(context.previousNodes);
-      }
-      if (context?.previousEdges) {
-        setEdges(context.previousEdges);
-      }
-      toast.error("Failed to create role", {
-        description: error.message ?? "An unexpected error occurred",
-      });
-    },
+  const createRole = useCreateRole({
+    teamId,
+    getNodeOptions,
+    getEdgeOptions,
   });
 
   const handleAddRole = useCallback(() => {
