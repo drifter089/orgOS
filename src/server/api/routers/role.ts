@@ -6,6 +6,7 @@ import {
   getTeamAndVerifyAccess,
   validateUserAssignable,
 } from "@/server/api/utils/authorization";
+import { invalidateCacheByTags } from "@/server/api/utils/cache-strategy";
 
 export const roleRouter = createTRPCRouter({
   getById: workspaceProcedure
@@ -65,7 +66,7 @@ export const roleRouter = createTRPCRouter({
         await validateUserAssignable(ctx.workspace, input.assignedUserId);
       }
 
-      return ctx.db.role.create({
+      const role = await ctx.db.role.create({
         data: {
           title: input.title,
           purpose: input.purpose,
@@ -79,6 +80,11 @@ export const roleRouter = createTRPCRouter({
         },
         include: { metric: true },
       });
+
+      // Invalidate Prisma Accelerate cache for this team
+      await invalidateCacheByTags(ctx.db, [`team_${input.teamId}`]);
+
+      return role;
     }),
 
   update: workspaceProcedure
@@ -136,23 +142,33 @@ export const roleRouter = createTRPCRouter({
         data.effortPoints = input.effortPoints ?? null;
       }
 
-      return ctx.db.role.update({
+      const role = await ctx.db.role.update({
         where: { id: input.id },
         data,
         include: { metric: true, team: true },
       });
+
+      // Invalidate Prisma Accelerate cache for this team
+      await invalidateCacheByTags(ctx.db, [`team_${role.teamId}`]);
+
+      return role;
     }),
 
   delete: workspaceProcedure
     .input(z.object({ id: z.string() }))
     .mutation(async ({ ctx, input }) => {
-      await getRoleAndVerifyAccess(
+      // Get role first to capture teamId for cache invalidation
+      const role = await getRoleAndVerifyAccess(
         ctx.db,
         input.id,
         ctx.user.id,
         ctx.workspace,
       );
       await ctx.db.role.delete({ where: { id: input.id } });
+
+      // Invalidate Prisma Accelerate cache for this team
+      await invalidateCacheByTags(ctx.db, [`team_${role.teamId}`]);
+
       return { success: true };
     }),
 
@@ -168,11 +184,16 @@ export const roleRouter = createTRPCRouter({
 
       await validateUserAssignable(ctx.workspace, input.userId);
 
-      return ctx.db.role.update({
+      const role = await ctx.db.role.update({
         where: { id: input.id },
         data: { assignedUserId: input.userId },
         include: { metric: true, team: true },
       });
+
+      // Invalidate Prisma Accelerate cache for this team
+      await invalidateCacheByTags(ctx.db, [`team_${role.teamId}`]);
+
+      return role;
     }),
 
   unassign: workspaceProcedure
@@ -185,11 +206,16 @@ export const roleRouter = createTRPCRouter({
         ctx.workspace,
       );
 
-      return ctx.db.role.update({
+      const role = await ctx.db.role.update({
         where: { id: input.id },
         data: { assignedUserId: null },
         include: { metric: true, team: true },
       });
+
+      // Invalidate Prisma Accelerate cache for this team
+      await invalidateCacheByTags(ctx.db, [`team_${role.teamId}`]);
+
+      return role;
     }),
 
   getByUser: workspaceProcedure

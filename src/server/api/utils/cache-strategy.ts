@@ -119,3 +119,61 @@ export const shortLivedCache: AccelerateCacheStrategy = {
   ttl: 1,
   swr: 1,
 };
+
+/**
+ * Team canvas cache with on-demand invalidation
+ * - 60s TTL: Longer fresh window (invalidated on mutations)
+ * - 120s SWR: Serve stale while revalidating
+ * Used with cache tags for immediate invalidation after mutations.
+ */
+export const teamCanvasCache: AccelerateCacheStrategy = {
+  ttl: 60,
+  swr: 120,
+};
+
+/**
+ * Creates a cache strategy with tags for on-demand invalidation.
+ * Tags allow selective cache clearing via $accelerate.invalidate().
+ *
+ * Note: Tags can only contain alphanumeric characters and underscores (no colons).
+ *
+ * @example
+ * ctx.db.team.findUnique({
+ *   where: { id: input.id },
+ *   ...cacheStrategyWithTags(teamCanvasCache, [`team_${input.id}`])
+ * })
+ */
+export function cacheStrategyWithTags(
+  strategy: AccelerateCacheStrategy,
+  tags: string[],
+): Record<string, never> {
+  return {
+    cacheStrategy: { ...strategy, tags },
+  } as unknown as Record<string, never>;
+}
+
+/**
+ * Invalidates cached queries by their tags.
+ * Must be called after mutations to ensure fresh data on next read.
+ *
+ * @example
+ * await invalidateCacheByTags(ctx.db, [`team_${teamId}`]);
+ *
+ * @param db - Prisma client with Accelerate extension
+ * @param tags - Array of cache tags to invalidate
+ */
+export async function invalidateCacheByTags(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  db: any,
+  tags: string[],
+): Promise<void> {
+  try {
+    // The db client is extended with Accelerate at runtime
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
+    await db.$accelerate.invalidate({ tags });
+  } catch (error) {
+    // Log but don't throw - cache invalidation failure shouldn't break mutations
+    // P6003 = rate limit exceeded
+    console.error("[Cache] Invalidation failed:", error);
+  }
+}

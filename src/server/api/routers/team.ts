@@ -4,8 +4,9 @@ import { z } from "zod";
 import { createTRPCRouter, workspaceProcedure } from "@/server/api/trpc";
 import { getTeamAndVerifyAccess } from "@/server/api/utils/authorization";
 import {
-  cacheStrategy,
-  shortLivedCache,
+  cacheStrategyWithTags,
+  invalidateCacheByTags,
+  teamCanvasCache,
 } from "@/server/api/utils/cache-strategy";
 
 export const teamRouter = createTRPCRouter({
@@ -30,7 +31,7 @@ export const teamRouter = createTRPCRouter({
       return ctx.db.team.findUnique({
         where: { id: input.id },
         include: { roles: { include: { metric: true } } },
-        ...cacheStrategy(shortLivedCache),
+        ...cacheStrategyWithTags(teamCanvasCache, [`team_${input.id}`]),
       });
     }),
 
@@ -75,11 +76,16 @@ export const teamRouter = createTRPCRouter({
       );
 
       const { id, ...data } = input;
-      return ctx.db.team.update({
+      const updated = await ctx.db.team.update({
         where: { id },
         data,
         include: { roles: { include: { metric: true } } },
       });
+
+      // Invalidate Prisma Accelerate cache for this team
+      await invalidateCacheByTags(ctx.db, [`team_${id}`]);
+
+      return updated;
     }),
 
   delete: workspaceProcedure
