@@ -85,7 +85,7 @@ const selector = (state: TeamStore) => ({
   addTextNode: state.addTextNode,
 });
 
-const MIN_PROXIMITY_DISTANCE = 150;
+const MIN_PROXIMITY_DISTANCE = 250;
 
 /** Registers React Flow instance with store. Must be inside <ReactFlow>. */
 function ReactFlowInstanceRegistrar() {
