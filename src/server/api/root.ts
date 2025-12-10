@@ -1,6 +1,7 @@
 import { adminPortalRouter } from "@/server/api/routers/admin-portal";
 import { aiRoleRouter } from "@/server/api/routers/ai-role";
 import { dashboardRouter } from "@/server/api/routers/dashboard";
+import { editSessionRouter } from "@/server/api/routers/edit-session";
 import { feedbackRouter } from "@/server/api/routers/feedback";
 import { integrationRouter } from "@/server/api/routers/integration";
 import { metricRouter } from "@/server/api/routers/metric";
@@ -32,6 +33,7 @@ export const appRouter = createTRPCRouter({
   publicView: publicViewRouter,
   adminPortal: adminPortalRouter,
   transformer: transformerRouter,
+  editSession: editSessionRouter,
 });
 
 // export type definition of API
