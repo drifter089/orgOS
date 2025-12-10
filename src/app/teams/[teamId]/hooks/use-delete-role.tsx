@@ -65,6 +65,8 @@ export function useDeleteRole(teamId: string) {
     },
     onSettled: () => {
       void utils.role.getByTeam.invalidate({ teamId });
+      // Invalidate team.getById cache to ensure fresh data on next fetch
+      void utils.team.getById.invalidate({ id: teamId });
     },
   });
 }

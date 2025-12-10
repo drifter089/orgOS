@@ -112,10 +112,10 @@ export const configCache: AccelerateCacheStrategy = {
 
 /**
  * Short-lived cache for frequently changing data
- * - 3s TTL: Very short fresh window
- * - 5s SWR: Quick revalidation for immediate visibility of new data
+ * - 1s TTL: Minimal fresh window
+ * - 1s SWR: Quick revalidation for immediate visibility of new data
  */
 export const shortLivedCache: AccelerateCacheStrategy = {
-  ttl: 3,
-  swr: 5,
+  ttl: 1,
+  swr: 1,
 };

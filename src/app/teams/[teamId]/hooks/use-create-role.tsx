@@ -215,6 +215,9 @@ export function useCreateRole({
     onSuccess: (newRole, _variables, context) => {
       if (!context) return;
 
+      // Invalidate team.getById cache to ensure fresh data on next fetch
+      void utils.team.getById.invalidate({ id: teamId });
+
       const currentNodes = storeApi.getState().nodes;
       const updatedNodes = currentNodes.map((node) => {
         if (node.id === context.nodeId && node.type === "role-node") {

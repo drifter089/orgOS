@@ -18,6 +18,7 @@ const AUTO_SAVE_DELAY = 2000; // 2 seconds
 export function useAutoSave() {
   const storeApi = useTeamStoreApi();
   const teamId = useTeamStore((state) => state.teamId);
+  const utils = api.useUtils();
   const nodes = useTeamStore((state) => state.nodes);
   const edges = useTeamStore((state) => state.edges);
   const isDirty = useTeamStore((state) => state.isDirty);
@@ -33,6 +34,9 @@ export function useAutoSave() {
 
   const updateTeam = api.team.update.useMutation({
     onSuccess: () => {
+      // Invalidate team.getById cache to ensure fresh data on next fetch
+      void utils.team.getById.invalidate({ id: teamId });
+
       // Only mark clean if no changes happened since we started saving
       const lastSent = pendingSnapshotRef.current;
       const currentSnapshot = {
