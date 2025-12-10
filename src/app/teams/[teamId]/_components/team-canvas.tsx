@@ -72,17 +72,20 @@ const selector = (state: TeamStore) => ({
   onEdgesChange: state.onEdgesChange,
   onConnect: state.onConnect,
   setEdges: state.setEdges,
+  setNodes: state.setNodes,
   isDirty: state.isDirty,
   editingNodeId: state.editingNodeId,
   setEditingNodeId: state.setEditingNodeId,
+  editingTextNodeId: state.editingTextNodeId,
   isDrawing: state.isDrawing,
   setIsDrawing: state.setIsDrawing,
   markDirty: state.markDirty,
   isInitialized: state.isInitialized,
   isForceLayoutEnabled: state.isForceLayoutEnabled,
+  addTextNode: state.addTextNode,
 });
 
-const MIN_PROXIMITY_DISTANCE = 150;
+const MIN_PROXIMITY_DISTANCE = 250;
 
 /** Registers React Flow instance with store. Must be inside <ReactFlow>. */
 function ReactFlowInstanceRegistrar() {
@@ -153,12 +156,15 @@ export function TeamCanvas() {
     onEdgesChange,
     onConnect,
     setEdges,
+    setNodes,
     isDirty,
     editingNodeId,
     setEditingNodeId,
+    editingTextNodeId,
     isDrawing,
     markDirty,
     isForceLayoutEnabled,
+    addTextNode,
   } = useTeamStore(useShallow(selector));
 
   const storeApi = useTeamStoreApi();
@@ -167,6 +173,9 @@ export function TeamCanvas() {
     TeamNode,
     TeamEdgeType
   >();
+
+  // Track mouse position on canvas for "T" shortcut
+  const mousePositionRef = useRef<{ x: number; y: number } | null>(null);
   const { isSaving, lastSaved } = useAutoSave();
   const { consumeNextRole } = useRoleSuggestions(teamId);
   const {
@@ -185,6 +194,48 @@ export function TeamCanvas() {
   useEffect(() => {
     registerToggleCallback(toggleChartNodeVisibility);
   }, [registerToggleCallback, toggleChartNodeVisibility]);
+
+  // "T" shortcut to add text node at cursor position
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement;
+      const isInput =
+        target.tagName === "INPUT" ||
+        target.tagName === "TEXTAREA" ||
+        target.isContentEditable;
+
+      if (isInput || editingTextNodeId || isDrawing) return;
+
+      if (e.key === "t" || e.key === "T") {
+        e.preventDefault();
+        const position = mousePositionRef.current
+          ? screenToFlowPosition(mousePositionRef.current)
+          : (() => {
+              const { x, y, zoom } = storeApi
+                .getState()
+                .reactFlowInstance?.getViewport() ?? { x: 0, y: 0, zoom: 1 };
+              return {
+                x: -x / zoom + window.innerWidth / 2 / zoom,
+                y: -y / zoom + window.innerHeight / 2 / zoom,
+              };
+            })();
+        addTextNode(position, "", true);
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [
+    editingTextNodeId,
+    isDrawing,
+    addTextNode,
+    storeApi,
+    screenToFlowPosition,
+  ]);
+
+  const handleMouseMove = useCallback((event: React.MouseEvent) => {
+    mousePositionRef.current = { x: event.clientX, y: event.clientY };
+  }, []);
 
   // Force layout for automatic node positioning
   const forceLayoutEvents = useForceLayout({
@@ -248,12 +299,26 @@ export function TeamCanvas() {
     [reactFlowStore, getInternalNode],
   );
 
-  // Combined drag handlers: force layout + proximity edge detection
   const onNodeDragStart = useCallback(
-    (event: React.MouseEvent, node: Node, nodes: Node[]) => {
-      forceLayoutEvents.start?.(event, node, nodes);
+    (event: React.MouseEvent, node: Node, draggedNodes: Node[]) => {
+      forceLayoutEvents.start?.(event, node, draggedNodes);
+
+      // Alt+drag to duplicate text nodes
+      if (event.altKey && node.type === "text-node") {
+        const currentNodes = storeApi.getState().nodes;
+        const originalNode = currentNodes.find((n) => n.id === node.id);
+        if (originalNode?.type === "text-node") {
+          const duplicateNode: TeamNode = {
+            ...originalNode,
+            id: `text-${nanoid(8)}`,
+            selected: false,
+          };
+          setNodes([...currentNodes, duplicateNode]);
+          markDirty();
+        }
+      }
     },
-    [forceLayoutEvents],
+    [forceLayoutEvents, storeApi, setNodes, markDirty],
   );
 
   const onNodeDrag = useCallback(
@@ -282,9 +347,8 @@ export function TeamCanvas() {
   );
 
   const onNodeDragStop = useCallback(
-    (event: React.MouseEvent, node: Node, nodes: Node[]) => {
-      // Force layout physics
-      forceLayoutEvents.stop?.(event, node, nodes);
+    (event: React.MouseEvent, node: Node, draggedNodes: Node[]) => {
+      forceLayoutEvents.stop?.(event, node, draggedNodes);
 
       // Finalize proximity edge (convert temp edge to permanent)
       const closeEdge = getClosestEdge(node);
@@ -456,6 +520,7 @@ export function TeamCanvas() {
         onNodeDragStop={onNodeDragStop}
         onDrop={onChartDrop}
         onDragOver={onChartDragOver}
+        onMouseMove={handleMouseMove}
         isValidConnection={isValidConnection}
         nodeTypes={nodeTypes}
         edgeTypes={edgeTypes}

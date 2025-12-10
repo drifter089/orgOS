@@ -35,9 +35,9 @@ export type TextNodeFontSize = "small" | "medium" | "large";
  * Mapping from font size names to pixel values.
  */
 export const FONT_SIZE_VALUES: Record<TextNodeFontSize, number> = {
-  small: 12,
-  medium: 14,
-  large: 18,
+  small: 16,
+  medium: 20,
+  large: 28,
 };
 
 /**

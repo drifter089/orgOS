@@ -76,10 +76,14 @@ function TextNodeComponent({ data, selected, id }: NodeProps<TextNodeType>) {
   }, [data.text, isEditing]);
 
   useEffect(() => {
-    if (isEditing && textareaRef.current) {
-      textareaRef.current.focus();
-      textareaRef.current.select();
+    if (isEditing) {
+      // Delay focus to avoid React Flow stealing it
+      const timeoutId = setTimeout(() => {
+        textareaRef.current?.focus();
+        textareaRef.current?.select();
+      }, 50);
       autoResize();
+      return () => clearTimeout(timeoutId);
     }
   }, [isEditing, autoResize]);
 
@@ -142,10 +146,10 @@ function TextNodeComponent({ data, selected, id }: NodeProps<TextNodeType>) {
     >
       <NodeResizer
         isVisible={selected}
-        minWidth={80}
-        minHeight={32}
-        lineClassName="!border-primary"
-        handleClassName="!h-2 !w-2 !rounded-sm !border-primary !bg-background"
+        minWidth={60}
+        minHeight={24}
+        lineClassName="!border-primary/40"
+        handleClassName="!h-1.5 !w-1.5 !rounded-full !border-primary/60 !bg-background"
       />
 
       <div
@@ -192,15 +196,14 @@ function TextNodeComponent({ data, selected, id }: NodeProps<TextNodeType>) {
         </Button>
       </div>
 
-      {/* Text box with visible border */}
       <div
         className={cn(
-          "bg-background/50 h-full w-full rounded border transition-colors",
+          "h-full w-full rounded transition-all duration-150",
           isEditing
-            ? "border-primary shadow-sm"
+            ? "bg-background/80 ring-primary/50 ring-1 ring-offset-1"
             : selected
-              ? "border-primary/50"
-              : "border-border hover:border-primary/50",
+              ? "bg-background/40 ring-primary/30 ring-1"
+              : "hover:bg-background/20 bg-transparent",
         )}
       >
         {isEditing ? (
@@ -214,27 +217,28 @@ function TextNodeComponent({ data, selected, id }: NodeProps<TextNodeType>) {
             }}
             onKeyDown={handleKeyDown}
             onBlur={handleBlur}
+            autoFocus
             className={cn(
               "nodrag nopan", // Prevent dragging/panning while editing
-              "h-full w-full resize-none border-none bg-transparent px-2 py-1 outline-none",
+              "h-full w-full resize-none border-none bg-transparent px-1.5 py-1 outline-none",
               "overflow-hidden break-words", // Hide scrollbar, node auto-expands
             )}
             style={{
               fontSize: `${fontSizePx}px`,
             }}
-            placeholder="Type here..."
+            placeholder="Type..."
           />
         ) : (
           <div
             className={cn(
-              "h-full w-full cursor-text overflow-hidden px-2 py-1 break-words whitespace-pre-wrap select-none",
-              !data.text && "text-muted-foreground italic",
+              "h-full w-full overflow-hidden px-1.5 py-1 break-words whitespace-pre-wrap select-none",
+              !data.text && "text-muted-foreground/60 italic",
             )}
             style={{
               fontSize: `${fontSizePx}px`,
             }}
           >
-            {data.text || "Double-click to edit"}
+            {data.text || "Type..."}
           </div>
         )}
       </div>

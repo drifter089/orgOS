@@ -180,7 +180,7 @@ export function TeamCanvasControls({
               </Button>
             </TooltipTrigger>
             <TooltipContent side="right">
-              <p>Add text</p>
+              <p>Add text (T)</p>
             </TooltipContent>
           </Tooltip>
 
