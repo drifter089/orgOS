@@ -126,6 +126,9 @@ export function useUpdateRole({
       return { previousRoles, previousNodes };
     },
     onSuccess: (updatedRole) => {
+      // Invalidate team.getById cache to ensure fresh data on next fetch
+      void utils.team.getById.invalidate({ id: teamId });
+
       const currentNodes = storeApi.getState().nodes;
       const updatedNodes = currentNodes.map((node) => {
         if (node.type === "role-node" && node.data.roleId === updatedRole.id) {
