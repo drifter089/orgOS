@@ -83,7 +83,11 @@ type TeamActions = {
 
   // Text node actions
   setEditingTextNodeId: (nodeId: string | null) => void;
-  addTextNode: (position: { x: number; y: number }, text?: string) => string;
+  addTextNode: (
+    position: { x: number; y: number },
+    text?: string,
+    autoEdit?: boolean,
+  ) => string;
   updateTextNodeContent: (nodeId: string, text: string) => void;
   updateTextNodeFontSize: (nodeId: string, fontSize: TextNodeFontSize) => void;
   deleteNode: (nodeId: string) => void;
@@ -190,7 +194,7 @@ export function createTeamStore(
     // Text node actions
     setEditingTextNodeId: (nodeId) => set({ editingTextNodeId: nodeId }),
 
-    addTextNode: (position, text = "") => {
+    addTextNode: (position, text = "", autoEdit = false) => {
       const nodeId = `text-${nanoid(8)}`;
       const newNode: TextNode = {
         id: nodeId,
@@ -199,7 +203,10 @@ export function createTeamStore(
         data: { text, fontSize: "medium" },
         style: { width: 180, height: 60 }, // Initial size for resizable node
       };
-      set({ nodes: [...get().nodes, newNode] });
+      set({
+        nodes: [...get().nodes, newNode],
+        ...(autoEdit && { editingTextNodeId: nodeId }),
+      });
       if (get().isInitialized) {
         get().markDirty();
       }
