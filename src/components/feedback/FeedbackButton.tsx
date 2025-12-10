@@ -1,204 +1,209 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useRef, useState } from "react";
 
 import { usePathname } from "next/navigation";
 
-import { AnimatePresence, motion } from "framer-motion";
+import { useGSAP } from "@gsap/react";
+import gsap from "gsap";
 import { MessageSquare, Send } from "lucide-react";
 import { toast } from "sonner";
 
-import { cn } from "@/lib/utils";
 import { api } from "@/trpc/react";
 
 import { Button } from "../ui/button";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "../ui/select";
 import { Textarea } from "../ui/textarea";
+
+const PRIORITY_OPTIONS = [
+  { value: "0", label: "No Priority", icon: "—" },
+  { value: "1", label: "Urgent", icon: "🔴" },
+  { value: "2", label: "High", icon: "🟠" },
+  { value: "3", label: "Medium", icon: "🟡" },
+  { value: "4", label: "Low", icon: "🟢" },
+] as const;
 
 export function FeedbackButton() {
   const pathname = usePathname();
   const [isOpen, setIsOpen] = useState(false);
   const [feedback, setFeedback] = useState("");
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [priority, setPriority] = useState<string>("0");
+  const [isSelectOpen, setIsSelectOpen] = useState(false);
+  const [hasShownStayOpenToast, setHasShownStayOpenToast] = useState(false);
 
-  // Hide feedback button on landing page and mission page
-  if (pathname === "/" || pathname === "/mission") {
-    return null;
-  }
+  const containerRef = useRef<HTMLDivElement>(null);
+  const popupRef = useRef<HTMLDivElement>(null);
+  const buttonRef = useRef<HTMLButtonElement>(null);
 
   const submitFeedback = api.feedback.submit.useMutation({
     onSuccess: (data) => {
       toast.success(
-        `Feedback submitted successfully! ${data.issueId ? `Issue: ${data.issueId}` : ""}`,
+        `Feedback saved! ${data.issueId ? `Issue: ${data.issueId}` : ""}`,
       );
-      setFeedback("");
-      setIsOpen(false);
     },
     onError: (error) => {
-      toast.error(`Failed to submit feedback: ${error.message}`);
+      toast.error(`Failed to save feedback: ${error.message}`);
     },
   });
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const openPopup = () => setIsOpen(true);
+  const closePopup = () => setIsOpen(false);
+
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!feedback.trim()) {
       toast.error("Please enter your feedback");
       return;
     }
 
-    setIsSubmitting(true);
-    try {
-      await submitFeedback.mutateAsync({ message: feedback });
-    } finally {
-      setIsSubmitting(false);
+    toast.info("Feedback sent!");
+    submitFeedback.mutate({
+      message: feedback,
+      priority: parseInt(priority, 10),
+      pageUrl: pathname,
+    });
+
+    setFeedback("");
+    setPriority("0");
+    closePopup();
+  };
+
+  const handleMouseLeave = () => {
+    if (!feedback.trim() && !isSelectOpen) {
+      closePopup();
+      setHasShownStayOpenToast(false);
+    } else if (feedback.trim() && !hasShownStayOpenToast) {
+      toast("📝 Your feedback is safe!", {
+        description: "Send it or clear the text to close.",
+        duration: 3000,
+      });
+      setHasShownStayOpenToast(true);
     }
   };
 
-  return (
-    <>
-      <GooeySvg />
-      <motion.div
-        style={{ filter: "url(#goo)" }}
-        className="fixed right-6 bottom-6 z-50"
-      >
-        <AnimatePresence>
-          {isOpen && (
-            <motion.div
-              initial={{
-                y: 0,
-                x: 0,
-                width: 56,
-                height: 56,
-              }}
-              animate={{
-                y: -60,
-                x: -264,
-                width: 320,
-                height: "auto",
-                transition: {
-                  ...LOGO_SPRING,
-                  delay: 0.15,
-                  y: {
-                    ...LOGO_SPRING,
-                    delay: 0,
-                  },
-                  x: {
-                    ...LOGO_SPRING,
-                    delay: 0.15,
-                  },
-                },
-              }}
-              exit={{
-                y: 0,
-                x: 0,
-                width: 56,
-                height: 56,
-                transition: {
-                  ...LOGO_SPRING,
-                  x: {
-                    ...LOGO_SPRING,
-                    delay: 0,
-                  },
-                  y: {
-                    ...LOGO_SPRING,
-                    delay: 0.15,
-                  },
-                },
-              }}
-              onMouseEnter={() => setIsOpen(true)}
-              onMouseLeave={() => {
-                if (!isSubmitting) {
-                  setIsOpen(false);
-                }
-              }}
-              className="bg-popover text-popover-foreground border-border absolute bottom-0 overflow-hidden border shadow-lg"
-            >
-              <motion.div
-                initial={{ opacity: 0, filter: "blur(4px)" }}
-                animate={{ opacity: 1, filter: "blur(0px)" }}
-                exit={{ opacity: 0, filter: "blur(4px)" }}
-                className="w-[320px] space-y-3 p-4"
-              >
-                <form onSubmit={handleSubmit} className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm font-semibold">
-                      Send us feedback
-                    </span>
-                    <MessageSquare className="h-4 w-4 opacity-50" />
-                  </div>
+  const handleButtonHover = (entering: boolean) => {
+    if (!buttonRef.current) return;
+    gsap.to(buttonRef.current, {
+      scale: entering ? 1.05 : 1,
+      duration: 0.2,
+      ease: "power2.out",
+    });
+  };
 
-                  <Textarea
-                    value={feedback}
-                    onChange={(e) => setFeedback(e.target.value)}
-                    placeholder="Tell us what you think..."
-                    className="min-h-[100px] resize-none"
-                    disabled={isSubmitting}
-                  />
+  useGSAP(
+    () => {
+      if (!popupRef.current) return;
 
-                  <Button
-                    type="submit"
-                    size="sm"
-                    className="w-full"
-                    disabled={isSubmitting || !feedback.trim()}
-                  >
-                    {isSubmitting ? (
-                      <>Sending...</>
-                    ) : (
-                      <>
-                        <Send className="mr-2 h-4 w-4" />
-                        Send Feedback
-                      </>
-                    )}
-                  </Button>
-                </form>
-              </motion.div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-
-        <div
-          onMouseEnter={() => setIsOpen(true)}
-          onMouseLeave={() => {
-            if (!isSubmitting) {
-              setIsOpen(false);
+      if (isOpen) {
+        gsap.set(popupRef.current, {
+          display: "block",
+          clipPath: "inset(100% 0% 0% 0%)",
+        });
+        gsap.to(popupRef.current, {
+          clipPath: "inset(0% 0% 0% 0%)",
+          duration: 0.4,
+          ease: "power3.out",
+        });
+      } else {
+        gsap.to(popupRef.current, {
+          clipPath: "inset(100% 0% 0% 0%)",
+          duration: 0.3,
+          ease: "power3.in",
+          onComplete: () => {
+            if (popupRef.current) {
+              gsap.set(popupRef.current, { display: "none" });
             }
-          }}
-          className={cn(
-            "bg-primary text-primary-foreground flex h-14 w-14 cursor-pointer items-center justify-center shadow-lg transition-transform hover:scale-105",
-            "relative after:absolute after:bottom-0 after:h-[150%] after:w-full after:p-5 after:content-['']",
-          )}
-        >
-          <MessageSquare className="h-6 w-6" />
-        </div>
-      </motion.div>
-    </>
+          },
+        });
+      }
+    },
+    { dependencies: [isOpen], scope: containerRef },
+  );
+
+  if (pathname === "/" || pathname === "/mission") {
+    return null;
+  }
+
+  return (
+    <div ref={containerRef} className="fixed right-6 bottom-6 z-50">
+      <div
+        ref={popupRef}
+        onMouseEnter={openPopup}
+        onMouseLeave={handleMouseLeave}
+        className="bg-popover text-popover-foreground border-border absolute right-0 bottom-16 hidden w-[320px] border shadow-lg"
+        style={{ borderRadius: "var(--radius)" }}
+      >
+        <form onSubmit={handleSubmit} className="space-y-3 p-4">
+          <div className="flex items-center justify-between">
+            <span className="text-sm font-semibold">Send us feedback</span>
+            <MessageSquare className="h-4 w-4 opacity-50" />
+          </div>
+
+          <Textarea
+            value={feedback}
+            onChange={(e) => setFeedback(e.target.value)}
+            placeholder="Tell us what you think..."
+            className="min-h-[100px] resize-none"
+          />
+
+          <Select
+            value={priority}
+            onValueChange={setPriority}
+            onOpenChange={setIsSelectOpen}
+          >
+            <SelectTrigger className="h-8 text-xs">
+              <SelectValue placeholder="Priority (optional)" />
+            </SelectTrigger>
+            <SelectContent>
+              {PRIORITY_OPTIONS.map((option) => (
+                <SelectItem
+                  key={option.value}
+                  value={option.value}
+                  className="text-xs"
+                >
+                  <span className="flex items-center gap-2">
+                    <span>{option.icon}</span>
+                    <span>{option.label}</span>
+                  </span>
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          <Button
+            type="submit"
+            size="sm"
+            className="w-full"
+            disabled={!feedback.trim()}
+          >
+            <Send className="mr-2 h-4 w-4" />
+            Send Feedback
+          </Button>
+        </form>
+      </div>
+
+      <button
+        ref={buttonRef}
+        type="button"
+        onMouseEnter={() => {
+          openPopup();
+          handleButtonHover(true);
+        }}
+        onMouseLeave={() => {
+          handleMouseLeave();
+          handleButtonHover(false);
+        }}
+        className="bg-primary text-primary-foreground flex h-14 w-14 cursor-pointer items-center justify-center shadow-lg"
+        style={{ borderRadius: "var(--radius)" }}
+      >
+        <MessageSquare className="h-6 w-6" />
+      </button>
+    </div>
   );
 }
-
-const GooeySvg = () => {
-  return (
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      className="pointer-events-none absolute h-0 w-0"
-      version="1.1"
-    >
-      <defs>
-        <filter id="goo">
-          <feGaussianBlur in="SourceGraphic" stdDeviation="4.4" result="blur" />
-          <feColorMatrix
-            in="blur"
-            mode="matrix"
-            values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 20 -7"
-            result="goo"
-          />
-          <feBlend in="SourceGraphic" in2="goo" />
-        </filter>
-      </defs>
-    </svg>
-  );
-};
-
-const LOGO_SPRING = {
-  type: "spring",
-  stiffness: 300,
-  damping: 30,
-} as const;
