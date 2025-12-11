@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Sheet } from "@/components/ui/sheet";
 import { Skeleton } from "@/components/ui/skeleton";
+import { stripHtml } from "@/lib/html-utils";
 import { cn } from "@/lib/utils";
 import { useConfirmation } from "@/providers/ConfirmationDialogProvider";
 import { api } from "@/trpc/react";
@@ -192,7 +193,7 @@ function RolesList({
                 )}
               </div>
               <p className="text-muted-foreground mt-1.5 line-clamp-2 text-xs leading-relaxed">
-                {role.purpose}
+                {stripHtml(role.purpose ?? "")}
               </p>
               {role.metric && (
                 <Badge
