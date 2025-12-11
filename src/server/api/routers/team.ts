@@ -9,12 +9,37 @@ import {
   teamCanvasCache,
 } from "@/server/api/utils/cache-strategy";
 
+// Session expires after 60 seconds of no heartbeat
+const SESSION_TIMEOUT_MS = 60000;
+
 export const teamRouter = createTRPCRouter({
   getAll: workspaceProcedure.query(async ({ ctx }) => {
-    return ctx.db.team.findMany({
+    const cutoff = new Date(Date.now() - SESSION_TIMEOUT_MS);
+
+    // Clean up expired sessions
+    await ctx.db.editSession.deleteMany({
+      where: { lastSeen: { lt: cutoff } },
+    });
+
+    const teams = await ctx.db.team.findMany({
       where: { organizationId: ctx.workspace.organizationId },
-      include: { _count: { select: { roles: true, metrics: true } } },
+      include: {
+        _count: { select: { roles: true, metrics: true } },
+        editSession: true,
+      },
       orderBy: { updatedAt: "desc" },
+    });
+
+    // Add lock info for each team
+    return teams.map((team) => {
+      const isLocked =
+        team.editSession && team.editSession.userId !== ctx.user.id;
+      return {
+        ...team,
+        isLocked: !!isLocked,
+        lockedByUserName: isLocked ? team.editSession?.userName : null,
+        editSession: undefined, // Don't expose raw session data
+      };
     });
   }),
 

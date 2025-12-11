@@ -3,9 +3,7 @@
 import React, { useEffect } from "react";
 
 import { ReactFlowProvider } from "@xyflow/react";
-import { Lock } from "lucide-react";
 
-import { Alert, AlertDescription } from "@/components/ui/alert";
 import { api } from "@/trpc/react";
 
 import { useEditSession } from "../hooks/use-edit-session";
@@ -20,9 +18,6 @@ interface TeamCanvasWrapperProps {
   teamId: string;
   shareToken: string | null;
   isPubliclyShared: boolean;
-  isReadOnly?: boolean;
-  editingUserName?: string | null;
-  currentUserName?: string;
 }
 
 export function TeamCanvasWrapper({
@@ -31,9 +26,6 @@ export function TeamCanvasWrapper({
   teamId,
   shareToken,
   isPubliclyShared,
-  isReadOnly = false,
-  editingUserName,
-  currentUserName,
 }: TeamCanvasWrapperProps) {
   const setNodes = useTeamStore((state) => state.setNodes);
   const setEdges = useTeamStore((state) => state.setEdges);
@@ -41,7 +33,7 @@ export function TeamCanvasWrapper({
   const utils = api.useUtils();
 
   // Manage edit session (acquire/heartbeat/release)
-  useEditSession(teamId, isReadOnly, currentUserName);
+  useEditSession(teamId);
 
   useEffect(() => {
     setNodes(initialNodes);
@@ -55,29 +47,13 @@ export function TeamCanvasWrapper({
     return () => clearTimeout(timer);
   }, [initialNodes, initialEdges, setNodes, setEdges, setInitialized]);
 
-  // Prefetch AI role suggestions (only if not read-only)
   useEffect(() => {
-    if (!isReadOnly) {
-      void utils.aiRole.generateSuggestions.prefetch({ teamId });
-    }
-  }, [teamId, isReadOnly, utils.aiRole.generateSuggestions]);
+    void utils.aiRole.generateSuggestions.prefetch({ teamId });
+  }, [teamId, utils.aiRole.generateSuggestions]);
 
   return (
     <ReactFlowProvider>
       <div className="relative h-full w-full">
-        {/* Read-only banner when another user is editing */}
-        {isReadOnly && editingUserName && (
-          <div className="absolute top-4 left-1/2 z-30 -translate-x-1/2">
-            <Alert className="border-amber-300 bg-amber-50 shadow-md">
-              <Lock className="h-4 w-4 text-amber-600" />
-              <AlertDescription className="text-amber-800">
-                <span className="font-medium">{editingUserName}</span> is
-                currently editing this team. You can view but not make changes.
-              </AlertDescription>
-            </Alert>
-          </div>
-        )}
-
         <div className="absolute top-4 left-4 z-20">
           <ShareTeamDialog
             teamId={teamId}
@@ -86,7 +62,7 @@ export function TeamCanvasWrapper({
           />
         </div>
 
-        <TeamCanvas isReadOnly={isReadOnly} />
+        <TeamCanvas />
       </div>
     </ReactFlowProvider>
   );

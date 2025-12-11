@@ -147,11 +147,7 @@ function TeamCanvasInner() {
   );
 }
 
-interface TeamCanvasProps {
-  isReadOnly?: boolean;
-}
-
-export function TeamCanvas({ isReadOnly = false }: TeamCanvasProps) {
+export function TeamCanvas() {
   const {
     nodes,
     edges,
@@ -180,7 +176,7 @@ export function TeamCanvas({ isReadOnly = false }: TeamCanvasProps) {
 
   // Track mouse position on canvas for "T" shortcut
   const mousePositionRef = useRef<{ x: number; y: number } | null>(null);
-  const { isSaving, lastSaved } = useAutoSave(isReadOnly);
+  const { isSaving, lastSaved } = useAutoSave();
   const { consumeNextRole } = useRoleSuggestions(teamId);
   const {
     onDrop: onChartDrop,
@@ -502,30 +498,26 @@ export function TeamCanvas({ isReadOnly = false }: TeamCanvasProps) {
 
   return (
     <div className="relative h-full w-full">
-      {/* Save Status Indicator - hide in read-only mode */}
-      {!isReadOnly && (
-        <div className="absolute top-4 right-4 z-20">
-          <SaveStatus
-            isSaving={isSaving}
-            isDirty={isDirty}
-            lastSaved={lastSaved}
-          />
-        </div>
-      )}
+      <div className="absolute top-4 right-4 z-20">
+        <SaveStatus
+          isSaving={isSaving}
+          isDirty={isDirty}
+          lastSaved={lastSaved}
+        />
+      </div>
 
-      {/* React Flow Canvas */}
       <ReactFlow
         nodes={nodes}
         edges={edges}
-        onNodesChange={isReadOnly ? undefined : onNodesChange}
-        onEdgesChange={isReadOnly ? undefined : onEdgesChange}
-        onConnect={isReadOnly ? undefined : onConnect}
-        onConnectEnd={isReadOnly ? undefined : onConnectEnd}
-        onNodeDragStart={isReadOnly ? undefined : onNodeDragStart}
-        onNodeDrag={isReadOnly ? undefined : onNodeDrag}
-        onNodeDragStop={isReadOnly ? undefined : onNodeDragStop}
-        onDrop={isReadOnly ? undefined : onChartDrop}
-        onDragOver={isReadOnly ? undefined : onChartDragOver}
+        onNodesChange={onNodesChange}
+        onEdgesChange={onEdgesChange}
+        onConnect={onConnect}
+        onConnectEnd={onConnectEnd}
+        onNodeDragStart={onNodeDragStart}
+        onNodeDrag={onNodeDrag}
+        onNodeDragStop={onNodeDragStop}
+        onDrop={onChartDrop}
+        onDragOver={onChartDragOver}
         onMouseMove={handleMouseMove}
         isValidConnection={isValidConnection}
         nodeTypes={nodeTypes}
@@ -542,18 +534,11 @@ export function TeamCanvas({ isReadOnly = false }: TeamCanvasProps) {
           "transition-opacity duration-200",
           isSaving && "opacity-90",
         )}
-        // Read-only mode: disable all editing interactions
-        nodesDraggable={!isReadOnly}
-        nodesConnectable={!isReadOnly}
-        elementsSelectable={!isReadOnly}
-        edgesFocusable={!isReadOnly}
-        nodesFocusable={!isReadOnly}
-        // Allow pan/zoom even in read-only mode for navigation
         panOnScroll={!isDrawing}
-        panOnDrag={isReadOnly ? true : isDrawing ? false : [1, 2]}
+        panOnDrag={isDrawing ? false : [1, 2]}
         zoomOnScroll={true}
-        selectNodesOnDrag={isReadOnly ? false : false}
-        selectionOnDrag={isReadOnly ? false : !isDrawing}
+        selectNodesOnDrag={false}
+        selectionOnDrag={!isDrawing}
         selectionMode={SelectionMode.Partial}
         defaultEdgeOptions={{
           type: "team-edge",
@@ -566,7 +551,6 @@ export function TeamCanvas({ isReadOnly = false }: TeamCanvasProps) {
         <TeamCanvasInner />
       </ReactFlow>
 
-      {/* Edit Role Dialog */}
       {selectedRole && (
         <RoleDialog
           teamId={teamId}
