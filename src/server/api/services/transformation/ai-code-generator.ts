@@ -58,222 +58,50 @@ interface GeneratedCode {
 // Prompts
 // =============================================================================
 
-const METRIC_TRANSFORMER_SYSTEM_PROMPT = `You are a JavaScript code generator that creates data transformation functions.
+const METRIC_TRANSFORMER_SYSTEM_PROMPT = `Generate JavaScript: function transform(apiResponse, endpointConfig) → DataPoint[]
 
-IMPORTANT: Generate PLAIN JAVASCRIPT only. NO TypeScript syntax.
+DataPoint = { timestamp: Date, value: number, dimensions: object|null }
 
-=== CONTEXT ===
-This transformer runs via CRON JOB repeatedly. Each run fetches API data and saves to database.
-The database has a UNIQUE CONSTRAINT on (metricId, timestamp) - only ONE data point per timestamp allowed.
-Your function must output AGGREGATED data - one DataPoint per unique timestamp (typically per day).
-
-=== OUTPUT SCHEMA ===
-DataPoint: { timestamp: Date, value: number, dimensions: object | null }
-
-=== CRITICAL RULES ===
-
-1. Function signature: function transform(apiResponse, endpointConfig) { ... }
-2. NO TypeScript syntax
-3. Return array of DataPoint objects
-
-4. **AGGREGATION IS REQUIRED** - Output ONE DataPoint per unique timestamp:
-   - If API returns 100 items for same day → aggregate into 1 DataPoint for that day
-   - Group by normalized date, then sum/count values
-   - Example: 5 issues completed on Jan 15 → { timestamp: "2024-01-15", value: 5 }
-
-5. **TIMESTAMP NORMALIZATION** - All timestamps must be start of day (midnight UTC):
-   - Use: new Date(dateString).toISOString().split('T')[0] + 'T00:00:00.000Z'
-   - This ensures same day = same timestamp key
-
-6. **AGGREGATION PATTERN** (use this approach):
-   \`\`\`
-   const byDay = {};
-   items.forEach(item => {
-     const day = new Date(item.date).toISOString().split('T')[0];
-     if (!byDay[day]) byDay[day] = { count: 0, ...otherMetrics };
-     byDay[day].count++;
-     // sum other numeric fields as needed
-   });
-   return Object.entries(byDay).map(([day, data]) => ({
-     timestamp: new Date(day + 'T00:00:00.000Z'),
-     value: data.count,
-     dimensions: { ...otherAggregatedValues }
-   }));
-   \`\`\`
-
-7. **PRESERVE DATA GRANULARITY** - Don't over-aggregate:
-   - If API data is already daily → keep daily
-   - If API data is weekly → keep weekly (use week start date)
-   - If API data is monthly → keep monthly (use month start date)
-   - Only aggregate when data is more granular (hourly/per-item → daily)
-
-8. Handle missing values: use || 0 for numbers
-9. dimensions: put related metrics (e.g., {completed: 50, canceled: 5})
+RULES:
+1. NO TypeScript syntax - plain JavaScript only
+2. Aggregate to ONE DataPoint per day (group items by date, sum/count values)
+3. Use dimensions for secondary metrics (e.g., {completed: 50, canceled: 5})
+4. Handle missing values with || 0
+5. If API data is already daily/weekly/monthly, preserve that granularity
+6. Return array sorted by timestamp
 
 Output ONLY the function code, no markdown, no explanations.`;
 
-const CHART_TRANSFORMER_SYSTEM_PROMPT = `You are a JavaScript code generator for Recharts chart configurations.
+const CHART_TRANSFORMER_SYSTEM_PROMPT = `Generate JavaScript: function transform(dataPoints, preferences) → ChartConfig
 
-IMPORTANT: Generate PLAIN JAVASCRIPT only. NO TypeScript syntax.
+Input:
+- dataPoints: Array of { timestamp: Date, value: number, dimensions: object|null }
+- preferences: { chartType, dateRange, aggregation }
 
-=== CONTEXT ===
-Data accumulates over time via cron jobs. The same chart transformer code runs repeatedly
-as more data gets added to the database. Your code must handle:
-- Small datasets (initial data, few points)
-- Large datasets (accumulated over weeks/months, many points)
-The data format stays consistent - only the NUMBER of entries grows over time.
-All timestamps are normalized to midnight UTC (start of day) in a consistent format.
-
-Given:
-- DataPoint array with timestamp, value, and optional dimensions
-- Data statistics (totalCount, dateRange, dimensionKeys)
-- User preferences (chartType, dateRange, aggregation)
-
-Generate a JavaScript function that transforms DataPoints into a Recharts-compatible config.
-
-DataPoint schema:
+Output ChartConfig:
 {
-  timestamp: Date,           // Normalized to midnight UTC (e.g., "2024-01-15T00:00:00.000Z")
-  value: number,
-  dimensions: object | null  // e.g., {completed: 50, open: 30, canceled: 5}
-}
-
-ChartConfig schema:
-{
-  chartType: "line" | "bar" | "area" | "pie" | "radar" | "radial" | "kpi",
+  chartType: "line"|"bar"|"area"|"pie"|"radar"|"radial"|"kpi",
   chartData: Array of objects,
-  chartConfig: Object with keys mapping to { label: string, color: string },
+  chartConfig: { [key]: { label: string, color: string } },
   xAxisKey: string,
-  dataKeys: array of strings,
+  dataKeys: string[],
   title: string,
-  description: string (optional),
-  xAxisLabel: string (optional),
-  yAxisLabel: string (optional),
-  showLegend: boolean (optional),
-  showTooltip: boolean (optional),
-  stacked: boolean (optional),
-  centerLabel: { value: string, label: string } (optional, for pie/radial)
+  showLegend?: boolean,
+  showTooltip?: boolean,
+  stacked?: boolean,
+  centerLabel?: { value: string, label: string }  // for pie/radial
 }
 
-=== CHART TYPE SELECTION GUIDE ===
+RULES:
+1. NO TypeScript - plain JavaScript only
+2. Use var(--chart-1) through var(--chart-12) for colors
+3. For PIE charts: add fill property to each chartData item
+4. Filter by dateRange: "7d", "30d", "90d" from now; "all" = no filter
+5. Format dates as readable strings (e.g., "Jan 15")
+6. If dimensions exist, consider multi-series charts
+7. Aggregate if too many points (>50 for line, >20 for bar)
 
-LINE/AREA: Best for time-series data showing trends over time
-- Use when: tracking values over days/weeks/months
-- Example: issues completed per day, revenue over time
-
-BAR: Best for comparisons or time-series with few data points (<20)
-- Use when: comparing categories or showing discrete time periods
-- Example: monthly totals, team comparisons
-
-PIE: Best for showing distribution/breakdown of a whole
-- Use when: showing parts of 100%, category breakdown
-- Example: issues by status (open/closed/canceled), browser market share
-- REQUIRES: chartData items must have a 'fill' property for colors
-
-RADAR: Best for multi-dimensional comparison
-- Use when: comparing multiple attributes across categories
-- Example: team skills comparison, product feature scores
-
-RADIAL: Best for single progress/gauge metrics
-- Use when: showing progress toward a goal
-- Example: sprint completion %, quota progress
-
-=== EXAMPLE CONFIGS ===
-
-LINE/AREA (time-series):
-{
-  chartType: "line",
-  chartData: [
-    { date: "2024-01-15", value: 100, completed: 50 },
-    { date: "2024-01-16", value: 120, completed: 65 }
-  ],
-  chartConfig: {
-    value: { label: "Total Issues", color: "var(--chart-1)" },
-    completed: { label: "Completed", color: "var(--chart-2)" }
-  },
-  xAxisKey: "date",
-  dataKeys: ["value", "completed"],
-  title: "Issues Over Time",
-  showLegend: true,
-  showTooltip: true
-}
-
-BAR (comparison):
-{
-  chartType: "bar",
-  chartData: [
-    { month: "January", desktop: 186, mobile: 80 },
-    { month: "February", desktop: 305, mobile: 200 }
-  ],
-  chartConfig: {
-    desktop: { label: "Desktop", color: "var(--chart-1)" },
-    mobile: { label: "Mobile", color: "var(--chart-2)" }
-  },
-  xAxisKey: "month",
-  dataKeys: ["desktop", "mobile"],
-  title: "Visitors by Platform",
-  stacked: false
-}
-
-PIE (distribution - MUST include fill property):
-{
-  chartType: "pie",
-  chartData: [
-    { status: "Open", count: 50, fill: "var(--chart-1)" },
-    { status: "Completed", count: 120, fill: "var(--chart-2)" },
-    { status: "Canceled", count: 15, fill: "var(--chart-3)" }
-  ],
-  chartConfig: {
-    Open: { label: "Open", color: "var(--chart-1)" },
-    Completed: { label: "Completed", color: "var(--chart-2)" },
-    Canceled: { label: "Canceled", color: "var(--chart-3)" }
-  },
-  xAxisKey: "status",
-  dataKeys: ["count"],
-  title: "Issues by Status",
-  centerLabel: { value: "185", label: "Total" },
-  showLegend: true
-}
-
-RADAR (multi-dimensional):
-{
-  chartType: "radar",
-  chartData: [
-    { attribute: "Speed", teamA: 80, teamB: 65 },
-    { attribute: "Quality", teamA: 90, teamB: 85 }
-  ],
-  chartConfig: {
-    teamA: { label: "Team A", color: "var(--chart-1)" },
-    teamB: { label: "Team B", color: "var(--chart-2)" }
-  },
-  xAxisKey: "attribute",
-  dataKeys: ["teamA", "teamB"],
-  title: "Team Comparison"
-}
-
-=== RULES ===
-
-1. Function signature: function transform(dataPoints, preferences) { ... }
-2. NO TypeScript - no ": type" annotations, no "as Type" casts
-3. Use ALL data when preferences.dateRange is "all" (no filtering)
-4. Apply dateRange filter only for "7d", "30d", "90d" (filter from now)
-5. Sort chronologically for time-series charts (line, area, bar with dates)
-6. Use var(--chart-1) through var(--chart-12) for colors
-7. Format dates as readable strings (e.g., "Jan 15" or "2024-01-15")
-8. For PIE charts: ALWAYS add fill property to each data item
-9. If dimensions exist, consider extracting for multi-series charts
-10. Aggregate data if too many points (>50 for line, >20 for bar)
-11. Always return a valid ChartConfig object
-
-=== AGGREGATION GUIDANCE ===
-
-Based on data volume:
-- < 20 points: Show all points (no aggregation)
-- 20-60 points: Consider weekly aggregation for cleaner charts
-- > 60 points: Consider monthly aggregation
-- For "none" aggregation preference: respect user choice, show all
-
-Output ONLY the function code, no markdown, no explanations, no code blocks.`;
+Output ONLY the function code, no markdown, no explanations.`;
 
 // =============================================================================
 // AI Generator Functions

@@ -79,10 +79,31 @@ export async function executeDataIngestionTransformer(
             ? point.dimensions
             : null;
 
+      // Force midnight UTC normalization (safety net for AI output)
+      timestamp.setUTCHours(0, 0, 0, 0);
+
       return { timestamp, value, dimensions };
     });
 
-    return { success: true, data: validatedPoints };
+    // Merge duplicates by timestamp (fallback if AI outputs duplicates)
+    const merged = new Map<string, DataPoint>();
+    for (const point of validatedPoints) {
+      const key = point.timestamp.toISOString();
+      if (merged.has(key)) {
+        const existing = merged.get(key)!;
+        // Sum values for duplicates, merge dimensions
+        existing.value += point.value;
+        if (point.dimensions && existing.dimensions) {
+          existing.dimensions = { ...existing.dimensions, ...point.dimensions };
+        } else if (point.dimensions) {
+          existing.dimensions = point.dimensions;
+        }
+      } else {
+        merged.set(key, { ...point });
+      }
+    }
+
+    return { success: true, data: Array.from(merged.values()) };
   } catch (error) {
     const errorMsg =
       error instanceof Error ? error.message : "Validation error";
