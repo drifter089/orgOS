@@ -8,16 +8,12 @@ const HEARTBEAT_INTERVAL_MS = 30000; // 30 seconds
 
 /**
  * Hook to manage edit session for multi-user blocking.
- * - Acquires session on mount (if not read-only)
+ * - Acquires session on mount
  * - Sends heartbeat every 30 seconds to keep session alive
  * - Releases session on unmount (for normal navigation)
  * - For browser crash/close, server-side timeout (60s) handles cleanup
  */
-export function useEditSession(
-  teamId: string,
-  isReadOnly: boolean,
-  userName?: string,
-) {
+export function useEditSession(teamId: string) {
   const heartbeatIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   const acquire = api.editSession.acquire.useMutation();
@@ -25,11 +21,8 @@ export function useEditSession(
   const release = api.editSession.release.useMutation();
 
   useEffect(() => {
-    // Don't acquire if read-only (another user is editing)
-    if (isReadOnly) return;
-
     // Acquire session on mount
-    acquire.mutate({ teamId, userName });
+    acquire.mutate({ teamId });
 
     // Start heartbeat to keep session alive
     heartbeatIntervalRef.current = setInterval(() => {
@@ -46,5 +39,5 @@ export function useEditSession(
       release.mutate({ teamId });
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [teamId, isReadOnly]);
+  }, [teamId]);
 }

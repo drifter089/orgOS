@@ -3,7 +3,8 @@
 import Link from "next/link";
 
 import { AnimatePresence, motion } from "framer-motion";
-import { BarChart3, Loader2, Network, Target, Users } from "lucide-react";
+import { BarChart3, Loader2, Lock, Network, Target, Users } from "lucide-react";
+import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -144,6 +145,75 @@ export function TeamsList() {
                       <BarChart3 className="mr-2 h-4 w-4 opacity-50" />
                       <span className="opacity-50">KPIs</span>
                     </div>
+                  </div>
+                </Card>
+              </motion.div>
+            );
+          }
+
+          const isLocked = team.isLocked;
+          const lockedByUserName = team.lockedByUserName;
+
+          const handleLockedClick = () => {
+            toast.error("Team is currently being edited", {
+              description: `${lockedByUserName ?? "Another user"} is editing this team. Please try again later.`,
+            });
+          };
+
+          if (isLocked) {
+            return (
+              <motion.div
+                key={team.id}
+                variants={cardVariants}
+                layout
+                exit={{ opacity: 0, scale: 0.95 }}
+              >
+                <Card className="gap-0 overflow-hidden py-0 opacity-60">
+                  <div className="flex flex-col gap-3 p-4">
+                    <div className="flex items-start justify-between gap-2">
+                      <CardTitle className="line-clamp-1 text-2xl font-bold">
+                        {team.name}
+                      </CardTitle>
+                      <Badge
+                        variant="outline"
+                        className="border-amber-300 bg-amber-50 text-amber-700"
+                      >
+                        <Lock className="mr-1 h-3 w-3" />
+                        {lockedByUserName ?? "In use"}
+                      </Badge>
+                    </div>
+
+                    <div className="flex gap-2">
+                      <Badge variant="secondary" className="gap-1.5">
+                        <Users className="h-3 w-3" />
+                        {team._count.roles}{" "}
+                        {team._count.roles !== 1 ? "roles" : "role"}
+                      </Badge>
+                      <Badge variant="secondary" className="gap-1.5">
+                        <Target className="h-3 w-3" />
+                        {team._count.metrics}{" "}
+                        {team._count.metrics !== 1 ? "KPIs" : "KPI"}
+                      </Badge>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2">
+                    <Button
+                      variant="ghost"
+                      className="h-9 cursor-not-allowed rounded-none border-t opacity-50"
+                      onClick={handleLockedClick}
+                    >
+                      <Network className="mr-1.5 h-3.5 w-3.5" />
+                      Roles
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      className="h-9 cursor-not-allowed rounded-none border-t border-l opacity-50"
+                      onClick={handleLockedClick}
+                    >
+                      <BarChart3 className="mr-2 h-4 w-4" />
+                      KPIs
+                    </Button>
                   </div>
                 </Card>
               </motion.div>

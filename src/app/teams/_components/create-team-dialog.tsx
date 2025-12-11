@@ -73,6 +73,9 @@ export function CreateTeamDialog() {
         viewport: null,
         shareToken: null,
         isPubliclyShared: false,
+        isLocked: false,
+        lockedByUserName: null,
+        editSession: undefined,
         _count: { roles: 0, metrics: 0 },
         isPending: true,
       };
