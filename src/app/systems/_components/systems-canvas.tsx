@@ -51,6 +51,7 @@ const selector = (state: SystemsStore) => ({
   isDirty: state.isDirty,
   isDrawing: state.isDrawing,
   isForceLayoutEnabled: state.isForceLayoutEnabled,
+  setInitialized: state.setInitialized,
 });
 
 /**
@@ -107,6 +108,7 @@ export function SystemsCanvas() {
     isDirty,
     isDrawing,
     isForceLayoutEnabled,
+    setInitialized,
   } = useSystemsStore(useShallow(selector));
 
   const { isSaving, lastSaved } = useSystemsAutoSave();
@@ -137,6 +139,7 @@ export function SystemsCanvas() {
         onNodeDragStart={dragEvents.start}
         onNodeDrag={dragEvents.drag}
         onNodeDragStop={dragEvents.stop}
+        onInit={() => setInitialized(true)}
         nodeTypes={nodeTypes}
         proOptions={proOptions}
         connectionLineType={ConnectionLineType.SmoothStep}

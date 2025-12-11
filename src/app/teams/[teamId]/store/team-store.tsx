@@ -53,6 +53,9 @@ type TeamState = {
   editingTextNodeId: string | null;
   isDrawing: boolean;
   isForceLayoutEnabled: boolean;
+
+  // Viewport state (persisted)
+  savedViewport: { x: number; y: number; zoom: number } | null;
 };
 
 type TeamActions = {
@@ -97,6 +100,11 @@ type TeamActions = {
 
   // Force layout
   setIsForceLayoutEnabled: (enabled: boolean) => void;
+
+  // Viewport
+  setSavedViewport: (
+    viewport: { x: number; y: number; zoom: number } | null,
+  ) => void;
 };
 
 export type TeamStore = TeamState & TeamActions;
@@ -120,6 +128,7 @@ export function createTeamStore(
     editingTextNodeId: null,
     isDrawing: false,
     isForceLayoutEnabled: false,
+    savedViewport: null,
 
     onNodesChange: (changes) => {
       const currentNodes = get().nodes;
@@ -255,6 +264,9 @@ export function createTeamStore(
     setIsDrawing: (isDrawing) => set({ isDrawing }),
     setIsForceLayoutEnabled: (enabled) =>
       set({ isForceLayoutEnabled: enabled }),
+
+    // Viewport
+    setSavedViewport: (viewport) => set({ savedViewport: viewport }),
   }));
 }
 

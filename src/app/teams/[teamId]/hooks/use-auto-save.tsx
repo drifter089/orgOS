@@ -4,16 +4,18 @@ import { useCallback, useEffect, useRef } from "react";
 
 import { toast } from "sonner";
 
+import { useCanvasAutoSave } from "@/lib/canvas";
 import { api } from "@/trpc/react";
 
 import { useTeamStore, useTeamStoreApi } from "../store/team-store";
 import { serializeEdges, serializeNodes } from "../utils/canvas-serialization";
 
-const AUTO_SAVE_DELAY = 2000; // 2 seconds
+type Viewport = { x: number; y: number; zoom: number };
 
 /**
  * Auto-save hook that debounces saves when the canvas state changes.
  * Includes beforeunload warning and flush-on-unmount to prevent data loss.
+ * Also persists viewport state.
  */
 export function useAutoSave() {
   const storeApi = useTeamStoreApi();
@@ -25,19 +27,24 @@ export function useAutoSave() {
   const markClean = useTeamStore((state) => state.markClean);
   const setSaving = useTeamStore((state) => state.setSaving);
   const setLastSaved = useTeamStore((state) => state.setLastSaved);
+  const lastSaved = useTeamStore((state) => state.lastSaved);
 
-  const saveTimeoutRef = useRef<NodeJS.Timeout | undefined>(undefined);
   const pendingSnapshotRef = useRef<{
     nodes: ReturnType<typeof serializeNodes>;
     edges: ReturnType<typeof serializeEdges>;
+    viewport?: Viewport;
   } | null>(null);
+
+  /** Get current viewport from React Flow instance */
+  const getCurrentViewport = useCallback((): Viewport | undefined => {
+    const instance = storeApi.getState().reactFlowInstance;
+    return instance?.getViewport();
+  }, [storeApi]);
 
   const updateTeam = api.team.update.useMutation({
     onSuccess: () => {
-      // Invalidate team.getById cache to ensure fresh data on next fetch
       void utils.team.getById.invalidate({ id: teamId });
 
-      // Only mark clean if no changes happened since we started saving
       const lastSent = pendingSnapshotRef.current;
       const currentSnapshot = {
         nodes: serializeNodes(nodes),
@@ -67,6 +74,35 @@ export function useAutoSave() {
     },
   });
 
+  // Use shared auto-save hook for core save logic
+  const { isSaving } = useCanvasAutoSave({
+    nodes,
+    edges,
+    isDirty,
+    markClean,
+    setSaving,
+    setLastSaved,
+    serializeNodes,
+    serializeEdges,
+    mutation: {
+      mutate: (data) => {
+        const viewport = getCurrentViewport();
+        pendingSnapshotRef.current = {
+          nodes: data.reactFlowNodes,
+          edges: data.reactFlowEdges,
+          viewport,
+        };
+        updateTeam.mutate({
+          id: teamId,
+          reactFlowNodes: data.reactFlowNodes,
+          reactFlowEdges: data.reactFlowEdges,
+          viewport,
+        });
+      },
+      isPending: updateTeam.isPending,
+    },
+  });
+
   // Flush save immediately (for unmount/beforeunload)
   const flushSave = useCallback(() => {
     const {
@@ -77,36 +113,31 @@ export function useAutoSave() {
 
     if (!currentDirty) return;
 
-    // Clear pending timeout
-    if (saveTimeoutRef.current) {
-      clearTimeout(saveTimeoutRef.current);
-      saveTimeoutRef.current = undefined;
-    }
-
     // Use sendBeacon for reliable save during page unload
     const serializedNodes = serializeNodes(currentNodes);
     const serializedEdges = serializeEdges(currentEdges);
+    const viewport = getCurrentViewport();
 
     const payload = JSON.stringify({
       id: teamId,
       reactFlowNodes: serializedNodes,
       reactFlowEdges: serializedEdges,
+      viewport,
     });
 
-    // Try sendBeacon first (works during unload), fall back to sync mutation
+    // Try sendBeacon first (works during unload)
     if (typeof navigator !== "undefined" && navigator.sendBeacon) {
       navigator.sendBeacon(`/api/team-save?teamId=${teamId}`, payload);
     }
-  }, [storeApi, teamId]);
+  }, [storeApi, teamId, getCurrentViewport]);
 
   // Warn user before leaving if there are unsaved changes
   useEffect(() => {
     const handleBeforeUnload = (e: BeforeUnloadEvent) => {
-      const { isDirty: currentDirty, isSaving } = storeApi.getState();
-      if (currentDirty || isSaving) {
-        // Flush save before leaving
+      const { isDirty: currentDirty, isSaving: currentSaving } =
+        storeApi.getState();
+      if (currentDirty || currentSaving) {
         flushSave();
-        // Show browser's default "unsaved changes" warning
         e.preventDefault();
         return "";
       }
@@ -116,57 +147,8 @@ export function useAutoSave() {
     return () => window.removeEventListener("beforeunload", handleBeforeUnload);
   }, [storeApi, flushSave]);
 
-  useEffect(() => {
-    // Clear existing timeout
-    if (saveTimeoutRef.current) {
-      clearTimeout(saveTimeoutRef.current);
-    }
-
-    // Don't save if not dirty or already saving
-    if (!isDirty || updateTeam.isPending) {
-      return;
-    }
-
-    // Debounce: save after 2 seconds of no changes
-    saveTimeoutRef.current = setTimeout(() => {
-      setSaving(true);
-
-      // Serialize nodes and edges for storage
-      const serializedNodes = serializeNodes(nodes);
-      const serializedEdges = serializeEdges(edges);
-
-      // Store snapshot of what we're sending
-      pendingSnapshotRef.current = {
-        nodes: serializedNodes,
-        edges: serializedEdges,
-      };
-
-      updateTeam.mutate({
-        id: teamId,
-        reactFlowNodes: serializedNodes,
-        reactFlowEdges: serializedEdges,
-      });
-    }, AUTO_SAVE_DELAY);
-
-    // Cleanup timeout on unmount
-    return () => {
-      if (saveTimeoutRef.current) {
-        clearTimeout(saveTimeoutRef.current);
-      }
-    };
-  }, [
-    isDirty,
-    nodes,
-    edges,
-    teamId,
-    updateTeam,
-    setSaving,
-    markClean,
-    setLastSaved,
-  ]);
-
   return {
-    isSaving: updateTeam.isPending,
-    lastSaved: useTeamStore((state) => state.lastSaved),
+    isSaving,
+    lastSaved,
   };
 }

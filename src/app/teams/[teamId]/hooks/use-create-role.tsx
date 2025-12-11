@@ -73,30 +73,18 @@ export interface UseCreateRoleOptions {
   getEdgeOptions?: (nodeId: string) => EdgeHandlingOptions;
   /** Callback before mutation starts (e.g., close dialog, reset form) */
   onBeforeMutate?: () => void;
-  /** Optional metric lookup for optimistic data */
-  getMetric?: (
-    metricId: string,
-  ) => { id: string; name: string } | null | undefined;
-  /** Optional member lookup for optimistic data */
-  getMember?: (
-    userId: string,
-  ) =>
-    | { firstName?: string | null; lastName?: string | null; email: string }
-    | null
-    | undefined;
 }
 
 /**
- * Shared hook for creating roles with optimistic updates
- * Used by RoleDialog, TeamCanvas, and TeamEdge components
+ * Shared hook for creating roles with optimistic updates.
+ * Creates a minimal node with { roleId, isPending, pendingTitle, pendingColor }
+ * and adds role to TanStack Query cache.
  */
 export function useCreateRole({
   teamId,
   getNodeOptions,
   getEdgeOptions,
   onBeforeMutate,
-  getMetric,
-  getMember,
 }: UseCreateRoleOptions) {
   const storeApi = useTeamStoreApi();
   const setNodes = useTeamStore((state) => state.setNodes);
@@ -116,12 +104,9 @@ export function useCreateRole({
 
       const tempRoleId = `temp-role-${nanoid(8)}`;
       const nodeId = variables.nodeId;
+      const nodeOptions = getNodeOptions(variables);
 
-      const selectedMetric = variables.metricId
-        ? getMetric?.(variables.metricId)
-        : null;
-
-      // Metric populated on success from server response
+      // Create optimistic role for cache (component reads from here)
       const optimisticRole = {
         id: tempRoleId,
         title: variables.title,
@@ -139,42 +124,24 @@ export function useCreateRole({
         isPending: true,
       };
 
-      const nodeOptions = getNodeOptions(variables);
-
-      let assignedUserName: string | undefined;
-      if (variables.assignedUserId && getMember) {
-        const member = getMember(variables.assignedUserId);
-        if (member) {
-          assignedUserName =
-            [member.firstName, member.lastName].filter(Boolean).join(" ") ||
-            member.email;
-        } else {
-          assignedUserName = `User ${variables.assignedUserId.substring(0, 8)}`;
-        }
-      }
-
+      // Create minimal node - only roleId and pending state
+      // Component fetches display data from cache via useRoleData hook
       const optimisticNode: TeamNode = {
         id: nodeId,
         type: "role-node" as const,
         position: nodeOptions.position,
         data: {
           roleId: tempRoleId,
-          title: variables.title,
-          purpose: variables.purpose,
-          accountabilities: variables.accountabilities ?? undefined,
-          metricId: variables.metricId ?? undefined,
-          metricName: selectedMetric?.name ?? undefined,
-          assignedUserId: variables.assignedUserId ?? null,
-          assignedUserName,
-          effortPoints: variables.effortPoints ?? null,
-          color: variables.color ?? "#3b82f6",
           isPending: true,
+          pendingTitle: variables.title,
+          pendingColor: variables.color ?? "#3b82f6",
           ...nodeOptions.additionalData,
         },
       };
 
       setNodes([...currentNodes, optimisticNode]);
 
+      // Handle edges
       const edgeOptions = getEdgeOptions?.(nodeId);
       if (edgeOptions?.createEdges) {
         const newEdges = edgeOptions.createEdges(nodeId, currentEdges);
@@ -194,6 +161,7 @@ export function useCreateRole({
 
       markDirty();
 
+      // Add optimistic role to cache
       utils.role.getByTeam.setData({ teamId }, (old) => {
         const roleWithPending = optimisticRole as typeof old extends
           | (infer T)[]
@@ -218,16 +186,18 @@ export function useCreateRole({
       // Invalidate team.getById cache to ensure fresh data on next fetch
       void utils.team.getById.invalidate({ id: teamId });
 
+      // Update node with real roleId and clear pending state
       const currentNodes = storeApi.getState().nodes;
       const updatedNodes = currentNodes.map((node) => {
         if (node.id === context.nodeId && node.type === "role-node") {
           return {
             ...node,
             data: {
-              ...node.data,
               roleId: newRole.id,
-              metricName: newRole.metric?.name ?? undefined,
+              // Clear pending fields
               isPending: undefined,
+              pendingTitle: undefined,
+              pendingColor: undefined,
             },
           };
         }
@@ -235,6 +205,7 @@ export function useCreateRole({
       });
       setNodes(updatedNodes);
 
+      // Replace temp role with real role in cache
       utils.role.getByTeam.setData({ teamId }, (old) => {
         if (!old) return [newRole];
         return old.map((role) =>

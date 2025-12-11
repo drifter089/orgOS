@@ -96,6 +96,13 @@ export default async function TeamPage({
     ? (team.reactFlowEdges as StoredEdge[])
     : [];
 
+  // Parse viewport from JSON if available
+  const initialViewport = team.viewport as {
+    x: number;
+    y: number;
+    zoom: number;
+  } | null;
+
   return (
     <TeamStoreProvider teamId={team.id} teamName={team.name}>
       <ChartDragProvider>
@@ -109,6 +116,7 @@ export default async function TeamPage({
             <TeamCanvasWrapper
               initialNodes={nodes}
               initialEdges={edges}
+              initialViewport={initialViewport}
               teamId={team.id}
               shareToken={team.shareToken}
               isPubliclyShared={team.isPubliclyShared}

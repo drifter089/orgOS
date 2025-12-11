@@ -111,27 +111,13 @@ export function SystemsCanvasWrapper({
 }) {
   const setNodes = useSystemsStore((state) => state.setNodes);
   const setEdges = useSystemsStore((state) => state.setEdges);
-  const setInitialized = useSystemsStore((state) => state.setInitialized);
 
   useEffect(() => {
     const initialNodes = buildInitialNodes(dashboardCharts, savedNodes);
     setNodes(initialNodes);
     setEdges(savedEdges as unknown as Parameters<typeof setEdges>[0]);
-
-    // Delay initialization to let React Flow complete setup without triggering dirty state
-    const timer = setTimeout(() => {
-      setInitialized(true);
-    }, 100);
-
-    return () => clearTimeout(timer);
-  }, [
-    dashboardCharts,
-    savedNodes,
-    savedEdges,
-    setNodes,
-    setEdges,
-    setInitialized,
-  ]);
+    // setInitialized is called by onInit in SystemsCanvas for proper timing
+  }, [dashboardCharts, savedNodes, savedEdges, setNodes, setEdges]);
 
   return (
     <ReactFlowProvider>

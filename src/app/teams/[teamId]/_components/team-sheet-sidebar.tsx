@@ -17,7 +17,6 @@ import { api } from "@/trpc/react";
 import { useDeleteRole } from "../hooks/use-delete-role";
 import { useTeamStore } from "../store/team-store";
 import { RoleDialog } from "./role-dialog";
-import { type RoleNodeData } from "./role-node";
 import { TeamSheetEdgeTrigger } from "./team-sheet-edge-trigger";
 
 /**
@@ -275,16 +274,13 @@ export function TeamSheetSidebar({
     setEditDialogOpen(true);
   };
 
-  const selectedRole = teamRoles?.find((role) => role.id === selectedRoleId);
   const selectedNode = nodes.find(
     (node) => node.type === "role-node" && node.data.roleId === selectedRoleId,
   );
+  // Only roleId and nodeId needed - RoleDialog fetches data from cache
   const selectedRoleData =
-    selectedRole && selectedNode
-      ? ({
-          ...selectedNode.data,
-          nodeId: selectedNode.id,
-        } as RoleNodeData & { nodeId: string })
+    selectedRoleId && selectedNode
+      ? { roleId: selectedRoleId, nodeId: selectedNode.id }
       : null;
 
   const roleCountByUser = (teamRoles ?? []).reduce(

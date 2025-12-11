@@ -81,8 +81,10 @@ const selector = (state: TeamStore) => ({
   setIsDrawing: state.setIsDrawing,
   markDirty: state.markDirty,
   isInitialized: state.isInitialized,
+  setInitialized: state.setInitialized,
   isForceLayoutEnabled: state.isForceLayoutEnabled,
   addTextNode: state.addTextNode,
+  savedViewport: state.savedViewport,
 });
 
 const MIN_PROXIMITY_DISTANCE = 250;
@@ -163,8 +165,10 @@ export function TeamCanvas() {
     editingTextNodeId,
     isDrawing,
     markDirty,
+    setInitialized,
     isForceLayoutEnabled,
     addTextNode,
+    savedViewport,
   } = useTeamStore(useShallow(selector));
 
   const storeApi = useTeamStoreApi();
@@ -519,12 +523,14 @@ export function TeamCanvas() {
         onDrop={onChartDrop}
         onDragOver={onChartDragOver}
         onMouseMove={handleMouseMove}
+        onInit={() => setInitialized(true)}
         isValidConnection={isValidConnection}
         nodeTypes={nodeTypes}
         edgeTypes={edgeTypes}
         proOptions={proOptions}
         connectionMode={ConnectionMode.Loose}
-        fitView
+        defaultViewport={savedViewport ?? undefined}
+        fitView={!savedViewport}
         fitViewOptions={{
           maxZoom: 0.65,
           minZoom: 0.65,

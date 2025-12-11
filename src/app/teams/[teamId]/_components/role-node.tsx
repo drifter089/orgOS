@@ -12,7 +12,6 @@ import {
   User,
 } from "lucide-react";
 
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   Tooltip,
@@ -25,22 +24,21 @@ import { cn } from "@/lib/utils";
 import { useConfirmation } from "@/providers/ConfirmationDialogProvider";
 
 import { useDeleteRole } from "../hooks/use-delete-role";
+import { useRoleData, useUserName } from "../hooks/use-role-data";
 import { useTeamStore } from "../store/team-store";
 
+/**
+ * Minimal data stored in node.data - just a reference to the role.
+ * All display data comes from TanStack Query cache via useRoleData hook.
+ */
 export type RoleNodeData = {
   roleId: string;
-  title: string;
-  purpose: string;
-  accountabilities?: string;
-  metricId?: string;
-  metricName?: string;
-  metricValue?: number;
-  metricUnit?: string;
-  assignedUserId?: string | null;
-  assignedUserName?: string;
-  effortPoints?: number | null;
-  color?: string;
+  /** Only set during optimistic create, before server confirms */
   isPending?: boolean;
+  /** Temporary title during optimistic create (used until cache is populated) */
+  pendingTitle?: string;
+  /** Temporary color during optimistic create */
+  pendingColor?: string;
 };
 
 export type RoleNode = Node<RoleNodeData, "role-node">;
@@ -53,10 +51,22 @@ function RoleNodeComponent({ data, selected, id }: NodeProps<RoleNode>) {
   const { confirm } = useConfirmation();
   const deleteRoleMutation = useDeleteRole(teamId);
 
+  // Fetch role data from TanStack Query cache
+  const role = useRoleData(data.roleId);
+  const assignedUserName = useUserName(role?.assignedUserId);
+
+  // Use pending data during optimistic create, otherwise use cache
+  const isPending = data.isPending ?? false;
+  const title = role?.title ?? data.pendingTitle ?? "Untitled Role";
+  const purpose = role?.purpose ?? "";
+  const color = role?.color ?? data.pendingColor ?? "#3b82f6";
+  const metricName = role?.metric?.name;
+  const effortPoints = role?.effortPoints;
+
   const handleDelete = useCallback(async () => {
     const confirmed = await confirm({
       title: "Delete role",
-      description: `Are you sure you want to delete "${data.title}"? This will also remove it from the canvas.`,
+      description: `Are you sure you want to delete "${title}"? This will also remove it from the canvas.`,
       confirmText: "Delete",
       variant: "destructive",
     });
@@ -68,22 +78,18 @@ function RoleNodeComponent({ data, selected, id }: NodeProps<RoleNode>) {
         { onSettled: () => setIsDeleting(false) },
       );
     }
-  }, [data.roleId, data.title, deleteRoleMutation, confirm]);
+  }, [data.roleId, title, deleteRoleMutation, confirm]);
 
   const handleEdit = useCallback(() => {
     setEditingNodeId(id);
   }, [setEditingNodeId, id]);
 
-  const color = data.color ?? "#3b82f6";
-
   // Strip HTML and truncate for display
-  const plainPurpose = stripHtml(data.purpose);
+  const plainPurpose = stripHtml(purpose);
   const truncatedPurpose =
     plainPurpose.length > 100
       ? plainPurpose.substring(0, 100) + "..."
       : plainPurpose;
-
-  const isPending = data.isPending ?? false;
 
   // Double-click to edit (only if not pending)
   const handleDoubleClick = useCallback(() => {
@@ -172,7 +178,7 @@ function RoleNodeComponent({ data, selected, id }: NodeProps<RoleNode>) {
         }}
       >
         <User className="h-5 w-5" style={{ color }} />
-        <h3 className="truncate text-sm font-semibold">{data.title}</h3>
+        <h3 className="truncate text-sm font-semibold">{title}</h3>
         {isPending && (
           <div className="ml-auto flex items-center gap-1">
             <div className="bg-primary h-1.5 w-1.5 animate-pulse rounded-full" />
@@ -209,37 +215,30 @@ function RoleNodeComponent({ data, selected, id }: NodeProps<RoleNode>) {
         {/* Metric & Assigned User - at bottom */}
         <div className="mt-auto space-y-1">
           {/* Metric */}
-          {data.metricName && (
+          {metricName && (
             <div className="flex items-center gap-2 text-xs">
               <TrendingUp className="text-muted-foreground h-3 w-3 shrink-0" />
-              <span className="truncate font-medium">{data.metricName}</span>
-              {data.metricValue !== undefined && data.metricValue !== null && (
-                <Badge variant="secondary" className="shrink-0 text-xs">
-                  {data.metricValue.toFixed(1)} {data.metricUnit ?? ""}
-                </Badge>
-              )}
+              <span className="truncate font-medium">{metricName}</span>
             </div>
           )}
 
           {/* Assigned User */}
-          {data.assignedUserName && (
+          {assignedUserName && (
             <div className="flex items-center gap-2 text-xs">
               <User className="text-muted-foreground h-3 w-3 shrink-0" />
-              <span className="truncate font-medium">
-                {data.assignedUserName}
-              </span>
+              <span className="truncate font-medium">{assignedUserName}</span>
             </div>
           )}
         </div>
       </div>
 
       {/* Footer - Effort Points */}
-      {data.effortPoints && (
+      {effortPoints && (
         <div className="border-border/50 shrink-0 border-t px-4 py-1.5">
           <div className="text-muted-foreground flex items-center gap-1.5 text-xs">
             <Gauge className="h-3.5 w-3.5" />
             <span>
-              {data.effortPoints} {data.effortPoints === 1 ? "point" : "points"}
+              {effortPoints} {effortPoints === 1 ? "point" : "points"}
             </span>
           </div>
         </div>

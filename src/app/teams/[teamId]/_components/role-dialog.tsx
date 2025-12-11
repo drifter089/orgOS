@@ -39,6 +39,7 @@ import { ROLE_COLORS, markdownToHtml } from "@/lib/utils";
 import { api } from "@/trpc/react";
 
 import { useCreateRole } from "../hooks/use-create-role";
+import { useRoleData } from "../hooks/use-role-data";
 import type { SuggestedRole } from "../hooks/use-role-suggestions";
 import { useUpdateRole } from "../hooks/use-update-role";
 import { useTeamStoreApi } from "../store/team-store";
@@ -48,12 +49,21 @@ import {
   roleFormSchema,
 } from "../utils/role-schema";
 import { AIRoleSuggestions } from "./ai-role-suggestions";
-import { type RoleNodeData } from "./role-node";
 import { EFFORT_POINT_OPTIONS, ROLE_FIELD_TOOLTIPS } from "./role-tooltips";
+
+/**
+ * Props for editing an existing role.
+ * Only roleId and nodeId are needed - role data is fetched from cache.
+ */
+interface EditRoleData {
+  roleId: string;
+  nodeId: string;
+}
 
 interface RoleDialogProps {
   teamId: string;
-  roleData?: RoleNodeData & { nodeId: string };
+  /** For edit mode: pass roleId and nodeId */
+  roleData?: EditRoleData;
   trigger?: React.ReactNode;
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
@@ -75,6 +85,9 @@ export function RoleDialog({
   const isEditMode = !!roleData;
   const storeApi = useTeamStoreApi();
 
+  // Fetch role data from TanStack Query cache for edit mode
+  const role = useRoleData(roleData?.roleId ?? "");
+
   const form = useForm<RoleFormData>({
     resolver: zodResolver(roleFormSchema),
     defaultValues: {
@@ -88,46 +101,38 @@ export function RoleDialog({
     },
   });
 
-  // Reset form when roleData changes or dialog opens
+  // Reset form when dialog opens, using role data from cache
   useEffect(() => {
     if (open) {
-      form.reset(
-        roleData
-          ? {
-              title: roleData.title,
-              purpose: roleData.purpose,
-              accountabilities: roleData.accountabilities ?? "",
-              metricId: roleData.metricId ?? "",
-              assignedUserId: roleData.assignedUserId ?? null,
-              effortPoints: roleData.effortPoints ?? null,
-              color: roleData.color ?? ROLE_COLORS[0],
-            }
-          : {
-              title: "",
-              purpose: "",
-              accountabilities: "",
-              metricId: "",
-              assignedUserId: null,
-              effortPoints: null,
-              color: ROLE_COLORS[0],
-            },
-      );
+      if (isEditMode && role) {
+        form.reset({
+          title: role.title,
+          purpose: role.purpose,
+          accountabilities: role.accountabilities ?? "",
+          metricId: role.metricId ?? "",
+          assignedUserId: role.assignedUserId ?? null,
+          effortPoints: role.effortPoints ?? null,
+          color: role.color ?? ROLE_COLORS[0],
+        });
+      } else if (!isEditMode) {
+        form.reset({
+          title: "",
+          purpose: "",
+          accountabilities: "",
+          metricId: "",
+          assignedUserId: null,
+          effortPoints: null,
+          color: ROLE_COLORS[0],
+        });
+      }
     }
-  }, [open, roleData, form]);
+  }, [open, isEditMode, role, form]);
 
   // Fetch metrics and members for dropdowns
   const { data: metrics = [] } = api.metric.getByTeamId.useQuery({ teamId });
   const { data: members = [] } = api.organization.getMembers.useQuery();
 
-  // Shared callbacks for hooks
-  const getMetric = useCallback(
-    (metricId: string) => metrics.find((m) => m.id === metricId),
-    [metrics],
-  );
-  const getMember = useCallback(
-    (userId: string) => members.find((m) => m.id === userId),
-    [members],
-  );
+  // Callbacks for hooks
   const onBeforeMutate = useCallback(() => {
     setOpen(false);
     form.reset();
@@ -140,15 +145,11 @@ export function RoleDialog({
       const reactFlowInstance = storeApi.getState().reactFlowInstance;
       return { position: getViewportCenter(reactFlowInstance) };
     }, [storeApi]),
-    getMetric,
-    getMember,
     onBeforeMutate,
   });
 
   const updateRole = useUpdateRole({
     teamId,
-    getMetric,
-    getMember,
     onBeforeMutate,
   });
 
@@ -188,15 +189,19 @@ export function RoleDialog({
 
   const isPending = createRole.isPending || updateRole.isPending;
 
-  const handleSelectSuggestedRole = (role: SuggestedRole) => {
-    form.setValue("title", role.title, { shouldDirty: true });
-    form.setValue("purpose", markdownToHtml(role.purpose), {
+  const handleSelectSuggestedRole = (suggestedRole: SuggestedRole) => {
+    form.setValue("title", suggestedRole.title, { shouldDirty: true });
+    form.setValue("purpose", markdownToHtml(suggestedRole.purpose), {
       shouldDirty: true,
     });
-    form.setValue("accountabilities", markdownToHtml(role.accountabilities), {
-      shouldDirty: true,
-    });
-    form.setValue("color", role.color, { shouldDirty: true });
+    form.setValue(
+      "accountabilities",
+      markdownToHtml(suggestedRole.accountabilities),
+      {
+        shouldDirty: true,
+      },
+    );
+    form.setValue("color", suggestedRole.color, { shouldDirty: true });
   };
 
   const watchedTitle = form.watch("title");
