@@ -1,7 +1,10 @@
 import { z } from "zod";
 
 import { systemsStoredNodeSchema } from "@/app/systems/schemas/canvas";
-import { storedEdgeSchema, viewportSchema } from "@/lib/canvas";
+import {
+  storedEdgeSchema,
+  viewportSchema,
+} from "@/lib/canvas/schemas/stored-data";
 import { createTRPCRouter, workspaceProcedure } from "@/server/api/trpc";
 import {
   cacheStrategy,

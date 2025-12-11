@@ -2,7 +2,10 @@ import { randomUUID } from "crypto";
 import { z } from "zod";
 
 import { teamStoredNodeSchema } from "@/app/teams/[teamId]/schemas/canvas";
-import { storedEdgeSchema, viewportSchema } from "@/lib/canvas";
+import {
+  storedEdgeSchema,
+  viewportSchema,
+} from "@/lib/canvas/schemas/stored-data";
 import { createTRPCRouter, workspaceProcedure } from "@/server/api/trpc";
 import { getTeamAndVerifyAccess } from "@/server/api/utils/authorization";
 import {
