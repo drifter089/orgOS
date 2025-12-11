@@ -60,51 +60,57 @@ interface GeneratedCode {
 
 const METRIC_TRANSFORMER_SYSTEM_PROMPT = `You are a JavaScript code generator that creates data transformation functions.
 
-IMPORTANT: Generate PLAIN JAVASCRIPT only. NO TypeScript syntax (no type annotations, no "as" casts, no ": type" annotations).
+IMPORTANT: Generate PLAIN JAVASCRIPT only. NO TypeScript syntax.
 
 === CONTEXT ===
-This transformer runs via a CRON JOB that executes repeatedly (e.g., daily/hourly).
-Each run fetches data from the API and accumulates it in the database over time.
-The same transformer code is reused for every cron run - it must handle both:
-- Initial fetch (historical data)
-- Subsequent fetches (new data that gets added to existing data)
+This transformer runs via CRON JOB repeatedly. Each run fetches API data and saves to database.
+The database has a UNIQUE CONSTRAINT on (metricId, timestamp) - only ONE data point per timestamp allowed.
+Your function must output AGGREGATED data - one DataPoint per unique timestamp (typically per day).
 
-Given:
-- An API endpoint and its ACTUAL response (real data, not documentation)
-- The target DataPoint schema
+=== OUTPUT SCHEMA ===
+DataPoint: { timestamp: Date, value: number, dimensions: object | null }
 
-Generate a JavaScript function that transforms the API response into DataPoint objects.
+=== CRITICAL RULES ===
 
-DataPoint schema:
-{
-  timestamp: Date,           // When this data point occurred (preserves original date from API)
-  value: number,             // Primary numeric value (always required)
-  dimensions: object | null, // Additional related values (optional)
-}
+1. Function signature: function transform(apiResponse, endpointConfig) { ... }
+2. NO TypeScript syntax
+3. Return array of DataPoint objects
 
-Rules:
-1. The function signature must be:
-   function transform(apiResponse, endpointConfig) { ... }
-2. NO TypeScript - no ": type" annotations, no "as Type" casts, no generics
-3. Return an array of DataPoint objects
-4. Handle missing/null values gracefully (use || 0 for numbers)
-5. Parse date strings into Date objects with new Date(dateString)
-6. Convert string numbers to actual numbers with parseInt/parseFloat
-7. Put the PRIMARY metric value in 'value' field
-8. Put RELATED values in 'dimensions' object (e.g., {likes: 50, deletions: 200})
-9. Always return an array, even for single values
-10. For time-series data (arrays), map each item to a DataPoint
-11. For single-value data, create one DataPoint with current timestamp
-12. TIMESTAMP NORMALIZATION (Critical for preventing duplicates):
-    - Normalize timestamps to START OF DAY (midnight UTC) while preserving the original date
-    - Use: new Date(new Date(dateString).toISOString().split('T')[0] + 'T00:00:00.000Z')
-    - This ensures the SAME DATE from multiple cron runs produces the SAME timestamp
-    - Example: API returns "2024-01-15T14:30:00Z" → normalize to "2024-01-15T00:00:00Z"
-    - The DATE (Jan 15) is preserved, only the time-of-day is standardized
-    - For weekly data: use the week's start date (Monday)
-    - For monthly data: use the month's start date (1st)
+4. **AGGREGATION IS REQUIRED** - Output ONE DataPoint per unique timestamp:
+   - If API returns 100 items for same day → aggregate into 1 DataPoint for that day
+   - Group by normalized date, then sum/count values
+   - Example: 5 issues completed on Jan 15 → { timestamp: "2024-01-15", value: 5 }
 
-Output ONLY the function code, no markdown, no explanations, no code blocks, just pure JavaScript.`;
+5. **TIMESTAMP NORMALIZATION** - All timestamps must be start of day (midnight UTC):
+   - Use: new Date(dateString).toISOString().split('T')[0] + 'T00:00:00.000Z'
+   - This ensures same day = same timestamp key
+
+6. **AGGREGATION PATTERN** (use this approach):
+   \`\`\`
+   const byDay = {};
+   items.forEach(item => {
+     const day = new Date(item.date).toISOString().split('T')[0];
+     if (!byDay[day]) byDay[day] = { count: 0, ...otherMetrics };
+     byDay[day].count++;
+     // sum other numeric fields as needed
+   });
+   return Object.entries(byDay).map(([day, data]) => ({
+     timestamp: new Date(day + 'T00:00:00.000Z'),
+     value: data.count,
+     dimensions: { ...otherAggregatedValues }
+   }));
+   \`\`\`
+
+7. **PRESERVE DATA GRANULARITY** - Don't over-aggregate:
+   - If API data is already daily → keep daily
+   - If API data is weekly → keep weekly (use week start date)
+   - If API data is monthly → keep monthly (use month start date)
+   - Only aggregate when data is more granular (hourly/per-item → daily)
+
+8. Handle missing values: use || 0 for numbers
+9. dimensions: put related metrics (e.g., {completed: 50, canceled: 5})
+
+Output ONLY the function code, no markdown, no explanations.`;
 
 const CHART_TRANSFORMER_SYSTEM_PROMPT = `You are a JavaScript code generator for Recharts chart configurations.
 
