@@ -204,3 +204,33 @@ export async function getIntegrationAndVerifyAccess(
   );
   return integration;
 }
+
+/**
+ * Get DashboardChart and verify organization ownership.
+ * Throws TRPC errors if not found or access denied.
+ */
+export async function getDashboardChartAndVerifyAccess(
+  database: DB,
+  dashboardChartId: string,
+  organizationId: string,
+) {
+  const dashboardChart = await database.dashboardChart.findUnique({
+    where: { id: dashboardChartId },
+  });
+
+  if (!dashboardChart) {
+    throw new TRPCError({
+      code: "NOT_FOUND",
+      message: "DashboardChart not found",
+    });
+  }
+
+  if (dashboardChart.organizationId !== organizationId) {
+    throw new TRPCError({
+      code: "FORBIDDEN",
+      message: "You do not have access to this dashboard chart",
+    });
+  }
+
+  return dashboardChart;
+}

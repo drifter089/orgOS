@@ -141,7 +141,7 @@ export const templates: MetricTemplate[] = [
     method: "POST",
     requestBody: graphqlBody(
       `
-      query ProjectIssues($projectId: ID!) {
+      query ProjectIssues($projectId: String!) {
         project(id: $projectId) {
           id
           name
@@ -220,7 +220,7 @@ export const templates: MetricTemplate[] = [
     method: "POST",
     requestBody: graphqlBody(
       `
-      query TeamIssues($teamId: ID!) {
+      query TeamIssues($teamId: String!) {
         team(id: $teamId) {
           id
           name

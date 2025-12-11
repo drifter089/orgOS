@@ -82,8 +82,13 @@ export async function ingestMetricData(
     return { success: false, error: `Failed to fetch data: ${errorMsg}` };
   }
 
+  // GSheets needs per-metric transformers since each user has different spreadsheet structure
+  const cacheKey = input.templateId.startsWith("gsheets-")
+    ? `${input.templateId}:${input.metricId}`
+    : input.templateId;
+
   const { transformer, isNew } = await getOrCreateDataIngestionTransformer(
-    input.templateId,
+    cacheKey,
     input.integrationId,
     template,
     apiData,
@@ -273,13 +278,18 @@ export async function refreshMetricDataPoints(input: {
     return { success: false, error: `Template not found: ${input.templateId}` };
   }
 
+  // GSheets needs per-metric transformers
+  const cacheKey = input.templateId.startsWith("gsheets-")
+    ? `${input.templateId}:${input.metricId}`
+    : input.templateId;
+
   const transformer = await db.dataIngestionTransformer.findUnique({
-    where: { templateId: input.templateId },
+    where: { templateId: cacheKey },
   });
   if (!transformer) {
     return {
       success: false,
-      error: `No transformer for template: ${input.templateId}`,
+      error: `No transformer for template: ${cacheKey}`,
     };
   }
 

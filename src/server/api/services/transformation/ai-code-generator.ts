@@ -10,6 +10,8 @@ import { generateText } from "ai";
 
 import { env } from "@/env";
 
+import { cleanGeneratedCode } from "./utils";
+
 // =============================================================================
 // Types
 // =============================================================================
@@ -116,7 +118,7 @@ ChartConfig schema:
 Rules:
 1. Function signature: function transform(dataPoints, preferences) { ... }
 2. NO TypeScript - no ": type" annotations, no "as Type" casts, no generics
-3. Apply dateRange filter (7d, 30d, 90d, all)
+3. Apply dateRange filter ONLY if not "all" (7d, 30d, 90d filter from now; "all" = use ALL data without filtering)
 4. Apply aggregation if specified (sum, avg, max per day/week/month)
 5. Sort chronologically for time-series charts
 6. Use var(--chart-1) through var(--chart-12) for colors
@@ -168,27 +170,8 @@ Generate the JavaScript transform function.`;
     temperature: 0.1,
   });
 
-  // Clean the code - remove markdown code blocks if present
-  let code = result.text.trim();
-
-  if (code.startsWith("```typescript")) {
-    code = code.slice("```typescript".length);
-  } else if (code.startsWith("```ts")) {
-    code = code.slice("```ts".length);
-  } else if (code.startsWith("```javascript")) {
-    code = code.slice("```javascript".length);
-  } else if (code.startsWith("```js")) {
-    code = code.slice("```js".length);
-  } else if (code.startsWith("```")) {
-    code = code.slice(3);
-  }
-  if (code.endsWith("```")) {
-    code = code.slice(0, -3);
-  }
-  code = code.trim();
-
   return {
-    code,
+    code: cleanGeneratedCode(result.text),
     reasoning: `Generated transformer for ${input.templateId} based on actual API response structure.`,
   };
 }
@@ -232,27 +215,8 @@ Metric description: ${input.metricDescription}`;
     temperature: 0.1,
   });
 
-  // Clean the code
-  let code = result.text.trim();
-
-  if (code.startsWith("```typescript")) {
-    code = code.slice("```typescript".length);
-  } else if (code.startsWith("```ts")) {
-    code = code.slice("```ts".length);
-  } else if (code.startsWith("```javascript")) {
-    code = code.slice("```javascript".length);
-  } else if (code.startsWith("```js")) {
-    code = code.slice("```js".length);
-  } else if (code.startsWith("```")) {
-    code = code.slice(3);
-  }
-  if (code.endsWith("```")) {
-    code = code.slice(0, -3);
-  }
-  code = code.trim();
-
   return {
-    code,
+    code: cleanGeneratedCode(result.text),
     reasoning: input.userPrompt
       ? `Generated chart transformer based on user request: "${input.userPrompt}"`
       : `Generated ${input.chartType} chart transformer for ${input.metricName}.`,
@@ -301,27 +265,8 @@ ${input.error}`;
     temperature: 0.2,
   });
 
-  // Clean the code
-  let code = result.text.trim();
-
-  if (code.startsWith("```typescript")) {
-    code = code.slice("```typescript".length);
-  } else if (code.startsWith("```ts")) {
-    code = code.slice("```ts".length);
-  } else if (code.startsWith("```javascript")) {
-    code = code.slice("```javascript".length);
-  } else if (code.startsWith("```js")) {
-    code = code.slice("```js".length);
-  } else if (code.startsWith("```")) {
-    code = code.slice(3);
-  }
-  if (code.endsWith("```")) {
-    code = code.slice(0, -3);
-  }
-  code = code.trim();
-
   return {
-    code,
+    code: cleanGeneratedCode(result.text),
     reasoning: `Regenerated transformer for ${input.templateId} after failure.`,
   };
 }

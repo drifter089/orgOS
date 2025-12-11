@@ -79,11 +79,15 @@ export async function createChartTransformer(
     userPrompt: input.userPrompt,
   });
 
-  const testResult = await testChartTransformer(generated.code, sampleDataPoints, {
-    chartType: input.chartType,
-    dateRange: input.dateRange,
-    aggregation: input.aggregation,
-  });
+  const testResult = await testChartTransformer(
+    generated.code,
+    sampleDataPoints,
+    {
+      chartType: input.chartType,
+      dateRange: input.dateRange,
+      aggregation: input.aggregation,
+    },
+  );
   if (!testResult.success) {
     throw new TRPCError({
       code: "INTERNAL_SERVER_ERROR",
@@ -166,7 +170,7 @@ export async function executeChartTransformerForDashboardChart(
     dataPoints,
     {
       chartType: transformer.chartType,
-      dateRange: transformer.dateRange ?? "30d",
+      dateRange: transformer.dateRange ?? "all",
       aggregation: transformer.aggregation ?? "none",
     },
   );
@@ -212,7 +216,7 @@ export async function regenerateChartTransformer(input: {
 
   const currentTransformer = dashboardChart.chartTransformer;
   const chartType = input.chartType ?? currentTransformer?.chartType ?? "line";
-  const dateRange = input.dateRange ?? currentTransformer?.dateRange ?? "30d";
+  const dateRange = input.dateRange ?? currentTransformer?.dateRange ?? "all";
   const aggregation =
     input.aggregation ?? currentTransformer?.aggregation ?? "none";
 
@@ -232,11 +236,15 @@ export async function regenerateChartTransformer(input: {
     userPrompt: input.userPrompt,
   });
 
-  const testResult = await testChartTransformer(generated.code, sampleDataPoints, {
-    chartType,
-    dateRange,
-    aggregation,
-  });
+  const testResult = await testChartTransformer(
+    generated.code,
+    sampleDataPoints,
+    {
+      chartType,
+      dateRange,
+      aggregation,
+    },
+  );
   if (!testResult.success) {
     return {
       success: false,

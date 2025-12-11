@@ -17,6 +17,7 @@ import {
   regenerateChartTransformer,
 } from "@/server/api/services/transformation";
 import { createTRPCRouter, workspaceProcedure } from "@/server/api/trpc";
+import { getDashboardChartAndVerifyAccess } from "@/server/api/utils/authorization";
 import { db } from "@/server/db";
 
 export const transformerRouter = createTRPCRouter({
@@ -99,36 +100,34 @@ export const transformerRouter = createTRPCRouter({
       z.object({
         dashboardChartId: z.string(),
         chartType: z.string().default("line"),
-        dateRange: z.string().default("30d"),
+        dateRange: z.string().default("all"),
         aggregation: z.string().default("none"),
         userPrompt: z.string().optional(),
       }),
     )
     .mutation(async ({ ctx, input }) => {
-      const dashboardChart = await db.dashboardChart.findUnique({
-        where: { id: input.dashboardChartId },
-        include: { metric: true },
+      const dashboardChart = await getDashboardChartAndVerifyAccess(
+        db,
+        input.dashboardChartId,
+        ctx.workspace.organizationId,
+      );
+
+      // Fetch metric for chart creation
+      const metric = await db.metric.findUnique({
+        where: { id: dashboardChart.metricId },
       });
 
-      if (!dashboardChart) {
+      if (!metric) {
         throw new TRPCError({
           code: "NOT_FOUND",
-          message: "DashboardChart not found",
-        });
-      }
-
-      // Verify organization ownership
-      if (dashboardChart.organizationId !== ctx.workspace.organizationId) {
-        throw new TRPCError({
-          code: "FORBIDDEN",
-          message: "You do not have access to this dashboard chart",
+          message: "Metric not found",
         });
       }
 
       return createChartTransformer({
         dashboardChartId: input.dashboardChartId,
-        metricName: dashboardChart.metric.name,
-        metricDescription: dashboardChart.metric.description ?? "",
+        metricName: metric.name,
+        metricDescription: metric.description ?? "",
         chartType: input.chartType,
         dateRange: input.dateRange,
         aggregation: input.aggregation,
@@ -142,24 +141,11 @@ export const transformerRouter = createTRPCRouter({
   getChartTransformer: workspaceProcedure
     .input(z.object({ dashboardChartId: z.string() }))
     .query(async ({ ctx, input }) => {
-      // Verify organization ownership via dashboardChart
-      const dashboardChart = await db.dashboardChart.findUnique({
-        where: { id: input.dashboardChartId },
-      });
-
-      if (!dashboardChart) {
-        throw new TRPCError({
-          code: "NOT_FOUND",
-          message: "DashboardChart not found",
-        });
-      }
-
-      if (dashboardChart.organizationId !== ctx.workspace.organizationId) {
-        throw new TRPCError({
-          code: "FORBIDDEN",
-          message: "You do not have access to this dashboard chart",
-        });
-      }
+      await getDashboardChartAndVerifyAccess(
+        db,
+        input.dashboardChartId,
+        ctx.workspace.organizationId,
+      );
 
       return getChartTransformerByDashboardChartId(input.dashboardChartId);
     }),
@@ -170,24 +156,11 @@ export const transformerRouter = createTRPCRouter({
   executeChartTransformer: workspaceProcedure
     .input(z.object({ dashboardChartId: z.string() }))
     .mutation(async ({ ctx, input }) => {
-      // Verify organization ownership
-      const dashboardChart = await db.dashboardChart.findUnique({
-        where: { id: input.dashboardChartId },
-      });
-
-      if (!dashboardChart) {
-        throw new TRPCError({
-          code: "NOT_FOUND",
-          message: "DashboardChart not found",
-        });
-      }
-
-      if (dashboardChart.organizationId !== ctx.workspace.organizationId) {
-        throw new TRPCError({
-          code: "FORBIDDEN",
-          message: "You do not have access to this dashboard chart",
-        });
-      }
+      await getDashboardChartAndVerifyAccess(
+        db,
+        input.dashboardChartId,
+        ctx.workspace.organizationId,
+      );
 
       return executeChartTransformerForDashboardChart(input.dashboardChartId);
     }),
@@ -206,24 +179,11 @@ export const transformerRouter = createTRPCRouter({
       }),
     )
     .mutation(async ({ ctx, input }) => {
-      // Verify organization ownership
-      const dashboardChart = await db.dashboardChart.findUnique({
-        where: { id: input.dashboardChartId },
-      });
-
-      if (!dashboardChart) {
-        throw new TRPCError({
-          code: "NOT_FOUND",
-          message: "DashboardChart not found",
-        });
-      }
-
-      if (dashboardChart.organizationId !== ctx.workspace.organizationId) {
-        throw new TRPCError({
-          code: "FORBIDDEN",
-          message: "You do not have access to this dashboard chart",
-        });
-      }
+      await getDashboardChartAndVerifyAccess(
+        db,
+        input.dashboardChartId,
+        ctx.workspace.organizationId,
+      );
 
       return regenerateChartTransformer(input);
     }),
@@ -246,6 +206,66 @@ export const transformerRouter = createTRPCRouter({
       orderBy: { updatedAt: "desc" },
     });
   }),
+
+  // ===========================================================================
+  // Dev/Debug Procedures
+  // ===========================================================================
+
+  /**
+   * Delete a DataIngestionTransformer to force regeneration
+   * Used for debugging - next metric refresh will regenerate the transformer
+   */
+  deleteDataIngestionTransformer: workspaceProcedure
+    .input(z.object({ templateId: z.string() }))
+    .mutation(async ({ input }) => {
+      const existing = await db.dataIngestionTransformer.findUnique({
+        where: { templateId: input.templateId },
+      });
+
+      if (!existing) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "DataIngestionTransformer not found",
+        });
+      }
+
+      await db.dataIngestionTransformer.delete({
+        where: { templateId: input.templateId },
+      });
+
+      return { success: true, deletedId: existing.id };
+    }),
+
+  /**
+   * Delete a ChartTransformer to force regeneration
+   * Used for debugging - next chart refresh will regenerate the transformer
+   */
+  deleteChartTransformer: workspaceProcedure
+    .input(z.object({ dashboardChartId: z.string() }))
+    .mutation(async ({ ctx, input }) => {
+      await getDashboardChartAndVerifyAccess(
+        db,
+        input.dashboardChartId,
+        ctx.workspace.organizationId,
+      );
+
+      const existing = await db.chartTransformer.findUnique({
+        where: { dashboardChartId: input.dashboardChartId },
+      });
+
+      if (!existing) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "ChartTransformer not found",
+        });
+      }
+
+      await db.chartTransformer.delete({
+        where: { dashboardChartId: input.dashboardChartId },
+      });
+
+      return { success: true, deletedId: existing.id };
+    }),
 
   // ===========================================================================
   // DataPoint Procedures

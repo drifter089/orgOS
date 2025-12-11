@@ -38,3 +38,6 @@ export {
   regenerateChartTransformer,
   getChartTransformerByDashboardChartId,
 } from "./chart-generator";
+
+// Utils
+export { cleanGeneratedCode } from "./utils";
