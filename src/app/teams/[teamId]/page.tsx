@@ -4,7 +4,7 @@ import { notFound } from "next/navigation";
 import { Lock } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
-import { api } from "@/trpc/server";
+import { HydrateClient, api } from "@/trpc/server";
 
 import { DashboardSidebarWithDragDrop } from "./_components/dashboard-sidebar-with-drag-drop";
 import { TeamCanvasWrapper } from "./_components/team-canvas-wrapper";
@@ -61,6 +61,7 @@ export default async function TeamPage({
   }
 
   // Fetch additional data only when user can edit
+  // Prefetch role.getByTeam so useRoleData has instant data (hydrated to client cache)
   const [members, integrations, dashboardCharts] = await Promise.all([
     api.organization.getMembers().catch(() => []),
     api.integration.listWithStats().catch(() => ({
@@ -68,6 +69,8 @@ export default async function TeamPage({
       stats: { total: 0, active: 0, byProvider: {} },
     })),
     api.dashboard.getDashboardCharts({ teamId }).catch(() => []),
+    api.role.getByTeam.prefetch({ teamId }),
+    api.organization.getMembers.prefetch(),
   ]);
 
   const userNameMap = new Map<string, string>();
@@ -104,33 +107,35 @@ export default async function TeamPage({
   } | null;
 
   return (
-    <TeamStoreProvider teamId={team.id} teamName={team.name}>
-      <ChartDragProvider>
-        <div className="flex h-screen w-full overflow-hidden">
-          <DashboardSidebarWithDragDrop
-            teamId={team.id}
-            initialIntegrations={integrations}
-          />
-
-          <div className="relative h-full w-full flex-1 overflow-hidden">
-            <TeamCanvasWrapper
-              initialNodes={nodes}
-              initialEdges={edges}
-              initialViewport={initialViewport}
+    <HydrateClient>
+      <TeamStoreProvider teamId={team.id} teamName={team.name}>
+        <ChartDragProvider>
+          <div className="flex h-screen w-full overflow-hidden">
+            <DashboardSidebarWithDragDrop
               teamId={team.id}
-              shareToken={team.shareToken}
-              isPubliclyShared={team.isPubliclyShared}
+              initialIntegrations={integrations}
+            />
+
+            <div className="relative h-full w-full flex-1 overflow-hidden">
+              <TeamCanvasWrapper
+                initialNodes={nodes}
+                initialEdges={edges}
+                initialViewport={initialViewport}
+                teamId={team.id}
+                shareToken={team.shareToken}
+                isPubliclyShared={team.isPubliclyShared}
+              />
+            </div>
+
+            <TeamSheetSidebar
+              teamId={team.id}
+              teamName={team.name}
+              teamDescription={team.description}
+              roleCount={team.roles.length}
             />
           </div>
-
-          <TeamSheetSidebar
-            teamId={team.id}
-            teamName={team.name}
-            teamDescription={team.description}
-            roleCount={team.roles.length}
-          />
-        </div>
-      </ChartDragProvider>
-    </TeamStoreProvider>
+        </ChartDragProvider>
+      </TeamStoreProvider>
+    </HydrateClient>
   );
 }
