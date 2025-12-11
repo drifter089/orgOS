@@ -55,12 +55,29 @@ model Team {
 
     roles          Role[]
     metrics        Metric[]
+    editSession    EditSession?
 
     createdAt      DateTime @default(now())
     updatedAt      DateTime @updatedAt
 
     @@index([organizationId])
     @@index([createdBy])
+}
+
+// Edit session for multi-user blocking
+// Tracks which user is currently editing a team canvas
+model EditSession {
+    id        String   @id @default(cuid())
+    teamId    String   @unique // One active session per team
+    userId    String            // WorkOS user ID
+    userName  String?           // Display name for UI
+    startedAt DateTime @default(now())
+    lastSeen  DateTime @updatedAt // Updated by heartbeat
+
+    team      Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
+
+    @@index([teamId])
+    @@index([userId])
 }
 
 model Role {

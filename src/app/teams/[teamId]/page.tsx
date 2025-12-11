@@ -17,7 +17,14 @@ export default async function TeamPage({
 }) {
   const { teamId } = await params;
 
-  const [team, members, integrations, dashboardCharts] = await Promise.all([
+  const [
+    team,
+    members,
+    integrations,
+    dashboardCharts,
+    editSession,
+    currentOrg,
+  ] = await Promise.all([
     api.team.getById({ id: teamId }).catch(() => null),
     api.organization.getMembers().catch(() => []),
     api.integration.listWithStats().catch(() => ({
@@ -25,11 +32,22 @@ export default async function TeamPage({
       stats: { total: 0, active: 0, byProvider: {} },
     })),
     api.dashboard.getDashboardCharts({ teamId }).catch(() => []),
+    api.editSession
+      .check({ teamId })
+      .catch(() => ({ canEdit: true, editingUserName: null })),
+    api.organization.getCurrent().catch(() => null),
   ]);
 
   if (!team) {
     notFound();
   }
+
+  // Get current user's display name
+  const currentUserName = currentOrg?.currentUser
+    ? currentOrg.currentUser.firstName && currentOrg.currentUser.lastName
+      ? `${currentOrg.currentUser.firstName} ${currentOrg.currentUser.lastName}`
+      : (currentOrg.currentUser.firstName ?? currentOrg.currentUser.email)
+    : undefined;
 
   const userNameMap = new Map<string, string>();
   for (const member of members) {
@@ -75,6 +93,9 @@ export default async function TeamPage({
               teamId={team.id}
               shareToken={team.shareToken}
               isPubliclyShared={team.isPubliclyShared}
+              isReadOnly={!editSession.canEdit}
+              editingUserName={editSession.editingUserName}
+              currentUserName={currentUserName}
             />
           </div>
 

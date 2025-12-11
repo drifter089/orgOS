@@ -14,8 +14,10 @@ const AUTO_SAVE_DELAY = 2000; // 2 seconds
 /**
  * Auto-save hook that debounces saves when the canvas state changes.
  * Includes beforeunload warning and flush-on-unmount to prevent data loss.
+ *
+ * @param isReadOnly - When true, disables all save operations (for multi-user blocking)
  */
-export function useAutoSave() {
+export function useAutoSave(isReadOnly = false) {
   const storeApi = useTeamStoreApi();
   const teamId = useTeamStore((state) => state.teamId);
   const utils = api.useUtils();
@@ -101,6 +103,9 @@ export function useAutoSave() {
 
   // Warn user before leaving if there are unsaved changes
   useEffect(() => {
+    // Skip in read-only mode
+    if (isReadOnly) return;
+
     const handleBeforeUnload = (e: BeforeUnloadEvent) => {
       const { isDirty: currentDirty, isSaving } = storeApi.getState();
       if (currentDirty || isSaving) {
@@ -114,12 +119,17 @@ export function useAutoSave() {
 
     window.addEventListener("beforeunload", handleBeforeUnload);
     return () => window.removeEventListener("beforeunload", handleBeforeUnload);
-  }, [storeApi, flushSave]);
+  }, [storeApi, flushSave, isReadOnly]);
 
   useEffect(() => {
     // Clear existing timeout
     if (saveTimeoutRef.current) {
       clearTimeout(saveTimeoutRef.current);
+    }
+
+    // Don't save if read-only (another user is editing)
+    if (isReadOnly) {
+      return;
     }
 
     // Don't save if not dirty or already saving
@@ -156,6 +166,7 @@ export function useAutoSave() {
     };
   }, [
     isDirty,
+    isReadOnly,
     nodes,
     edges,
     teamId,
