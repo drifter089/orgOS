@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { storedPositionSchema } from "@/lib/canvas";
+import { storedPositionSchema } from "@/lib/canvas/schemas/stored-data";
 
 const textNodeFontSizeSchema = z.enum(["small", "medium", "large"]);
 
