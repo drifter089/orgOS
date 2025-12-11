@@ -71,6 +71,12 @@ export const editSessionRouter = createTRPCRouter({
   heartbeat: workspaceProcedure
     .input(z.object({ teamId: z.string() }))
     .mutation(async ({ ctx, input }) => {
+      await getTeamAndVerifyAccess(
+        ctx.db,
+        input.teamId,
+        ctx.user.id,
+        ctx.workspace,
+      );
       await ctx.db.editSession.updateMany({
         where: { teamId: input.teamId, userId: ctx.user.id },
         data: { lastSeen: new Date() },
@@ -81,6 +87,12 @@ export const editSessionRouter = createTRPCRouter({
   release: workspaceProcedure
     .input(z.object({ teamId: z.string() }))
     .mutation(async ({ ctx, input }) => {
+      await getTeamAndVerifyAccess(
+        ctx.db,
+        input.teamId,
+        ctx.user.id,
+        ctx.workspace,
+      );
       await ctx.db.editSession.deleteMany({
         where: { teamId: input.teamId, userId: ctx.user.id },
       });
