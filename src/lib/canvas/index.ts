@@ -14,8 +14,24 @@
 export * from "./types/serialization";
 export * from "./store/types";
 
+// Schemas (Zod validation)
+export {
+  storedPositionSchema,
+  storedEdgeSchema,
+  storedNodeBaseSchema,
+  viewportSchema,
+  type StoredPosition,
+  type Viewport,
+} from "./schemas/stored-data";
+
 // Store
 export * from "./store/create-canvas-store";
+export {
+  createTextNodeSlice,
+  type TextNodeSlice,
+  type TextNodeSliceState,
+  type TextNodeSliceActions,
+} from "./store/text-node-slice";
 
 // Hooks
 export * from "./hooks/use-auto-save";
@@ -23,6 +39,8 @@ export * from "./hooks/use-force-layout";
 
 // Components
 export * from "./components/save-status";
+export * from "./components/text-node";
+export * from "./components/canvas-controls";
 
 // Edges
 export * from "./edges/edge-action-buttons";

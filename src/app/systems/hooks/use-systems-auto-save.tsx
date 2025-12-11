@@ -1,25 +1,29 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef } from "react";
 
 import { toast } from "sonner";
 
+import { useCanvasAutoSave } from "@/lib/canvas";
 import { api } from "@/trpc/react";
 
-import { useSystemsStore } from "../store/systems-store";
+import { useSystemsStore, useSystemsStoreApi } from "../store/systems-store";
 import { serializeEdges, serializeNodes } from "../utils/canvas-serialization";
 
-const AUTO_SAVE_DELAY = 2000;
-
+/**
+ * Auto-save hook for systems canvas with debounced saves.
+ * Includes beforeunload warning to prevent data loss.
+ */
 export function useSystemsAutoSave() {
+  const storeApi = useSystemsStoreApi();
   const nodes = useSystemsStore((state) => state.nodes);
   const edges = useSystemsStore((state) => state.edges);
   const isDirty = useSystemsStore((state) => state.isDirty);
   const markClean = useSystemsStore((state) => state.markClean);
   const setSaving = useSystemsStore((state) => state.setSaving);
   const setLastSaved = useSystemsStore((state) => state.setLastSaved);
+  const lastSaved = useSystemsStore((state) => state.lastSaved);
 
-  const saveTimeoutRef = useRef<NodeJS.Timeout | undefined>(undefined);
   const pendingSnapshotRef = useRef<{
     nodes: ReturnType<typeof serializeNodes>;
     edges: ReturnType<typeof serializeEdges>;
@@ -56,41 +60,74 @@ export function useSystemsAutoSave() {
     },
   });
 
+  // Use shared auto-save hook for core save logic
+  const { isSaving } = useCanvasAutoSave({
+    nodes,
+    edges,
+    isDirty,
+    markClean,
+    setSaving,
+    setLastSaved,
+    serializeNodes,
+    serializeEdges,
+    mutation: {
+      mutate: (data) => {
+        pendingSnapshotRef.current = {
+          nodes: data.reactFlowNodes,
+          edges: data.reactFlowEdges,
+        };
+        updateCanvas.mutate({
+          reactFlowNodes: data.reactFlowNodes,
+          reactFlowEdges: data.reactFlowEdges,
+        });
+      },
+      isPending: updateCanvas.isPending,
+    },
+  });
+
+  // Flush save immediately (for beforeunload)
+  const flushSave = useCallback(() => {
+    const {
+      isDirty: currentDirty,
+      nodes: currentNodes,
+      edges: currentEdges,
+    } = storeApi.getState();
+
+    if (!currentDirty) return;
+
+    // Use sendBeacon for reliable save during page unload
+    const serializedNodes = serializeNodes(currentNodes);
+    const serializedEdges = serializeEdges(currentEdges);
+
+    const payload = JSON.stringify({
+      reactFlowNodes: serializedNodes,
+      reactFlowEdges: serializedEdges,
+    });
+
+    // Use sendBeacon for reliable save during unload
+    if (typeof navigator !== "undefined" && navigator.sendBeacon) {
+      navigator.sendBeacon("/api/systems-canvas-save", payload);
+    }
+  }, [storeApi]);
+
+  // Warn user before leaving if there are unsaved changes
   useEffect(() => {
-    if (saveTimeoutRef.current) {
-      clearTimeout(saveTimeoutRef.current);
-    }
-
-    if (!isDirty || updateCanvas.isPending) {
-      return;
-    }
-
-    saveTimeoutRef.current = setTimeout(() => {
-      setSaving(true);
-
-      const serializedNodes = serializeNodes(nodes);
-      const serializedEdges = serializeEdges(edges);
-
-      pendingSnapshotRef.current = {
-        nodes: serializedNodes,
-        edges: serializedEdges,
-      };
-
-      updateCanvas.mutate({
-        reactFlowNodes: serializedNodes,
-        reactFlowEdges: serializedEdges,
-      });
-    }, AUTO_SAVE_DELAY);
-
-    return () => {
-      if (saveTimeoutRef.current) {
-        clearTimeout(saveTimeoutRef.current);
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      const { isDirty: currentDirty, isSaving: currentSaving } =
+        storeApi.getState();
+      if (currentDirty || currentSaving) {
+        flushSave();
+        e.preventDefault();
+        return "";
       }
     };
-  }, [isDirty, nodes, edges, updateCanvas, setSaving, markClean, setLastSaved]);
+
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+  }, [storeApi, flushSave]);
 
   return {
-    isSaving: updateCanvas.isPending,
-    lastSaved: useSystemsStore((state) => state.lastSaved),
+    isSaving,
+    lastSaved,
   };
 }

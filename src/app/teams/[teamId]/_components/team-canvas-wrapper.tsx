@@ -15,6 +15,7 @@ import { TeamCanvas } from "./team-canvas";
 interface TeamCanvasWrapperProps {
   initialNodes: TeamNode[];
   initialEdges: StoredEdge[];
+  initialViewport?: { x: number; y: number; zoom: number } | null;
   teamId: string;
   shareToken: string | null;
   isPubliclyShared: boolean;
@@ -23,13 +24,14 @@ interface TeamCanvasWrapperProps {
 export function TeamCanvasWrapper({
   initialNodes,
   initialEdges,
+  initialViewport,
   teamId,
   shareToken,
   isPubliclyShared,
 }: TeamCanvasWrapperProps) {
   const setNodes = useTeamStore((state) => state.setNodes);
   const setEdges = useTeamStore((state) => state.setEdges);
-  const setInitialized = useTeamStore((state) => state.setInitialized);
+  const setSavedViewport = useTeamStore((state) => state.setSavedViewport);
   const utils = api.useUtils();
 
   // Manage edit session (acquire/heartbeat/release)
@@ -38,14 +40,18 @@ export function TeamCanvasWrapper({
   useEffect(() => {
     setNodes(initialNodes);
     setEdges(initialEdges);
-
-    // Delay initialization to let React Flow complete setup without triggering dirty flag
-    const timer = setTimeout(() => {
-      setInitialized(true);
-    }, 100);
-
-    return () => clearTimeout(timer);
-  }, [initialNodes, initialEdges, setNodes, setEdges, setInitialized]);
+    if (initialViewport) {
+      setSavedViewport(initialViewport);
+    }
+    // setInitialized is called by onInit in TeamCanvas for proper timing
+  }, [
+    initialNodes,
+    initialEdges,
+    initialViewport,
+    setNodes,
+    setEdges,
+    setSavedViewport,
+  ]);
 
   useEffect(() => {
     void utils.aiRole.generateSuggestions.prefetch({ teamId });

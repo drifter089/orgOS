@@ -1,6 +1,11 @@
 import { randomUUID } from "crypto";
 import { z } from "zod";
 
+import { teamStoredNodeSchema } from "@/app/teams/[teamId]/schemas/canvas";
+import {
+  storedEdgeSchema,
+  viewportSchema,
+} from "@/lib/canvas/schemas/stored-data";
 import { createTRPCRouter, workspaceProcedure } from "@/server/api/trpc";
 import { getTeamAndVerifyAccess } from "@/server/api/utils/authorization";
 import {
@@ -87,9 +92,9 @@ export const teamRouter = createTRPCRouter({
         id: z.string(),
         name: z.string().min(1).max(100).optional(),
         description: z.string().optional(),
-        reactFlowNodes: z.any().optional(),
-        reactFlowEdges: z.any().optional(),
-        viewport: z.any().optional(),
+        reactFlowNodes: z.array(teamStoredNodeSchema).optional(),
+        reactFlowEdges: z.array(storedEdgeSchema).optional(),
+        viewport: viewportSchema.optional(),
       }),
     )
     .mutation(async ({ ctx, input }) => {

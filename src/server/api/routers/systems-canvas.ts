@@ -1,34 +1,15 @@
 import { z } from "zod";
 
+import { systemsStoredNodeSchema } from "@/app/systems/schemas/canvas";
+import {
+  storedEdgeSchema,
+  viewportSchema,
+} from "@/lib/canvas/schemas/stored-data";
 import { createTRPCRouter, workspaceProcedure } from "@/server/api/trpc";
 import {
   cacheStrategy,
   shortLivedCache,
 } from "@/server/api/utils/cache-strategy";
-
-const storedNodeSchema = z.object({
-  id: z.string(),
-  position: z.object({
-    x: z.number(),
-    y: z.number(),
-  }),
-});
-
-const storedEdgeSchema = z.object({
-  id: z.string(),
-  source: z.string(),
-  target: z.string(),
-  sourceHandle: z.string().nullish(),
-  targetHandle: z.string().nullish(),
-  type: z.string().optional(),
-  animated: z.boolean().optional(),
-});
-
-const viewportSchema = z.object({
-  x: z.number(),
-  y: z.number(),
-  zoom: z.number(),
-});
 
 export const systemsCanvasRouter = createTRPCRouter({
   get: workspaceProcedure.query(async ({ ctx }) => {
@@ -53,7 +34,7 @@ export const systemsCanvasRouter = createTRPCRouter({
   update: workspaceProcedure
     .input(
       z.object({
-        reactFlowNodes: z.array(storedNodeSchema).optional(),
+        reactFlowNodes: z.array(systemsStoredNodeSchema).optional(),
         reactFlowEdges: z.array(storedEdgeSchema).optional(),
         viewport: viewportSchema.optional(),
       }),
