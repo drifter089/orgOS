@@ -135,12 +135,20 @@ export function enrichNodesWithRoleData(
       }
 
       // Role nodes: just pass through roleId, component fetches display data
+      // Skip nodes with missing roleId - they are malformed
+      if (!node.data?.roleId) {
+        console.info(
+          `[canvas-serialization] Skipping role node with missing roleId: node.id=${node.id}`,
+        );
+        return null;
+      }
+
       return {
         id: node.id,
         type: "role-node" as const,
         position: node.position,
         data: {
-          roleId: node.data?.roleId ?? "",
+          roleId: node.data.roleId,
         },
       };
     })

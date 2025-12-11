@@ -28,6 +28,32 @@ export function useRoleData(roleId: string) {
 }
 
 /**
+ * Hook to get role data with loading and error states.
+ * Use this in components that need to handle loading/error UI (e.g., dialogs).
+ *
+ * @param roleId - The role ID to look up
+ * @returns Object with data, isLoading, and isError states
+ */
+export function useRoleDataWithStatus(roleId: string) {
+  const teamId = useTeamStore((state) => state.teamId);
+  const {
+    data: roles,
+    isLoading,
+    isError,
+  } = api.role.getByTeam.useQuery(
+    { teamId },
+    { enabled: !!teamId && !!roleId },
+  );
+
+  const data = useMemo(
+    () => roles?.find((role) => role.id === roleId),
+    [roles, roleId],
+  );
+
+  return { data, isLoading, isError };
+}
+
+/**
  * Hook to get user name from the organization members cache.
  *
  * @param userId - The user ID to look up
