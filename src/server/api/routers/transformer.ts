@@ -10,9 +10,6 @@ import { z } from "zod";
 
 import {
   createChartTransformer,
-  executeChartTransformerForDashboardChart,
-  getChartTransformerByDashboardChartId,
-  getDataIngestionTransformerByTemplateId,
   refreshMetricAndCharts,
   regenerateChartTransformer,
 } from "@/server/api/services/transformation";
@@ -21,20 +18,6 @@ import { getDashboardChartAndVerifyAccess } from "@/server/api/utils/authorizati
 import { db } from "@/server/db";
 
 export const transformerRouter = createTRPCRouter({
-  // ===========================================================================
-  // DataIngestionTransformer Procedures
-  // ===========================================================================
-
-  /**
-   * Get DataIngestionTransformer by templateId
-   * Note: DataIngestionTransformers are shared across all orgs (one per template)
-   */
-  getDataIngestionTransformer: workspaceProcedure
-    .input(z.object({ templateId: z.string() }))
-    .query(async ({ input }) => {
-      return getDataIngestionTransformerByTemplateId(input.templateId);
-    }),
-
   /**
    * Refresh metric data and update charts
    *
@@ -76,21 +59,6 @@ export const transformerRouter = createTRPCRouter({
         error: result.error,
       };
     }),
-
-  /**
-   * List all DataIngestionTransformers
-   * Note: DataIngestionTransformers are shared across all orgs (one per template)
-   * This is an admin/debug endpoint
-   */
-  listDataIngestionTransformers: workspaceProcedure.query(async () => {
-    return db.dataIngestionTransformer.findMany({
-      orderBy: { updatedAt: "desc" },
-    });
-  }),
-
-  // ===========================================================================
-  // ChartTransformer Procedures
-  // ===========================================================================
 
   /**
    * Create or update ChartTransformer for a DashboardChart
@@ -136,36 +104,6 @@ export const transformerRouter = createTRPCRouter({
     }),
 
   /**
-   * Get ChartTransformer by DashboardChart ID
-   */
-  getChartTransformer: workspaceProcedure
-    .input(z.object({ dashboardChartId: z.string() }))
-    .query(async ({ ctx, input }) => {
-      await getDashboardChartAndVerifyAccess(
-        db,
-        input.dashboardChartId,
-        ctx.workspace.organizationId,
-      );
-
-      return getChartTransformerByDashboardChartId(input.dashboardChartId);
-    }),
-
-  /**
-   * Execute ChartTransformer for a DashboardChart
-   */
-  executeChartTransformer: workspaceProcedure
-    .input(z.object({ dashboardChartId: z.string() }))
-    .mutation(async ({ ctx, input }) => {
-      await getDashboardChartAndVerifyAccess(
-        db,
-        input.dashboardChartId,
-        ctx.workspace.organizationId,
-      );
-
-      return executeChartTransformerForDashboardChart(input.dashboardChartId);
-    }),
-
-  /**
    * Regenerate ChartTransformer with new preferences
    */
   regenerateChartTransformer: workspaceProcedure
@@ -186,184 +124,5 @@ export const transformerRouter = createTRPCRouter({
       );
 
       return regenerateChartTransformer(input);
-    }),
-
-  /**
-   * List all ChartTransformers for this organization
-   */
-  listChartTransformers: workspaceProcedure.query(async ({ ctx }) => {
-    return db.chartTransformer.findMany({
-      where: {
-        dashboardChart: {
-          organizationId: ctx.workspace.organizationId,
-        },
-      },
-      include: {
-        dashboardChart: {
-          include: { metric: true },
-        },
-      },
-      orderBy: { updatedAt: "desc" },
-    });
-  }),
-
-  // ===========================================================================
-  // Dev/Debug Procedures
-  // ===========================================================================
-
-  /**
-   * Delete a DataIngestionTransformer to force regeneration
-   * Used for debugging - next metric refresh will regenerate the transformer
-   */
-  deleteDataIngestionTransformer: workspaceProcedure
-    .input(z.object({ templateId: z.string() }))
-    .mutation(async ({ input }) => {
-      const existing = await db.dataIngestionTransformer.findUnique({
-        where: { templateId: input.templateId },
-      });
-
-      if (!existing) {
-        throw new TRPCError({
-          code: "NOT_FOUND",
-          message: "DataIngestionTransformer not found",
-        });
-      }
-
-      await db.dataIngestionTransformer.delete({
-        where: { templateId: input.templateId },
-      });
-
-      return { success: true, deletedId: existing.id };
-    }),
-
-  /**
-   * Delete a ChartTransformer to force regeneration
-   * Used for debugging - next chart refresh will regenerate the transformer
-   */
-  deleteChartTransformer: workspaceProcedure
-    .input(z.object({ dashboardChartId: z.string() }))
-    .mutation(async ({ ctx, input }) => {
-      await getDashboardChartAndVerifyAccess(
-        db,
-        input.dashboardChartId,
-        ctx.workspace.organizationId,
-      );
-
-      const existing = await db.chartTransformer.findUnique({
-        where: { dashboardChartId: input.dashboardChartId },
-      });
-
-      if (!existing) {
-        throw new TRPCError({
-          code: "NOT_FOUND",
-          message: "ChartTransformer not found",
-        });
-      }
-
-      await db.chartTransformer.delete({
-        where: { dashboardChartId: input.dashboardChartId },
-      });
-
-      return { success: true, deletedId: existing.id };
-    }),
-
-  // ===========================================================================
-  // DataPoint Procedures
-  // ===========================================================================
-
-  /**
-   * Get DataPoints for a metric
-   */
-  getDataPoints: workspaceProcedure
-    .input(
-      z.object({
-        metricId: z.string(),
-        limit: z.number().default(100),
-        offset: z.number().default(0),
-      }),
-    )
-    .query(async ({ ctx, input }) => {
-      // Verify organization ownership
-      const metric = await db.metric.findUnique({
-        where: { id: input.metricId },
-      });
-
-      if (!metric) {
-        throw new TRPCError({
-          code: "NOT_FOUND",
-          message: "Metric not found",
-        });
-      }
-
-      if (metric.organizationId !== ctx.workspace.organizationId) {
-        throw new TRPCError({
-          code: "FORBIDDEN",
-          message: "You do not have access to this metric",
-        });
-      }
-
-      const dataPoints = await db.metricDataPoint.findMany({
-        where: { metricId: input.metricId },
-        orderBy: { timestamp: "desc" },
-        take: input.limit,
-        skip: input.offset,
-      });
-
-      const total = await db.metricDataPoint.count({
-        where: { metricId: input.metricId },
-      });
-
-      return {
-        dataPoints,
-        total,
-        hasMore: input.offset + input.limit < total,
-      };
-    }),
-
-  /**
-   * Get DataPoints summary for a metric
-   */
-  getDataPointsSummary: workspaceProcedure
-    .input(z.object({ metricId: z.string() }))
-    .query(async ({ ctx, input }) => {
-      // Verify organization ownership
-      const metric = await db.metric.findUnique({
-        where: { id: input.metricId },
-      });
-
-      if (!metric) {
-        throw new TRPCError({
-          code: "NOT_FOUND",
-          message: "Metric not found",
-        });
-      }
-
-      if (metric.organizationId !== ctx.workspace.organizationId) {
-        throw new TRPCError({
-          code: "FORBIDDEN",
-          message: "You do not have access to this metric",
-        });
-      }
-
-      const [total, oldest, newest] = await Promise.all([
-        db.metricDataPoint.count({
-          where: { metricId: input.metricId },
-        }),
-        db.metricDataPoint.findFirst({
-          where: { metricId: input.metricId },
-          orderBy: { timestamp: "asc" },
-        }),
-        db.metricDataPoint.findFirst({
-          where: { metricId: input.metricId },
-          orderBy: { timestamp: "desc" },
-        }),
-      ]);
-
-      return {
-        total,
-        oldestTimestamp: oldest?.timestamp ?? null,
-        newestTimestamp: newest?.timestamp ?? null,
-        latestValue: newest?.value ?? null,
-      };
     }),
 });
