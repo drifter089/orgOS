@@ -20,7 +20,24 @@ interface DataPointRaw {
   dimensions: Record<string, unknown> | null;
 }
 
-/** Execute DataIngestionTransformer: API response → DataPoints */
+/**
+ * Execute DataIngestionTransformer: API response → DataPoints
+ *
+ * This executor is intentionally "dumb" - it only validates structure.
+ * All semantic decisions (aggregation, deduplication, timestamp handling)
+ * are the AI transformer's responsibility.
+ *
+ * Why no aggregation here?
+ * - Summing is wrong for averages/percentages (50% + 50% ≠ 100%)
+ * - Summing is wrong for gauges (temperature, queue depth)
+ * - Summing is wrong for rates (requests/sec)
+ * - The AI knows the metric semantics, we don't
+ *
+ * Why no timestamp normalization?
+ * - Some APIs provide hourly data (preserve it)
+ * - Some APIs provide exact event times (preserve it)
+ * - Forcing midnight destroys information
+ */
 export async function executeDataIngestionTransformer(
   code: string,
   apiResponse: unknown,
@@ -35,7 +52,7 @@ export async function executeDataIngestionTransformer(
     return { success: false, error: result.error };
   }
 
-  // Validate and normalize the data points
+  // Validate structure only - no semantic transformations
   try {
     if (!Array.isArray(result.data)) {
       return {
@@ -44,11 +61,17 @@ export async function executeDataIngestionTransformer(
       };
     }
 
-    const validatedPoints: DataPoint[] = result.data.map((point, index) => {
+    const validatedPoints: DataPoint[] = [];
+    const seenTimestamps = new Set<string>();
+
+    for (let index = 0; index < result.data.length; index++) {
+      const point = result.data[index];
+
       if (typeof point !== "object" || point === null) {
         throw new Error(`DataPoint at index ${index} is not an object`);
       }
 
+      // Parse timestamp (accept Date, string, or number)
       let timestamp: Date;
       if (point.timestamp instanceof Date) {
         timestamp = point.timestamp;
@@ -61,17 +84,23 @@ export async function executeDataIngestionTransformer(
         throw new Error(`DataPoint at index ${index} has invalid timestamp`);
       }
       if (isNaN(timestamp.getTime())) {
-        throw new Error(`DataPoint at index ${index} has invalid timestamp`);
+        throw new Error(
+          `DataPoint at index ${index} has invalid timestamp: ${point.timestamp}`,
+        );
       }
 
+      // Parse value (coerce to number if needed)
       const value =
         typeof point.value === "number"
           ? point.value
           : parseFloat(String(point.value));
       if (isNaN(value)) {
-        throw new Error(`DataPoint at index ${index} has invalid value`);
+        throw new Error(
+          `DataPoint at index ${index} has invalid value: ${point.value}`,
+        );
       }
 
+      // Validate dimensions structure
       const dimensions =
         point.dimensions === null || point.dimensions === undefined
           ? null
@@ -79,8 +108,25 @@ export async function executeDataIngestionTransformer(
             ? point.dimensions
             : null;
 
-      return { timestamp, value, dimensions };
-    });
+      // Check for duplicate timestamps (AI should have handled this)
+      const timestampKey = timestamp.toISOString();
+      if (seenTimestamps.has(timestampKey)) {
+        // Log warning but take LAST value (not sum) - safer default
+        console.info(
+          `[Executor] Duplicate timestamp at index ${index}: ${timestampKey}. Using last value.`,
+        );
+        // Find and replace the existing point
+        const existingIdx = validatedPoints.findIndex(
+          (p) => p.timestamp.toISOString() === timestampKey,
+        );
+        if (existingIdx !== -1) {
+          validatedPoints[existingIdx] = { timestamp, value, dimensions };
+        }
+      } else {
+        seenTimestamps.add(timestampKey);
+        validatedPoints.push({ timestamp, value, dimensions });
+      }
+    }
 
     return { success: true, data: validatedPoints };
   } catch (error) {

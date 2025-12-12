@@ -31,6 +31,61 @@ interface ChartTransformResult {
   error?: string;
 }
 
+/** Calculate data statistics for AI context */
+function calculateDataStats(
+  dataPoints: Array<{
+    timestamp: Date;
+    value: number;
+    dimensions: Record<string, unknown> | null;
+  }>,
+) {
+  if (dataPoints.length === 0) {
+    return {
+      totalCount: 0,
+      dateRange: { from: "unknown", to: "unknown" },
+      daysCovered: 0,
+      detectedGranularity: "daily" as const,
+      dimensionKeys: [] as string[],
+    };
+  }
+
+  const timestamps = dataPoints.map((dp) => dp.timestamp.getTime());
+  const oldestDate = new Date(Math.min(...timestamps));
+  const newestDate = new Date(Math.max(...timestamps));
+  const daysCovered = Math.ceil(
+    (newestDate.getTime() - oldestDate.getTime()) / (1000 * 60 * 60 * 24),
+  );
+
+  // Detect granularity based on average gap between data points
+  let detectedGranularity: "daily" | "weekly" | "monthly" = "daily";
+  if (dataPoints.length > 1) {
+    const avgGap =
+      (newestDate.getTime() - oldestDate.getTime()) / (dataPoints.length - 1);
+    const avgGapDays = avgGap / (1000 * 60 * 60 * 24);
+    if (avgGapDays >= 25) detectedGranularity = "monthly";
+    else if (avgGapDays >= 5) detectedGranularity = "weekly";
+  }
+
+  // Extract dimension keys from all data points
+  const dimensionKeys = new Set<string>();
+  dataPoints.forEach((dp) => {
+    if (dp.dimensions && typeof dp.dimensions === "object") {
+      Object.keys(dp.dimensions).forEach((k) => dimensionKeys.add(k));
+    }
+  });
+
+  return {
+    totalCount: dataPoints.length,
+    dateRange: {
+      from: oldestDate.toISOString().split("T")[0]!,
+      to: newestDate.toISOString().split("T")[0]!,
+    },
+    daysCovered,
+    detectedGranularity,
+    dimensionKeys: Array.from(dimensionKeys),
+  };
+}
+
 /** Create a ChartTransformer using AI based on actual data points. */
 export async function createChartTransformer(
   input: CreateChartTransformerInput,
@@ -42,7 +97,7 @@ export async function createChartTransformer(
         include: {
           dataPoints: {
             orderBy: { timestamp: "desc" },
-            take: 100, // Get recent 100 data points for AI context
+            take: 1000, // Get up to 1000 data points for better AI context
           },
         },
       },
@@ -56,30 +111,34 @@ export async function createChartTransformer(
     });
   }
 
-  const sampleDataPoints = dashboardChart.metric.dataPoints.map((dp) => ({
+  const allDataPoints = dashboardChart.metric.dataPoints.map((dp) => ({
     timestamp: dp.timestamp,
     value: dp.value,
     dimensions: dp.dimensions as Record<string, unknown> | null,
   }));
 
-  if (sampleDataPoints.length === 0) {
+  if (allDataPoints.length === 0) {
     throw new TRPCError({
       code: "BAD_REQUEST",
       message: "No data points available to generate chart",
     });
   }
 
+  // Calculate data statistics for AI context
+  const dataStats = calculateDataStats(allDataPoints);
+
   const generated = await generateChartTransformerCode({
     metricName: input.metricName,
     metricDescription: input.metricDescription,
-    sampleDataPoints,
+    sampleDataPoints: allDataPoints,
     chartType: input.chartType,
     dateRange: input.dateRange,
     aggregation: input.aggregation,
     userPrompt: input.userPrompt,
+    dataStats,
   });
 
-  const testResult = await testChartTransformer(generated.code, sampleDataPoints, {
+  const testResult = await testChartTransformer(generated.code, allDataPoints, {
     chartType: input.chartType,
     dateRange: input.dateRange,
     aggregation: input.aggregation,
@@ -166,7 +225,7 @@ export async function executeChartTransformerForDashboardChart(
     dataPoints,
     {
       chartType: transformer.chartType,
-      dateRange: transformer.dateRange ?? "30d",
+      dateRange: transformer.dateRange ?? "all",
       aggregation: transformer.aggregation ?? "none",
     },
   );
@@ -199,7 +258,7 @@ export async function regenerateChartTransformer(input: {
         include: {
           dataPoints: {
             orderBy: { timestamp: "desc" },
-            take: 100,
+            take: 1000, // Get up to 1000 data points for better AI context
           },
         },
       },
@@ -212,27 +271,31 @@ export async function regenerateChartTransformer(input: {
 
   const currentTransformer = dashboardChart.chartTransformer;
   const chartType = input.chartType ?? currentTransformer?.chartType ?? "line";
-  const dateRange = input.dateRange ?? currentTransformer?.dateRange ?? "30d";
+  const dateRange = input.dateRange ?? currentTransformer?.dateRange ?? "all";
   const aggregation =
     input.aggregation ?? currentTransformer?.aggregation ?? "none";
 
-  const sampleDataPoints = dashboardChart.metric.dataPoints.map((dp) => ({
+  const allDataPoints = dashboardChart.metric.dataPoints.map((dp) => ({
     timestamp: dp.timestamp,
     value: dp.value,
     dimensions: dp.dimensions as Record<string, unknown> | null,
   }));
 
+  // Calculate data statistics for AI context
+  const dataStats = calculateDataStats(allDataPoints);
+
   const generated = await generateChartTransformerCode({
     metricName: dashboardChart.metric.name,
     metricDescription: dashboardChart.metric.description ?? "",
-    sampleDataPoints,
+    sampleDataPoints: allDataPoints,
     chartType,
     dateRange,
     aggregation,
     userPrompt: input.userPrompt,
+    dataStats,
   });
 
-  const testResult = await testChartTransformer(generated.code, sampleDataPoints, {
+  const testResult = await testChartTransformer(generated.code, allDataPoints, {
     chartType,
     dateRange,
     aggregation,

@@ -204,3 +204,55 @@ export async function getIntegrationAndVerifyAccess(
   );
   return integration;
 }
+
+/**
+ * Get DashboardChart and verify organization ownership.
+ * Uses scoped query to prevent cross-tenant existence inference.
+ */
+export async function getDashboardChartAndVerifyAccess(
+  database: DB,
+  dashboardChartId: string,
+  organizationId: string,
+) {
+  const dashboardChart = await database.dashboardChart.findFirst({
+    where: {
+      id: dashboardChartId,
+      organizationId: organizationId,
+    },
+  });
+
+  if (!dashboardChart) {
+    throw new TRPCError({
+      code: "NOT_FOUND",
+      message: "DashboardChart not found",
+    });
+  }
+
+  return dashboardChart;
+}
+
+/**
+ * Get Metric and verify organization ownership.
+ * Throws TRPC errors if not found or access denied.
+ */
+export async function getMetricAndVerifyAccess(
+  database: DB,
+  metricId: string,
+  organizationId: string,
+) {
+  const metric = await database.metric.findFirst({
+    where: {
+      id: metricId,
+      organizationId: organizationId,
+    },
+  });
+
+  if (!metric) {
+    throw new TRPCError({
+      code: "NOT_FOUND",
+      message: "Metric not found",
+    });
+  }
+
+  return metric;
+}

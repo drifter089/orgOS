@@ -82,8 +82,13 @@ export async function ingestMetricData(
     return { success: false, error: `Failed to fetch data: ${errorMsg}` };
   }
 
+  // GSheets needs per-metric transformers since each user has different spreadsheet structure
+  const cacheKey = input.templateId.startsWith("gsheets-")
+    ? `${input.templateId}:${input.metricId}`
+    : input.templateId;
+
   const { transformer, isNew } = await getOrCreateDataIngestionTransformer(
-    input.templateId,
+    cacheKey,
     input.integrationId,
     template,
     apiData,
@@ -213,6 +218,11 @@ async function getOrCreateDataIngestionTransformer(
   return { transformer, isNew };
 }
 
+/**
+ * Save data points to database.
+ * AI transformer is responsible for aggregation - we just upsert by timestamp.
+ * Delete-then-insert pattern handles the unique constraint on (metricId, timestamp).
+ */
 async function saveDataPointsBatch(
   metricId: string,
   dataPoints: DataPoint[],
@@ -223,7 +233,7 @@ async function saveDataPointsBatch(
   }
 
   if (!isTimeSeries) {
-    // Snapshot mode: delete all and insert fresh with unique timestamps
+    // Snapshot mode: replace all data
     const baseTimestamp = dataPoints[0]?.timestamp ?? new Date();
     await db.$transaction([
       db.metricDataPoint.deleteMany({ where: { metricId } }),
@@ -237,15 +247,12 @@ async function saveDataPointsBatch(
       }),
     ]);
   } else {
-    // Time-series mode: delete-then-insert is faster than individual upserts
+    // Time-series mode: upsert by timestamp (delete existing, insert new)
     const timestamps = dataPoints.map((dp) => dp.timestamp);
 
     await db.$transaction([
       db.metricDataPoint.deleteMany({
-        where: {
-          metricId,
-          timestamp: { in: timestamps },
-        },
+        where: { metricId, timestamp: { in: timestamps } },
       }),
       db.metricDataPoint.createMany({
         data: dataPoints.map((dp) => ({
@@ -273,13 +280,18 @@ export async function refreshMetricDataPoints(input: {
     return { success: false, error: `Template not found: ${input.templateId}` };
   }
 
+  // GSheets needs per-metric transformers
+  const cacheKey = input.templateId.startsWith("gsheets-")
+    ? `${input.templateId}:${input.metricId}`
+    : input.templateId;
+
   const transformer = await db.dataIngestionTransformer.findUnique({
-    where: { templateId: input.templateId },
+    where: { templateId: cacheKey },
   });
   if (!transformer) {
     return {
       success: false,
-      error: `No transformer for template: ${input.templateId}`,
+      error: `No transformer for template: ${cacheKey}`,
     };
   }
 

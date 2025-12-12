@@ -10,6 +10,8 @@ import { generateText } from "ai";
 
 import { env } from "@/env";
 
+import { cleanGeneratedCode, safeStringifyForPrompt } from "./utils";
+
 // =============================================================================
 // Types
 // =============================================================================
@@ -24,6 +26,14 @@ interface GenerateDataIngestionTransformerInput {
   availableParams: string[];
 }
 
+interface DataStats {
+  totalCount: number;
+  dateRange: { from: string; to: string };
+  daysCovered: number;
+  detectedGranularity: "daily" | "weekly" | "monthly";
+  dimensionKeys: string[];
+}
+
 interface GenerateChartTransformerInput {
   metricName: string;
   metricDescription: string;
@@ -36,6 +46,7 @@ interface GenerateChartTransformerInput {
   dateRange: string;
   aggregation: string;
   userPrompt?: string;
+  dataStats?: DataStats;
 }
 
 interface GeneratedCode {
@@ -47,84 +58,115 @@ interface GeneratedCode {
 // Prompts
 // =============================================================================
 
-const METRIC_TRANSFORMER_SYSTEM_PROMPT = `You are a JavaScript code generator that creates data transformation functions.
+const METRIC_TRANSFORMER_SYSTEM_PROMPT = `Generate JavaScript: function transform(apiResponse, endpointConfig) → DataPoint[]
 
-IMPORTANT: Generate PLAIN JAVASCRIPT only. NO TypeScript syntax (no type annotations, no "as" casts, no ": type" annotations).
+This transformer runs on initial setup AND periodically via cron job to collect time-series data. Each run fetches fresh API data and upserts into database by timestamp.
 
-Given:
-- An API endpoint and its ACTUAL response (real data, not documentation)
-- The target DataPoint schema
+DataPoint = { timestamp: Date, value: number, dimensions: object|null }
 
-Generate a JavaScript function that transforms the API response into DataPoint objects.
+CRITICAL RULES:
 
-DataPoint schema:
+1. NO TypeScript - plain JavaScript only
+
+2. TIMESTAMPS - Each DataPoint MUST have a UNIQUE timestamp:
+   - Database has unique constraint on (metricId, timestamp)
+   - If API has date field: use new Date(item.date) or new Date(item.created_at)
+   - If API returns pre-aggregated data (daily/weekly): preserve that granularity
+   - If API returns individual events: group by day with date.setUTCHours(0,0,0,0)
+   - NEVER output duplicate timestamps
+
+3. VALUES - Choose aggregation based on metric semantics:
+   - COUNTS (commits, issues, tasks): SUM per period
+   - GAUGES (queue depth, balance, temperature): LAST value per period
+   - RATES (requests/sec, velocity): AVERAGE per period
+   - PERCENTAGES/RATIOS: AVERAGE, never sum
+
+4. DIMENSIONS - Preserve original API field names:
+   - Use EXACT field names from API (e.g., if API has "additions", use "additions" not "added")
+   - Store raw values, don't create derived metrics (no "netChanges = additions - deletions")
+   - Example: API has {additions: 500, deletions: 200} → dimensions: {additions: 500, deletions: 200}
+   - NOT for static metadata like names, IDs, or URLs
+
+5. EXTRACTION - Find the data in API response:
+   - Common patterns: apiResponse.data, .items, .results, .issues, or root array
+   - Handle empty: return []
+   - Handle pagination markers gracefully (ignore next_cursor, etc.)
+
+6. ROBUSTNESS:
+   - Missing values: use || 0 or || null
+   - Invalid dates: skip that item
+   - Unexpected structure: return []
+
+Output ONLY the function code, no markdown.`;
+
+const CHART_TRANSFORMER_SYSTEM_PROMPT = `Generate JavaScript: function transform(dataPoints, preferences) → ChartConfig
+
+This function runs on EVERY data refresh (cron job). It receives ALL historical data points from DB (up to 1000), not just new ones. The chart should show the full time series.
+
+Input:
+- dataPoints: Array of { timestamp: string (ISO), value: number, dimensions: object|null }
+- preferences: { chartType: string, dateRange: string, aggregation: string }
+
+Output ChartConfig (shadcn/ui chart format):
 {
-  timestamp: Date,           // When this data point occurred
-  value: number,             // Primary numeric value (always required)
-  dimensions: object | null, // Additional related values (optional)
-}
-
-Rules:
-1. The function signature must be:
-   function transform(apiResponse, endpointConfig) { ... }
-2. NO TypeScript - no ": type" annotations, no "as Type" casts, no generics
-3. Return an array of DataPoint objects
-4. Handle missing/null values gracefully (use || 0 for numbers)
-5. Parse date strings into Date objects with new Date(dateString)
-6. Convert string numbers to actual numbers with parseInt/parseFloat
-7. Put the PRIMARY metric value in 'value' field
-8. Put RELATED values in 'dimensions' object (e.g., {likes: 50, deletions: 200})
-9. Always return an array, even for single values
-10. For time-series data (arrays), map each item to a DataPoint
-11. For single-value data, create one DataPoint with current timestamp
-
-Output ONLY the function code, no markdown, no explanations, no code blocks, just pure JavaScript.`;
-
-const CHART_TRANSFORMER_SYSTEM_PROMPT = `You are a JavaScript code generator for Recharts chart configurations.
-
-IMPORTANT: Generate PLAIN JAVASCRIPT only. NO TypeScript syntax (no type annotations, no "as" casts, no ": type" annotations).
-
-Given:
-- DataPoint array with timestamp, value, and optional dimensions
-- User preferences (chartType, dateRange, aggregation)
-
-Generate a JavaScript function that transforms DataPoints into a Recharts-compatible config.
-
-DataPoint schema:
-{
-  timestamp: Date,
-  value: number,
-  dimensions: object | null  // e.g., {likes: 50, deletions: 200}
-}
-
-ChartConfig schema:
-{
-  chartType: "line" | "bar" | "area" | "pie" | "radar" | "radial" | "kpi",
-  chartData: Array of objects,
-  chartConfig: Object with keys mapping to { label: string, color: string },
+  chartType: "line"|"bar"|"area"|"pie"|"radar"|"radial"|"kpi",
+  chartData: Array of objects with xAxisKey + dataKeys,
+  chartConfig: { [dataKey]: { label: string, color: string } },
   xAxisKey: string,
-  dataKeys: array of strings,
+  dataKeys: string[],
   title: string,
-  description: string (optional),
-  xAxisLabel: string (optional),
-  yAxisLabel: string (optional),
-  showLegend: boolean (optional),
-  showTooltip: boolean (optional),
-  stacked: boolean (optional),
+  showLegend?: boolean,
+  showTooltip?: boolean,
+  stacked?: boolean,
+  centerLabel?: { value: string, label: string }
 }
 
-Rules:
-1. Function signature: function transform(dataPoints, preferences) { ... }
-2. NO TypeScript - no ": type" annotations, no "as Type" casts, no generics
-3. Apply dateRange filter (7d, 30d, 90d, all)
-4. Apply aggregation if specified (sum, avg, max per day/week/month)
-5. Sort chronologically for time-series charts
-6. Use var(--chart-1) through var(--chart-12) for colors
-7. Format dates as readable strings for chart labels
-8. If dimensions exist and user wants multi-line chart, extract from dimensions
-9. Always return a valid ChartConfig object
+EXAMPLE OUTPUT for line chart:
+{
+  chartType: "line",
+  chartData: [
+    { date: "Jan 1", commits: 12 },
+    { date: "Jan 2", commits: 8 },
+    { date: "Jan 3", commits: 15 }
+  ],
+  chartConfig: {
+    commits: { label: "Commits", color: "var(--chart-1)" }
+  },
+  xAxisKey: "date",
+  dataKeys: ["commits"],
+  title: "Daily Commits",
+  showLegend: false,
+  showTooltip: true
+}
 
-Output ONLY the function code, no markdown, no explanations, no code blocks, just pure JavaScript.`;
+EXAMPLE with dimensions (multi-series):
+{
+  chartType: "area",
+  chartData: [
+    { date: "Jan 1", additions: 500, deletions: 200 },
+    { date: "Jan 2", additions: 300, deletions: 150 }
+  ],
+  chartConfig: {
+    additions: { label: "Additions", color: "var(--chart-1)" },
+    deletions: { label: "Deletions", color: "var(--chart-2)" }
+  },
+  xAxisKey: "date",
+  dataKeys: ["additions", "deletions"],
+  title: "Code Changes",
+  showLegend: true,
+  stacked: true
+}
+
+RULES:
+1. NO TypeScript - plain JavaScript only
+2. Colors: var(--chart-1) through var(--chart-12)
+3. Filter by dateRange FIRST: "7d", "30d", "90d", "all"
+4. Format dates as readable strings: "Jan 15" or "Jan 15, 2024"
+5. If dimensions exist, extract them as separate data keys
+6. Aggregate if needed: >50 points for line → weekly, >20 for bar → monthly
+7. Sort chronologically (oldest first) for time series
+
+Output ONLY the function code, no markdown.`;
 
 // =============================================================================
 // AI Generator Functions
@@ -147,16 +189,24 @@ export async function generateDataIngestionTransformerCode(
 ): Promise<GeneratedCode> {
   const openrouter = getOpenRouterClient();
 
+  const sanitizedResponse = safeStringifyForPrompt(input.sampleApiResponse);
+
   const userPrompt = `Template: ${input.templateId}
 Integration: ${input.integrationId}
 Endpoint: ${input.method} ${input.endpoint}
 
 ACTUAL API Response (fetched just now):
-${JSON.stringify(input.sampleApiResponse, null, 2)}
+${sanitizedResponse}
 
-This template tracks: ${input.metricDescription}
+Metric description: ${input.metricDescription}
 
-Parameters available in endpointConfig: ${input.availableParams.join(", ")}
+Analyze the API response structure and determine:
+1. Where is the data array? (response root, .data, .items, .results, etc.)
+2. What field contains the timestamp? (created_at, date, timestamp, etc.)
+3. What is the metric type? (count, gauge, rate, percentage)
+4. What fields should go in dimensions?
+
+Parameters available in endpointConfig: ${input.availableParams.join(", ") || "none"}
 
 Generate the JavaScript transform function.`;
 
@@ -164,31 +214,12 @@ Generate the JavaScript transform function.`;
     model: openrouter("anthropic/claude-sonnet-4"),
     system: METRIC_TRANSFORMER_SYSTEM_PROMPT,
     prompt: userPrompt,
-    maxOutputTokens: 2000,
+    maxOutputTokens: 4000,
     temperature: 0.1,
   });
 
-  // Clean the code - remove markdown code blocks if present
-  let code = result.text.trim();
-
-  if (code.startsWith("```typescript")) {
-    code = code.slice("```typescript".length);
-  } else if (code.startsWith("```ts")) {
-    code = code.slice("```ts".length);
-  } else if (code.startsWith("```javascript")) {
-    code = code.slice("```javascript".length);
-  } else if (code.startsWith("```js")) {
-    code = code.slice("```js".length);
-  } else if (code.startsWith("```")) {
-    code = code.slice(3);
-  }
-  if (code.endsWith("```")) {
-    code = code.slice(0, -3);
-  }
-  code = code.trim();
-
   return {
-    code,
+    code: cleanGeneratedCode(result.text),
     reasoning: `Generated transformer for ${input.templateId} based on actual API response structure.`,
   };
 }
@@ -201,14 +232,24 @@ export async function generateChartTransformerCode(
 ): Promise<GeneratedCode> {
   const openrouter = getOpenRouterClient();
 
-  const dataPointSample = input.sampleDataPoints.slice(0, 10).map((dp) => ({
+  // Increase sample size to 20 for better AI context
+  const dataPointSample = input.sampleDataPoints.slice(0, 20).map((dp) => ({
     timestamp: dp.timestamp.toISOString(),
     value: dp.value,
     dimensions: dp.dimensions,
   }));
 
-  let userPrompt = `DataPoint sample (first ${dataPointSample.length}):
+  const totalCount = input.dataStats?.totalCount ?? dataPointSample.length;
+
+  let userPrompt = `DataPoint sample (first ${dataPointSample.length} of ${totalCount}):
 ${JSON.stringify(dataPointSample, null, 2)}
+
+Data Statistics:
+- Total data points: ${totalCount}
+- Date range: ${input.dataStats?.dateRange.from ?? "unknown"} to ${input.dataStats?.dateRange.to ?? "unknown"}
+- Days covered: ${input.dataStats?.daysCovered ?? "unknown"}
+- Detected granularity: ${input.dataStats?.detectedGranularity ?? "unknown"}
+- Available dimensions: ${input.dataStats?.dimensionKeys?.join(", ") ?? "none"}
 
 Preferences:
 - chartType: ${input.chartType}
@@ -228,31 +269,12 @@ Metric description: ${input.metricDescription}`;
     model: openrouter("anthropic/claude-sonnet-4"),
     system: CHART_TRANSFORMER_SYSTEM_PROMPT,
     prompt: userPrompt,
-    maxOutputTokens: 2000,
+    maxOutputTokens: 4000,
     temperature: 0.1,
   });
 
-  // Clean the code
-  let code = result.text.trim();
-
-  if (code.startsWith("```typescript")) {
-    code = code.slice("```typescript".length);
-  } else if (code.startsWith("```ts")) {
-    code = code.slice("```ts".length);
-  } else if (code.startsWith("```javascript")) {
-    code = code.slice("```javascript".length);
-  } else if (code.startsWith("```js")) {
-    code = code.slice("```js".length);
-  } else if (code.startsWith("```")) {
-    code = code.slice(3);
-  }
-  if (code.endsWith("```")) {
-    code = code.slice(0, -3);
-  }
-  code = code.trim();
-
   return {
-    code,
+    code: cleanGeneratedCode(result.text),
     reasoning: input.userPrompt
       ? `Generated chart transformer based on user request: "${input.userPrompt}"`
       : `Generated ${input.chartType} chart transformer for ${input.metricName}.`,
@@ -270,16 +292,18 @@ export async function regenerateDataIngestionTransformerCode(
 ): Promise<GeneratedCode> {
   const openrouter = getOpenRouterClient();
 
+  const sanitizedResponse = safeStringifyForPrompt(input.sampleApiResponse);
+
   let userPrompt = `Template: ${input.templateId}
 Integration: ${input.integrationId}
 Endpoint: ${input.method} ${input.endpoint}
 
 ACTUAL API Response (fetched just now):
-${JSON.stringify(input.sampleApiResponse, null, 2)}
+${sanitizedResponse}
 
-This template tracks: ${input.metricDescription}
+Metric description: ${input.metricDescription}
 
-Parameters available in endpointConfig: ${input.availableParams.join(", ")}`;
+Parameters available in endpointConfig: ${input.availableParams.join(", ") || "none"}`;
 
   if (input.previousCode) {
     userPrompt += `\n\nPrevious transformer code that FAILED:
@@ -288,7 +312,12 @@ ${input.previousCode}`;
 
   if (input.error) {
     userPrompt += `\n\nError message:
-${input.error}`;
+${input.error}
+
+Fix the error while ensuring:
+- NO duplicate timestamps in output
+- Correct aggregation for metric type
+- Proper null/undefined handling`;
   }
 
   userPrompt += "\n\nGenerate a FIXED JavaScript transform function.";
@@ -297,31 +326,12 @@ ${input.error}`;
     model: openrouter("anthropic/claude-sonnet-4"),
     system: METRIC_TRANSFORMER_SYSTEM_PROMPT,
     prompt: userPrompt,
-    maxOutputTokens: 2000,
+    maxOutputTokens: 4000,
     temperature: 0.2,
   });
 
-  // Clean the code
-  let code = result.text.trim();
-
-  if (code.startsWith("```typescript")) {
-    code = code.slice("```typescript".length);
-  } else if (code.startsWith("```ts")) {
-    code = code.slice("```ts".length);
-  } else if (code.startsWith("```javascript")) {
-    code = code.slice("```javascript".length);
-  } else if (code.startsWith("```js")) {
-    code = code.slice("```js".length);
-  } else if (code.startsWith("```")) {
-    code = code.slice(3);
-  }
-  if (code.endsWith("```")) {
-    code = code.slice(0, -3);
-  }
-  code = code.trim();
-
   return {
-    code,
+    code: cleanGeneratedCode(result.text),
     reasoning: `Regenerated transformer for ${input.templateId} after failure.`,
   };
 }
