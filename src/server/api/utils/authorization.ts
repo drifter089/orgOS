@@ -234,3 +234,29 @@ export async function getDashboardChartAndVerifyAccess(
 
   return dashboardChart;
 }
+
+/**
+ * Get Metric and verify organization ownership.
+ * Throws TRPC errors if not found or access denied.
+ */
+export async function getMetricAndVerifyAccess(
+  database: DB,
+  metricId: string,
+  organizationId: string,
+) {
+  const metric = await database.metric.findFirst({
+    where: {
+      id: metricId,
+      organizationId: organizationId,
+    },
+  });
+
+  if (!metric) {
+    throw new TRPCError({
+      code: "NOT_FOUND",
+      message: "Metric not found",
+    });
+  }
+
+  return metric;
+}

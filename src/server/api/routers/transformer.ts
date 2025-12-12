@@ -5,7 +5,6 @@
  * - DataIngestionTransformer: Raw API → DataPoints (via unified flow)
  * - ChartTransformer: DataPoints → ChartConfig
  */
-import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 
 import {
@@ -14,7 +13,10 @@ import {
   regenerateChartTransformer,
 } from "@/server/api/services/transformation";
 import { createTRPCRouter, workspaceProcedure } from "@/server/api/trpc";
-import { getDashboardChartAndVerifyAccess } from "@/server/api/utils/authorization";
+import {
+  getDashboardChartAndVerifyAccess,
+  getMetricAndVerifyAccess,
+} from "@/server/api/utils/authorization";
 import { db } from "@/server/db";
 
 export const transformerRouter = createTRPCRouter({
@@ -31,24 +33,12 @@ export const transformerRouter = createTRPCRouter({
       }),
     )
     .mutation(async ({ ctx, input }) => {
-      // Verify organization ownership before calling refresh
-      const metric = await db.metric.findUnique({
-        where: { id: input.metricId },
-        select: { organizationId: true },
-      });
+      await getMetricAndVerifyAccess(
+        db,
+        input.metricId,
+        ctx.workspace.organizationId,
+      );
 
-      if (!metric) {
-        return { success: false, error: "Metric not found" };
-      }
-
-      if (metric.organizationId !== ctx.workspace.organizationId) {
-        throw new TRPCError({
-          code: "FORBIDDEN",
-          message: "You do not have access to this metric",
-        });
-      }
-
-      // Use the unified refresh function (same as cron job)
       const result = await refreshMetricAndCharts({
         metricId: input.metricId,
       });
@@ -80,17 +70,11 @@ export const transformerRouter = createTRPCRouter({
         ctx.workspace.organizationId,
       );
 
-      // Fetch metric for chart creation
-      const metric = await db.metric.findUnique({
-        where: { id: dashboardChart.metricId },
-      });
-
-      if (!metric) {
-        throw new TRPCError({
-          code: "NOT_FOUND",
-          message: "Metric not found",
-        });
-      }
+      const metric = await getMetricAndVerifyAccess(
+        db,
+        dashboardChart.metricId,
+        ctx.workspace.organizationId,
+      );
 
       return createChartTransformer({
         dashboardChartId: input.dashboardChartId,
