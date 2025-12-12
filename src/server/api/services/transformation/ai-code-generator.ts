@@ -60,48 +60,113 @@ interface GeneratedCode {
 
 const METRIC_TRANSFORMER_SYSTEM_PROMPT = `Generate JavaScript: function transform(apiResponse, endpointConfig) → DataPoint[]
 
+This transformer runs on initial setup AND periodically via cron job to collect time-series data. Each run fetches fresh API data and upserts into database by timestamp.
+
 DataPoint = { timestamp: Date, value: number, dimensions: object|null }
 
-RULES:
-1. NO TypeScript syntax - plain JavaScript only
-2. Aggregate to ONE DataPoint per day (group items by date, sum/count values)
-3. Use dimensions for secondary metrics (e.g., {completed: 50, canceled: 5})
-4. Handle missing values with || 0
-5. If API data is already daily/weekly/monthly, preserve that granularity
-6. Return array sorted by timestamp
+CRITICAL RULES:
 
-Output ONLY the function code, no markdown, no explanations.`;
+1. NO TypeScript - plain JavaScript only
+
+2. TIMESTAMPS - Each DataPoint MUST have a UNIQUE timestamp:
+   - Database has unique constraint on (metricId, timestamp)
+   - If API has date field: use new Date(item.date) or new Date(item.created_at)
+   - If API returns pre-aggregated data (daily/weekly): preserve that granularity
+   - If API returns individual events: group by day with date.setUTCHours(0,0,0,0)
+   - NEVER output duplicate timestamps
+
+3. VALUES - Choose aggregation based on metric semantics:
+   - COUNTS (commits, issues, tasks): SUM per period
+   - GAUGES (queue depth, balance, temperature): LAST value per period
+   - RATES (requests/sec, velocity): AVERAGE per period
+   - PERCENTAGES/RATIOS: AVERAGE, never sum
+
+4. DIMENSIONS - Preserve original API field names:
+   - Use EXACT field names from API (e.g., if API has "additions", use "additions" not "added")
+   - Store raw values, don't create derived metrics (no "netChanges = additions - deletions")
+   - Example: API has {additions: 500, deletions: 200} → dimensions: {additions: 500, deletions: 200}
+   - NOT for static metadata like names, IDs, or URLs
+
+5. EXTRACTION - Find the data in API response:
+   - Common patterns: apiResponse.data, .items, .results, .issues, or root array
+   - Handle empty: return []
+   - Handle pagination markers gracefully (ignore next_cursor, etc.)
+
+6. ROBUSTNESS:
+   - Missing values: use || 0 or || null
+   - Invalid dates: skip that item
+   - Unexpected structure: return []
+
+Output ONLY the function code, no markdown.`;
 
 const CHART_TRANSFORMER_SYSTEM_PROMPT = `Generate JavaScript: function transform(dataPoints, preferences) → ChartConfig
 
-Input:
-- dataPoints: Array of { timestamp: Date, value: number, dimensions: object|null }
-- preferences: { chartType, dateRange, aggregation }
+This function runs on EVERY data refresh (cron job). It receives ALL historical data points from DB (up to 1000), not just new ones. The chart should show the full time series.
 
-Output ChartConfig:
+Input:
+- dataPoints: Array of { timestamp: string (ISO), value: number, dimensions: object|null }
+- preferences: { chartType: string, dateRange: string, aggregation: string }
+
+Output ChartConfig (shadcn/ui chart format):
 {
   chartType: "line"|"bar"|"area"|"pie"|"radar"|"radial"|"kpi",
-  chartData: Array of objects,
-  chartConfig: { [key]: { label: string, color: string } },
+  chartData: Array of objects with xAxisKey + dataKeys,
+  chartConfig: { [dataKey]: { label: string, color: string } },
   xAxisKey: string,
   dataKeys: string[],
   title: string,
   showLegend?: boolean,
   showTooltip?: boolean,
   stacked?: boolean,
-  centerLabel?: { value: string, label: string }  // for pie/radial
+  centerLabel?: { value: string, label: string }
+}
+
+EXAMPLE OUTPUT for line chart:
+{
+  chartType: "line",
+  chartData: [
+    { date: "Jan 1", commits: 12 },
+    { date: "Jan 2", commits: 8 },
+    { date: "Jan 3", commits: 15 }
+  ],
+  chartConfig: {
+    commits: { label: "Commits", color: "var(--chart-1)" }
+  },
+  xAxisKey: "date",
+  dataKeys: ["commits"],
+  title: "Daily Commits",
+  showLegend: false,
+  showTooltip: true
+}
+
+EXAMPLE with dimensions (multi-series):
+{
+  chartType: "area",
+  chartData: [
+    { date: "Jan 1", additions: 500, deletions: 200 },
+    { date: "Jan 2", additions: 300, deletions: 150 }
+  ],
+  chartConfig: {
+    additions: { label: "Additions", color: "var(--chart-1)" },
+    deletions: { label: "Deletions", color: "var(--chart-2)" }
+  },
+  xAxisKey: "date",
+  dataKeys: ["additions", "deletions"],
+  title: "Code Changes",
+  showLegend: true,
+  stacked: true
 }
 
 RULES:
 1. NO TypeScript - plain JavaScript only
-2. Use var(--chart-1) through var(--chart-12) for colors
-3. For PIE charts: add fill property to each chartData item
-4. Filter by dateRange: "7d", "30d", "90d" from now; "all" = no filter
-5. Format dates as readable strings (e.g., "Jan 15")
-6. If dimensions exist, consider multi-series charts
-7. Aggregate if too many points (>50 for line, >20 for bar)
+2. Colors: var(--chart-1) through var(--chart-12)
+3. Filter by dateRange FIRST: "7d", "30d", "90d", "all"
+4. Format dates as readable strings: "Jan 15" or "Jan 15, 2024"
+5. If dimensions exist, extract them as separate data keys
+6. Aggregate if needed: >50 points for line → weekly, >20 for bar → monthly
+7. Sort chronologically (oldest first) for time series
 
-Output ONLY the function code, no markdown, no explanations.`;
+Output ONLY the function code, no markdown.`;
 
 // =============================================================================
 // AI Generator Functions
@@ -124,16 +189,29 @@ export async function generateDataIngestionTransformerCode(
 ): Promise<GeneratedCode> {
   const openrouter = getOpenRouterClient();
 
+  // Truncate large API responses to avoid token limits
+  const apiResponseStr = JSON.stringify(input.sampleApiResponse, null, 2);
+  const truncatedResponse =
+    apiResponseStr.length > 15000
+      ? apiResponseStr.slice(0, 15000) + "\n... (truncated)"
+      : apiResponseStr;
+
   const userPrompt = `Template: ${input.templateId}
 Integration: ${input.integrationId}
 Endpoint: ${input.method} ${input.endpoint}
 
 ACTUAL API Response (fetched just now):
-${JSON.stringify(input.sampleApiResponse, null, 2)}
+${truncatedResponse}
 
-This template tracks: ${input.metricDescription}
+Metric description: ${input.metricDescription}
 
-Parameters available in endpointConfig: ${input.availableParams.join(", ")}
+Analyze the API response structure and determine:
+1. Where is the data array? (response root, .data, .items, .results, etc.)
+2. What field contains the timestamp? (created_at, date, timestamp, etc.)
+3. What is the metric type? (count, gauge, rate, percentage)
+4. What fields should go in dimensions?
+
+Parameters available in endpointConfig: ${input.availableParams.join(", ") || "none"}
 
 Generate the JavaScript transform function.`;
 
@@ -219,16 +297,23 @@ export async function regenerateDataIngestionTransformerCode(
 ): Promise<GeneratedCode> {
   const openrouter = getOpenRouterClient();
 
+  // Truncate large API responses to avoid token limits
+  const apiResponseStr = JSON.stringify(input.sampleApiResponse, null, 2);
+  const truncatedResponse =
+    apiResponseStr.length > 15000
+      ? apiResponseStr.slice(0, 15000) + "\n... (truncated)"
+      : apiResponseStr;
+
   let userPrompt = `Template: ${input.templateId}
 Integration: ${input.integrationId}
 Endpoint: ${input.method} ${input.endpoint}
 
 ACTUAL API Response (fetched just now):
-${JSON.stringify(input.sampleApiResponse, null, 2)}
+${truncatedResponse}
 
-This template tracks: ${input.metricDescription}
+Metric description: ${input.metricDescription}
 
-Parameters available in endpointConfig: ${input.availableParams.join(", ")}`;
+Parameters available in endpointConfig: ${input.availableParams.join(", ") || "none"}`;
 
   if (input.previousCode) {
     userPrompt += `\n\nPrevious transformer code that FAILED:
@@ -237,7 +322,12 @@ ${input.previousCode}`;
 
   if (input.error) {
     userPrompt += `\n\nError message:
-${input.error}`;
+${input.error}
+
+Fix the error while ensuring:
+- NO duplicate timestamps in output
+- Correct aggregation for metric type
+- Proper null/undefined handling`;
   }
 
   userPrompt += "\n\nGenerate a FIXED JavaScript transform function.";
