@@ -27,7 +27,6 @@ export {
 export {
   ingestMetricData,
   refreshMetricDataPoints,
-  getDataIngestionTransformerByTemplateId,
   refreshMetricAndCharts,
 } from "./data-pipeline";
 
@@ -36,8 +35,4 @@ export {
   createChartTransformer,
   executeChartTransformerForDashboardChart,
   regenerateChartTransformer,
-  getChartTransformerByDashboardChartId,
 } from "./chart-generator";
-
-// Utils
-export { cleanGeneratedCode } from "./utils";

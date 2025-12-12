@@ -10,7 +10,7 @@ import { generateText } from "ai";
 
 import { env } from "@/env";
 
-import { cleanGeneratedCode } from "./utils";
+import { cleanGeneratedCode, safeStringifyForPrompt } from "./utils";
 
 // =============================================================================
 // Types
@@ -189,19 +189,14 @@ export async function generateDataIngestionTransformerCode(
 ): Promise<GeneratedCode> {
   const openrouter = getOpenRouterClient();
 
-  // Truncate large API responses to avoid token limits
-  const apiResponseStr = JSON.stringify(input.sampleApiResponse, null, 2);
-  const truncatedResponse =
-    apiResponseStr.length > 15000
-      ? apiResponseStr.slice(0, 15000) + "\n... (truncated)"
-      : apiResponseStr;
+  const sanitizedResponse = safeStringifyForPrompt(input.sampleApiResponse);
 
   const userPrompt = `Template: ${input.templateId}
 Integration: ${input.integrationId}
 Endpoint: ${input.method} ${input.endpoint}
 
 ACTUAL API Response (fetched just now):
-${truncatedResponse}
+${sanitizedResponse}
 
 Metric description: ${input.metricDescription}
 
@@ -297,19 +292,14 @@ export async function regenerateDataIngestionTransformerCode(
 ): Promise<GeneratedCode> {
   const openrouter = getOpenRouterClient();
 
-  // Truncate large API responses to avoid token limits
-  const apiResponseStr = JSON.stringify(input.sampleApiResponse, null, 2);
-  const truncatedResponse =
-    apiResponseStr.length > 15000
-      ? apiResponseStr.slice(0, 15000) + "\n... (truncated)"
-      : apiResponseStr;
+  const sanitizedResponse = safeStringifyForPrompt(input.sampleApiResponse);
 
   let userPrompt = `Template: ${input.templateId}
 Integration: ${input.integrationId}
 Endpoint: ${input.method} ${input.endpoint}
 
 ACTUAL API Response (fetched just now):
-${truncatedResponse}
+${sanitizedResponse}
 
 Metric description: ${input.metricDescription}
 
