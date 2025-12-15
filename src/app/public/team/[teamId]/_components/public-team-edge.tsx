@@ -16,14 +16,16 @@ const NODE_DIMENSIONS: Record<string, { width: number; height: number }> = {
   "text-node": { width: 180, height: 60 },
 };
 
-function getNodeDimensions(nodeId: string): { width: number; height: number } {
-  if (nodeId.startsWith("role-node")) {
-    return NODE_DIMENSIONS["role-node"]!;
+const DEFAULT_DIMENSIONS = { width: 200, height: 100 };
+
+function getNodeDimensions(nodeType: string | undefined): {
+  width: number;
+  height: number;
+} {
+  if (nodeType && nodeType in NODE_DIMENSIONS) {
+    return NODE_DIMENSIONS[nodeType]!;
   }
-  if (nodeId.startsWith("text-") || nodeId.startsWith("text-node")) {
-    return NODE_DIMENSIONS["text-node"]!;
-  }
-  return { width: 200, height: 100 };
+  return DEFAULT_DIMENSIONS;
 }
 
 function getFloatingParams(
@@ -97,8 +99,8 @@ export function PublicTeamEdge({
     return null;
   }
 
-  const sourceDimensions = getNodeDimensions(source);
-  const targetDimensions = getNodeDimensions(target);
+  const sourceDimensions = getNodeDimensions(sourceNode.type);
+  const targetDimensions = getNodeDimensions(targetNode.type);
 
   const sourceRect = {
     x: sourceNode.internals.positionAbsolute.x,

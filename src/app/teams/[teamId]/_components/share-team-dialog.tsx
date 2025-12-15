@@ -72,16 +72,23 @@ export function ShareTeamDialog({
   }, [open, team, initialIsPubliclyShared, initialShareToken]);
 
   const generateTokenMutation = api.team.generateShareToken.useMutation({
-    onMutate: () => setOptimisticShared(true),
+    onMutate: () => {
+      const previousShared = optimisticShared;
+      const previousToken = optimisticToken;
+      setOptimisticShared(true);
+      return { previousShared, previousToken };
+    },
     onSuccess: (data) => {
       setOptimisticToken(data.shareToken);
       setOptimisticShared(true);
       void utils.team.getById.invalidate({ id: teamId });
       toast.success("Share link generated");
     },
-    onError: (error) => {
-      setOptimisticShared(initialIsPubliclyShared);
-      setOptimisticToken(initialShareToken);
+    onError: (error, _variables, context) => {
+      if (context) {
+        setOptimisticShared(context.previousShared);
+        setOptimisticToken(context.previousToken);
+      }
       toast.error("Failed to generate share link", {
         description: error.message,
       });
@@ -89,13 +96,19 @@ export function ShareTeamDialog({
   });
 
   const enableSharingMutation = api.team.enableSharing.useMutation({
-    onMutate: () => setOptimisticShared(true),
+    onMutate: () => {
+      const previousShared = optimisticShared;
+      setOptimisticShared(true);
+      return { previousShared };
+    },
     onSuccess: () => {
       void utils.team.getById.invalidate({ id: teamId });
       toast.success("Public sharing enabled");
     },
-    onError: (error) => {
-      setOptimisticShared(false);
+    onError: (error, _variables, context) => {
+      if (context) {
+        setOptimisticShared(context.previousShared);
+      }
       toast.error("Failed to enable sharing", {
         description: error.message,
       });
@@ -103,13 +116,19 @@ export function ShareTeamDialog({
   });
 
   const disableSharingMutation = api.team.disableSharing.useMutation({
-    onMutate: () => setOptimisticShared(false),
+    onMutate: () => {
+      const previousShared = optimisticShared;
+      setOptimisticShared(false);
+      return { previousShared };
+    },
     onSuccess: () => {
       void utils.team.getById.invalidate({ id: teamId });
       toast.success("Public sharing disabled");
     },
-    onError: (error) => {
-      setOptimisticShared(true);
+    onError: (error, _variables, context) => {
+      if (context) {
+        setOptimisticShared(context.previousShared);
+      }
       toast.error("Failed to disable sharing", {
         description: error.message,
       });
