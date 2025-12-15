@@ -58,55 +58,29 @@ function PublicRoleNodeComponent({
         borderColor: color,
       }}
     >
-      {/* Top Handles - Bidirectional */}
-      <Handle
-        type="target"
-        position={Position.Top}
-        id="top-target"
-        className={cn(
-          "!bg-primary !border-background !h-3 !w-3 !border-2",
-          "transition-transform hover:!scale-125",
-        )}
-        style={{ left: "45%" }}
-      />
       <Handle
         type="source"
         position={Position.Top}
-        id="top-source"
+        id="top"
         className={cn(
           "!bg-primary !border-background !h-3 !w-3 !border-2",
           "transition-transform hover:!scale-125",
         )}
-        style={{ left: "55%" }}
-      />
-
-      {/* Right Handles - Bidirectional */}
-      <Handle
-        type="target"
-        position={Position.Right}
-        id="right-target"
-        className={cn(
-          "!bg-primary !border-background !h-3 !w-3 !border-2",
-          "transition-transform hover:!scale-125",
-        )}
-        style={{ top: "45%" }}
       />
       <Handle
         type="source"
         position={Position.Right}
-        id="right-source"
+        id="right"
         className={cn(
           "!bg-primary !border-background !h-3 !w-3 !border-2",
           "transition-transform hover:!scale-125",
         )}
-        style={{ top: "55%" }}
       />
 
       <div className="nodrag absolute top-1 right-1 z-10 opacity-0 transition-opacity group-hover:opacity-100">
         <RoleViewDialog data={data} />
       </div>
 
-      {/* Header */}
       <div
         className="flex shrink-0 items-center gap-2 rounded-t-md px-4 py-2"
         style={{
@@ -117,9 +91,7 @@ function PublicRoleNodeComponent({
         <h3 className="truncate text-sm font-semibold">{data.title}</h3>
       </div>
 
-      {/* Body */}
       <div className="flex min-h-0 flex-1 flex-col gap-1.5 overflow-hidden px-4 py-2">
-        {/* Purpose */}
         <TooltipProvider>
           <Tooltip>
             <TooltipTrigger asChild>
@@ -135,9 +107,7 @@ function PublicRoleNodeComponent({
           </Tooltip>
         </TooltipProvider>
 
-        {/* Metric & Assigned User - at bottom */}
         <div className="mt-auto space-y-1">
-          {/* Metric */}
           {data.metricName && (
             <div className="flex items-center gap-2 text-xs">
               <TrendingUp className="text-muted-foreground h-3 w-3 shrink-0" />
@@ -149,8 +119,6 @@ function PublicRoleNodeComponent({
               )}
             </div>
           )}
-
-          {/* Assigned User */}
           {data.assignedUserName && (
             <div className="flex items-center gap-2 text-xs">
               <User className="text-muted-foreground h-3 w-3 shrink-0" />
@@ -162,7 +130,6 @@ function PublicRoleNodeComponent({
         </div>
       </div>
 
-      {/* Footer - Effort Points */}
       {data.effortPoints && (
         <div className="border-border/50 shrink-0 border-t px-4 py-1.5">
           <div className="text-muted-foreground flex items-center gap-1.5 text-xs">
@@ -174,48 +141,23 @@ function PublicRoleNodeComponent({
         </div>
       )}
 
-      {/* Bottom Handles - Bidirectional */}
-      <Handle
-        type="target"
-        position={Position.Bottom}
-        id="bottom-target"
-        className={cn(
-          "!bg-primary !border-background !h-3 !w-3 !border-2",
-          "transition-transform hover:!scale-125",
-        )}
-        style={{ left: "45%" }}
-      />
       <Handle
         type="source"
         position={Position.Bottom}
-        id="bottom-source"
+        id="bottom"
         className={cn(
           "!bg-primary !border-background !h-3 !w-3 !border-2",
           "transition-transform hover:!scale-125",
         )}
-        style={{ left: "55%" }}
-      />
-
-      {/* Left Handles - Bidirectional */}
-      <Handle
-        type="target"
-        position={Position.Left}
-        id="left-target"
-        className={cn(
-          "!bg-primary !border-background !h-3 !w-3 !border-2",
-          "transition-transform hover:!scale-125",
-        )}
-        style={{ top: "45%" }}
       />
       <Handle
         type="source"
         position={Position.Left}
-        id="left-source"
+        id="left"
         className={cn(
           "!bg-primary !border-background !h-3 !w-3 !border-2",
           "transition-transform hover:!scale-125",
         )}
-        style={{ top: "55%" }}
       />
     </div>
   );
