@@ -73,7 +73,6 @@ export async function GET(request: Request) {
     succeeded: 0,
     failed: 0,
     skipped: 0,
-    errors: [] as string[],
   };
 
   try {
@@ -110,7 +109,10 @@ export async function GET(request: Request) {
 
         if (!refreshResult.success) {
           results.failed++;
-          results.errors.push(`${metric.name}: ${refreshResult.error}`);
+          // Log metric name server-side only, don't expose in response
+          console.error(
+            `[CRON] Failed to poll metric ${metric.name}: ${refreshResult.error}`,
+          );
 
           // Update nextPollAt even on failure (cron-specific)
           await db.metric.update({
@@ -137,7 +139,10 @@ export async function GET(request: Request) {
         results.failed++;
         const errorMessage =
           error instanceof Error ? error.message : "Unknown error";
-        results.errors.push(`${metric.name}: ${errorMessage}`);
+        // Log metric name server-side only, don't expose in response
+        console.error(
+          `[CRON] Error polling metric ${metric.name}: ${errorMessage}`,
+        );
 
         // Update nextPollAt even on error (cron-specific)
         await db.metric.update({
