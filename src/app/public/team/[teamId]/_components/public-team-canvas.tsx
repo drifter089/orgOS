@@ -5,6 +5,7 @@ import { useMemo } from "react";
 import {
   Background,
   BackgroundVariant,
+  ConnectionMode,
   MarkerType,
   type Node,
   type ProOptions,
@@ -93,12 +94,10 @@ export function PublicTeamCanvas({ team }: PublicTeamCanvasProps) {
   const edges = useMemo(() => {
     const storedEdges = (team.reactFlowEdges as StoredEdge[]) ?? [];
 
-    return storedEdges.map((edge) => ({
-      id: edge.id,
+    return storedEdges.map((edge, index) => ({
+      id: `public-edge-${index}-${edge.source}-${edge.target}`,
       source: edge.source,
       target: edge.target,
-      sourceHandle: edge.sourceHandle,
-      targetHandle: edge.targetHandle,
       type: "team-edge",
       animated: edge.animated ?? true,
       markerEnd: { type: MarkerType.ArrowClosed, width: 20, height: 20 },
@@ -121,6 +120,7 @@ export function PublicTeamCanvas({ team }: PublicTeamCanvasProps) {
           nodeTypes={nodeTypes}
           edgeTypes={edgeTypes}
           proOptions={proOptions}
+          connectionMode={ConnectionMode.Loose}
           fitView
           fitViewOptions={{
             maxZoom: 0.65,
