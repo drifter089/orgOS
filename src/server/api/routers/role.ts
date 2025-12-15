@@ -8,6 +8,14 @@ import {
 } from "@/server/api/utils/authorization";
 import { invalidateCacheByTags } from "@/server/api/utils/cache-strategy";
 
+const metricInclude = {
+  include: {
+    dashboardCharts: {
+      take: 1,
+    },
+  },
+};
+
 export const roleRouter = createTRPCRouter({
   getById: workspaceProcedure
     .input(z.object({ id: z.string() }))
@@ -32,7 +40,9 @@ export const roleRouter = createTRPCRouter({
 
       return ctx.db.role.findMany({
         where: { teamId: input.teamId },
-        include: { metric: true },
+        include: {
+          metric: metricInclude,
+        },
         orderBy: { createdAt: "asc" },
       });
     }),
@@ -78,7 +88,7 @@ export const roleRouter = createTRPCRouter({
           assignedUserId: input.assignedUserId ?? null,
           effortPoints: input.effortPoints ?? null,
         },
-        include: { metric: true },
+        include: { metric: metricInclude },
       });
 
       // Invalidate Prisma Accelerate cache for this team
@@ -145,7 +155,7 @@ export const roleRouter = createTRPCRouter({
       const role = await ctx.db.role.update({
         where: { id: input.id },
         data,
-        include: { metric: true, team: true },
+        include: { metric: metricInclude, team: true },
       });
 
       // Invalidate Prisma Accelerate cache for this team
@@ -187,7 +197,7 @@ export const roleRouter = createTRPCRouter({
       const role = await ctx.db.role.update({
         where: { id: input.id },
         data: { assignedUserId: input.userId },
-        include: { metric: true, team: true },
+        include: { metric: metricInclude, team: true },
       });
 
       // Invalidate Prisma Accelerate cache for this team
@@ -209,7 +219,7 @@ export const roleRouter = createTRPCRouter({
       const role = await ctx.db.role.update({
         where: { id: input.id },
         data: { assignedUserId: null },
-        include: { metric: true, team: true },
+        include: { metric: metricInclude, team: true },
       });
 
       // Invalidate Prisma Accelerate cache for this team
@@ -226,7 +236,7 @@ export const roleRouter = createTRPCRouter({
         include: {
           roles: {
             where: { assignedUserId: input.userId },
-            include: { metric: true, team: true },
+            include: { metric: metricInclude, team: true },
           },
         },
       });

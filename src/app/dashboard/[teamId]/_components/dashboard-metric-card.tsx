@@ -2,7 +2,7 @@
 
 import { useCallback, useState } from "react";
 
-import { AlertCircle, BarChart3, Settings, Users } from "lucide-react";
+import { AlertCircle, BarChart3, Hash, Settings, Users } from "lucide-react";
 import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
@@ -20,6 +20,7 @@ import { api } from "@/trpc/react";
 import { DashboardMetricChart } from "./dashboard-metric-chart";
 import { DashboardMetricRoles } from "./dashboard-metric-roles";
 import { DashboardMetricSettings } from "./dashboard-metric-settings";
+import { DashboardMetricValue } from "./dashboard-metric-value";
 
 type DashboardMetrics = RouterOutputs["dashboard"]["getDashboardCharts"];
 type DashboardMetricWithRelations = DashboardMetrics[number];
@@ -267,6 +268,12 @@ export function DashboardMetricCard({
           <BarChart3 className="h-3 w-3" />
         </TabsTrigger>
         <TabsTrigger
+          value="value"
+          className="data-[state=active]:bg-muted data-[state=active]:text-foreground text-muted-foreground hover:bg-muted/50 hover:text-foreground h-7 rounded-none border-r px-3 text-xs transition-colors"
+        >
+          <Hash className="h-3 w-3" />
+        </TabsTrigger>
+        <TabsTrigger
           value="roles"
           className="data-[state=active]:bg-muted data-[state=active]:text-foreground text-muted-foreground hover:bg-muted/50 hover:text-foreground h-7 rounded-none border-r px-3 text-xs transition-colors"
         >
@@ -288,6 +295,21 @@ export function DashboardMetricCard({
           className="animate-tab-slide-in absolute inset-0 m-0 data-[state=inactive]:hidden"
         >
           <DashboardMetricChart
+            title={title}
+            chartTransform={chartTransform}
+            hasChartData={hasChartData}
+            isIntegrationMetric={isIntegrationMetric}
+            isPending={isPending}
+            isProcessing={isProcessing}
+            integrationId={metric.integration?.providerId}
+          />
+        </TabsContent>
+
+        <TabsContent
+          value="value"
+          className="animate-tab-slide-in absolute inset-0 m-0 data-[state=inactive]:hidden"
+        >
+          <DashboardMetricValue
             title={title}
             chartTransform={chartTransform}
             hasChartData={hasChartData}

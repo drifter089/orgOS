@@ -32,8 +32,12 @@ export function useUpdateRole({
 
       const previousRoles = utils.role.getByTeam.getData({ teamId });
 
-      // Optimistically update the role cache
-      // RoleNode component reads from cache, so this updates UI automatically
+      // Look up metric from cache for optimistic display
+      const metrics = utils.metric.getByTeamId.getData({ teamId });
+      const selectedMetric = variables.metricId
+        ? metrics?.find((m) => m.id === variables.metricId)
+        : null;
+
       utils.role.getByTeam.setData({ teamId }, (old) => {
         if (!old) return old;
         return old.map((role) =>
@@ -46,7 +50,9 @@ export function useUpdateRole({
                 metricId: variables.metricId ?? null,
                 assignedUserId: variables.assignedUserId ?? null,
                 color: variables.color ?? role.color,
-                metric: null, // Will be populated on success
+                metric: selectedMetric
+                  ? { ...selectedMetric, dashboardCharts: [] }
+                  : null,
                 effortPoints:
                   variables.effortPoints !== undefined
                     ? variables.effortPoints

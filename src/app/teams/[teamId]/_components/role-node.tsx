@@ -20,6 +20,8 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { stripHtml } from "@/lib/html-utils";
+import { getLatestMetricValue } from "@/lib/metrics/get-latest-value";
+import type { ChartTransformResult } from "@/lib/metrics/transformer-types";
 import { cn } from "@/lib/utils";
 import { useConfirmation } from "@/providers/ConfirmationDialogProvider";
 
@@ -62,6 +64,12 @@ function RoleNodeComponent({ data, selected, id }: NodeProps<RoleNode>) {
   const color = role?.color ?? data.pendingColor ?? "#3b82f6";
   const metricName = role?.metric?.name;
   const effortPoints = role?.effortPoints;
+
+  const dashboardCharts = role?.metric?.dashboardCharts;
+  const chartConfig = dashboardCharts?.[0]
+    ?.chartConfig as ChartTransformResult | null;
+  const metricValue = getLatestMetricValue(chartConfig)?.value;
+  const isValueLoading = metricName && dashboardCharts?.length === 0;
 
   const handleDelete = useCallback(async () => {
     const confirmed = await confirm({
@@ -219,6 +227,15 @@ function RoleNodeComponent({ data, selected, id }: NodeProps<RoleNode>) {
             <div className="flex items-center gap-2 text-xs">
               <TrendingUp className="text-muted-foreground h-3 w-3 shrink-0" />
               <span className="truncate font-medium">{metricName}</span>
+              {isValueLoading ? (
+                <Loader2 className="text-muted-foreground ml-auto h-3 w-3 shrink-0 animate-spin" />
+              ) : metricValue !== undefined ? (
+                <span className="text-primary ml-auto shrink-0 font-semibold">
+                  {Number.isInteger(metricValue)
+                    ? metricValue
+                    : metricValue.toFixed(1)}
+                </span>
+              ) : null}
             </div>
           )}
 
