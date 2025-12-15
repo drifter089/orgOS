@@ -8,6 +8,7 @@ export default authkitMiddleware({
       "/mission", // Public mission page
       "/login", // Login page - handles auth check and redirect
       "/api/nango/webhook", // Nango webhook endpoint (must be public for Nango servers)
+      "/api/cron/:path*", // Cron endpoints (authenticated via CRON_SECRET header)
       "/public/:path*", // Public display routes (read-only shared views)
     ],
   },
