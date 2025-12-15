@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 
 import { usePathname } from "next/navigation";
 
@@ -40,6 +40,17 @@ export function FeedbackButton() {
   const containerRef = useRef<HTMLDivElement>(null);
   const popupRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
+  const closeTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  const CLOSE_DELAY_MS = 300;
+
+  useEffect(() => {
+    return () => {
+      if (closeTimeoutRef.current) {
+        clearTimeout(closeTimeoutRef.current);
+      }
+    };
+  }, []);
 
   const submitFeedback = api.feedback.submit.useMutation({
     onSuccess: (data) => {
@@ -52,8 +63,27 @@ export function FeedbackButton() {
     },
   });
 
-  const openPopup = () => setIsOpen(true);
+  const cancelCloseTimeout = () => {
+    if (closeTimeoutRef.current) {
+      clearTimeout(closeTimeoutRef.current);
+      closeTimeoutRef.current = null;
+    }
+  };
+
+  const openPopup = () => {
+    cancelCloseTimeout();
+    setIsOpen(true);
+  };
+
   const closePopup = () => setIsOpen(false);
+
+  const scheduleClose = () => {
+    cancelCloseTimeout();
+    closeTimeoutRef.current = setTimeout(() => {
+      closePopup();
+      setHasShownStayOpenToast(false);
+    }, CLOSE_DELAY_MS);
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -76,8 +106,7 @@ export function FeedbackButton() {
 
   const handleMouseLeave = () => {
     if (!feedback.trim() && !isSelectOpen) {
-      closePopup();
-      setHasShownStayOpenToast(false);
+      scheduleClose();
     } else if (feedback.trim() && !hasShownStayOpenToast) {
       toast("📝 Your feedback is safe!", {
         description: "Send it or clear the text to close.",
