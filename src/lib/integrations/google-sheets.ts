@@ -51,14 +51,14 @@ export const templates: MetricTemplate[] = [
   },
 
   {
-    templateId: "gsheets-column-data",
-    label: "Column Data (Full Dataset)",
-    description: "Track all values in a column for visualization",
+    templateId: "gsheets-data",
+    label: "Spreadsheet Data",
+    description: "Track data from Google Sheets with smart AI analysis",
     integrationId: "google-sheet",
     metricType: "number",
 
     previewEndpoint: "/v4/spreadsheets/{SPREADSHEET_ID}/values/{SHEET_NAME}",
-    metricEndpoint: "/v4/spreadsheets/{SPREADSHEET_ID}/values/{SHEET_NAME}",
+    metricEndpoint: "/v4/spreadsheets/{SPREADSHEET_ID}/values/{DATA_RANGE}",
 
     // Architecture config - Snapshot data, not time-series
     defaultPollFrequency: "daily",
@@ -87,12 +87,13 @@ export const templates: MetricTemplate[] = [
         },
       },
       {
-        name: "COLUMN_INDEX",
-        label: "Column Index",
-        description: "Column index (0-based)",
-        type: "number",
+        name: "DATA_RANGE",
+        label: "Data Range",
+        description:
+          "A1 notation range (e.g., Sheet1!A1:D20) - select visually or use entire sheet",
+        type: "text",
         required: true,
-        placeholder: "0",
+        placeholder: "Sheet1!A1:D20",
       },
     ],
   },

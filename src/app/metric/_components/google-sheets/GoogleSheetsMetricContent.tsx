@@ -1,11 +1,10 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { Loader2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
 import { DialogFooter } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -35,7 +34,39 @@ function extractSpreadsheetId(url: string): string | null {
   return match?.[1] ?? null;
 }
 
-const TEMPLATE_ID = "gsheets-column-data";
+// Convert column index to letter (0 -> A, 1 -> B, etc.)
+function columnToLetter(col: number): string {
+  let letter = "";
+  let temp = col;
+  while (temp >= 0) {
+    letter = String.fromCharCode((temp % 26) + 65) + letter;
+    temp = Math.floor(temp / 26) - 1;
+  }
+  return letter;
+}
+
+// Convert selection to A1 notation
+function selectionToA1Notation(
+  sheetName: string,
+  startRow: number,
+  startCol: number,
+  endRow: number,
+  endCol: number,
+): string {
+  const startColLetter = columnToLetter(startCol);
+  const endColLetter = columnToLetter(endCol);
+  // Rows are 1-indexed in A1 notation
+  return `${sheetName}!${startColLetter}${startRow + 1}:${endColLetter}${endRow + 1}`;
+}
+
+const TEMPLATE_ID = "gsheets-data";
+
+interface SelectionRange {
+  startRow: number;
+  startCol: number;
+  endRow: number;
+  endCol: number;
+}
 
 export function GoogleSheetsMetricContent({
   connection,
@@ -48,7 +79,14 @@ export function GoogleSheetsMetricContent({
   const [spreadsheetId, setSpreadsheetId] = useState("");
   const [selectedSheet, setSelectedSheet] = useState("");
 
-  const [selectedColumns, setSelectedColumns] = useState<number[]>([]);
+  // Selection state for click-and-drag
+  const [selection, setSelection] = useState<SelectionRange | null>(null);
+  const [isSelecting, setIsSelecting] = useState(false);
+  const [selectionStart, setSelectionStart] = useState<{
+    row: number;
+    col: number;
+  } | null>(null);
+
   const [metricName, setMetricName] = useState("");
 
   // Fetch spreadsheet metadata
@@ -92,18 +130,53 @@ export function GoogleSheetsMetricContent({
   const previewData = useMemo(() => {
     if (!sheetData?.data) return [];
     const response = sheetData.data as { values?: string[][] };
-    return response.values?.slice(0, 10) ?? [];
+    // Show more rows for better preview (up to 20)
+    return response.values?.slice(0, 20) ?? [];
   }, [sheetData]);
 
+  const fullData = useMemo(() => {
+    if (!sheetData?.data) return [];
+    const response = sheetData.data as { values?: string[][] };
+    return response.values ?? [];
+  }, [sheetData]);
+
+  // Calculate the data range - use selection or entire sheet
+  const dataRange = useMemo((): string => {
+    if (!selectedSheet) return "";
+
+    if (selection) {
+      return selectionToA1Notation(
+        selectedSheet,
+        selection.startRow,
+        selection.startCol,
+        selection.endRow,
+        selection.endCol,
+      );
+    }
+
+    // Default to entire sheet if no selection
+    if (fullData.length > 0) {
+      const maxCols = Math.max(...fullData.map((row) => row.length));
+      return selectionToA1Notation(
+        selectedSheet,
+        0,
+        0,
+        fullData.length - 1,
+        maxCols - 1,
+      );
+    }
+
+    return selectedSheet;
+  }, [selectedSheet, selection, fullData]);
+
   const endpointParams = useMemo((): Record<string, string> => {
-    if (!spreadsheetId || !selectedSheet || selectedColumns.length === 0)
-      return {};
+    if (!spreadsheetId || !selectedSheet || !dataRange) return {};
     return {
       SPREADSHEET_ID: spreadsheetId,
       SHEET_NAME: selectedSheet,
-      COLUMN_INDEX: selectedColumns[0]!.toString(),
+      DATA_RANGE: dataRange,
     };
-  }, [spreadsheetId, selectedSheet, selectedColumns]);
+  }, [spreadsheetId, selectedSheet, dataRange]);
 
   // Move to step 2 when metadata is loaded
   useEffect(() => {
@@ -124,26 +197,82 @@ export function GoogleSheetsMetricContent({
   };
 
   const handleCreateMetric = () => {
-    if (!connection || !metricName || selectedColumns.length === 0) return;
+    if (!connection || !metricName) return;
 
     void onSubmit({
       templateId: TEMPLATE_ID,
       connectionId: connection.connectionId,
       name: metricName,
-      description: `Tracking columns from ${selectedSheet} in Google Sheets`,
+      description: `Data from ${selectedSheet} in Google Sheets`,
       endpointParams,
     });
   };
 
-  const toggleColumn = (index: number) => {
-    setSelectedColumns((prev) =>
-      prev.includes(index) ? prev.filter((i) => i !== index) : [...prev, index],
-    );
+  // Selection handlers
+  const handleCellMouseDown = useCallback(
+    (rowIndex: number, colIndex: number) => {
+      setIsSelecting(true);
+      setSelectionStart({ row: rowIndex, col: colIndex });
+      setSelection({
+        startRow: rowIndex,
+        startCol: colIndex,
+        endRow: rowIndex,
+        endCol: colIndex,
+      });
+    },
+    [],
+  );
+
+  const handleCellMouseEnter = useCallback(
+    (rowIndex: number, colIndex: number) => {
+      if (!isSelecting || !selectionStart) return;
+
+      setSelection({
+        startRow: Math.min(selectionStart.row, rowIndex),
+        startCol: Math.min(selectionStart.col, colIndex),
+        endRow: Math.max(selectionStart.row, rowIndex),
+        endCol: Math.max(selectionStart.col, colIndex),
+      });
+    },
+    [isSelecting, selectionStart],
+  );
+
+  const handleMouseUp = useCallback(() => {
+    setIsSelecting(false);
+  }, []);
+
+  // Add mouseup listener to document
+  useEffect(() => {
+    document.addEventListener("mouseup", handleMouseUp);
+    return () => document.removeEventListener("mouseup", handleMouseUp);
+  }, [handleMouseUp]);
+
+  const isCellSelected = useCallback(
+    (rowIndex: number, colIndex: number): boolean => {
+      if (!selection) return false;
+      return (
+        rowIndex >= selection.startRow &&
+        rowIndex <= selection.endRow &&
+        colIndex >= selection.startCol &&
+        colIndex <= selection.endCol
+      );
+    },
+    [selection],
+  );
+
+  const clearSelection = () => {
+    setSelection(null);
   };
 
   const isStep1Valid = spreadsheetUrl.trim() !== "";
   const isStep2Valid = selectedSheet !== "";
-  const isStep3Valid = metricName.trim() !== "" && selectedColumns.length > 0;
+  const isStep3Valid = metricName.trim() !== "";
+
+  // Get max columns for header
+  const maxCols =
+    previewData.length > 0
+      ? Math.max(...previewData.map((row) => row.length))
+      : 0;
 
   return (
     <>
@@ -206,30 +335,45 @@ export function GoogleSheetsMetricContent({
             </div>
 
             <div className="space-y-2">
-              <Label>Preview & Select Columns</Label>
+              <div className="flex items-center justify-between">
+                <Label>Select Data Range (click and drag)</Label>
+                <div className="flex items-center gap-2">
+                  {selection && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={clearSelection}
+                      className="h-6 px-2 text-xs"
+                    >
+                      Clear Selection
+                    </Button>
+                  )}
+                  <span className="text-muted-foreground text-xs">
+                    {selection ? dataRange : "Using entire sheet"}
+                  </span>
+                </div>
+              </div>
+
               {isLoadingSheetData ? (
                 <div className="flex items-center justify-center py-8">
                   <Loader2 className="size-6 animate-spin" />
                 </div>
               ) : previewData.length > 0 ? (
                 <div className="rounded-md border">
-                  <ScrollArea className="h-[400px] w-full">
-                    <div className="p-4">
+                  <ScrollArea className="h-[350px] w-full">
+                    <div className="p-2">
                       <Table>
                         <TableHeader>
                           <TableRow>
-                            <TableHead className="w-12 text-center">
+                            <TableHead className="bg-muted/50 sticky top-0 z-10 w-10 text-center text-xs">
                               #
                             </TableHead>
-                            {previewData[0]?.map((_, index) => (
-                              <TableHead key={index}>
-                                <div className="flex items-center gap-2">
-                                  <Checkbox
-                                    checked={selectedColumns.includes(index)}
-                                    onCheckedChange={() => toggleColumn(index)}
-                                  />
-                                  <span>Col {index + 1}</span>
-                                </div>
+                            {Array.from({ length: maxCols }).map((_, index) => (
+                              <TableHead
+                                key={index}
+                                className="bg-muted/50 sticky top-0 z-10 min-w-[80px] text-center text-xs"
+                              >
+                                {columnToLetter(index)}
                               </TableHead>
                             ))}
                           </TableRow>
@@ -237,21 +381,31 @@ export function GoogleSheetsMetricContent({
                         <TableBody>
                           {previewData.map((row, rowIndex) => (
                             <TableRow key={rowIndex}>
-                              <TableCell className="text-muted-foreground text-center text-xs font-medium">
+                              <TableCell className="text-muted-foreground bg-muted/30 text-center text-xs font-medium">
                                 {rowIndex + 1}
                               </TableCell>
-                              {row.map((cell, cellIndex) => (
-                                <TableCell
-                                  key={cellIndex}
-                                  className={
-                                    selectedColumns.includes(cellIndex)
-                                      ? "bg-primary/10"
-                                      : ""
-                                  }
-                                >
-                                  {cell}
-                                </TableCell>
-                              ))}
+                              {Array.from({ length: maxCols }).map(
+                                (_, colIndex) => (
+                                  <TableCell
+                                    key={colIndex}
+                                    className={`cursor-cell p-1 text-xs select-none ${
+                                      isCellSelected(rowIndex, colIndex)
+                                        ? "bg-primary/20 ring-primary/50 ring-1"
+                                        : "hover:bg-muted/50"
+                                    }`}
+                                    onMouseDown={() =>
+                                      handleCellMouseDown(rowIndex, colIndex)
+                                    }
+                                    onMouseEnter={() =>
+                                      handleCellMouseEnter(rowIndex, colIndex)
+                                    }
+                                  >
+                                    <div className="max-w-[120px] truncate">
+                                      {row[colIndex] ?? ""}
+                                    </div>
+                                  </TableCell>
+                                ),
+                              )}
                             </TableRow>
                           ))}
                         </TableBody>
@@ -265,8 +419,9 @@ export function GoogleSheetsMetricContent({
                 </p>
               )}
               <p className="text-muted-foreground text-xs">
-                Select columns by checking the boxes above. Showing first 10
-                rows.
+                Click and drag to select a data range, or leave unselected to
+                use entire sheet. AI will automatically detect headers and data
+                structure.
               </p>
             </div>
           </div>

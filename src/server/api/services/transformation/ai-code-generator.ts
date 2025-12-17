@@ -10,6 +10,11 @@ import { generateText } from "ai";
 
 import { env } from "@/env";
 
+import {
+  generateGSheetsChartCode,
+  generateGSheetsDataIngestionCode,
+  regenerateGSheetsDataIngestionCode,
+} from "./gsheets";
 import { cleanGeneratedCode, safeStringifyForPrompt } from "./utils";
 
 // =============================================================================
@@ -24,6 +29,7 @@ interface GenerateDataIngestionTransformerInput {
   sampleApiResponse: unknown;
   metricDescription: string;
   availableParams: string[];
+  endpointConfig?: Record<string, string>;
 }
 
 interface DataStats {
@@ -47,6 +53,7 @@ interface GenerateChartTransformerInput {
   aggregation: string;
   userPrompt?: string;
   dataStats?: DataStats;
+  templateId?: string; // Used to route to Google Sheets specific generator
 }
 
 interface GeneratedCode {
@@ -183,10 +190,26 @@ function getOpenRouterClient() {
 
 /**
  * Generate DataIngestionTransformer code using AI
+ *
+ * Routes to Google Sheets specific generator for gsheets-* templates.
  */
 export async function generateDataIngestionTransformerCode(
   input: GenerateDataIngestionTransformerInput,
 ): Promise<GeneratedCode> {
+  // Route to Google Sheets specific generator
+  if (input.templateId.startsWith("gsheets-")) {
+    const sheetName = input.endpointConfig?.SHEET_NAME ?? "Sheet1";
+    const dataRange = input.endpointConfig?.DATA_RANGE;
+
+    return generateGSheetsDataIngestionCode({
+      templateId: input.templateId,
+      sampleApiResponse: input.sampleApiResponse,
+      sheetName,
+      dataRange,
+    });
+  }
+
+  // Standard API transformer generation
   const openrouter = getOpenRouterClient();
 
   const sanitizedResponse = safeStringifyForPrompt(input.sampleApiResponse);
@@ -226,10 +249,26 @@ Generate the JavaScript transform function.`;
 
 /**
  * Generate ChartTransformer code using AI
+ *
+ * Routes to Google Sheets specific generator for gsheets-* templates.
  */
 export async function generateChartTransformerCode(
   input: GenerateChartTransformerInput,
 ): Promise<GeneratedCode> {
+  // Route to Google Sheets specific generator
+  if (input.templateId?.startsWith("gsheets-")) {
+    return generateGSheetsChartCode({
+      metricName: input.metricName,
+      metricDescription: input.metricDescription,
+      sampleDataPoints: input.sampleDataPoints,
+      chartType: input.chartType,
+      dateRange: input.dateRange,
+      aggregation: input.aggregation,
+      userPrompt: input.userPrompt,
+    });
+  }
+
+  // Standard chart transformer generation
   const openrouter = getOpenRouterClient();
 
   // Increase sample size to 20 for better AI context
@@ -283,6 +322,8 @@ Metric description: ${input.metricDescription}`;
 
 /**
  * Regenerate DataIngestionTransformer code with new sample data
+ *
+ * Routes to Google Sheets specific regenerator for gsheets-* templates.
  */
 export async function regenerateDataIngestionTransformerCode(
   input: GenerateDataIngestionTransformerInput & {
@@ -290,6 +331,22 @@ export async function regenerateDataIngestionTransformerCode(
     error?: string;
   },
 ): Promise<GeneratedCode> {
+  // Route to Google Sheets specific regenerator
+  if (input.templateId.startsWith("gsheets-")) {
+    const sheetName = input.endpointConfig?.SHEET_NAME ?? "Sheet1";
+    const dataRange = input.endpointConfig?.DATA_RANGE;
+
+    return regenerateGSheetsDataIngestionCode({
+      templateId: input.templateId,
+      sampleApiResponse: input.sampleApiResponse,
+      sheetName,
+      dataRange,
+      previousCode: input.previousCode,
+      error: input.error,
+    });
+  }
+
+  // Standard regeneration
   const openrouter = getOpenRouterClient();
 
   const sanitizedResponse = safeStringifyForPrompt(input.sampleApiResponse);
