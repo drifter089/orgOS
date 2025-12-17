@@ -151,8 +151,7 @@ export const metricRouter = createTRPCRouter({
             metricName: input.name,
             metricDescription: input.description ?? template.description,
             chartType: "line",
-            dateRange: "30d",
-            aggregation: "none",
+            cadence: "DAILY",
           });
         } catch (chartError) {
           console.error(`[metric.create] ChartTransformer failed:`, chartError);

@@ -20,8 +20,7 @@ interface CreateChartTransformerInput {
   metricName: string;
   metricDescription: string;
   chartType: string;
-  dateRange: string;
-  aggregation: string;
+  cadence: string; // "DAILY" | "WEEKLY" | "MONTHLY"
   userPrompt?: string;
 }
 
@@ -132,16 +131,17 @@ export async function createChartTransformer(
     metricDescription: input.metricDescription,
     sampleDataPoints: allDataPoints,
     chartType: input.chartType,
-    dateRange: input.dateRange,
-    aggregation: input.aggregation,
+    cadence: input.cadence,
     userPrompt: input.userPrompt,
     dataStats,
   });
 
+  // Use suggested cadence if AI detected one from user prompt
+  const effectiveCadence = generated.suggestedCadence ?? input.cadence;
+
   const testResult = await testChartTransformer(generated.code, allDataPoints, {
     chartType: input.chartType,
-    dateRange: input.dateRange,
-    aggregation: input.aggregation,
+    cadence: effectiveCadence,
   });
   if (!testResult.success) {
     throw new TRPCError({
@@ -156,15 +156,13 @@ export async function createChartTransformer(
       dashboardChartId: input.dashboardChartId,
       transformerCode: generated.code,
       chartType: input.chartType,
-      dateRange: input.dateRange,
-      aggregation: input.aggregation,
+      cadence: effectiveCadence as "DAILY" | "WEEKLY" | "MONTHLY",
       userPrompt: input.userPrompt,
     },
     update: {
       transformerCode: generated.code,
       chartType: input.chartType,
-      dateRange: input.dateRange,
-      aggregation: input.aggregation,
+      cadence: effectiveCadence as "DAILY" | "WEEKLY" | "MONTHLY",
       userPrompt: input.userPrompt,
       version: { increment: 1 },
     },
@@ -225,8 +223,7 @@ export async function executeChartTransformerForDashboardChart(
     dataPoints,
     {
       chartType: transformer.chartType,
-      dateRange: transformer.dateRange ?? "all",
-      aggregation: transformer.aggregation ?? "none",
+      cadence: transformer.cadence,
     },
   );
 
@@ -246,8 +243,7 @@ export async function executeChartTransformerForDashboardChart(
 export async function regenerateChartTransformer(input: {
   dashboardChartId: string;
   chartType?: string;
-  dateRange?: string;
-  aggregation?: string;
+  cadence?: string;
   userPrompt?: string;
 }): Promise<ChartTransformResult> {
   const dashboardChart = await db.dashboardChart.findUnique({
@@ -271,9 +267,7 @@ export async function regenerateChartTransformer(input: {
 
   const currentTransformer = dashboardChart.chartTransformer;
   const chartType = input.chartType ?? currentTransformer?.chartType ?? "line";
-  const dateRange = input.dateRange ?? currentTransformer?.dateRange ?? "all";
-  const aggregation =
-    input.aggregation ?? currentTransformer?.aggregation ?? "none";
+  const cadence = input.cadence ?? currentTransformer?.cadence ?? "DAILY";
 
   const allDataPoints = dashboardChart.metric.dataPoints.map((dp) => ({
     timestamp: dp.timestamp,
@@ -289,16 +283,17 @@ export async function regenerateChartTransformer(input: {
     metricDescription: dashboardChart.metric.description ?? "",
     sampleDataPoints: allDataPoints,
     chartType,
-    dateRange,
-    aggregation,
+    cadence,
     userPrompt: input.userPrompt,
     dataStats,
   });
 
+  // Use suggested cadence if AI detected one from user prompt
+  const effectiveCadence = generated.suggestedCadence ?? cadence;
+
   const testResult = await testChartTransformer(generated.code, allDataPoints, {
     chartType,
-    dateRange,
-    aggregation,
+    cadence: effectiveCadence,
   });
   if (!testResult.success) {
     return {
@@ -313,15 +308,13 @@ export async function regenerateChartTransformer(input: {
       dashboardChartId: input.dashboardChartId,
       transformerCode: generated.code,
       chartType,
-      dateRange,
-      aggregation,
+      cadence: effectiveCadence as "DAILY" | "WEEKLY" | "MONTHLY",
       userPrompt: input.userPrompt,
     },
     update: {
       transformerCode: generated.code,
       chartType,
-      dateRange,
-      aggregation,
+      cadence: effectiveCadence as "DAILY" | "WEEKLY" | "MONTHLY",
       userPrompt: input.userPrompt,
       version: { increment: 1 },
     },

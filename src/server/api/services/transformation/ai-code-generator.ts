@@ -43,8 +43,7 @@ interface GenerateChartTransformerInput {
     dimensions: Record<string, unknown> | null;
   }>;
   chartType: string;
-  dateRange: string;
-  aggregation: string;
+  cadence: string; // "DAILY" | "WEEKLY" | "MONTHLY"
   userPrompt?: string;
   dataStats?: DataStats;
 }
@@ -52,6 +51,7 @@ interface GenerateChartTransformerInput {
 interface GeneratedCode {
   code: string;
   reasoning: string;
+  suggestedCadence?: "DAILY" | "WEEKLY" | "MONTHLY";
 }
 
 // =============================================================================
@@ -105,7 +105,7 @@ This function runs on EVERY data refresh (cron job). It receives ALL historical 
 
 Input:
 - dataPoints: Array of { timestamp: string (ISO), value: number, dimensions: object|null }
-- preferences: { chartType: string, dateRange: string, aggregation: string }
+- preferences: { chartType: string, cadence: "DAILY"|"WEEKLY"|"MONTHLY" }
 
 Output ChartConfig (shadcn/ui chart format):
 {
@@ -120,6 +120,17 @@ Output ChartConfig (shadcn/ui chart format):
   stacked?: boolean,
   centerLabel?: { value: string, label: string }
 }
+
+CADENCE determines how to aggregate data:
+- DAILY: Group by day, one data point per day
+- WEEKLY: Group by week (Monday-Sunday), one data point per week
+- MONTHLY: Group by month, one data point per month
+
+AGGREGATION METHOD (choose based on metric type):
+- COUNTS (commits, views, tasks): SUM values within period
+- GAUGES (temperature, queue depth): use LAST or AVG
+- RATES (velocity, requests/sec): AVG
+- PERCENTAGES: AVG (never sum)
 
 EXAMPLE OUTPUT for line chart:
 {
@@ -160,13 +171,21 @@ EXAMPLE with dimensions (multi-series):
 RULES:
 1. NO TypeScript - plain JavaScript only
 2. Colors: var(--chart-1) through var(--chart-12)
-3. Filter by dateRange FIRST: "7d", "30d", "90d", "all"
-4. Format dates as readable strings: "Jan 15" or "Jan 15, 2024"
+3. Aggregate data based on cadence (DAILY/WEEKLY/MONTHLY)
+4. Format dates as readable strings: "Jan 15" or "Week of Jan 15" or "Jan 2024"
 5. If dimensions exist, extract them as separate data keys
-6. Aggregate if needed: >50 points for line → weekly, >20 for bar → monthly
-7. Sort chronologically (oldest first) for time series
+6. Sort chronologically (oldest first) for time series
 
-Output ONLY the function code, no markdown.`;
+OUTPUT FORMAT:
+Return a JSON object with this structure:
+{
+  "code": "function transform(dataPoints, preferences) { ... }",
+  "suggestedCadence": "WEEKLY" // ONLY if user prompt implies a cadence change
+}
+
+IMPORTANT: If the user prompt mentions time periods like "weekly", "by week", "monthly", "by month", "daily", "by day", etc., include suggestedCadence in your response. Otherwise, omit it.
+
+Output ONLY valid JSON, no markdown or code blocks.`;
 
 // =============================================================================
 // AI Generator Functions
@@ -225,6 +244,37 @@ Generate the JavaScript transform function.`;
 }
 
 /**
+ * Parse AI response that returns JSON with code and optional suggestedCadence
+ */
+function parseChartTransformerResponse(response: string): {
+  code: string;
+  suggestedCadence?: "DAILY" | "WEEKLY" | "MONTHLY";
+} {
+  try {
+    // Try to parse as JSON first
+    const parsed = JSON.parse(response) as {
+      code?: string;
+      suggestedCadence?: string;
+    };
+    if (parsed.code) {
+      return {
+        code: cleanGeneratedCode(parsed.code),
+        suggestedCadence: parsed.suggestedCadence as
+          | "DAILY"
+          | "WEEKLY"
+          | "MONTHLY"
+          | undefined,
+      };
+    }
+  } catch {
+    // If JSON parsing fails, treat the whole response as code (fallback)
+  }
+
+  // Fallback: treat the entire response as code
+  return { code: cleanGeneratedCode(response) };
+}
+
+/**
  * Generate ChartTransformer code using AI
  */
 export async function generateChartTransformerCode(
@@ -253,8 +303,7 @@ Data Statistics:
 
 Preferences:
 - chartType: ${input.chartType}
-- dateRange: ${input.dateRange}
-- aggregation: ${input.aggregation}
+- cadence: ${input.cadence} (aggregate data to this level)
 
 Metric name: ${input.metricName}
 Metric description: ${input.metricDescription}`;
@@ -263,7 +312,8 @@ Metric description: ${input.metricDescription}`;
     userPrompt += `\n\nUser request: "${input.userPrompt}"`;
   }
 
-  userPrompt += "\n\nGenerate the JavaScript transform function.";
+  userPrompt +=
+    "\n\nGenerate the JavaScript transform function and return as JSON.";
 
   const result = await generateText({
     model: openrouter("anthropic/claude-sonnet-4"),
@@ -273,11 +323,14 @@ Metric description: ${input.metricDescription}`;
     temperature: 0.1,
   });
 
+  const parsed = parseChartTransformerResponse(result.text);
+
   return {
-    code: cleanGeneratedCode(result.text),
+    code: parsed.code,
     reasoning: input.userPrompt
       ? `Generated chart transformer based on user request: "${input.userPrompt}"`
       : `Generated ${input.chartType} chart transformer for ${input.metricName}.`,
+    suggestedCadence: parsed.suggestedCadence,
   };
 }
 

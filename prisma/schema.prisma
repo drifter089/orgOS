@@ -300,6 +300,13 @@ model DataIngestionTransformer {
     @@index([templateId])
 }
 
+// Cadence - How data is aggregated for chart display
+enum Cadence {
+    DAILY   // One data point per day
+    WEEKLY  // One data point per week (Monday-Sunday)
+    MONTHLY // One data point per month
+}
+
 // ChartTransformer - Transforms DataPoints into ChartConfig
 // One per DashboardChart. User-specific.
 model ChartTransformer {
@@ -310,11 +317,9 @@ model ChartTransformer {
     // Transformation code (TypeScript)
     transformerCode String @db.Text  // Code: DataPoint[] → ChartConfig
 
-    // User preferences that influenced generation
+    // Chart configuration
     chartType    String    // "line", "bar", "area", "pie", etc.
-    dateRange    String?   // "7d", "30d", "90d", "all"
-    aggregation  String?   // "sum", "avg", "max", "none"
-    preferences  Json?     // Additional preferences
+    cadence      Cadence   @default(DAILY) // How to aggregate data for display
 
     // Generation context
     userPrompt   String?   @db.Text // User's natural language request

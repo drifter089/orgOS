@@ -78,10 +78,15 @@ export type MetricTransformFn = (
 ) => DataPoint[];
 
 /**
+ * Cadence determines how data is aggregated for chart display
+ */
+export type Cadence = "DAILY" | "WEEKLY" | "MONTHLY";
+
+/**
  * Function signature for ChartTransformer code
  * Transforms DataPoints into chart-ready configuration
  */
 export type ChartTransformFn = (
   dataPoints: DataPoint[],
-  preferences: { chartType: string; dateRange: string; aggregation: string },
+  preferences: { chartType: string; cadence: Cadence },
 ) => ChartConfig;
