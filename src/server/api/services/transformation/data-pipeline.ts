@@ -167,6 +167,7 @@ async function getOrCreateDataIngestionTransformer(
     sampleApiResponse: apiData,
     metricDescription: template.description,
     availableParams: template.requiredParams.map((p) => p.name),
+    endpointConfig,
   });
 
   const testResult = await testDataIngestionTransformer(
@@ -186,6 +187,7 @@ async function getOrCreateDataIngestionTransformer(
       sampleApiResponse: apiData,
       metricDescription: template.description,
       availableParams: template.requiredParams.map((p) => p.name),
+      endpointConfig,
       previousCode: generated.code,
       error: testResult.error,
     });

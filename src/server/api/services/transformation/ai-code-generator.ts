@@ -29,6 +29,7 @@ interface GenerateDataIngestionTransformerInput {
   sampleApiResponse: unknown;
   metricDescription: string;
   availableParams: string[];
+  endpointConfig?: Record<string, string>;
 }
 
 interface DataStats {
@@ -197,10 +198,8 @@ export async function generateDataIngestionTransformerCode(
 ): Promise<GeneratedCode> {
   // Route to Google Sheets specific generator
   if (input.templateId.startsWith("gsheets-")) {
-    // Extract sheet name and data range from endpoint config params
-    const sheetName =
-      input.availableParams.find((p) => p === "SHEET_NAME") ?? "Sheet1";
-    const dataRange = input.availableParams.find((p) => p === "DATA_RANGE");
+    const sheetName = input.endpointConfig?.SHEET_NAME ?? "Sheet1";
+    const dataRange = input.endpointConfig?.DATA_RANGE;
 
     return generateGSheetsDataIngestionCode({
       templateId: input.templateId,
@@ -334,9 +333,8 @@ export async function regenerateDataIngestionTransformerCode(
 ): Promise<GeneratedCode> {
   // Route to Google Sheets specific regenerator
   if (input.templateId.startsWith("gsheets-")) {
-    const sheetName =
-      input.availableParams.find((p) => p === "SHEET_NAME") ?? "Sheet1";
-    const dataRange = input.availableParams.find((p) => p === "DATA_RANGE");
+    const sheetName = input.endpointConfig?.SHEET_NAME ?? "Sheet1";
+    const dataRange = input.endpointConfig?.DATA_RANGE;
 
     return regenerateGSheetsDataIngestionCode({
       templateId: input.templateId,
