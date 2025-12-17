@@ -8,7 +8,11 @@ import {
   ingestMetricData,
 } from "@/server/api/services/transformation";
 import { createTRPCRouter, workspaceProcedure } from "@/server/api/trpc";
-import { getIntegrationAndVerifyAccess } from "@/server/api/utils/authorization";
+import {
+  getIntegrationAndVerifyAccess,
+  getMetricAndVerifyAccess,
+} from "@/server/api/utils/authorization";
+import { calculateGoalProgress } from "@/server/api/utils/goal-calculation";
 
 export const metricRouter = createTRPCRouter({
   // ===========================================================================
@@ -221,6 +225,84 @@ export const metricRouter = createTRPCRouter({
 
       await ctx.db.metric.delete({
         where: { id: input.id },
+      });
+
+      return { success: true };
+    }),
+
+  // ===========================================================================
+  // Goal Management
+  // ===========================================================================
+
+  getGoal: workspaceProcedure
+    .input(z.object({ metricId: z.string() }))
+    .query(async ({ ctx, input }) => {
+      // Verify metric belongs to org
+      await getMetricAndVerifyAccess(
+        ctx.db,
+        input.metricId,
+        ctx.workspace.organizationId,
+      );
+
+      const goal = await ctx.db.metricGoal.findUnique({
+        where: { metricId: input.metricId },
+      });
+
+      if (!goal) return null;
+
+      const progress = await calculateGoalProgress(
+        ctx.db,
+        input.metricId,
+        goal,
+      );
+      return { goal, progress };
+    }),
+
+  upsertGoal: workspaceProcedure
+    .input(
+      z.object({
+        metricId: z.string(),
+        goalType: z.enum(["ABSOLUTE", "RELATIVE"]),
+        goalPeriod: z.enum(["WEEKLY", "MONTHLY"]),
+        targetValue: z.number().positive(),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      // Verify metric belongs to org
+      await getMetricAndVerifyAccess(
+        ctx.db,
+        input.metricId,
+        ctx.workspace.organizationId,
+      );
+
+      return ctx.db.metricGoal.upsert({
+        where: { metricId: input.metricId },
+        create: {
+          metricId: input.metricId,
+          goalType: input.goalType,
+          goalPeriod: input.goalPeriod,
+          targetValue: input.targetValue,
+        },
+        update: {
+          goalType: input.goalType,
+          goalPeriod: input.goalPeriod,
+          targetValue: input.targetValue,
+        },
+      });
+    }),
+
+  deleteGoal: workspaceProcedure
+    .input(z.object({ metricId: z.string() }))
+    .mutation(async ({ ctx, input }) => {
+      // Verify metric belongs to org
+      await getMetricAndVerifyAccess(
+        ctx.db,
+        input.metricId,
+        ctx.workspace.organizationId,
+      );
+
+      await ctx.db.metricGoal.delete({
+        where: { metricId: input.metricId },
       });
 
       return { success: true };

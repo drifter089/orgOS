@@ -2,7 +2,14 @@
 
 import { useCallback, useState } from "react";
 
-import { AlertCircle, BarChart3, Hash, Settings, Users } from "lucide-react";
+import {
+  AlertCircle,
+  BarChart3,
+  Hash,
+  Settings,
+  Target,
+  Users,
+} from "lucide-react";
 import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
@@ -18,6 +25,7 @@ import type { RouterOutputs } from "@/trpc/react";
 import { api } from "@/trpc/react";
 
 import { DashboardMetricChart } from "./dashboard-metric-chart";
+import { DashboardMetricGoals } from "./dashboard-metric-goals";
 import { DashboardMetricRoles } from "./dashboard-metric-roles";
 import { DashboardMetricSettings } from "./dashboard-metric-settings";
 import { DashboardMetricValue } from "./dashboard-metric-value";
@@ -159,7 +167,11 @@ export function DashboardMetricCard({
           description: `${result.dataPointCount} data points updated`,
         });
         // Invalidate dashboard to refetch with new data
+        const teamId = metric.teamId;
         await utils.dashboard.getDashboardCharts.invalidate();
+        if (teamId) {
+          await utils.dashboard.getDashboardCharts.invalidate({ teamId });
+        }
       } else {
         toast.error("Refresh failed", { description: result.error });
       }
@@ -194,7 +206,11 @@ export function DashboardMetricCard({
         if (result.success) {
           toast.success("Chart regenerated");
           // Invalidate to refetch with new chart config
+          const teamId = metric.teamId;
           await utils.dashboard.getDashboardCharts.invalidate();
+          if (teamId) {
+            await utils.dashboard.getDashboardCharts.invalidate({ teamId });
+          }
         } else {
           toast.error("Regeneration failed", { description: result.error });
         }
@@ -279,6 +295,12 @@ export function DashboardMetricCard({
         >
           <Users className="h-3 w-3" />
         </TabsTrigger>
+        <TabsTrigger
+          value="goals"
+          className="data-[state=active]:bg-muted data-[state=active]:text-foreground text-muted-foreground hover:bg-muted/50 hover:text-foreground h-7 rounded-none border-r px-3 text-xs transition-colors"
+        >
+          <Target className="h-3 w-3" />
+        </TabsTrigger>
         {isIntegrationMetric && (
           <TabsTrigger
             value="settings"
@@ -325,6 +347,13 @@ export function DashboardMetricCard({
           className="animate-tab-slide-in absolute inset-0 m-0 data-[state=inactive]:hidden"
         >
           <DashboardMetricRoles title={title} roles={roles} />
+        </TabsContent>
+
+        <TabsContent
+          value="goals"
+          className="animate-tab-slide-in absolute inset-0 m-0 data-[state=inactive]:hidden"
+        >
+          <DashboardMetricGoals metricId={metric.id} metricName={metric.name} />
         </TabsContent>
 
         {isIntegrationMetric && (
