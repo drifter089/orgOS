@@ -23,6 +23,7 @@ interface CreateChartTransformerInput {
   dateRange: string;
   aggregation: string;
   userPrompt?: string;
+  templateId?: string; // Used to route to Google Sheets specific generator
 }
 
 interface ChartTransformResult {
@@ -127,6 +128,9 @@ export async function createChartTransformer(
   // Calculate data statistics for AI context
   const dataStats = calculateDataStats(allDataPoints);
 
+  // Get templateId from metric for routing to Google Sheets specific generator
+  const templateId = input.templateId ?? dashboardChart.metric.templateId;
+
   const generated = await generateChartTransformerCode({
     metricName: input.metricName,
     metricDescription: input.metricDescription,
@@ -136,6 +140,7 @@ export async function createChartTransformer(
     aggregation: input.aggregation,
     userPrompt: input.userPrompt,
     dataStats,
+    templateId: templateId ?? undefined,
   });
 
   const testResult = await testChartTransformer(generated.code, allDataPoints, {
@@ -293,6 +298,7 @@ export async function regenerateChartTransformer(input: {
     aggregation,
     userPrompt: input.userPrompt,
     dataStats,
+    templateId: dashboardChart.metric.templateId ?? undefined,
   });
 
   const testResult = await testChartTransformer(generated.code, allDataPoints, {
