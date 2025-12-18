@@ -8,7 +8,10 @@ import {
   ingestMetricData,
 } from "@/server/api/services/transformation";
 import { createTRPCRouter, workspaceProcedure } from "@/server/api/trpc";
-import { getIntegrationAndVerifyAccess } from "@/server/api/utils/authorization";
+import {
+  getIntegrationAndVerifyAccess,
+  getMetricAndVerifyAccess,
+} from "@/server/api/utils/authorization";
 import { invalidateCacheByTags } from "@/server/api/utils/cache-strategy";
 
 export const metricRouter = createTRPCRouter({
@@ -222,15 +225,22 @@ export const metricRouter = createTRPCRouter({
     )
     .mutation(async ({ ctx, input }) => {
       const { id, ...data } = input;
+
+      // Verify metric belongs to user's organization
+      const existing = await getMetricAndVerifyAccess(
+        ctx.db,
+        id,
+        ctx.workspace.organizationId,
+      );
+
       const metric = await ctx.db.metric.update({
         where: { id },
         data,
       });
 
-      // Invalidate Prisma cache for dashboard queries
       const cacheTags = [`dashboard_org_${ctx.workspace.organizationId}`];
-      if (metric.teamId) {
-        cacheTags.push(`dashboard_team_${metric.teamId}`);
+      if (existing.teamId) {
+        cacheTags.push(`dashboard_team_${existing.teamId}`);
       }
       await invalidateCacheByTags(ctx.db, cacheTags);
 

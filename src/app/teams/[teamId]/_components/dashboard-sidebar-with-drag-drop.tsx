@@ -1,9 +1,7 @@
 "use client";
 
-import { useEffect } from "react";
-
 import { DashboardSidebar } from "@/app/dashboard/[teamId]/_components/dashboard-sidebar";
-import { type RouterOutputs, api } from "@/trpc/react";
+import type { RouterOutputs } from "@/trpc/react";
 
 import { useChartDragContext } from "../context/chart-drag-context";
 
@@ -19,14 +17,9 @@ export function DashboardSidebarWithDragDrop({
   initialIntegrations,
 }: DashboardSidebarWithDragDropProps) {
   const { chartNodesOnCanvas, onToggleChartVisibility } = useChartDragContext();
-  const utils = api.useUtils();
 
-  // Prefetch sidebar data after page loads so it's ready when user opens sidebar
-  useEffect(() => {
-    void utils.dashboard.getDashboardCharts.prefetch({ teamId });
-    void utils.metric.getByTeamId.prefetch({ teamId });
-  }, [teamId, utils]);
-
+  // DashboardSidebar fetches data on mount via useQuery (enabled: enableDragDrop)
+  // so data is ready before user opens the sidebar
   return (
     <DashboardSidebar
       teamId={teamId}
