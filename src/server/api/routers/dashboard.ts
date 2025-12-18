@@ -4,8 +4,9 @@ import { z } from "zod";
 
 import { createTRPCRouter, workspaceProcedure } from "@/server/api/trpc";
 import {
-  cacheStrategy,
-  shortLivedCache,
+  cacheStrategyWithTags,
+  dashboardCache,
+  invalidateCacheByTags,
 } from "@/server/api/utils/cache-strategy";
 
 export const dashboardRouter = createTRPCRouter({
@@ -29,7 +30,9 @@ export const dashboardRouter = createTRPCRouter({
         },
       },
       orderBy: { position: "asc" },
-      ...cacheStrategy(shortLivedCache),
+      ...cacheStrategyWithTags(dashboardCache, [
+        `dashboard_org_${ctx.workspace.organizationId}`,
+      ]),
     });
     return dashboardCharts;
   }),
@@ -37,6 +40,12 @@ export const dashboardRouter = createTRPCRouter({
   getDashboardCharts: workspaceProcedure
     .input(z.object({ teamId: z.string().optional() }).optional())
     .query(async ({ ctx, input }) => {
+      // Build cache tags: always include org tag, add team tag if filtered by team
+      const cacheTags = [`dashboard_org_${ctx.workspace.organizationId}`];
+      if (input?.teamId) {
+        cacheTags.push(`dashboard_team_${input.teamId}`);
+      }
+
       const dashboardCharts = await ctx.db.dashboardChart.findMany({
         where: {
           organizationId: ctx.workspace.organizationId,
@@ -53,7 +62,7 @@ export const dashboardRouter = createTRPCRouter({
           },
         },
         orderBy: { position: "asc" },
-        ...cacheStrategy(shortLivedCache),
+        ...cacheStrategyWithTags(dashboardCache, cacheTags),
       });
 
       return dashboardCharts;
@@ -72,10 +81,13 @@ export const dashboardRouter = createTRPCRouter({
       }),
     )
     .mutation(async ({ ctx, input }) => {
-      // Verify ownership
+      // Verify ownership and get metric's teamId for cache invalidation
       const existing = await ctx.db.dashboardChart.findUnique({
         where: { id: input.dashboardChartId },
-        select: { organizationId: true },
+        select: {
+          organizationId: true,
+          metric: { select: { teamId: true } },
+        },
       });
 
       if (!existing) {
@@ -92,7 +104,7 @@ export const dashboardRouter = createTRPCRouter({
         });
       }
 
-      return ctx.db.dashboardChart.update({
+      const result = await ctx.db.dashboardChart.update({
         where: { id: input.dashboardChartId },
         data: {
           chartType: input.chartType,
@@ -112,5 +124,14 @@ export const dashboardRouter = createTRPCRouter({
           },
         },
       });
+
+      // Invalidate Prisma cache for dashboard queries
+      const cacheTags = [`dashboard_org_${ctx.workspace.organizationId}`];
+      if (existing.metric?.teamId) {
+        cacheTags.push(`dashboard_team_${existing.metric.teamId}`);
+      }
+      await invalidateCacheByTags(ctx.db, cacheTags);
+
+      return result;
     }),
 });

@@ -112,6 +112,7 @@ export type TeamStore = TeamState & TeamActions;
 export function createTeamStore(
   initialTeamId: string,
   initialTeamName: string,
+  initialViewport?: { x: number; y: number; zoom: number } | null,
 ) {
   return create<TeamStore>()((set, get) => ({
     // Initial state
@@ -128,7 +129,7 @@ export function createTeamStore(
     editingTextNodeId: null,
     isDrawing: false,
     isForceLayoutEnabled: false,
-    savedViewport: null,
+    savedViewport: initialViewport ?? null,
 
     onNodesChange: (changes) => {
       const currentNodes = get().nodes;
@@ -277,14 +278,16 @@ export function TeamStoreProvider({
   children,
   teamId,
   teamName,
+  initialViewport,
 }: {
   children: ReactNode;
   teamId: string;
   teamName: string;
+  initialViewport?: { x: number; y: number; zoom: number } | null;
 }) {
   const storeRef = useRef<StoreApi<TeamStore> | null>(null);
 
-  storeRef.current ??= createTeamStore(teamId, teamName);
+  storeRef.current ??= createTeamStore(teamId, teamName, initialViewport);
 
   return (
     <TeamStoreContext.Provider value={storeRef.current}>
