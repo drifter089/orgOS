@@ -15,7 +15,6 @@ import { TeamCanvas } from "./team-canvas";
 interface TeamCanvasWrapperProps {
   initialNodes: TeamNode[];
   initialEdges: StoredEdge[];
-  initialViewport?: { x: number; y: number; zoom: number } | null;
   teamId: string;
   shareToken: string | null;
   isPubliclyShared: boolean;
@@ -24,14 +23,12 @@ interface TeamCanvasWrapperProps {
 export function TeamCanvasWrapper({
   initialNodes,
   initialEdges,
-  initialViewport,
   teamId,
   shareToken,
   isPubliclyShared,
 }: TeamCanvasWrapperProps) {
   const setNodes = useTeamStore((state) => state.setNodes);
   const setEdges = useTeamStore((state) => state.setEdges);
-  const setSavedViewport = useTeamStore((state) => state.setSavedViewport);
   const utils = api.useUtils();
 
   // Manage edit session (acquire/heartbeat/release)
@@ -40,18 +37,7 @@ export function TeamCanvasWrapper({
   useEffect(() => {
     setNodes(initialNodes);
     setEdges(initialEdges);
-    if (initialViewport) {
-      setSavedViewport(initialViewport);
-    }
-    // setInitialized is called by onInit in TeamCanvas for proper timing
-  }, [
-    initialNodes,
-    initialEdges,
-    initialViewport,
-    setNodes,
-    setEdges,
-    setSavedViewport,
-  ]);
+  }, [initialNodes, initialEdges, setNodes, setEdges]);
 
   useEffect(() => {
     void utils.aiRole.generateSuggestions.prefetch({ teamId });

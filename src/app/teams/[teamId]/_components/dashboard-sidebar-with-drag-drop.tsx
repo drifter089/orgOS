@@ -18,6 +18,8 @@ export function DashboardSidebarWithDragDrop({
 }: DashboardSidebarWithDragDropProps) {
   const { chartNodesOnCanvas, onToggleChartVisibility } = useChartDragContext();
 
+  // DashboardSidebar fetches data on mount via useQuery (enabled: enableDragDrop)
+  // so data is ready before user opens the sidebar
   return (
     <DashboardSidebar
       teamId={teamId}

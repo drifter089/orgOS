@@ -108,7 +108,11 @@ export default async function TeamPage({
 
   return (
     <HydrateClient>
-      <TeamStoreProvider teamId={team.id} teamName={team.name}>
+      <TeamStoreProvider
+        teamId={team.id}
+        teamName={team.name}
+        initialViewport={initialViewport}
+      >
         <ChartDragProvider>
           <div className="flex h-screen w-full overflow-hidden">
             <DashboardSidebarWithDragDrop
@@ -120,7 +124,6 @@ export default async function TeamPage({
               <TeamCanvasWrapper
                 initialNodes={nodes}
                 initialEdges={edges}
-                initialViewport={initialViewport}
                 teamId={team.id}
                 shareToken={team.shareToken}
                 isPubliclyShared={team.isPubliclyShared}
