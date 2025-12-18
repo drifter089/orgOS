@@ -43,7 +43,9 @@ export function useAutoSave() {
 
   const updateTeam = api.team.update.useMutation({
     onSuccess: () => {
+      // Invalidate team and dashboard caches together
       void utils.team.getById.invalidate({ id: teamId });
+      void utils.dashboard.getDashboardCharts.invalidate({ teamId });
 
       const lastSent = pendingSnapshotRef.current;
       const currentSnapshot = {

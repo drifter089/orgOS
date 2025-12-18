@@ -8,7 +8,11 @@ import {
   ingestMetricData,
 } from "@/server/api/services/transformation";
 import { createTRPCRouter, workspaceProcedure } from "@/server/api/trpc";
-import { getIntegrationAndVerifyAccess } from "@/server/api/utils/authorization";
+import {
+  getIntegrationAndVerifyAccess,
+  getMetricAndVerifyAccess,
+} from "@/server/api/utils/authorization";
+import { invalidateCacheByTags } from "@/server/api/utils/cache-strategy";
 
 export const metricRouter = createTRPCRouter({
   // ===========================================================================
@@ -201,6 +205,13 @@ export const metricRouter = createTRPCRouter({
         });
       }
 
+      // Invalidate Prisma cache for dashboard queries
+      const cacheTags = [`dashboard_org_${ctx.workspace.organizationId}`];
+      if (input.teamId) {
+        cacheTags.push(`dashboard_team_${input.teamId}`);
+      }
+      await invalidateCacheByTags(ctx.db, cacheTags);
+
       return result;
     }),
 
@@ -214,15 +225,44 @@ export const metricRouter = createTRPCRouter({
     )
     .mutation(async ({ ctx, input }) => {
       const { id, ...data } = input;
-      return ctx.db.metric.update({
+
+      // Verify metric belongs to user's organization
+      const existing = await getMetricAndVerifyAccess(
+        ctx.db,
+        id,
+        ctx.workspace.organizationId,
+      );
+
+      const metric = await ctx.db.metric.update({
         where: { id },
         data,
       });
+
+      const cacheTags = [`dashboard_org_${ctx.workspace.organizationId}`];
+      if (existing.teamId) {
+        cacheTags.push(`dashboard_team_${existing.teamId}`);
+      }
+      await invalidateCacheByTags(ctx.db, cacheTags);
+
+      return metric;
     }),
 
   delete: workspaceProcedure
     .input(z.object({ id: z.string() }))
     .mutation(async ({ ctx, input }) => {
+      // Get metric info before deletion for cache invalidation
+      const metric = await ctx.db.metric.findUnique({
+        where: { id: input.id },
+        select: { teamId: true, organizationId: true },
+      });
+
+      if (!metric) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Metric not found",
+        });
+      }
+
       const rolesUsingMetric = await ctx.db.role.count({
         where: { metricId: input.id },
       });
@@ -237,6 +277,13 @@ export const metricRouter = createTRPCRouter({
       await ctx.db.metric.delete({
         where: { id: input.id },
       });
+
+      // Invalidate Prisma cache for dashboard queries
+      const cacheTags = [`dashboard_org_${metric.organizationId}`];
+      if (metric.teamId) {
+        cacheTags.push(`dashboard_team_${metric.teamId}`);
+      }
+      await invalidateCacheByTags(ctx.db, cacheTags);
 
       return { success: true };
     }),
