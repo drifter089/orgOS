@@ -28,8 +28,7 @@ interface GenerateGSheetsChartInput {
     dimensions: Record<string, unknown> | null;
   }>;
   chartType: string;
-  dateRange: string;
-  aggregation: string;
+  cadence: string; // "DAILY" | "WEEKLY" | "MONTHLY"
   userPrompt?: string;
 }
 
@@ -207,8 +206,7 @@ ${JSON.stringify(samplePoints, null, 2)}
 
 User preferences:
 - Suggested chartType: ${input.chartType} (but choose best fit for data)
-- dateRange: ${input.dateRange}
-- aggregation: ${input.aggregation}`;
+- cadence: ${input.cadence}`;
 
   if (input.userPrompt) {
     userPrompt += `

@@ -115,6 +115,7 @@ export function MetricDialogBase({
       position: 9999,
       size: "medium",
       chartTransformerId: null,
+      chartTransformer: null,
       createdAt: new Date(),
       updatedAt: new Date(),
       metric: {

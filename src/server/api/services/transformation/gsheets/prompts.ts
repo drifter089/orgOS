@@ -87,10 +87,13 @@ Output ONLY the function code, no markdown.`;
 export const GSHEETS_CHART_PROMPT = `Generate JavaScript: function transform(dataPoints, preferences) → ChartConfig
 
 You are creating a chart for Google Sheets data. The dataPoints come from spreadsheet cells.
+NOTE: Google Sheets data may be TIME-SERIES or CATEGORICAL - analyze the data to determine which.
 
 Input:
 - dataPoints: Array of { timestamp: string (ISO), value: number, dimensions: { label?, series?, rowIndex? } }
-- preferences: { chartType: string, dateRange: string, aggregation: string }
+- preferences: { chartType: string, cadence: string }
+  - cadence: "DAILY"|"WEEKLY"|"MONTHLY" - only applies to TIME-SERIES data
+  - For CATEGORICAL data (dimensions.label present, no real dates), ignore cadence
 
 Output ChartConfig (shadcn/ui chart format):
 {
@@ -106,9 +109,12 @@ Output ChartConfig (shadcn/ui chart format):
 }
 
 ANALYSIS STEPS:
-1. CHECK dimensions.series - if present, this is MULTI-SERIES data
-2. CHECK dimensions.label - use as X-axis labels (categories)
-3. CHECK if timestamps are meaningful dates vs artificial
+1. DETECT DATA TYPE FIRST:
+   - TIME-SERIES: timestamps are real dates (not just sequential numbers)
+   - CATEGORICAL: has dimensions.label with text labels (products, regions, names)
+2. CHECK dimensions.series - if present, this is MULTI-SERIES data
+3. For TIME-SERIES: apply cadence preference for aggregation
+4. For CATEGORICAL: ignore cadence, use labels directly
 
 CHART TYPE SELECTION:
 - BAR: Best for categorical comparisons (has dimensions.label, no real dates)

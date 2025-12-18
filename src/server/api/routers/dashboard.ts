@@ -27,6 +27,13 @@ export const dashboardRouter = createTRPCRouter({
             team: true,
           },
         },
+        chartTransformer: {
+          select: {
+            chartType: true,
+            cadence: true,
+            userPrompt: true,
+          },
+        },
       },
       orderBy: { position: "asc" },
       ...cacheStrategy(shortLivedCache),
@@ -49,6 +56,13 @@ export const dashboardRouter = createTRPCRouter({
             include: {
               integration: true,
               roles: true,
+            },
+          },
+          chartTransformer: {
+            select: {
+              chartType: true,
+              cadence: true,
+              userPrompt: true,
             },
           },
         },

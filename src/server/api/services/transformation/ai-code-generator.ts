@@ -312,8 +312,7 @@ export async function generateChartTransformerCode(
       metricDescription: input.metricDescription,
       sampleDataPoints: input.sampleDataPoints,
       chartType: input.chartType,
-      dateRange: input.dateRange,
-      aggregation: input.aggregation,
+      cadence: input.cadence,
       userPrompt: input.userPrompt,
     });
   }

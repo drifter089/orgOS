@@ -2,14 +2,7 @@
 
 import { useCallback, useState } from "react";
 
-import {
-  AlertCircle,
-  BarChart3,
-  Hash,
-  Settings,
-  Target,
-  Users,
-} from "lucide-react";
+import { AlertCircle, BarChart3, Settings, Target } from "lucide-react";
 import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
@@ -25,10 +18,8 @@ import type { RouterOutputs } from "@/trpc/react";
 import { api } from "@/trpc/react";
 
 import { DashboardMetricChart } from "./dashboard-metric-chart";
-import { DashboardMetricGoals } from "./dashboard-metric-goals";
-import { DashboardMetricRoles } from "./dashboard-metric-roles";
+import { DashboardMetricGoalsRoles } from "./dashboard-metric-goals-roles";
 import { DashboardMetricSettings } from "./dashboard-metric-settings";
-import { DashboardMetricValue } from "./dashboard-metric-value";
 
 type DashboardMetrics = RouterOutputs["dashboard"]["getDashboardCharts"];
 type DashboardMetricWithRelations = DashboardMetrics[number];
@@ -192,14 +183,20 @@ export function DashboardMetricCard({
   ]);
 
   /**
-   * Regenerate chart with AI using optional prompt
+   * Regenerate chart with AI using optional prompt, chartType, and cadence
    */
   const handleRegenerate = useCallback(
-    async (userPrompt?: string) => {
+    async (
+      chartType?: string,
+      cadence?: "DAILY" | "WEEKLY" | "MONTHLY",
+      userPrompt?: string,
+    ) => {
       setIsProcessing(true);
       try {
         const result = await regenerateChartMutation.mutateAsync({
           dashboardChartId: dashboardMetric.id,
+          chartType,
+          cadence,
           userPrompt,
         });
 
@@ -226,6 +223,7 @@ export function DashboardMetricCard({
       dashboardMetric.id,
       regenerateChartMutation,
       utils.dashboard.getDashboardCharts,
+      metric.teamId,
     ],
   );
 
@@ -256,7 +254,7 @@ export function DashboardMetricCard({
     <Tabs
       value={activeTab}
       onValueChange={setActiveTab}
-      className="relative h-[380px]"
+      className="relative h-[420px]"
     >
       {/* Error indicator */}
       {hasError && (
@@ -284,19 +282,7 @@ export function DashboardMetricCard({
           <BarChart3 className="h-3 w-3" />
         </TabsTrigger>
         <TabsTrigger
-          value="value"
-          className="data-[state=active]:bg-muted data-[state=active]:text-foreground text-muted-foreground hover:bg-muted/50 hover:text-foreground h-7 rounded-none border-r px-3 text-xs transition-colors"
-        >
-          <Hash className="h-3 w-3" />
-        </TabsTrigger>
-        <TabsTrigger
-          value="roles"
-          className="data-[state=active]:bg-muted data-[state=active]:text-foreground text-muted-foreground hover:bg-muted/50 hover:text-foreground h-7 rounded-none border-r px-3 text-xs transition-colors"
-        >
-          <Users className="h-3 w-3" />
-        </TabsTrigger>
-        <TabsTrigger
-          value="goals"
+          value="goals-roles"
           className="data-[state=active]:bg-muted data-[state=active]:text-foreground text-muted-foreground hover:bg-muted/50 hover:text-foreground h-7 rounded-none border-r px-3 text-xs transition-colors"
         >
           <Target className="h-3 w-3" />
@@ -318,42 +304,26 @@ export function DashboardMetricCard({
         >
           <DashboardMetricChart
             title={title}
+            metricId={metric.id}
             chartTransform={chartTransform}
             hasChartData={hasChartData}
             isIntegrationMetric={isIntegrationMetric}
             isPending={isPending}
             isProcessing={isProcessing}
             integrationId={metric.integration?.providerId}
+            roles={roles}
           />
         </TabsContent>
 
         <TabsContent
-          value="value"
+          value="goals-roles"
           className="animate-tab-slide-in absolute inset-0 m-0 data-[state=inactive]:hidden"
         >
-          <DashboardMetricValue
-            title={title}
-            chartTransform={chartTransform}
-            hasChartData={hasChartData}
-            isIntegrationMetric={isIntegrationMetric}
-            isPending={isPending}
-            isProcessing={isProcessing}
-            integrationId={metric.integration?.providerId}
+          <DashboardMetricGoalsRoles
+            metricId={metric.id}
+            metricName={metric.name}
+            roles={roles}
           />
-        </TabsContent>
-
-        <TabsContent
-          value="roles"
-          className="animate-tab-slide-in absolute inset-0 m-0 data-[state=inactive]:hidden"
-        >
-          <DashboardMetricRoles title={title} roles={roles} />
-        </TabsContent>
-
-        <TabsContent
-          value="goals"
-          className="animate-tab-slide-in absolute inset-0 m-0 data-[state=inactive]:hidden"
-        >
-          <DashboardMetricGoals metricId={metric.id} metricName={metric.name} />
         </TabsContent>
 
         {isIntegrationMetric && (
@@ -375,8 +345,13 @@ export function DashboardMetricCard({
               isUpdating={updateMetricMutation.isPending}
               isDeleting={isPending || deleteMetricMutation.isPending}
               prompt={prompt}
+              currentChartType={
+                dashboardMetric.chartTransformer?.chartType ?? null
+              }
+              currentCadence={dashboardMetric.chartTransformer?.cadence ?? null}
+              roles={roles}
               onPromptChange={setPrompt}
-              onRegenerate={() => handleRegenerate(prompt || undefined)}
+              onRegenerate={handleRegenerate}
               onRefresh={handleRefresh}
               onUpdateMetric={handleUpdateMetric}
               onDelete={handleRemove}

@@ -123,6 +123,13 @@ export const metricRouter = createTRPCRouter({
                   roles: true,
                 },
               },
+              chartTransformer: {
+                select: {
+                  chartType: true,
+                  cadence: true,
+                  userPrompt: true,
+                },
+              },
             },
           });
         },
@@ -192,6 +199,13 @@ export const metricRouter = createTRPCRouter({
             include: {
               integration: true,
               roles: true,
+            },
+          },
+          chartTransformer: {
+            select: {
+              chartType: true,
+              cadence: true,
+              userPrompt: true,
             },
           },
         },
