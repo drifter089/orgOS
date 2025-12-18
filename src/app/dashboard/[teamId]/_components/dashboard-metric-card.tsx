@@ -178,6 +178,7 @@ export function DashboardMetricCard({
     metric.templateId,
     metric.integration,
     metric.id,
+    metric.teamId,
     refreshMetricMutation,
     utils.dashboard.getDashboardCharts,
   ]);

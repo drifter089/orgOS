@@ -134,7 +134,10 @@ export async function calculateGoalProgress(
   let progressPercent: number;
   let growthPercent: number | undefined;
 
-  if (goal.goalType === "ABSOLUTE") {
+  // Guard against division by zero for targetValue
+  if (!goal.targetValue || goal.targetValue === 0) {
+    progressPercent = 0;
+  } else if (goal.goalType === "ABSOLUTE") {
     // ABSOLUTE: progress = current / target * 100
     progressPercent = (currentValue / goal.targetValue) * 100;
   } else {

@@ -3,6 +3,7 @@ import type { Prisma } from "@prisma/client";
 import { TRPCError } from "@trpc/server";
 
 import type { ChartConfig, DataPoint } from "@/lib/metrics/transformer-types";
+import { invalidateCacheByTags } from "@/server/api/utils/cache-strategy";
 import { db } from "@/server/db";
 
 import { generateChartTransformerCode } from "./ai-code-generator";
@@ -92,9 +93,16 @@ export async function createChartTransformer(
 ): Promise<{ transformerId: string }> {
   const dashboardChart = await db.dashboardChart.findUnique({
     where: { id: input.dashboardChartId },
-    include: {
+    select: {
+      id: true,
+      organizationId: true,
       metric: {
-        include: {
+        select: {
+          id: true,
+          name: true,
+          description: true,
+          templateId: true,
+          teamId: true,
           dataPoints: {
             orderBy: { timestamp: "desc" },
             take: 1000, // Get up to 1000 data points for better AI context
@@ -182,6 +190,13 @@ export async function createChartTransformer(
     },
   });
 
+  // Invalidate dashboard cache so queries return fresh transformer fields
+  const cacheTags = [`dashboard_org_${dashboardChart.organizationId}`];
+  if (dashboardChart.metric.teamId) {
+    cacheTags.push(`dashboard_team_${dashboardChart.metric.teamId}`);
+  }
+  await invalidateCacheByTags(db, cacheTags);
+
   return { transformerId: transformer.id };
 }
 
@@ -253,10 +268,17 @@ export async function regenerateChartTransformer(input: {
 }): Promise<ChartTransformResult> {
   const dashboardChart = await db.dashboardChart.findUnique({
     where: { id: input.dashboardChartId },
-    include: {
+    select: {
+      id: true,
+      organizationId: true,
       chartTransformer: true,
       metric: {
-        include: {
+        select: {
+          id: true,
+          name: true,
+          description: true,
+          templateId: true,
+          teamId: true,
           dataPoints: {
             orderBy: { timestamp: "desc" },
             take: 1000, // Get up to 1000 data points for better AI context
@@ -330,6 +352,13 @@ export async function regenerateChartTransformer(input: {
     where: { id: input.dashboardChartId },
     data: { chartConfig: chartConfigToJson(testResult.data), chartType },
   });
+
+  // Invalidate dashboard cache so queries return fresh transformer fields
+  const cacheTags = [`dashboard_org_${dashboardChart.organizationId}`];
+  if (dashboardChart.metric.teamId) {
+    cacheTags.push(`dashboard_team_${dashboardChart.metric.teamId}`);
+  }
+  await invalidateCacheByTags(db, cacheTags);
 
   return { success: true, chartConfig: testResult.data };
 }
