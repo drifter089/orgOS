@@ -222,10 +222,19 @@ export const metricRouter = createTRPCRouter({
     )
     .mutation(async ({ ctx, input }) => {
       const { id, ...data } = input;
-      return ctx.db.metric.update({
+      const metric = await ctx.db.metric.update({
         where: { id },
         data,
       });
+
+      // Invalidate Prisma cache for dashboard queries
+      const cacheTags = [`dashboard_org_${ctx.workspace.organizationId}`];
+      if (metric.teamId) {
+        cacheTags.push(`dashboard_team_${metric.teamId}`);
+      }
+      await invalidateCacheByTags(ctx.db, cacheTags);
+
+      return metric;
     }),
 
   delete: workspaceProcedure
