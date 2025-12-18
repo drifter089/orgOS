@@ -22,6 +22,7 @@ interface CreateChartTransformerInput {
   chartType: string;
   cadence: string; // "DAILY" | "WEEKLY" | "MONTHLY"
   userPrompt?: string;
+  templateId?: string; // Used to route to Google Sheets specific generator
 }
 
 interface ChartTransformResult {
@@ -126,6 +127,9 @@ export async function createChartTransformer(
   // Calculate data statistics for AI context
   const dataStats = calculateDataStats(allDataPoints);
 
+  // Get templateId from metric for routing to Google Sheets specific generator
+  const templateId = input.templateId ?? dashboardChart.metric.templateId;
+
   const generated = await generateChartTransformerCode({
     metricName: input.metricName,
     metricDescription: input.metricDescription,
@@ -134,6 +138,7 @@ export async function createChartTransformer(
     cadence: input.cadence,
     userPrompt: input.userPrompt,
     dataStats,
+    templateId: templateId ?? undefined,
   });
 
   // Use suggested cadence if AI detected one from user prompt
@@ -286,6 +291,7 @@ export async function regenerateChartTransformer(input: {
     cadence,
     userPrompt: input.userPrompt,
     dataStats,
+    templateId: dashboardChart.metric.templateId ?? undefined,
   });
 
   // Use suggested cadence if AI detected one from user prompt

@@ -139,6 +139,9 @@ export const metricRouter = createTRPCRouter({
         isTimeSeries: template.isTimeSeries !== false,
       });
 
+      // Track errors for user visibility
+      let chartError: string | null = null;
+
       if (transformResult.success) {
         console.info(
           `[metric.create] Saved ${transformResult.dataPoints?.length ?? 0} data points`,
@@ -153,14 +156,26 @@ export const metricRouter = createTRPCRouter({
             chartType: "line",
             cadence: "DAILY",
           });
-        } catch (chartError) {
-          console.error(`[metric.create] ChartTransformer failed:`, chartError);
+        } catch (error) {
+          const errorMsg =
+            error instanceof Error ? error.message : "Chart generation failed";
+          console.error(`[metric.create] ChartTransformer failed:`, errorMsg);
+          chartError = `Chart generation failed: ${errorMsg}`;
         }
       } else {
         console.error(
           `[metric.create] Transform failed:`,
           transformResult.error,
         );
+        chartError = `Data ingestion failed: ${transformResult.error}`;
+      }
+
+      // Store any errors for user visibility
+      if (chartError) {
+        await ctx.db.metric.update({
+          where: { id: dashboardChart.metricId },
+          data: { lastError: chartError },
+        });
       }
 
       // Update lastFetchedAt
