@@ -2,16 +2,18 @@
 
 import { useCallback, useState } from "react";
 
-import { AlertCircle, BarChart3, Settings, Target } from "lucide-react";
+import { AlertCircle, BarChart3, Bug, Settings, Target } from "lucide-react";
 import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { isDevMode } from "@/lib/dev-mode";
 import type { ChartTransformResult } from "@/lib/metrics/transformer-types";
 import { useConfirmation } from "@/providers/ConfirmationDialogProvider";
 import type { RouterOutputs } from "@/trpc/react";
@@ -299,6 +301,27 @@ export function DashboardMetricCard({
           </TabsTrigger>
         )}
       </TabsList>
+
+      {/* Dev Tool Button - Only visible in development mode */}
+      {isDevMode() && (
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="text-muted-foreground absolute top-0 left-0 z-10 h-7 w-7 p-0 hover:text-amber-600"
+              onClick={() => {
+                window.open(`/dev-metric-tool/${metric.id}`, "_blank");
+              }}
+            >
+              <Bug className="h-3.5 w-3.5" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent side="right">
+            <p className="text-xs">Open Pipeline Debug Tool</p>
+          </TooltipContent>
+        </Tooltip>
+      )}
 
       <div className="relative h-full w-full overflow-hidden">
         <TabsContent

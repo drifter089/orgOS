@@ -133,6 +133,7 @@ model Metric {
     dashboardCharts   DashboardChart[]  // Dashboard chart configurations using this metric
     dataPoints        MetricDataPoint[] // Relation to data points
     goal              MetricGoal?       // Optional goal for this metric
+    apiLogs           MetricApiLog[]    // History of API calls (for debugging)
 
     createdAt      DateTime @default(now())
     updatedAt      DateTime @updatedAt
@@ -325,4 +326,26 @@ model ChartTransformer {
     updatedAt DateTime @updatedAt
 
     @@index([dashboardChartId])
+}
+
+// MetricApiLog - Stores raw API responses for debugging
+// History of API calls for a metric (dev tool)
+model MetricApiLog {
+    id             String   @id @default(cuid())
+    metricId       String
+    metric         Metric   @relation(fields: [metricId], references: [id], onDelete: Cascade)
+
+    // Raw API response (stored as JSON)
+    rawResponse    Json
+
+    // Metadata
+    fetchedAt      DateTime @default(now())
+    endpoint       String?  // The endpoint that was called
+    endpointConfig Json?    // Parameters used for the call
+
+    // Status tracking
+    success        Boolean  @default(true)
+    error          String?  @db.Text
+
+    @@index([metricId, fetchedAt(sort: Desc)])
 }
