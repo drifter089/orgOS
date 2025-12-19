@@ -20,6 +20,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { formatCadence } from "@/lib/helpers/format-cadence";
+import { formatValue } from "@/lib/helpers/format-value";
 import type { GoalProgress } from "@/server/api/utils/goal-calculation";
 import { api } from "@/trpc/react";
 
@@ -79,33 +81,6 @@ function getStatusConfig(status: string) {
         icon: <Target className="h-3 w-3" />,
       };
   }
-}
-
-function formatCadence(cadence: Cadence): string {
-  switch (cadence) {
-    case "DAILY":
-      return "daily";
-    case "WEEKLY":
-      return "weekly";
-    case "MONTHLY":
-      return "monthly";
-  }
-}
-
-/**
- * Formats a number for display with appropriate units
- */
-function formatValue(value: number): string {
-  if (value >= 1_000_000) {
-    return `${(value / 1_000_000).toFixed(1)}M`;
-  }
-  if (value >= 1_000) {
-    return `${(value / 1_000).toFixed(1)}K`;
-  }
-  if (Number.isInteger(value)) {
-    return value.toString();
-  }
-  return value.toFixed(2);
 }
 
 export function GoalEditor({

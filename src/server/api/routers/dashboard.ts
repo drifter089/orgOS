@@ -2,14 +2,13 @@ import type { Prisma } from "@prisma/client";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 
-import type { ChartConfig } from "@/lib/metrics/transformer-types";
 import { createTRPCRouter, workspaceProcedure } from "@/server/api/trpc";
 import {
   cacheStrategyWithTags,
   dashboardCache,
   invalidateCacheByTags,
 } from "@/server/api/utils/cache-strategy";
-import { calculateGoalProgress } from "@/server/api/utils/goal-calculation";
+import { enrichChartsWithGoalProgress } from "@/server/api/utils/enrich-charts-with-goal-progress";
 
 export const dashboardRouter = createTRPCRouter({
   /**
@@ -45,79 +44,7 @@ export const dashboardRouter = createTRPCRouter({
       ]),
     });
 
-    // Get unique templateIds to fetch valueLabels
-    const templateIds = [
-      ...new Set(
-        dashboardCharts
-          .map((chart) => {
-            // For GSheets, the cacheKey is `{templateId}:{metricId}`
-            const templateId = chart.metric.templateId;
-            if (!templateId) return null;
-            if (templateId.startsWith("gsheets-")) {
-              return `${templateId}:${chart.metric.id}`;
-            }
-            return templateId;
-          })
-          .filter(Boolean),
-      ),
-    ] as string[];
-
-    // Fetch valueLabels and dataDescription from DataIngestionTransformer
-    const transformers = await ctx.db.dataIngestionTransformer.findMany({
-      where: { templateId: { in: templateIds } },
-      select: { templateId: true, valueLabel: true, dataDescription: true },
-    });
-
-    // Create maps for quick lookup
-    const valueLabelMap = new Map(
-      transformers.map((t) => [t.templateId, t.valueLabel]),
-    );
-    const dataDescriptionMap = new Map(
-      transformers.map((t) => [t.templateId, t.dataDescription]),
-    );
-
-    // Calculate goal progress and add valueLabel for each chart
-    const chartsWithGoalProgress = dashboardCharts.map((chart) => {
-      // Look up valueLabel
-      let cacheKey: string | null = null;
-      if (chart.metric.templateId) {
-        if (chart.metric.templateId.startsWith("gsheets-")) {
-          cacheKey = `${chart.metric.templateId}:${chart.metric.id}`;
-        } else {
-          cacheKey = chart.metric.templateId;
-        }
-      }
-      const valueLabel = cacheKey ? valueLabelMap.get(cacheKey) : null;
-      const dataDescription = cacheKey
-        ? dataDescriptionMap.get(cacheKey)
-        : null;
-
-      if (!chart.metric.goal || !chart.chartTransformer?.cadence) {
-        return {
-          ...chart,
-          goalProgress: null,
-          valueLabel: valueLabel ?? null,
-          dataDescription: dataDescription ?? null,
-        };
-      }
-
-      // Parse chartConfig as ChartConfig type
-      const chartConfig = chart.chartConfig as unknown as ChartConfig;
-
-      const progress = calculateGoalProgress(
-        chart.metric.goal,
-        chart.chartTransformer.cadence,
-        chartConfig,
-      );
-      return {
-        ...chart,
-        goalProgress: progress,
-        valueLabel: valueLabel ?? null,
-        dataDescription: dataDescription ?? null,
-      };
-    });
-
-    return chartsWithGoalProgress;
+    return enrichChartsWithGoalProgress(dashboardCharts, ctx.db);
   }),
 
   getDashboardCharts: workspaceProcedure
@@ -156,79 +83,7 @@ export const dashboardRouter = createTRPCRouter({
         ...cacheStrategyWithTags(dashboardCache, cacheTags),
       });
 
-      // Get unique templateIds to fetch valueLabels
-      const templateIds = [
-        ...new Set(
-          dashboardCharts
-            .map((chart) => {
-              // For GSheets, the cacheKey is `{templateId}:{metricId}`
-              const templateId = chart.metric.templateId;
-              if (!templateId) return null;
-              if (templateId.startsWith("gsheets-")) {
-                return `${templateId}:${chart.metric.id}`;
-              }
-              return templateId;
-            })
-            .filter(Boolean),
-        ),
-      ] as string[];
-
-      // Fetch valueLabels and dataDescription from DataIngestionTransformer
-      const transformers = await ctx.db.dataIngestionTransformer.findMany({
-        where: { templateId: { in: templateIds } },
-        select: { templateId: true, valueLabel: true, dataDescription: true },
-      });
-
-      // Create maps for quick lookup
-      const valueLabelMap = new Map(
-        transformers.map((t) => [t.templateId, t.valueLabel]),
-      );
-      const dataDescriptionMap = new Map(
-        transformers.map((t) => [t.templateId, t.dataDescription]),
-      );
-
-      // Calculate goal progress and add valueLabel for each chart
-      const chartsWithGoalProgress = dashboardCharts.map((chart) => {
-        // Look up valueLabel
-        let cacheKey: string | null = null;
-        if (chart.metric.templateId) {
-          if (chart.metric.templateId.startsWith("gsheets-")) {
-            cacheKey = `${chart.metric.templateId}:${chart.metric.id}`;
-          } else {
-            cacheKey = chart.metric.templateId;
-          }
-        }
-        const valueLabel = cacheKey ? valueLabelMap.get(cacheKey) : null;
-        const dataDescription = cacheKey
-          ? dataDescriptionMap.get(cacheKey)
-          : null;
-
-        if (!chart.metric.goal || !chart.chartTransformer?.cadence) {
-          return {
-            ...chart,
-            goalProgress: null,
-            valueLabel: valueLabel ?? null,
-            dataDescription: dataDescription ?? null,
-          };
-        }
-
-        // Parse chartConfig as ChartConfig type
-        const chartConfig = chart.chartConfig as unknown as ChartConfig;
-
-        const progress = calculateGoalProgress(
-          chart.metric.goal,
-          chart.chartTransformer.cadence,
-          chartConfig,
-        );
-        return {
-          ...chart,
-          goalProgress: progress,
-          valueLabel: valueLabel ?? null,
-          dataDescription: dataDescription ?? null,
-        };
-      });
-
-      return chartsWithGoalProgress;
+      return enrichChartsWithGoalProgress(dashboardCharts, ctx.db);
     }),
 
   /**

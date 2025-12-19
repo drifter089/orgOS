@@ -37,6 +37,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { formatValue } from "@/lib/helpers/format-value";
 import { getUserName } from "@/lib/helpers/get-user-name";
 import { getLatestMetricValue } from "@/lib/metrics/get-latest-value";
 import { getPlatformConfig } from "@/lib/platform-config";
@@ -68,22 +69,6 @@ interface DashboardMetricChartProps {
   goalProgress?: GoalProgress | null;
   // Value label from DataIngestionTransformer (e.g., "commits", "stars", "issues")
   valueLabel?: string | null;
-}
-
-/**
- * Formats a number for display with appropriate units
- */
-function formatValue(value: number): string {
-  if (value >= 1_000_000) {
-    return `${(value / 1_000_000).toFixed(1)}M`;
-  }
-  if (value >= 1_000) {
-    return `${(value / 1_000).toFixed(1)}K`;
-  }
-  if (Number.isInteger(value)) {
-    return value.toString();
-  }
-  return value.toFixed(2);
 }
 
 export function DashboardMetricChart({
