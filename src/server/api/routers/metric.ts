@@ -2,6 +2,7 @@ import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 
 import { getTemplate } from "@/lib/integrations";
+import type { ChartConfig } from "@/lib/metrics/transformer-types";
 import { fetchData } from "@/server/api/services/data-fetching";
 import {
   createChartTransformer,
@@ -322,10 +323,13 @@ export const metricRouter = createTRPCRouter({
 
       if (!goal) return null;
 
-      // Get the chart's cadence for goal calculation
+      // Get the chart's cadence and chartConfig for goal calculation
       const dashboardChart = await ctx.db.dashboardChart.findFirst({
         where: { metricId: input.metricId },
-        include: { chartTransformer: { select: { cadence: true } } },
+        select: {
+          chartConfig: true,
+          chartTransformer: { select: { cadence: true } },
+        },
       });
 
       // If no chart or no cadence, return goal without progress
@@ -333,11 +337,13 @@ export const metricRouter = createTRPCRouter({
         return { goal, progress: null, cadence: null };
       }
 
-      const progress = await calculateGoalProgress(
-        ctx.db,
-        input.metricId,
+      // Parse chartConfig as ChartConfig type
+      const chartConfig = dashboardChart.chartConfig as unknown as ChartConfig;
+
+      const progress = calculateGoalProgress(
         goal,
         dashboardChart.chartTransformer.cadence,
+        chartConfig,
       );
       return {
         goal,

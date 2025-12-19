@@ -2,6 +2,7 @@ import type { Prisma } from "@prisma/client";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 
+import type { ChartConfig } from "@/lib/metrics/transformer-types";
 import { createTRPCRouter, workspaceProcedure } from "@/server/api/trpc";
 import {
   cacheStrategyWithTags,
@@ -45,21 +46,22 @@ export const dashboardRouter = createTRPCRouter({
     });
 
     // Calculate goal progress for each metric that has a goal
-    // Goal period is determined by the chart's cadence
-    const chartsWithGoalProgress = await Promise.all(
-      dashboardCharts.map(async (chart) => {
-        if (!chart.metric.goal || !chart.chartTransformer?.cadence) {
-          return { ...chart, goalProgress: null };
-        }
-        const progress = await calculateGoalProgress(
-          ctx.db,
-          chart.metric.id,
-          chart.metric.goal,
-          chart.chartTransformer.cadence,
-        );
-        return { ...chart, goalProgress: progress };
-      }),
-    );
+    // Uses the chart's aggregated data (chartConfig) for calculation
+    const chartsWithGoalProgress = dashboardCharts.map((chart) => {
+      if (!chart.metric.goal || !chart.chartTransformer?.cadence) {
+        return { ...chart, goalProgress: null };
+      }
+
+      // Parse chartConfig as ChartConfig type
+      const chartConfig = chart.chartConfig as unknown as ChartConfig;
+
+      const progress = calculateGoalProgress(
+        chart.metric.goal,
+        chart.chartTransformer.cadence,
+        chartConfig,
+      );
+      return { ...chart, goalProgress: progress };
+    });
 
     return chartsWithGoalProgress;
   }),
@@ -101,21 +103,22 @@ export const dashboardRouter = createTRPCRouter({
       });
 
       // Calculate goal progress for each metric that has a goal
-      // Goal period is determined by the chart's cadence
-      const chartsWithGoalProgress = await Promise.all(
-        dashboardCharts.map(async (chart) => {
-          if (!chart.metric.goal || !chart.chartTransformer?.cadence) {
-            return { ...chart, goalProgress: null };
-          }
-          const progress = await calculateGoalProgress(
-            ctx.db,
-            chart.metric.id,
-            chart.metric.goal,
-            chart.chartTransformer.cadence,
-          );
-          return { ...chart, goalProgress: progress };
-        }),
-      );
+      // Uses the chart's aggregated data (chartConfig) for calculation
+      const chartsWithGoalProgress = dashboardCharts.map((chart) => {
+        if (!chart.metric.goal || !chart.chartTransformer?.cadence) {
+          return { ...chart, goalProgress: null };
+        }
+
+        // Parse chartConfig as ChartConfig type
+        const chartConfig = chart.chartConfig as unknown as ChartConfig;
+
+        const progress = calculateGoalProgress(
+          chart.metric.goal,
+          chart.chartTransformer.cadence,
+          chartConfig,
+        );
+        return { ...chart, goalProgress: progress };
+      });
 
       return chartsWithGoalProgress;
     }),

@@ -1,8 +1,6 @@
 import type { Cadence, GoalType, MetricGoal } from "@prisma/client";
 
-import { type db } from "@/server/db";
-
-type DB = typeof db;
+import type { ChartConfig } from "@/lib/metrics/transformer-types";
 
 export interface GoalProgress {
   // Period info
@@ -15,7 +13,7 @@ export interface GoalProgress {
   // The cadence used for this calculation
   cadence: Cadence;
 
-  // Values
+  // Values (from chart's aggregated data)
   baselineValue: number | null;
   currentValue: number | null;
   targetValue: number;
@@ -27,16 +25,13 @@ export interface GoalProgress {
   // For RELATIVE goals
   growthPercent?: number;
 
-  // Status - added "invalid_baseline" for RELATIVE goals with 0 baseline
+  // Status
   status: "on_track" | "at_risk" | "exceeded" | "no_data" | "invalid_baseline";
 }
 
 /**
  * Get period boundaries based on chart cadence
  * Uses UTC consistently to avoid timezone issues with data points
- *
- * Note: Goal period is now determined by the chart's cadence, not a separate goal period.
- * This ensures goal calculation uses the same time boundaries as the chart display.
  */
 export function getPeriodBounds(cadence: Cadence): {
   start: Date;
@@ -115,19 +110,64 @@ export function getPeriodBounds(cadence: Cadence): {
 }
 
 /**
- * Calculate goal progress for a metric
- *
- * @param database - Database instance
- * @param metricId - The metric ID to calculate progress for
- * @param goal - The goal configuration (goalType and targetValue)
- * @param cadence - The chart's cadence, determines the time period for calculation
+ * Extract baseline and current values from chart's aggregated data
+ * Uses the first dataKey to get numeric values from chartData
  */
-export async function calculateGoalProgress(
-  database: DB,
-  metricId: string,
+function extractValuesFromChartData(chartConfig: ChartConfig): {
+  baselineValue: number | null;
+  currentValue: number | null;
+} {
+  const { chartData, dataKeys } = chartConfig;
+
+  // No data available
+  if (
+    !chartData ||
+    chartData.length === 0 ||
+    !dataKeys ||
+    dataKeys.length === 0
+  ) {
+    return { baselineValue: null, currentValue: null };
+  }
+
+  // Use the first dataKey (primary value)
+  const valueKey = dataKeys[0];
+  if (!valueKey) {
+    return { baselineValue: null, currentValue: null };
+  }
+
+  // Get first and last data points
+  const firstPoint = chartData[0];
+  const lastPoint = chartData[chartData.length - 1];
+
+  // Extract numeric values
+  const baselineValue =
+    firstPoint && valueKey in firstPoint
+      ? Number(firstPoint[valueKey]) || null
+      : null;
+
+  const currentValue =
+    lastPoint && valueKey in lastPoint
+      ? Number(lastPoint[valueKey]) || null
+      : null;
+
+  return { baselineValue, currentValue };
+}
+
+/**
+ * Calculate goal progress using the chart's aggregated data
+ *
+ * This function uses the chart's already-aggregated data instead of raw data points.
+ * This ensures goal progress uses the same values displayed on the chart.
+ *
+ * @param goal - The goal configuration (goalType and targetValue)
+ * @param cadence - The chart's cadence (DAILY, WEEKLY, MONTHLY)
+ * @param chartConfig - The chart's configuration containing aggregated data
+ */
+export function calculateGoalProgress(
   goal: MetricGoal,
   cadence: Cadence,
-): Promise<GoalProgress> {
+  chartConfig: ChartConfig,
+): GoalProgress {
   const { start: periodStart, end: periodEnd } = getPeriodBounds(cadence);
   const now = new Date();
 
@@ -141,26 +181,9 @@ export async function calculateGoalProgress(
   );
   const daysRemaining = Math.max(0, daysTotal - daysElapsed);
 
-  // Get baseline (first value in period)
-  const baselinePoint = await database.metricDataPoint.findFirst({
-    where: {
-      metricId,
-      timestamp: { gte: periodStart, lte: periodEnd },
-    },
-    orderBy: { timestamp: "asc" },
-  });
-
-  // Get current (latest value in period)
-  const currentPoint = await database.metricDataPoint.findFirst({
-    where: {
-      metricId,
-      timestamp: { gte: periodStart, lte: periodEnd },
-    },
-    orderBy: { timestamp: "desc" },
-  });
-
-  const baselineValue = baselinePoint?.value ?? null;
-  const currentValue = currentPoint?.value ?? null;
+  // Extract values from chart's aggregated data
+  const { baselineValue, currentValue } =
+    extractValuesFromChartData(chartConfig);
 
   // Handle no data case
   if (currentValue === null) {
