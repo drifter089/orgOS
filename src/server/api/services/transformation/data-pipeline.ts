@@ -76,9 +76,41 @@ export async function ingestMetricData(
       },
     );
     apiData = response.data;
+
+    // Save raw API response for debugging (dev tool)
+    await db.metricApiLog
+      .create({
+        data: {
+          metricId: input.metricId,
+          rawResponse: apiData as Prisma.InputJsonValue,
+          endpoint: template.metricEndpoint,
+          endpointConfig: input.endpointConfig as Prisma.InputJsonValue,
+          success: true,
+        },
+      })
+      .catch(() => {
+        // Don't fail the main operation if logging fails
+      });
   } catch (error) {
     const errorMsg = error instanceof Error ? error.message : "Unknown error";
     console.error(`[Transform] ERROR: Failed to fetch data: ${errorMsg}`);
+
+    // Log failed API call
+    await db.metricApiLog
+      .create({
+        data: {
+          metricId: input.metricId,
+          rawResponse: Prisma.JsonNull,
+          endpoint: template.metricEndpoint,
+          endpointConfig: input.endpointConfig as Prisma.InputJsonValue,
+          success: false,
+          error: errorMsg,
+        },
+      })
+      .catch(() => {
+        // Ignore logging errors
+      });
+
     return { success: false, error: `Failed to fetch data: ${errorMsg}` };
   }
 
@@ -177,6 +209,8 @@ async function getOrCreateDataIngestionTransformer(
   );
 
   let finalCode = generated.code;
+  let finalValueLabel = generated.valueLabel;
+  let finalDataDescription = generated.dataDescription;
 
   if (!testResult.success) {
     const regenerated = await regenerateDataIngestionTransformerCode({
@@ -206,12 +240,19 @@ async function getOrCreateDataIngestionTransformer(
     }
 
     finalCode = regenerated.code;
+    finalValueLabel = regenerated.valueLabel;
+    finalDataDescription = regenerated.dataDescription;
   }
 
   // Upsert handles race condition - if another request created it, we just use that
   const transformer = await db.dataIngestionTransformer.upsert({
     where: { templateId },
-    create: { templateId, transformerCode: finalCode },
+    create: {
+      templateId,
+      transformerCode: finalCode,
+      valueLabel: finalValueLabel,
+      dataDescription: finalDataDescription,
+    },
     update: {},
   });
 
@@ -310,8 +351,40 @@ export async function refreshMetricDataPoints(input: {
       },
     );
     apiData = response.data;
+
+    // Save raw API response for debugging (dev tool)
+    await db.metricApiLog
+      .create({
+        data: {
+          metricId: input.metricId,
+          rawResponse: apiData as Prisma.InputJsonValue,
+          endpoint: template.metricEndpoint,
+          endpointConfig: input.endpointConfig as Prisma.InputJsonValue,
+          success: true,
+        },
+      })
+      .catch(() => {
+        // Don't fail the main operation if logging fails
+      });
   } catch (error) {
     const errorMsg = error instanceof Error ? error.message : "Unknown error";
+
+    // Log failed API call
+    await db.metricApiLog
+      .create({
+        data: {
+          metricId: input.metricId,
+          rawResponse: Prisma.JsonNull,
+          endpoint: template.metricEndpoint,
+          endpointConfig: input.endpointConfig as Prisma.InputJsonValue,
+          success: false,
+          error: errorMsg,
+        },
+      })
+      .catch(() => {
+        // Ignore logging errors
+      });
+
     return { success: false, error: `Failed to fetch data: ${errorMsg}` };
   }
 

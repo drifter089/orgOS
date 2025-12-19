@@ -49,8 +49,7 @@ interface GenerateChartTransformerInput {
     dimensions: Record<string, unknown> | null;
   }>;
   chartType: string;
-  dateRange: string;
-  aggregation: string;
+  cadence: string; // "DAILY" | "WEEKLY" | "MONTHLY"
   userPrompt?: string;
   dataStats?: DataStats;
   templateId?: string; // Used to route to Google Sheets specific generator
@@ -59,6 +58,12 @@ interface GenerateChartTransformerInput {
 interface GeneratedCode {
   code: string;
   reasoning: string;
+  suggestedCadence?: "DAILY" | "WEEKLY" | "MONTHLY";
+}
+
+interface GeneratedDataIngestionCode extends GeneratedCode {
+  valueLabel?: string;
+  dataDescription?: string;
 }
 
 // =============================================================================
@@ -104,7 +109,25 @@ CRITICAL RULES:
    - Invalid dates: skip that item
    - Unexpected structure: return []
 
-Output ONLY the function code, no markdown.`;
+OUTPUT FORMAT:
+Return a JSON object with this exact structure:
+{
+  "code": "function transform(apiResponse, endpointConfig) { ... }",
+  "valueLabel": "commits",
+  "dataDescription": "Extracts commit data from GitHub API. The value field contains the number of commits per day. Dimensions include: additions (lines added), deletions (lines deleted). Data is grouped by commit date with UTC normalization."
+}
+
+REQUIRED FIELDS:
+- code: The JavaScript transform function
+- valueLabel: A SHORT label for what the value represents (e.g., "commits", "stars", "views", "issues", "subscribers", "points"). This will be shown next to the number in the UI (e.g., "1,234 commits")
+- dataDescription: A detailed description explaining:
+  - What API data is extracted
+  - What the value field represents
+  - What each dimension field contains (if any)
+  - How the data is aggregated
+  - Any data transformations applied
+
+Output ONLY valid JSON, no markdown or code blocks.`;
 
 const CHART_TRANSFORMER_SYSTEM_PROMPT = `Generate JavaScript: function transform(dataPoints, preferences) → ChartConfig
 
@@ -112,7 +135,7 @@ This function runs on EVERY data refresh (cron job). It receives ALL historical 
 
 Input:
 - dataPoints: Array of { timestamp: string (ISO), value: number, dimensions: object|null }
-- preferences: { chartType: string, dateRange: string, aggregation: string }
+- preferences: { chartType: string, cadence: "DAILY"|"WEEKLY"|"MONTHLY" }
 
 Output ChartConfig (shadcn/ui chart format):
 {
@@ -122,11 +145,23 @@ Output ChartConfig (shadcn/ui chart format):
   xAxisKey: string,
   dataKeys: string[],
   title: string,
+  description: string,  // SHORT description of how data is aggregated, e.g. "Summed by week"
   showLegend?: boolean,
   showTooltip?: boolean,
   stacked?: boolean,
   centerLabel?: { value: string, label: string }
 }
+
+CADENCE determines how to aggregate data:
+- DAILY: Group by day, one data point per day
+- WEEKLY: Group by week (Monday-Sunday), one data point per week
+- MONTHLY: Group by month, one data point per month
+
+AGGREGATION METHOD (choose based on metric type):
+- COUNTS (commits, views, tasks): SUM values within period
+- GAUGES (temperature, queue depth): use LAST or AVG
+- RATES (velocity, requests/sec): AVG
+- PERCENTAGES: AVG (never sum)
 
 EXAMPLE OUTPUT for line chart:
 {
@@ -142,6 +177,7 @@ EXAMPLE OUTPUT for line chart:
   xAxisKey: "date",
   dataKeys: ["commits"],
   title: "Daily Commits",
+  description: "Total commits per day",
   showLegend: false,
   showTooltip: true
 }
@@ -160,6 +196,7 @@ EXAMPLE with dimensions (multi-series):
   xAxisKey: "date",
   dataKeys: ["additions", "deletions"],
   title: "Code Changes",
+  description: "Lines added and deleted, summed weekly",
   showLegend: true,
   stacked: true
 }
@@ -167,13 +204,21 @@ EXAMPLE with dimensions (multi-series):
 RULES:
 1. NO TypeScript - plain JavaScript only
 2. Colors: var(--chart-1) through var(--chart-12)
-3. Filter by dateRange FIRST: "7d", "30d", "90d", "all"
-4. Format dates as readable strings: "Jan 15" or "Jan 15, 2024"
+3. Aggregate data based on cadence (DAILY/WEEKLY/MONTHLY)
+4. Format dates as readable strings: "Jan 15" or "Week of Jan 15" or "Jan 2024"
 5. If dimensions exist, extract them as separate data keys
-6. Aggregate if needed: >50 points for line → weekly, >20 for bar → monthly
-7. Sort chronologically (oldest first) for time series
+6. Sort chronologically (oldest first) for time series
 
-Output ONLY the function code, no markdown.`;
+OUTPUT FORMAT:
+Return a JSON object with this structure:
+{
+  "code": "function transform(dataPoints, preferences) { ... }",
+  "suggestedCadence": "WEEKLY" // ONLY if user prompt implies a cadence change
+}
+
+IMPORTANT: If the user prompt mentions time periods like "weekly", "by week", "monthly", "by month", "daily", "by day", etc., include suggestedCadence in your response. Otherwise, omit it.
+
+Output ONLY valid JSON, no markdown or code blocks.`;
 
 // =============================================================================
 // AI Generator Functions
@@ -195,7 +240,7 @@ function getOpenRouterClient() {
  */
 export async function generateDataIngestionTransformerCode(
   input: GenerateDataIngestionTransformerInput,
-): Promise<GeneratedCode> {
+): Promise<GeneratedDataIngestionCode> {
   // Route to Google Sheets specific generator
   if (input.templateId.startsWith("gsheets-")) {
     const sheetName = input.endpointConfig?.SHEET_NAME ?? "Sheet1";
@@ -231,7 +276,7 @@ Analyze the API response structure and determine:
 
 Parameters available in endpointConfig: ${input.availableParams.join(", ") || "none"}
 
-Generate the JavaScript transform function.`;
+Generate the JavaScript transform function and return as JSON with code, valueLabel, and dataDescription.`;
 
   const result = await generateText({
     model: openrouter("anthropic/claude-sonnet-4"),
@@ -241,10 +286,75 @@ Generate the JavaScript transform function.`;
     temperature: 0.1,
   });
 
+  const parsed = parseDataIngestionTransformerResponse(result.text);
+
   return {
-    code: cleanGeneratedCode(result.text),
+    code: parsed.code,
+    valueLabel: parsed.valueLabel,
+    dataDescription: parsed.dataDescription,
     reasoning: `Generated transformer for ${input.templateId} based on actual API response structure.`,
   };
+}
+
+/**
+ * Parse AI response that returns JSON with code, valueLabel, and dataDescription
+ */
+function parseDataIngestionTransformerResponse(response: string): {
+  code: string;
+  valueLabel?: string;
+  dataDescription?: string;
+} {
+  try {
+    // Try to parse as JSON first
+    const parsed = JSON.parse(response) as {
+      code?: string;
+      valueLabel?: string;
+      dataDescription?: string;
+    };
+    if (parsed.code) {
+      return {
+        code: cleanGeneratedCode(parsed.code),
+        valueLabel: parsed.valueLabel,
+        dataDescription: parsed.dataDescription,
+      };
+    }
+  } catch {
+    // If JSON parsing fails, treat the whole response as code (fallback)
+  }
+
+  // Fallback: treat the entire response as code (for backward compatibility)
+  return { code: cleanGeneratedCode(response) };
+}
+
+/**
+ * Parse AI response that returns JSON with code and optional suggestedCadence
+ */
+function parseChartTransformerResponse(response: string): {
+  code: string;
+  suggestedCadence?: "DAILY" | "WEEKLY" | "MONTHLY";
+} {
+  try {
+    // Try to parse as JSON first
+    const parsed = JSON.parse(response) as {
+      code?: string;
+      suggestedCadence?: string;
+    };
+    if (parsed.code) {
+      return {
+        code: cleanGeneratedCode(parsed.code),
+        suggestedCadence: parsed.suggestedCadence as
+          | "DAILY"
+          | "WEEKLY"
+          | "MONTHLY"
+          | undefined,
+      };
+    }
+  } catch {
+    // If JSON parsing fails, treat the whole response as code (fallback)
+  }
+
+  // Fallback: treat the entire response as code
+  return { code: cleanGeneratedCode(response) };
 }
 
 /**
@@ -262,8 +372,7 @@ export async function generateChartTransformerCode(
       metricDescription: input.metricDescription,
       sampleDataPoints: input.sampleDataPoints,
       chartType: input.chartType,
-      dateRange: input.dateRange,
-      aggregation: input.aggregation,
+      cadence: input.cadence,
       userPrompt: input.userPrompt,
     });
   }
@@ -292,8 +401,7 @@ Data Statistics:
 
 Preferences:
 - chartType: ${input.chartType}
-- dateRange: ${input.dateRange}
-- aggregation: ${input.aggregation}
+- cadence: ${input.cadence} (aggregate data to this level)
 
 Metric name: ${input.metricName}
 Metric description: ${input.metricDescription}`;
@@ -302,7 +410,8 @@ Metric description: ${input.metricDescription}`;
     userPrompt += `\n\nUser request: "${input.userPrompt}"`;
   }
 
-  userPrompt += "\n\nGenerate the JavaScript transform function.";
+  userPrompt +=
+    "\n\nGenerate the JavaScript transform function and return as JSON.";
 
   const result = await generateText({
     model: openrouter("anthropic/claude-sonnet-4"),
@@ -312,11 +421,14 @@ Metric description: ${input.metricDescription}`;
     temperature: 0.1,
   });
 
+  const parsed = parseChartTransformerResponse(result.text);
+
   return {
-    code: cleanGeneratedCode(result.text),
+    code: parsed.code,
     reasoning: input.userPrompt
       ? `Generated chart transformer based on user request: "${input.userPrompt}"`
       : `Generated ${input.chartType} chart transformer for ${input.metricName}.`,
+    suggestedCadence: parsed.suggestedCadence,
   };
 }
 
@@ -330,7 +442,7 @@ export async function regenerateDataIngestionTransformerCode(
     previousCode?: string;
     error?: string;
   },
-): Promise<GeneratedCode> {
+): Promise<GeneratedDataIngestionCode> {
   // Route to Google Sheets specific regenerator
   if (input.templateId.startsWith("gsheets-")) {
     const sheetName = input.endpointConfig?.SHEET_NAME ?? "Sheet1";
@@ -377,7 +489,8 @@ Fix the error while ensuring:
 - Proper null/undefined handling`;
   }
 
-  userPrompt += "\n\nGenerate a FIXED JavaScript transform function.";
+  userPrompt +=
+    "\n\nGenerate a FIXED JavaScript transform function and return as JSON with code, valueLabel, and dataDescription.";
 
   const result = await generateText({
     model: openrouter("anthropic/claude-sonnet-4"),
@@ -387,8 +500,12 @@ Fix the error while ensuring:
     temperature: 0.2,
   });
 
+  const parsed = parseDataIngestionTransformerResponse(result.text);
+
   return {
-    code: cleanGeneratedCode(result.text),
+    code: parsed.code,
+    valueLabel: parsed.valueLabel,
+    dataDescription: parsed.dataDescription,
     reasoning: `Regenerated transformer for ${input.templateId} after failure.`,
   };
 }

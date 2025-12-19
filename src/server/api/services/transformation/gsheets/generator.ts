@@ -28,14 +28,47 @@ interface GenerateGSheetsChartInput {
     dimensions: Record<string, unknown> | null;
   }>;
   chartType: string;
-  dateRange: string;
-  aggregation: string;
+  cadence: string; // "DAILY" | "WEEKLY" | "MONTHLY"
   userPrompt?: string;
 }
 
 interface GeneratedCode {
   code: string;
   reasoning: string;
+}
+
+interface GeneratedDataIngestionCode extends GeneratedCode {
+  valueLabel?: string;
+  dataDescription?: string;
+}
+
+/**
+ * Parse AI response that returns JSON with code, valueLabel, and dataDescription
+ */
+function parseDataIngestionResponse(response: string): {
+  code: string;
+  valueLabel?: string;
+  dataDescription?: string;
+} {
+  try {
+    const parsed = JSON.parse(response) as {
+      code?: string;
+      valueLabel?: string;
+      dataDescription?: string;
+    };
+    if (parsed.code) {
+      return {
+        code: cleanGeneratedCode(parsed.code),
+        valueLabel: parsed.valueLabel,
+        dataDescription: parsed.dataDescription,
+      };
+    }
+  } catch {
+    // If JSON parsing fails, treat the whole response as code (fallback)
+  }
+
+  // Fallback: treat the entire response as code
+  return { code: cleanGeneratedCode(response) };
 }
 
 function getOpenRouterClient() {
@@ -52,7 +85,7 @@ function getOpenRouterClient() {
  */
 export async function generateGSheetsDataIngestionCode(
   input: GenerateGSheetsDataIngestionInput,
-): Promise<GeneratedCode> {
+): Promise<GeneratedDataIngestionCode> {
   const openrouter = getOpenRouterClient();
 
   const sanitizedResponse = safeStringifyForPrompt(input.sampleApiResponse);
@@ -83,7 +116,7 @@ Analyze this spreadsheet data and generate a transformer that:
 3. Identifies numeric value columns
 4. Creates appropriate DataPoints with dimensions
 
-Generate the JavaScript transform function.`;
+Generate the JavaScript transform function and return as JSON with code, valueLabel, and dataDescription.`;
 
   const result = await generateText({
     model: openrouter("anthropic/claude-sonnet-4"),
@@ -93,8 +126,12 @@ Generate the JavaScript transform function.`;
     temperature: 0.1,
   });
 
+  const parsed = parseDataIngestionResponse(result.text);
+
   return {
-    code: cleanGeneratedCode(result.text),
+    code: parsed.code,
+    valueLabel: parsed.valueLabel,
+    dataDescription: parsed.dataDescription,
     reasoning: `Generated Google Sheets transformer for ${input.sheetName}. Detected ${totalRows} rows × ${totalCols} columns.`,
   };
 }
@@ -107,7 +144,7 @@ export async function regenerateGSheetsDataIngestionCode(
     previousCode?: string;
     error?: string;
   },
-): Promise<GeneratedCode> {
+): Promise<GeneratedDataIngestionCode> {
   const openrouter = getOpenRouterClient();
 
   const sanitizedResponse = safeStringifyForPrompt(input.sampleApiResponse);
@@ -147,7 +184,8 @@ Fix the error and ensure:
 - Unique timestamps for each DataPoint`;
   }
 
-  userPrompt += "\n\nGenerate a FIXED JavaScript transform function.";
+  userPrompt +=
+    "\n\nGenerate a FIXED JavaScript transform function and return as JSON with code, valueLabel, and dataDescription.";
 
   const result = await generateText({
     model: openrouter("anthropic/claude-sonnet-4"),
@@ -157,8 +195,12 @@ Fix the error and ensure:
     temperature: 0.2,
   });
 
+  const parsed = parseDataIngestionResponse(result.text);
+
   return {
-    code: cleanGeneratedCode(result.text),
+    code: parsed.code,
+    valueLabel: parsed.valueLabel,
+    dataDescription: parsed.dataDescription,
     reasoning: `Regenerated Google Sheets transformer after failure.`,
   };
 }
@@ -207,8 +249,7 @@ ${JSON.stringify(samplePoints, null, 2)}
 
 User preferences:
 - Suggested chartType: ${input.chartType} (but choose best fit for data)
-- dateRange: ${input.dateRange}
-- aggregation: ${input.aggregation}`;
+- cadence: ${input.cadence}`;
 
   if (input.userPrompt) {
     userPrompt += `

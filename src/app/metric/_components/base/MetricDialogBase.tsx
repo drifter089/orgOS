@@ -3,8 +3,12 @@
 import { useState } from "react";
 
 import type { Prisma } from "@prisma/client";
+import { ArrowLeft, Check, Target } from "lucide-react";
 import { toast } from "sonner";
 
+import { GoalEditor } from "@/components/metric/goal-editor";
+import { RoleAssignment } from "@/components/metric/role-assignment";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Dialog,
@@ -14,6 +18,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
 import type { RouterOutputs } from "@/trpc/react";
 import { api } from "@/trpc/react";
@@ -57,6 +62,8 @@ interface MetricDialogBaseProps {
 type DashboardChartWithRelations =
   RouterOutputs["dashboard"]["getDashboardCharts"][number];
 
+type DialogStep = "form" | "goal";
+
 export function MetricDialogBase({
   integrationId,
   connectionId: connectionIdProp,
@@ -72,10 +79,25 @@ export function MetricDialogBase({
 }: MetricDialogBaseProps) {
   const [internalOpen, setInternalOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [step, setStep] = useState<DialogStep>("form");
+  const [createdMetricId, setCreatedMetricId] = useState<string | null>(null);
+  const [createdMetricName, setCreatedMetricName] = useState<string>("");
 
   const isControlled = controlledOpen !== undefined;
   const open = isControlled ? controlledOpen : internalOpen;
-  const setOpen = isControlled ? onOpenChange : setInternalOpen;
+  const setOpen = (value: boolean | undefined) => {
+    if (isControlled) {
+      onOpenChange?.(value ?? false);
+    } else {
+      setInternalOpen(value ?? false);
+    }
+    // Reset state when closing
+    if (!value) {
+      setStep("form");
+      setCreatedMetricId(null);
+      setCreatedMetricName("");
+    }
+  };
 
   const utils = api.useUtils();
 
@@ -115,6 +137,7 @@ export function MetricDialogBase({
       position: 9999,
       size: "medium",
       chartTransformerId: null,
+      chartTransformer: null,
       createdAt: new Date(),
       updatedAt: new Date(),
       metric: {
@@ -149,7 +172,11 @@ export function MetricDialogBase({
             }
           : null,
         roles: [],
+        goal: null,
       },
+      goalProgress: null,
+      valueLabel: null, // Will be populated after transformer is created
+      dataDescription: null, // Will be populated after transformer is created
     };
 
     // Optimistic update - add to dashboard cache immediately
@@ -171,16 +198,6 @@ export function MetricDialogBase({
       );
     }
 
-    // Show optimistic toast
-    toast.success("KPI added", {
-      description:
-        "Chart generation will be available after architecture update.",
-    });
-
-    // Close dialog immediately (optimistic update makes it feel instant)
-    setOpen?.(false);
-    onSuccess?.();
-
     try {
       // Create the metric (chart generation will be implemented in new architecture)
       const realDashboardChart = await createMutation.mutateAsync({
@@ -188,19 +205,43 @@ export function MetricDialogBase({
         teamId,
       });
 
+      // Add goalProgress and valueLabel to match the expected dashboard type
+      // Newly created metrics won't have goals set yet
+      // valueLabel and dataDescription will be null until the transformer is created and we refetch
+      const realDashboardChartWithGoal = {
+        ...realDashboardChart,
+        metric: { ...realDashboardChart.metric, goal: null },
+        goalProgress: null,
+        valueLabel: null,
+        dataDescription: null,
+      };
+
       // Swap temp→real ID in dashboard cache
       utils.dashboard.getDashboardCharts.setData(undefined, (old) =>
-        old?.map((dc) => (dc.id === tempId ? realDashboardChart : dc)),
+        old?.map((dc) => (dc.id === tempId ? realDashboardChartWithGoal : dc)),
       );
       if (teamId) {
         utils.dashboard.getDashboardCharts.setData({ teamId }, (old) =>
-          old?.map((dc) => (dc.id === tempId ? realDashboardChart : dc)),
+          old?.map((dc) =>
+            dc.id === tempId ? realDashboardChartWithGoal : dc,
+          ),
         );
         // Swap temp→real ID in metric tabs cache
         utils.metric.getByTeamId.setData({ teamId }, (old) =>
-          old?.map((m) => (m.id === tempId ? realDashboardChart.metric : m)),
+          old?.map((m) =>
+            m.id === tempId ? realDashboardChartWithGoal.metric : m,
+          ),
         );
       }
+
+      toast.success("KPI created", {
+        description: "You can now set a goal for this metric.",
+      });
+
+      // Move to goal step instead of closing
+      setCreatedMetricId(realDashboardChart.metric.id);
+      setCreatedMetricName(data.name);
+      setStep("goal");
     } catch {
       // Metric creation failed - rollback all caches
       utils.dashboard.getDashboardCharts.setData(undefined, (old) =>
@@ -216,6 +257,16 @@ export function MetricDialogBase({
       }
       toast.error("Failed to create KPI");
     }
+  };
+
+  const handleFinish = () => {
+    setOpen(false);
+    onSuccess?.();
+  };
+
+  const handleSkipGoal = () => {
+    setOpen(false);
+    onSuccess?.();
   };
 
   if (!connection) {
@@ -237,19 +288,85 @@ export function MetricDialogBase({
     <Dialog open={open} onOpenChange={setOpen}>
       {trigger && <DialogTrigger asChild>{trigger}</DialogTrigger>}
       <DialogContent className={cn("max-h-[90vh] overflow-y-auto", maxWidth)}>
-        <DialogHeader>
-          <DialogTitle>{title}</DialogTitle>
-          {description && <DialogDescription>{description}</DialogDescription>}
-        </DialogHeader>
+        {step === "form" ? (
+          <>
+            <DialogHeader>
+              <DialogTitle>{title}</DialogTitle>
+              {description && (
+                <DialogDescription>{description}</DialogDescription>
+              )}
+            </DialogHeader>
 
-        {children({
-          connection,
-          onSubmit: handleSubmit,
-          isCreating: createMutation.isPending,
-          error,
-        })}
+            {children({
+              connection,
+              onSubmit: handleSubmit,
+              isCreating: createMutation.isPending,
+              error,
+            })}
 
-        {error && <p className="text-destructive text-sm">Error: {error}</p>}
+            {error && (
+              <p className="text-destructive text-sm">Error: {error}</p>
+            )}
+          </>
+        ) : (
+          <>
+            <DialogHeader>
+              <div className="flex items-center gap-2">
+                <Target className="text-primary h-5 w-5" />
+                <DialogTitle>Set a Goal (Optional)</DialogTitle>
+              </div>
+              <DialogDescription>
+                Add a goal to track progress for{" "}
+                <strong>{createdMetricName}</strong>. You can skip this and add
+                a goal later from the dashboard.
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="space-y-4 py-2">
+              {createdMetricId && (
+                <GoalEditor
+                  metricId={createdMetricId}
+                  startEditing={true}
+                  compact={true}
+                  onSave={handleFinish}
+                />
+              )}
+
+              {teamId && createdMetricId && (
+                <>
+                  <Separator />
+                  <RoleAssignment
+                    metricId={createdMetricId}
+                    metricName={createdMetricName}
+                    teamId={teamId}
+                    assignedRoleIds={[]}
+                  />
+                </>
+              )}
+            </div>
+
+            <div className="flex justify-between pt-2">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setStep("form")}
+                className="gap-1.5"
+              >
+                <ArrowLeft className="h-4 w-4" />
+                Back
+              </Button>
+              <div className="flex gap-2">
+                <Button variant="outline" size="sm" onClick={handleSkipGoal}>
+                  Skip
+                </Button>
+                <Button size="sm" onClick={handleFinish} className="gap-1.5">
+                  <Check className="h-4 w-4" />
+                  Done
+                </Button>
+              </div>
+            </div>
+          </>
+        )}
       </DialogContent>
     </Dialog>
   );

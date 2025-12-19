@@ -3,6 +3,7 @@ import type { Prisma } from "@prisma/client";
 import { TRPCError } from "@trpc/server";
 
 import type { ChartConfig, DataPoint } from "@/lib/metrics/transformer-types";
+import { invalidateCacheByTags } from "@/server/api/utils/cache-strategy";
 import { db } from "@/server/db";
 
 import { generateChartTransformerCode } from "./ai-code-generator";
@@ -20,8 +21,7 @@ interface CreateChartTransformerInput {
   metricName: string;
   metricDescription: string;
   chartType: string;
-  dateRange: string;
-  aggregation: string;
+  cadence: string; // "DAILY" | "WEEKLY" | "MONTHLY"
   userPrompt?: string;
   templateId?: string; // Used to route to Google Sheets specific generator
 }
@@ -93,9 +93,16 @@ export async function createChartTransformer(
 ): Promise<{ transformerId: string }> {
   const dashboardChart = await db.dashboardChart.findUnique({
     where: { id: input.dashboardChartId },
-    include: {
+    select: {
+      id: true,
+      organizationId: true,
       metric: {
-        include: {
+        select: {
+          id: true,
+          name: true,
+          description: true,
+          templateId: true,
+          teamId: true,
           dataPoints: {
             orderBy: { timestamp: "desc" },
             take: 1000, // Get up to 1000 data points for better AI context
@@ -136,17 +143,18 @@ export async function createChartTransformer(
     metricDescription: input.metricDescription,
     sampleDataPoints: allDataPoints,
     chartType: input.chartType,
-    dateRange: input.dateRange,
-    aggregation: input.aggregation,
+    cadence: input.cadence,
     userPrompt: input.userPrompt,
     dataStats,
     templateId: templateId ?? undefined,
   });
 
+  // Use suggested cadence if AI detected one from user prompt
+  const effectiveCadence = generated.suggestedCadence ?? input.cadence;
+
   const testResult = await testChartTransformer(generated.code, allDataPoints, {
     chartType: input.chartType,
-    dateRange: input.dateRange,
-    aggregation: input.aggregation,
+    cadence: effectiveCadence,
   });
   if (!testResult.success) {
     throw new TRPCError({
@@ -161,15 +169,13 @@ export async function createChartTransformer(
       dashboardChartId: input.dashboardChartId,
       transformerCode: generated.code,
       chartType: input.chartType,
-      dateRange: input.dateRange,
-      aggregation: input.aggregation,
+      cadence: effectiveCadence as "DAILY" | "WEEKLY" | "MONTHLY",
       userPrompt: input.userPrompt,
     },
     update: {
       transformerCode: generated.code,
       chartType: input.chartType,
-      dateRange: input.dateRange,
-      aggregation: input.aggregation,
+      cadence: effectiveCadence as "DAILY" | "WEEKLY" | "MONTHLY",
       userPrompt: input.userPrompt,
       version: { increment: 1 },
     },
@@ -183,6 +189,13 @@ export async function createChartTransformer(
       chartTransformerId: transformer.id,
     },
   });
+
+  // Invalidate dashboard cache so queries return fresh transformer fields
+  const cacheTags = [`dashboard_org_${dashboardChart.organizationId}`];
+  if (dashboardChart.metric.teamId) {
+    cacheTags.push(`dashboard_team_${dashboardChart.metric.teamId}`);
+  }
+  await invalidateCacheByTags(db, cacheTags);
 
   return { transformerId: transformer.id };
 }
@@ -230,8 +243,7 @@ export async function executeChartTransformerForDashboardChart(
     dataPoints,
     {
       chartType: transformer.chartType,
-      dateRange: transformer.dateRange ?? "all",
-      aggregation: transformer.aggregation ?? "none",
+      cadence: transformer.cadence,
     },
   );
 
@@ -251,16 +263,22 @@ export async function executeChartTransformerForDashboardChart(
 export async function regenerateChartTransformer(input: {
   dashboardChartId: string;
   chartType?: string;
-  dateRange?: string;
-  aggregation?: string;
+  cadence?: string;
   userPrompt?: string;
 }): Promise<ChartTransformResult> {
   const dashboardChart = await db.dashboardChart.findUnique({
     where: { id: input.dashboardChartId },
-    include: {
+    select: {
+      id: true,
+      organizationId: true,
       chartTransformer: true,
       metric: {
-        include: {
+        select: {
+          id: true,
+          name: true,
+          description: true,
+          templateId: true,
+          teamId: true,
           dataPoints: {
             orderBy: { timestamp: "desc" },
             take: 1000, // Get up to 1000 data points for better AI context
@@ -276,9 +294,7 @@ export async function regenerateChartTransformer(input: {
 
   const currentTransformer = dashboardChart.chartTransformer;
   const chartType = input.chartType ?? currentTransformer?.chartType ?? "line";
-  const dateRange = input.dateRange ?? currentTransformer?.dateRange ?? "all";
-  const aggregation =
-    input.aggregation ?? currentTransformer?.aggregation ?? "none";
+  const cadence = input.cadence ?? currentTransformer?.cadence ?? "DAILY";
 
   const allDataPoints = dashboardChart.metric.dataPoints.map((dp) => ({
     timestamp: dp.timestamp,
@@ -294,17 +310,18 @@ export async function regenerateChartTransformer(input: {
     metricDescription: dashboardChart.metric.description ?? "",
     sampleDataPoints: allDataPoints,
     chartType,
-    dateRange,
-    aggregation,
+    cadence,
     userPrompt: input.userPrompt,
     dataStats,
     templateId: dashboardChart.metric.templateId ?? undefined,
   });
 
+  // Use suggested cadence if AI detected one from user prompt
+  const effectiveCadence = generated.suggestedCadence ?? cadence;
+
   const testResult = await testChartTransformer(generated.code, allDataPoints, {
     chartType,
-    dateRange,
-    aggregation,
+    cadence: effectiveCadence,
   });
   if (!testResult.success) {
     return {
@@ -319,15 +336,13 @@ export async function regenerateChartTransformer(input: {
       dashboardChartId: input.dashboardChartId,
       transformerCode: generated.code,
       chartType,
-      dateRange,
-      aggregation,
+      cadence: effectiveCadence as "DAILY" | "WEEKLY" | "MONTHLY",
       userPrompt: input.userPrompt,
     },
     update: {
       transformerCode: generated.code,
       chartType,
-      dateRange,
-      aggregation,
+      cadence: effectiveCadence as "DAILY" | "WEEKLY" | "MONTHLY",
       userPrompt: input.userPrompt,
       version: { increment: 1 },
     },
@@ -337,6 +352,13 @@ export async function regenerateChartTransformer(input: {
     where: { id: input.dashboardChartId },
     data: { chartConfig: chartConfigToJson(testResult.data), chartType },
   });
+
+  // Invalidate dashboard cache so queries return fresh transformer fields
+  const cacheTags = [`dashboard_org_${dashboardChart.organizationId}`];
+  if (dashboardChart.metric.teamId) {
+    cacheTags.push(`dashboard_team_${dashboardChart.metric.teamId}`);
+  }
+  await invalidateCacheByTags(db, cacheTags);
 
   return { success: true, chartConfig: testResult.data };
 }

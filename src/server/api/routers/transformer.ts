@@ -58,8 +58,7 @@ export const transformerRouter = createTRPCRouter({
       z.object({
         dashboardChartId: z.string(),
         chartType: z.string().default("line"),
-        dateRange: z.string().default("all"),
-        aggregation: z.string().default("none"),
+        cadence: z.enum(["DAILY", "WEEKLY", "MONTHLY"]).default("DAILY"),
         userPrompt: z.string().optional(),
       }),
     )
@@ -81,8 +80,7 @@ export const transformerRouter = createTRPCRouter({
         metricName: metric.name,
         metricDescription: metric.description ?? "",
         chartType: input.chartType,
-        dateRange: input.dateRange,
-        aggregation: input.aggregation,
+        cadence: input.cadence,
         userPrompt: input.userPrompt,
       });
     }),
@@ -95,8 +93,7 @@ export const transformerRouter = createTRPCRouter({
       z.object({
         dashboardChartId: z.string(),
         chartType: z.string().optional(),
-        dateRange: z.string().optional(),
-        aggregation: z.string().optional(),
+        cadence: z.enum(["DAILY", "WEEKLY", "MONTHLY"]).optional(),
         userPrompt: z.string().optional(),
       }),
     )

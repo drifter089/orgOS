@@ -2,25 +2,26 @@
 
 import { useCallback, useState } from "react";
 
-import { AlertCircle, BarChart3, Hash, Settings, Users } from "lucide-react";
+import { AlertCircle, BarChart3, Bug, Settings, Target } from "lucide-react";
 import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { isDevMode } from "@/lib/dev-mode";
 import type { ChartTransformResult } from "@/lib/metrics/transformer-types";
 import { useConfirmation } from "@/providers/ConfirmationDialogProvider";
 import type { RouterOutputs } from "@/trpc/react";
 import { api } from "@/trpc/react";
 
 import { DashboardMetricChart } from "./dashboard-metric-chart";
-import { DashboardMetricRoles } from "./dashboard-metric-roles";
+import { DashboardMetricGoalsRoles } from "./dashboard-metric-goals-roles";
 import { DashboardMetricSettings } from "./dashboard-metric-settings";
-import { DashboardMetricValue } from "./dashboard-metric-value";
 
 type DashboardMetrics = RouterOutputs["dashboard"]["getDashboardCharts"];
 type DashboardMetricWithRelations = DashboardMetrics[number];
@@ -38,7 +39,10 @@ export interface DisplayedChart {
 }
 
 interface DashboardMetricCardProps {
-  dashboardMetric: DashboardMetricWithRelations;
+  dashboardMetric: DashboardMetricWithRelations & {
+    valueLabel?: string | null;
+    dataDescription?: string | null;
+  };
 }
 
 export function DashboardMetricCard({
@@ -159,7 +163,11 @@ export function DashboardMetricCard({
           description: `${result.dataPointCount} data points updated`,
         });
         // Invalidate dashboard to refetch with new data
+        const teamId = metric.teamId;
         await utils.dashboard.getDashboardCharts.invalidate();
+        if (teamId) {
+          await utils.dashboard.getDashboardCharts.invalidate({ teamId });
+        }
       } else {
         toast.error("Refresh failed", { description: result.error });
       }
@@ -175,26 +183,37 @@ export function DashboardMetricCard({
     metric.templateId,
     metric.integration,
     metric.id,
+    metric.teamId,
     refreshMetricMutation,
     utils.dashboard.getDashboardCharts,
   ]);
 
   /**
-   * Regenerate chart with AI using optional prompt
+   * Regenerate chart with AI using optional prompt, chartType, and cadence
    */
   const handleRegenerate = useCallback(
-    async (userPrompt?: string) => {
+    async (
+      chartType?: string,
+      cadence?: "DAILY" | "WEEKLY" | "MONTHLY",
+      userPrompt?: string,
+    ) => {
       setIsProcessing(true);
       try {
         const result = await regenerateChartMutation.mutateAsync({
           dashboardChartId: dashboardMetric.id,
+          chartType,
+          cadence,
           userPrompt,
         });
 
         if (result.success) {
           toast.success("Chart regenerated");
           // Invalidate to refetch with new chart config
+          const teamId = metric.teamId;
           await utils.dashboard.getDashboardCharts.invalidate();
+          if (teamId) {
+            await utils.dashboard.getDashboardCharts.invalidate({ teamId });
+          }
         } else {
           toast.error("Regeneration failed", { description: result.error });
         }
@@ -210,6 +229,7 @@ export function DashboardMetricCard({
       dashboardMetric.id,
       regenerateChartMutation,
       utils.dashboard.getDashboardCharts,
+      metric.teamId,
     ],
   );
 
@@ -234,13 +254,14 @@ export function DashboardMetricCard({
     });
   };
 
-  const title = metric.name;
+  // Use AI-generated chart title when available, fallback to metric name
+  const title = chartTransform?.title ?? metric.name;
 
   return (
     <Tabs
       value={activeTab}
       onValueChange={setActiveTab}
-      className="relative h-[380px]"
+      className="relative h-[420px]"
     >
       {/* Error indicator */}
       {hasError && (
@@ -267,18 +288,14 @@ export function DashboardMetricCard({
         >
           <BarChart3 className="h-3 w-3" />
         </TabsTrigger>
-        <TabsTrigger
-          value="value"
-          className="data-[state=active]:bg-muted data-[state=active]:text-foreground text-muted-foreground hover:bg-muted/50 hover:text-foreground h-7 rounded-none border-r px-3 text-xs transition-colors"
-        >
-          <Hash className="h-3 w-3" />
-        </TabsTrigger>
-        <TabsTrigger
-          value="roles"
-          className="data-[state=active]:bg-muted data-[state=active]:text-foreground text-muted-foreground hover:bg-muted/50 hover:text-foreground h-7 rounded-none border-r px-3 text-xs transition-colors"
-        >
-          <Users className="h-3 w-3" />
-        </TabsTrigger>
+        {metric.teamId && (
+          <TabsTrigger
+            value="goals-roles"
+            className="data-[state=active]:bg-muted data-[state=active]:text-foreground text-muted-foreground hover:bg-muted/50 hover:text-foreground h-7 rounded-none border-r px-3 text-xs transition-colors"
+          >
+            <Target className="h-3 w-3" />
+          </TabsTrigger>
+        )}
         {isIntegrationMetric && (
           <TabsTrigger
             value="settings"
@@ -288,6 +305,27 @@ export function DashboardMetricCard({
           </TabsTrigger>
         )}
       </TabsList>
+
+      {/* Dev Tool Button - Only visible in development mode */}
+      {isDevMode() && (
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="text-muted-foreground absolute top-0 left-0 z-10 h-7 w-7 p-0 hover:text-amber-600"
+              onClick={() => {
+                window.open(`/dev-metric-tool/${metric.id}`, "_blank");
+              }}
+            >
+              <Bug className="h-3.5 w-3.5" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent side="right">
+            <p className="text-xs">Open Pipeline Debug Tool</p>
+          </TooltipContent>
+        </Tooltip>
+      )}
 
       <div className="relative h-full w-full overflow-hidden">
         <TabsContent
@@ -302,30 +340,26 @@ export function DashboardMetricCard({
             isPending={isPending}
             isProcessing={isProcessing}
             integrationId={metric.integration?.providerId}
+            roles={roles}
+            goal={metric.goal}
+            goalProgress={dashboardMetric.goalProgress}
+            valueLabel={dashboardMetric.valueLabel}
           />
         </TabsContent>
 
-        <TabsContent
-          value="value"
-          className="animate-tab-slide-in absolute inset-0 m-0 data-[state=inactive]:hidden"
-        >
-          <DashboardMetricValue
-            title={title}
-            chartTransform={chartTransform}
-            hasChartData={hasChartData}
-            isIntegrationMetric={isIntegrationMetric}
-            isPending={isPending}
-            isProcessing={isProcessing}
-            integrationId={metric.integration?.providerId}
-          />
-        </TabsContent>
-
-        <TabsContent
-          value="roles"
-          className="animate-tab-slide-in absolute inset-0 m-0 data-[state=inactive]:hidden"
-        >
-          <DashboardMetricRoles title={title} roles={roles} />
-        </TabsContent>
+        {metric.teamId && (
+          <TabsContent
+            value="goals-roles"
+            className="animate-tab-slide-in absolute inset-0 m-0 data-[state=inactive]:hidden"
+          >
+            <DashboardMetricGoalsRoles
+              metricId={metric.id}
+              metricName={metric.name}
+              teamId={metric.teamId}
+              roles={roles}
+            />
+          </TabsContent>
+        )}
 
         {isIntegrationMetric && (
           <TabsContent
@@ -333,7 +367,6 @@ export function DashboardMetricCard({
             className="animate-tab-slide-in absolute inset-0 m-0 data-[state=inactive]:hidden"
           >
             <DashboardMetricSettings
-              metricId={metric.id}
               metricName={metric.name}
               metricDescription={metric.description}
               chartTransform={chartTransform}
@@ -346,8 +379,15 @@ export function DashboardMetricCard({
               isUpdating={updateMetricMutation.isPending}
               isDeleting={isPending || deleteMetricMutation.isPending}
               prompt={prompt}
+              currentChartType={
+                dashboardMetric.chartTransformer?.chartType ?? null
+              }
+              currentCadence={dashboardMetric.chartTransformer?.cadence ?? null}
+              roles={roles}
+              dataDescription={dashboardMetric.dataDescription}
+              valueLabel={dashboardMetric.valueLabel}
               onPromptChange={setPrompt}
-              onRegenerate={() => handleRegenerate(prompt || undefined)}
+              onRegenerate={handleRegenerate}
               onRefresh={handleRefresh}
               onUpdateMetric={handleUpdateMetric}
               onDelete={handleRemove}

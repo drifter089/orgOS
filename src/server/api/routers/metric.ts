@@ -2,6 +2,7 @@ import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 
 import { getTemplate } from "@/lib/integrations";
+import type { ChartConfig } from "@/lib/metrics/transformer-types";
 import { fetchData } from "@/server/api/services/data-fetching";
 import {
   createChartTransformer,
@@ -13,6 +14,7 @@ import {
   getMetricAndVerifyAccess,
 } from "@/server/api/utils/authorization";
 import { invalidateCacheByTags } from "@/server/api/utils/cache-strategy";
+import { calculateGoalProgress } from "@/server/api/utils/goal-calculation";
 
 export const metricRouter = createTRPCRouter({
   // ===========================================================================
@@ -123,6 +125,13 @@ export const metricRouter = createTRPCRouter({
                   roles: true,
                 },
               },
+              chartTransformer: {
+                select: {
+                  chartType: true,
+                  cadence: true,
+                  userPrompt: true,
+                },
+              },
             },
           });
         },
@@ -154,8 +163,7 @@ export const metricRouter = createTRPCRouter({
             metricName: input.name,
             metricDescription: input.description ?? template.description,
             chartType: "line",
-            dateRange: "30d",
-            aggregation: "none",
+            cadence: "DAILY",
           });
         } catch (error) {
           const errorMsg =
@@ -193,6 +201,13 @@ export const metricRouter = createTRPCRouter({
             include: {
               integration: true,
               roles: true,
+            },
+          },
+          chartTransformer: {
+            select: {
+              chartType: true,
+              cadence: true,
+              userPrompt: true,
             },
           },
         },
@@ -284,6 +299,154 @@ export const metricRouter = createTRPCRouter({
         cacheTags.push(`dashboard_team_${metric.teamId}`);
       }
       await invalidateCacheByTags(ctx.db, cacheTags);
+
+      return { success: true };
+    }),
+
+  // ===========================================================================
+  // Goal Management
+  // ===========================================================================
+
+  getGoal: workspaceProcedure
+    .input(z.object({ metricId: z.string() }))
+    .query(async ({ ctx, input }) => {
+      // Verify metric belongs to org
+      const metric = await getMetricAndVerifyAccess(
+        ctx.db,
+        input.metricId,
+        ctx.workspace.organizationId,
+      );
+
+      const goal = await ctx.db.metricGoal.findUnique({
+        where: { metricId: input.metricId },
+      });
+
+      // Get the chart's cadence and chartConfig for goal calculation
+      const dashboardChart = await ctx.db.dashboardChart.findFirst({
+        where: { metricId: input.metricId },
+        select: {
+          chartConfig: true,
+          chartTransformer: { select: { cadence: true } },
+        },
+      });
+
+      // Get valueLabel from DataIngestionTransformer
+      let valueLabel: string | null = null;
+      if (metric.templateId) {
+        let cacheKey = metric.templateId;
+        if (metric.templateId.startsWith("gsheets-")) {
+          cacheKey = `${metric.templateId}:${metric.id}`;
+        }
+        const transformer = await ctx.db.dataIngestionTransformer.findUnique({
+          where: { templateId: cacheKey },
+          select: { valueLabel: true },
+        });
+        valueLabel = transformer?.valueLabel ?? null;
+      }
+
+      // Extract current value from chartConfig
+      let currentValue: number | null = null;
+      let currentValueLabel: string | null = null;
+      const chartConfig = dashboardChart?.chartConfig as unknown as ChartConfig;
+      if (chartConfig?.chartData && chartConfig.chartData.length > 0) {
+        const latestData =
+          chartConfig.chartData[chartConfig.chartData.length - 1];
+        const primaryKey = chartConfig.dataKeys?.[0];
+        if (latestData && primaryKey) {
+          const val = latestData[primaryKey];
+          if (typeof val === "number") {
+            currentValue = val;
+            // Use chartConfig label for what's being displayed, fallback to valueLabel
+            currentValueLabel =
+              chartConfig.chartConfig?.[primaryKey]?.label ??
+              valueLabel ??
+              primaryKey;
+          }
+        }
+      }
+
+      // If no goal, return current value info for goal creation context
+      if (!goal) {
+        return {
+          goal: null,
+          progress: null,
+          cadence: dashboardChart?.chartTransformer?.cadence ?? null,
+          currentValue,
+          currentValueLabel,
+          valueLabel,
+        };
+      }
+
+      // If no chart or no cadence, return goal without progress
+      if (!dashboardChart?.chartTransformer?.cadence) {
+        return {
+          goal,
+          progress: null,
+          cadence: null,
+          currentValue,
+          currentValueLabel,
+          valueLabel,
+        };
+      }
+
+      const progress = calculateGoalProgress(
+        goal,
+        dashboardChart.chartTransformer.cadence,
+        chartConfig,
+      );
+      return {
+        goal,
+        progress,
+        cadence: dashboardChart.chartTransformer.cadence,
+        currentValue,
+        currentValueLabel,
+        valueLabel,
+      };
+    }),
+
+  upsertGoal: workspaceProcedure
+    .input(
+      z.object({
+        metricId: z.string(),
+        goalType: z.enum(["ABSOLUTE", "RELATIVE"]),
+        targetValue: z.number().positive(),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      // Verify metric belongs to org
+      await getMetricAndVerifyAccess(
+        ctx.db,
+        input.metricId,
+        ctx.workspace.organizationId,
+      );
+
+      return ctx.db.metricGoal.upsert({
+        where: { metricId: input.metricId },
+        create: {
+          metricId: input.metricId,
+          goalType: input.goalType,
+          targetValue: input.targetValue,
+        },
+        update: {
+          goalType: input.goalType,
+          targetValue: input.targetValue,
+        },
+      });
+    }),
+
+  deleteGoal: workspaceProcedure
+    .input(z.object({ metricId: z.string() }))
+    .mutation(async ({ ctx, input }) => {
+      // Verify metric belongs to org
+      await getMetricAndVerifyAccess(
+        ctx.db,
+        input.metricId,
+        ctx.workspace.organizationId,
+      );
+
+      await ctx.db.metricGoal.delete({
+        where: { metricId: input.metricId },
+      });
 
       return { success: true };
     }),

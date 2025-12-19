@@ -8,6 +8,7 @@ import {
   dashboardCache,
   invalidateCacheByTags,
 } from "@/server/api/utils/cache-strategy";
+import { enrichChartsWithGoalProgress } from "@/server/api/utils/enrich-charts-with-goal-progress";
 
 export const dashboardRouter = createTRPCRouter({
   /**
@@ -26,6 +27,14 @@ export const dashboardRouter = createTRPCRouter({
             integration: true,
             roles: true,
             team: true,
+            goal: true,
+          },
+        },
+        chartTransformer: {
+          select: {
+            chartType: true,
+            cadence: true,
+            userPrompt: true,
           },
         },
       },
@@ -34,7 +43,8 @@ export const dashboardRouter = createTRPCRouter({
         `dashboard_org_${ctx.workspace.organizationId}`,
       ]),
     });
-    return dashboardCharts;
+
+    return enrichChartsWithGoalProgress(dashboardCharts, ctx.db);
   }),
 
   getDashboardCharts: workspaceProcedure
@@ -58,6 +68,14 @@ export const dashboardRouter = createTRPCRouter({
             include: {
               integration: true,
               roles: true,
+              goal: true,
+            },
+          },
+          chartTransformer: {
+            select: {
+              chartType: true,
+              cadence: true,
+              userPrompt: true,
             },
           },
         },
@@ -65,7 +83,7 @@ export const dashboardRouter = createTRPCRouter({
         ...cacheStrategyWithTags(dashboardCache, cacheTags),
       });
 
-      return dashboardCharts;
+      return enrichChartsWithGoalProgress(dashboardCharts, ctx.db);
     }),
 
   /**

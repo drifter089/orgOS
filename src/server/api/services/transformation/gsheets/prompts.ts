@@ -82,15 +82,31 @@ Output:
   { timestamp: new Date(now+2), value: 60, dimensions: { label: "East" } },
 ]
 
-Output ONLY the function code, no markdown.`;
+OUTPUT FORMAT:
+Return a JSON object with this exact structure:
+{
+  "code": "function transform(apiResponse, endpointConfig) { ... }",
+  "valueLabel": "count",
+  "dataDescription": "Extracts data from Google Sheets. The value field contains the numeric value from the data column. Dimensions include: label (row identifier), series (column header if multi-series). Data is organized by rows with unique timestamps."
+}
+
+REQUIRED FIELDS:
+- code: The JavaScript transform function
+- valueLabel: A SHORT label for what the value represents (e.g., "count", "revenue", "score", "amount"). This will be shown next to the number in the UI
+- dataDescription: A description explaining the data structure and how values are extracted
+
+Output ONLY valid JSON, no markdown or code blocks.`;
 
 export const GSHEETS_CHART_PROMPT = `Generate JavaScript: function transform(dataPoints, preferences) → ChartConfig
 
 You are creating a chart for Google Sheets data. The dataPoints come from spreadsheet cells.
+NOTE: Google Sheets data may be TIME-SERIES or CATEGORICAL - analyze the data to determine which.
 
 Input:
 - dataPoints: Array of { timestamp: string (ISO), value: number, dimensions: { label?, series?, rowIndex? } }
-- preferences: { chartType: string, dateRange: string, aggregation: string }
+- preferences: { chartType: string, cadence: string }
+  - cadence: "DAILY"|"WEEKLY"|"MONTHLY" - only applies to TIME-SERIES data
+  - For CATEGORICAL data (dimensions.label present, no real dates), ignore cadence
 
 Output ChartConfig (shadcn/ui chart format):
 {
@@ -106,9 +122,12 @@ Output ChartConfig (shadcn/ui chart format):
 }
 
 ANALYSIS STEPS:
-1. CHECK dimensions.series - if present, this is MULTI-SERIES data
-2. CHECK dimensions.label - use as X-axis labels (categories)
-3. CHECK if timestamps are meaningful dates vs artificial
+1. DETECT DATA TYPE FIRST:
+   - TIME-SERIES: timestamps are real dates (not just sequential numbers)
+   - CATEGORICAL: has dimensions.label with text labels (products, regions, names)
+2. CHECK dimensions.series - if present, this is MULTI-SERIES data
+3. For TIME-SERIES: apply cadence preference for aggregation
+4. For CATEGORICAL: ignore cadence, use labels directly
 
 CHART TYPE SELECTION:
 - BAR: Best for categorical comparisons (has dimensions.label, no real dates)

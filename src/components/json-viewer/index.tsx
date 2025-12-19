@@ -137,7 +137,7 @@ export function JsonViewer({
 
       {/* Fullscreen Modal */}
       <Dialog open={isFullscreen} onOpenChange={setIsFullscreen}>
-        <DialogContent className="flex max-h-[95vh] max-w-[95vw] flex-col gap-0 p-0">
+        <DialogContent className="flex max-h-[90vh] !w-[80vw] !max-w-[80vw] flex-col gap-0 p-0">
           <DialogHeader className="border-b px-6 py-4">
             <div className="flex items-center justify-between">
               <div className="space-y-1">

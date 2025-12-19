@@ -132,6 +132,8 @@ model Metric {
     roles             Role[]            // One metric can be used by many roles
     dashboardCharts   DashboardChart[]  // Dashboard chart configurations using this metric
     dataPoints        MetricDataPoint[] // Relation to data points
+    goal              MetricGoal?       // Optional goal for this metric
+    apiLogs           MetricApiLog[]    // History of API calls (for debugging)
 
     createdAt      DateTime @default(now())
     updatedAt      DateTime @updatedAt
@@ -256,6 +258,29 @@ model MetricDataPoint {
     @@unique([metricId, timestamp])
 }
 
+// Goal Types
+enum GoalType {
+    ABSOLUTE // Reach target value (e.g., reach 1000 subscribers)
+    RELATIVE // Grow by percentage (e.g., grow by 10%)
+}
+
+// MetricGoal - One goal per metric
+// Note: Goal period is determined by the chart's cadence (ChartTransformer.cadence)
+// This ensures goal calculation uses the same aggregation as the chart display
+model MetricGoal {
+    id          String     @id @default(cuid())
+    metricId    String     @unique // One goal per metric
+    metric      Metric     @relation(fields: [metricId], references: [id], onDelete: Cascade)
+
+    goalType    GoalType
+    targetValue Float      // For ABSOLUTE: target number; For RELATIVE: percentage (e.g., 10 for 10%)
+
+    createdAt   DateTime   @default(now())
+    updatedAt   DateTime   @updatedAt
+
+    @@index([metricId])
+}
+
 // DataIngestionTransformer - AI-generated code that transforms API data into DataPoints
 // One per template. Shared across ALL orgs. Endpoint config comes from template definition.
 model DataIngestionTransformer {
@@ -265,10 +290,28 @@ model DataIngestionTransformer {
     // AI-generated JavaScript code: (apiResponse, endpointConfig) => DataPoint[]
     transformerCode String   @db.Text
 
+    // What does the value field represent? (e.g., "commits", "stars", "views", "issues")
+    // AI generates this once when creating the transformer
+    valueLabel      String?
+
+    // Documentation of what this transformer does
+    // Helps debugging and understanding the endpoint
+    // Example: "Extracts commit data from GitHub API. value = commit count per day.
+    //          dimensions.additions = lines added, dimensions.deletions = lines deleted.
+    //          Data is aggregated daily by commit date."
+    dataDescription String?  @db.Text
+
     createdAt       DateTime @default(now())
     updatedAt       DateTime @updatedAt
 
     @@index([templateId])
+}
+
+// Cadence - How data is aggregated for chart display
+enum Cadence {
+    DAILY   // One data point per day
+    WEEKLY  // One data point per week (Monday-Sunday)
+    MONTHLY // One data point per month
 }
 
 // ChartTransformer - Transforms DataPoints into ChartConfig
@@ -281,11 +324,9 @@ model ChartTransformer {
     // Transformation code (TypeScript)
     transformerCode String @db.Text  // Code: DataPoint[] → ChartConfig
 
-    // User preferences that influenced generation
+    // Chart configuration
     chartType    String    // "line", "bar", "area", "pie", etc.
-    dateRange    String?   // "7d", "30d", "90d", "all"
-    aggregation  String?   // "sum", "avg", "max", "none"
-    preferences  Json?     // Additional preferences
+    cadence      Cadence   @default(DAILY) // How to aggregate data for display
 
     // Generation context
     userPrompt   String?   @db.Text // User's natural language request
@@ -296,4 +337,26 @@ model ChartTransformer {
     updatedAt DateTime @updatedAt
 
     @@index([dashboardChartId])
+}
+
+// MetricApiLog - Stores raw API responses for debugging
+// History of API calls for a metric (dev tool)
+model MetricApiLog {
+    id             String   @id @default(cuid())
+    metricId       String
+    metric         Metric   @relation(fields: [metricId], references: [id], onDelete: Cascade)
+
+    // Raw API response (stored as JSON)
+    rawResponse    Json
+
+    // Metadata
+    fetchedAt      DateTime @default(now())
+    endpoint       String?  // The endpoint that was called
+    endpointConfig Json?    // Parameters used for the call
+
+    // Status tracking
+    success        Boolean  @default(true)
+    error          String?  @db.Text
+
+    @@index([metricId, fetchedAt(sort: Desc)])
 }

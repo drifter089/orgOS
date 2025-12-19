@@ -140,7 +140,7 @@ export async function executeDataIngestionTransformer(
 export async function executeChartTransformer(
   code: string,
   dataPoints: DataPoint[],
-  preferences: { chartType: string; dateRange: string; aggregation: string },
+  preferences: { chartType: string; cadence: string },
 ): Promise<ExecutionResult<ChartConfig>> {
   // Convert Date objects to ISO strings for sandbox serialization
   const serializedDataPoints = dataPoints.map((dp) => ({
@@ -234,7 +234,7 @@ export async function testDataIngestionTransformer(
 export async function testChartTransformer(
   code: string,
   sampleDataPoints: DataPoint[],
-  preferences: { chartType: string; dateRange: string; aggregation: string },
+  preferences: { chartType: string; cadence: string },
 ): Promise<ExecutionResult<ChartConfig>> {
   const syntaxCheck = validateTransformerCode(code);
   if (!syntaxCheck.valid) {

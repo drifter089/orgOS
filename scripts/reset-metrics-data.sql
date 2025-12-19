@@ -17,13 +17,19 @@ DELETE FROM "DashboardChart";
 -- 4. Delete MetricDataPoint (time-series data)
 DELETE FROM "MetricDataPoint";
 
--- 5. Delete DataIngestionTransformer (AI-generated ingestion code)
+-- 5. Delete MetricApiLog (raw API response logs for debugging)
+DELETE FROM "MetricApiLog";
+
+-- 6. Delete DataIngestionTransformer (AI-generated ingestion code)
 DELETE FROM "DataIngestionTransformer";
 
--- 6. Delete Metric (metric definitions)
+-- 7. Delete MetricGoal (goal definitions)
+DELETE FROM "MetricGoal";
+
+-- 8. Delete Metric (metric definitions)
 DELETE FROM "Metric";
 
--- 7. Reset SystemsCanvas (optional - clears canvas positions)
+-- 9. Reset SystemsCanvas (optional - clears canvas positions)
 DELETE FROM "SystemsCanvas";
 
 -- Commit if everything succeeded
