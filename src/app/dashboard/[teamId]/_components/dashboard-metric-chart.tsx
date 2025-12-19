@@ -61,6 +61,8 @@ interface DashboardMetricChartProps {
   // Goal data from parent - eliminates N+1 query
   goal?: MetricGoal | null;
   goalProgress?: GoalProgress | null;
+  // Value label from DataIngestionTransformer (e.g., "commits", "stars", "issues")
+  valueLabel?: string | null;
 }
 
 /**
@@ -91,6 +93,7 @@ export function DashboardMetricChart({
   roles = [],
   goal,
   goalProgress,
+  valueLabel,
 }: DashboardMetricChartProps) {
   const platformConfig = integrationId
     ? getPlatformConfig(integrationId)
@@ -584,17 +587,21 @@ export function DashboardMetricChart({
             <span className="text-2xl font-bold tracking-tight">
               {formatValue(currentValue.value)}
             </span>
-            {chartTransform?.title && (
-              <span className="text-muted-foreground text-xs">
-                {chartTransform.dataKeys?.[0] ??
-                  chartTransform.title.split(" ")[0]}
-              </span>
-            )}
+            {/* Show valueLabel from transformer, fallback to chart data key */}
+            <span className="text-muted-foreground text-xs">
+              {valueLabel ??
+                chartTransform?.dataKeys?.[0] ??
+                chartTransform?.title?.split(" ")[0] ??
+                ""}
+            </span>
             {goalTargetValue !== null && goalProgress && (
               <span className="text-muted-foreground ml-auto flex items-center gap-1 text-xs">
                 <Target className="text-destructive h-3 w-3" />
                 <span className="text-destructive">
                   {formatValue(goalTargetValue)}
+                  {valueLabel && (
+                    <span className="ml-0.5 text-[10px]">{valueLabel}</span>
+                  )}
                 </span>
                 <span className="text-muted-foreground">
                   ({Math.round(goalProgress.progressPercent)}%)

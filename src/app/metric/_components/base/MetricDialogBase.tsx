@@ -175,6 +175,7 @@ export function MetricDialogBase({
         goal: null,
       },
       goalProgress: null,
+      valueLabel: null, // Will be populated after transformer is created
     };
 
     // Optimistic update - add to dashboard cache immediately
@@ -203,12 +204,14 @@ export function MetricDialogBase({
         teamId,
       });
 
-      // Add goalProgress to match the expected dashboard type
+      // Add goalProgress and valueLabel to match the expected dashboard type
       // Newly created metrics won't have goals set yet
+      // valueLabel will be null until the transformer is created and we refetch
       const realDashboardChartWithGoal = {
         ...realDashboardChart,
         metric: { ...realDashboardChart.metric, goal: null },
         goalProgress: null,
+        valueLabel: null,
       };
 
       // Swap temp→real ID in dashboard cache

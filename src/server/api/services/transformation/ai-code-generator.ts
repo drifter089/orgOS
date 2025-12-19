@@ -61,6 +61,11 @@ interface GeneratedCode {
   suggestedCadence?: "DAILY" | "WEEKLY" | "MONTHLY";
 }
 
+interface GeneratedDataIngestionCode extends GeneratedCode {
+  valueLabel?: string;
+  dataDescription?: string;
+}
+
 // =============================================================================
 // Prompts
 // =============================================================================
@@ -104,7 +109,25 @@ CRITICAL RULES:
    - Invalid dates: skip that item
    - Unexpected structure: return []
 
-Output ONLY the function code, no markdown.`;
+OUTPUT FORMAT:
+Return a JSON object with this exact structure:
+{
+  "code": "function transform(apiResponse, endpointConfig) { ... }",
+  "valueLabel": "commits",
+  "dataDescription": "Extracts commit data from GitHub API. The value field contains the number of commits per day. Dimensions include: additions (lines added), deletions (lines deleted). Data is grouped by commit date with UTC normalization."
+}
+
+REQUIRED FIELDS:
+- code: The JavaScript transform function
+- valueLabel: A SHORT label for what the value represents (e.g., "commits", "stars", "views", "issues", "subscribers", "points"). This will be shown next to the number in the UI (e.g., "1,234 commits")
+- dataDescription: A detailed description explaining:
+  - What API data is extracted
+  - What the value field represents
+  - What each dimension field contains (if any)
+  - How the data is aggregated
+  - Any data transformations applied
+
+Output ONLY valid JSON, no markdown or code blocks.`;
 
 const CHART_TRANSFORMER_SYSTEM_PROMPT = `Generate JavaScript: function transform(dataPoints, preferences) → ChartConfig
 
@@ -214,7 +237,7 @@ function getOpenRouterClient() {
  */
 export async function generateDataIngestionTransformerCode(
   input: GenerateDataIngestionTransformerInput,
-): Promise<GeneratedCode> {
+): Promise<GeneratedDataIngestionCode> {
   // Route to Google Sheets specific generator
   if (input.templateId.startsWith("gsheets-")) {
     const sheetName = input.endpointConfig?.SHEET_NAME ?? "Sheet1";
@@ -250,7 +273,7 @@ Analyze the API response structure and determine:
 
 Parameters available in endpointConfig: ${input.availableParams.join(", ") || "none"}
 
-Generate the JavaScript transform function.`;
+Generate the JavaScript transform function and return as JSON with code, valueLabel, and dataDescription.`;
 
   const result = await generateText({
     model: openrouter("anthropic/claude-sonnet-4"),
@@ -260,10 +283,44 @@ Generate the JavaScript transform function.`;
     temperature: 0.1,
   });
 
+  const parsed = parseDataIngestionTransformerResponse(result.text);
+
   return {
-    code: cleanGeneratedCode(result.text),
+    code: parsed.code,
+    valueLabel: parsed.valueLabel,
+    dataDescription: parsed.dataDescription,
     reasoning: `Generated transformer for ${input.templateId} based on actual API response structure.`,
   };
+}
+
+/**
+ * Parse AI response that returns JSON with code, valueLabel, and dataDescription
+ */
+function parseDataIngestionTransformerResponse(response: string): {
+  code: string;
+  valueLabel?: string;
+  dataDescription?: string;
+} {
+  try {
+    // Try to parse as JSON first
+    const parsed = JSON.parse(response) as {
+      code?: string;
+      valueLabel?: string;
+      dataDescription?: string;
+    };
+    if (parsed.code) {
+      return {
+        code: cleanGeneratedCode(parsed.code),
+        valueLabel: parsed.valueLabel,
+        dataDescription: parsed.dataDescription,
+      };
+    }
+  } catch {
+    // If JSON parsing fails, treat the whole response as code (fallback)
+  }
+
+  // Fallback: treat the entire response as code (for backward compatibility)
+  return { code: cleanGeneratedCode(response) };
 }
 
 /**
@@ -382,7 +439,7 @@ export async function regenerateDataIngestionTransformerCode(
     previousCode?: string;
     error?: string;
   },
-): Promise<GeneratedCode> {
+): Promise<GeneratedDataIngestionCode> {
   // Route to Google Sheets specific regenerator
   if (input.templateId.startsWith("gsheets-")) {
     const sheetName = input.endpointConfig?.SHEET_NAME ?? "Sheet1";
@@ -429,7 +486,8 @@ Fix the error while ensuring:
 - Proper null/undefined handling`;
   }
 
-  userPrompt += "\n\nGenerate a FIXED JavaScript transform function.";
+  userPrompt +=
+    "\n\nGenerate a FIXED JavaScript transform function and return as JSON with code, valueLabel, and dataDescription.";
 
   const result = await generateText({
     model: openrouter("anthropic/claude-sonnet-4"),
@@ -439,8 +497,12 @@ Fix the error while ensuring:
     temperature: 0.2,
   });
 
+  const parsed = parseDataIngestionTransformerResponse(result.text);
+
   return {
-    code: cleanGeneratedCode(result.text),
+    code: parsed.code,
+    valueLabel: parsed.valueLabel,
+    dataDescription: parsed.dataDescription,
     reasoning: `Regenerated transformer for ${input.templateId} after failure.`,
   };
 }

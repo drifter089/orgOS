@@ -39,7 +39,9 @@ export interface DisplayedChart {
 }
 
 interface DashboardMetricCardProps {
-  dashboardMetric: DashboardMetricWithRelations;
+  dashboardMetric: DashboardMetricWithRelations & {
+    valueLabel?: string | null;
+  };
 }
 
 export function DashboardMetricCard({
@@ -251,7 +253,8 @@ export function DashboardMetricCard({
     });
   };
 
-  const title = metric.name;
+  // Use AI-generated chart title when available, fallback to metric name
+  const title = chartTransform?.title ?? metric.name;
 
   return (
     <Tabs
@@ -339,6 +342,7 @@ export function DashboardMetricCard({
             roles={roles}
             goal={metric.goal}
             goalProgress={dashboardMetric.goalProgress}
+            valueLabel={dashboardMetric.valueLabel}
           />
         </TabsContent>
 

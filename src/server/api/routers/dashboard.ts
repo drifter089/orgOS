@@ -45,11 +45,49 @@ export const dashboardRouter = createTRPCRouter({
       ]),
     });
 
-    // Calculate goal progress for each metric that has a goal
-    // Uses the chart's aggregated data (chartConfig) for calculation
+    // Get unique templateIds to fetch valueLabels
+    const templateIds = [
+      ...new Set(
+        dashboardCharts
+          .map((chart) => {
+            // For GSheets, the cacheKey is `{templateId}:{metricId}`
+            const templateId = chart.metric.templateId;
+            if (!templateId) return null;
+            if (templateId.startsWith("gsheets-")) {
+              return `${templateId}:${chart.metric.id}`;
+            }
+            return templateId;
+          })
+          .filter(Boolean),
+      ),
+    ] as string[];
+
+    // Fetch valueLabels from DataIngestionTransformer
+    const transformers = await ctx.db.dataIngestionTransformer.findMany({
+      where: { templateId: { in: templateIds } },
+      select: { templateId: true, valueLabel: true },
+    });
+
+    // Create a map for quick lookup
+    const valueLabelMap = new Map(
+      transformers.map((t) => [t.templateId, t.valueLabel]),
+    );
+
+    // Calculate goal progress and add valueLabel for each chart
     const chartsWithGoalProgress = dashboardCharts.map((chart) => {
+      // Look up valueLabel
+      let cacheKey: string | null = null;
+      if (chart.metric.templateId) {
+        if (chart.metric.templateId.startsWith("gsheets-")) {
+          cacheKey = `${chart.metric.templateId}:${chart.metric.id}`;
+        } else {
+          cacheKey = chart.metric.templateId;
+        }
+      }
+      const valueLabel = cacheKey ? valueLabelMap.get(cacheKey) : null;
+
       if (!chart.metric.goal || !chart.chartTransformer?.cadence) {
-        return { ...chart, goalProgress: null };
+        return { ...chart, goalProgress: null, valueLabel: valueLabel ?? null };
       }
 
       // Parse chartConfig as ChartConfig type
@@ -60,7 +98,11 @@ export const dashboardRouter = createTRPCRouter({
         chart.chartTransformer.cadence,
         chartConfig,
       );
-      return { ...chart, goalProgress: progress };
+      return {
+        ...chart,
+        goalProgress: progress,
+        valueLabel: valueLabel ?? null,
+      };
     });
 
     return chartsWithGoalProgress;
@@ -102,11 +144,53 @@ export const dashboardRouter = createTRPCRouter({
         ...cacheStrategyWithTags(dashboardCache, cacheTags),
       });
 
-      // Calculate goal progress for each metric that has a goal
-      // Uses the chart's aggregated data (chartConfig) for calculation
+      // Get unique templateIds to fetch valueLabels
+      const templateIds = [
+        ...new Set(
+          dashboardCharts
+            .map((chart) => {
+              // For GSheets, the cacheKey is `{templateId}:{metricId}`
+              const templateId = chart.metric.templateId;
+              if (!templateId) return null;
+              if (templateId.startsWith("gsheets-")) {
+                return `${templateId}:${chart.metric.id}`;
+              }
+              return templateId;
+            })
+            .filter(Boolean),
+        ),
+      ] as string[];
+
+      // Fetch valueLabels from DataIngestionTransformer
+      const transformers = await ctx.db.dataIngestionTransformer.findMany({
+        where: { templateId: { in: templateIds } },
+        select: { templateId: true, valueLabel: true },
+      });
+
+      // Create a map for quick lookup
+      const valueLabelMap = new Map(
+        transformers.map((t) => [t.templateId, t.valueLabel]),
+      );
+
+      // Calculate goal progress and add valueLabel for each chart
       const chartsWithGoalProgress = dashboardCharts.map((chart) => {
+        // Look up valueLabel
+        let cacheKey: string | null = null;
+        if (chart.metric.templateId) {
+          if (chart.metric.templateId.startsWith("gsheets-")) {
+            cacheKey = `${chart.metric.templateId}:${chart.metric.id}`;
+          } else {
+            cacheKey = chart.metric.templateId;
+          }
+        }
+        const valueLabel = cacheKey ? valueLabelMap.get(cacheKey) : null;
+
         if (!chart.metric.goal || !chart.chartTransformer?.cadence) {
-          return { ...chart, goalProgress: null };
+          return {
+            ...chart,
+            goalProgress: null,
+            valueLabel: valueLabel ?? null,
+          };
         }
 
         // Parse chartConfig as ChartConfig type
@@ -117,7 +201,11 @@ export const dashboardRouter = createTRPCRouter({
           chart.chartTransformer.cadence,
           chartConfig,
         );
-        return { ...chart, goalProgress: progress };
+        return {
+          ...chart,
+          goalProgress: progress,
+          valueLabel: valueLabel ?? null,
+        };
       });
 
       return chartsWithGoalProgress;

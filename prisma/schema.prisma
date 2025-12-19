@@ -290,6 +290,17 @@ model DataIngestionTransformer {
     // AI-generated JavaScript code: (apiResponse, endpointConfig) => DataPoint[]
     transformerCode String   @db.Text
 
+    // What does the value field represent? (e.g., "commits", "stars", "views", "issues")
+    // AI generates this once when creating the transformer
+    valueLabel      String?
+
+    // Documentation of what this transformer does
+    // Helps debugging and understanding the endpoint
+    // Example: "Extracts commit data from GitHub API. value = commit count per day.
+    //          dimensions.additions = lines added, dimensions.deletions = lines deleted.
+    //          Data is aggregated daily by commit date."
+    dataDescription String?  @db.Text
+
     createdAt       DateTime @default(now())
     updatedAt       DateTime @updatedAt
 

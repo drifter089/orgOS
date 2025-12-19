@@ -209,6 +209,8 @@ async function getOrCreateDataIngestionTransformer(
   );
 
   let finalCode = generated.code;
+  let finalValueLabel = generated.valueLabel;
+  let finalDataDescription = generated.dataDescription;
 
   if (!testResult.success) {
     const regenerated = await regenerateDataIngestionTransformerCode({
@@ -238,12 +240,19 @@ async function getOrCreateDataIngestionTransformer(
     }
 
     finalCode = regenerated.code;
+    finalValueLabel = regenerated.valueLabel;
+    finalDataDescription = regenerated.dataDescription;
   }
 
   // Upsert handles race condition - if another request created it, we just use that
   const transformer = await db.dataIngestionTransformer.upsert({
     where: { templateId },
-    create: { templateId, transformerCode: finalCode },
+    create: {
+      templateId,
+      transformerCode: finalCode,
+      valueLabel: finalValueLabel,
+      dataDescription: finalDataDescription,
+    },
     update: {},
   });
 
