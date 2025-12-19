@@ -145,6 +145,7 @@ Output ChartConfig (shadcn/ui chart format):
   xAxisKey: string,
   dataKeys: string[],
   title: string,
+  description: string,  // SHORT description of how data is aggregated, e.g. "Summed by week"
   showLegend?: boolean,
   showTooltip?: boolean,
   stacked?: boolean,
@@ -176,6 +177,7 @@ EXAMPLE OUTPUT for line chart:
   xAxisKey: "date",
   dataKeys: ["commits"],
   title: "Daily Commits",
+  description: "Total commits per day",
   showLegend: false,
   showTooltip: true
 }
@@ -194,6 +196,7 @@ EXAMPLE with dimensions (multi-series):
   xAxisKey: "date",
   dataKeys: ["additions", "deletions"],
   title: "Code Changes",
+  description: "Lines added and deleted, summed weekly",
   showLegend: true,
   stacked: true
 }

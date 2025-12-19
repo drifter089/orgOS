@@ -41,6 +41,7 @@ export interface DisplayedChart {
 interface DashboardMetricCardProps {
   dashboardMetric: DashboardMetricWithRelations & {
     valueLabel?: string | null;
+    dataDescription?: string | null;
   };
 }
 
@@ -383,6 +384,8 @@ export function DashboardMetricCard({
               }
               currentCadence={dashboardMetric.chartTransformer?.cadence ?? null}
               roles={roles}
+              dataDescription={dashboardMetric.dataDescription}
+              valueLabel={dashboardMetric.valueLabel}
               onPromptChange={setPrompt}
               onRegenerate={handleRegenerate}
               onRefresh={handleRefresh}

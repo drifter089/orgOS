@@ -38,6 +38,12 @@ interface GoalEditorProps {
   onDelete?: () => void;
   /** Start in editing mode (useful for new metrics) */
   startEditing?: boolean;
+  /** Optional: Pre-loaded current value */
+  initialCurrentValue?: number | null;
+  /** Optional: Pre-loaded current value label */
+  initialCurrentValueLabel?: string | null;
+  /** Optional: Pre-loaded value label (raw data label) */
+  initialValueLabel?: string | null;
 }
 
 function getStatusConfig(status: string) {
@@ -86,6 +92,22 @@ function formatCadence(cadence: Cadence): string {
   }
 }
 
+/**
+ * Formats a number for display with appropriate units
+ */
+function formatValue(value: number): string {
+  if (value >= 1_000_000) {
+    return `${(value / 1_000_000).toFixed(1)}M`;
+  }
+  if (value >= 1_000) {
+    return `${(value / 1_000).toFixed(1)}K`;
+  }
+  if (Number.isInteger(value)) {
+    return value.toString();
+  }
+  return value.toFixed(2);
+}
+
 export function GoalEditor({
   metricId,
   initialGoal,
@@ -95,6 +117,9 @@ export function GoalEditor({
   onSave,
   onDelete,
   startEditing = false,
+  initialCurrentValue,
+  initialCurrentValueLabel,
+  initialValueLabel,
 }: GoalEditorProps) {
   const [isEditing, setIsEditing] = useState(startEditing);
   const [goalType, setGoalType] = useState<GoalType>("ABSOLUTE");
@@ -113,6 +138,18 @@ export function GoalEditor({
     initialProgress !== undefined ? initialProgress : goalData?.progress;
   const cadence =
     initialCadence !== undefined ? initialCadence : goalData?.cadence;
+  const currentValue =
+    initialCurrentValue !== undefined
+      ? initialCurrentValue
+      : (goalData?.currentValue ?? null);
+  const currentValueLabel =
+    initialCurrentValueLabel !== undefined
+      ? initialCurrentValueLabel
+      : (goalData?.currentValueLabel ?? null);
+  const valueLabel =
+    initialValueLabel !== undefined
+      ? initialValueLabel
+      : (goalData?.valueLabel ?? null);
 
   // Sync editing state with startEditing prop
   useEffect(() => {
@@ -187,6 +224,23 @@ export function GoalEditor({
           </span>
         </div>
 
+        {/* Current value display */}
+        {currentValue !== null && (
+          <div className="bg-muted/30 rounded-md border p-2">
+            <p className="text-muted-foreground text-[10px]">Current Value</p>
+            <div className="flex items-baseline gap-1.5">
+              <span className="text-lg font-semibold">
+                {formatValue(currentValue)}
+              </span>
+              {(currentValueLabel ?? valueLabel) && (
+                <span className="text-muted-foreground text-xs">
+                  {currentValueLabel ?? valueLabel}
+                </span>
+              )}
+            </div>
+          </div>
+        )}
+
         <div className="space-y-0.5">
           <span className="text-muted-foreground text-[10px]">Type</span>
           <ToggleGroup
@@ -224,13 +278,25 @@ export function GoalEditor({
           </div>
         )}
 
-        <Input
-          type="number"
-          placeholder={goalType === "RELATIVE" ? "Growth %" : "Target value"}
-          value={targetValue}
-          onChange={(e) => setTargetValue(e.target.value)}
-          className="h-7 text-xs"
-        />
+        <div className="space-y-0.5">
+          <span className="text-muted-foreground text-[10px]">
+            Target{" "}
+            {goalType === "RELATIVE"
+              ? "Growth %"
+              : (currentValueLabel ?? valueLabel ?? "Value")}
+          </span>
+          <Input
+            type="number"
+            placeholder={
+              goalType === "RELATIVE"
+                ? "e.g., 10 for 10% growth"
+                : "Target value"
+            }
+            value={targetValue}
+            onChange={(e) => setTargetValue(e.target.value)}
+            className="h-7 text-xs"
+          />
+        </div>
 
         <div className="flex gap-1.5">
           {goal && (
@@ -285,19 +351,36 @@ export function GoalEditor({
           )}
         </div>
 
-        <div className="mt-1.5 grid grid-cols-2 gap-2">
+        <div className="mt-1.5 grid grid-cols-3 gap-2">
           <div>
-            <p className="text-muted-foreground text-[10px]">Progress</p>
+            <p className="text-muted-foreground text-[10px]">Current</p>
             <p className="text-sm font-semibold">
-              {progress ? `${Math.round(progress.progressPercent)}%` : "—"}
+              {currentValue !== null ? formatValue(currentValue) : "—"}
             </p>
+            {(currentValueLabel ?? valueLabel) && currentValue !== null && (
+              <p className="text-muted-foreground text-[9px]">
+                {currentValueLabel ?? valueLabel}
+              </p>
+            )}
           </div>
           <div>
             <p className="text-muted-foreground text-[10px]">Target</p>
             <p className="text-sm font-semibold">
               {goal.goalType === "ABSOLUTE"
-                ? goal.targetValue.toLocaleString()
+                ? formatValue(goal.targetValue)
                 : `+${goal.targetValue}%`}
+            </p>
+            {goal.goalType === "ABSOLUTE" &&
+              (currentValueLabel ?? valueLabel) && (
+                <p className="text-muted-foreground text-[9px]">
+                  {currentValueLabel ?? valueLabel}
+                </p>
+              )}
+          </div>
+          <div>
+            <p className="text-muted-foreground text-[10px]">Progress</p>
+            <p className="text-sm font-semibold">
+              {progress ? `${Math.round(progress.progressPercent)}%` : "—"}
             </p>
           </div>
         </div>

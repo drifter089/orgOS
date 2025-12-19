@@ -9,6 +9,7 @@ import {
   Check,
   ChevronRight,
   Clock,
+  Database,
   Loader2,
   RefreshCw,
   Sparkles,
@@ -24,6 +25,13 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -62,6 +70,10 @@ interface DashboardMetricSettingsProps {
   currentChartType: string | null;
   currentCadence: Cadence | null;
   roles: Role[];
+  /** Data description from DataIngestionTransformer */
+  dataDescription?: string | null;
+  /** Value label (e.g., "commits", "stars") */
+  valueLabel?: string | null;
   onPromptChange: (value: string) => void;
   onRegenerate: (
     chartType?: string,
@@ -90,6 +102,8 @@ export function DashboardMetricSettings({
   currentChartType,
   currentCadence,
   roles,
+  dataDescription,
+  valueLabel,
   onPromptChange,
   onRegenerate,
   onRefresh,
@@ -321,6 +335,88 @@ export function DashboardMetricSettings({
               </SelectContent>
             </Select>
           </div>
+        )}
+
+        {/* Data Info Dialog */}
+        {(dataDescription ?? valueLabel ?? chartTransform?.dataKeys) && (
+          <Dialog>
+            <DialogTrigger asChild>
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-7 w-full justify-start gap-1.5 text-xs"
+              >
+                <Database className="h-3 w-3" />
+                Data Info
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-[425px]">
+              <DialogHeader>
+                <DialogTitle className="flex items-center gap-2">
+                  <Database className="h-4 w-4" />
+                  Data Information
+                </DialogTitle>
+              </DialogHeader>
+              <div className="space-y-4 pt-2">
+                {/* Value Label */}
+                {valueLabel && (
+                  <div className="space-y-1">
+                    <p className="text-muted-foreground text-xs font-medium">
+                      Value Unit
+                    </p>
+                    <Badge variant="secondary" className="text-xs">
+                      {valueLabel}
+                    </Badge>
+                  </div>
+                )}
+
+                {/* Available Data Keys (dimensions being charted) */}
+                {chartTransform?.dataKeys &&
+                  chartTransform.dataKeys.length > 0 && (
+                    <div className="space-y-1">
+                      <p className="text-muted-foreground text-xs font-medium">
+                        Tracked Metrics
+                      </p>
+                      <div className="flex flex-wrap gap-1.5">
+                        {chartTransform.dataKeys.map((key) => (
+                          <Badge
+                            key={key}
+                            variant="outline"
+                            className="text-xs"
+                          >
+                            {chartTransform.chartConfig?.[key]?.label ?? key}
+                          </Badge>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                {/* Data Description */}
+                {dataDescription && (
+                  <div className="space-y-1">
+                    <p className="text-muted-foreground text-xs font-medium">
+                      Data Structure
+                    </p>
+                    <p className="bg-muted/30 text-muted-foreground rounded-md border p-3 text-xs leading-relaxed">
+                      {dataDescription}
+                    </p>
+                  </div>
+                )}
+
+                {/* Chart Description */}
+                {chartTransform?.description && (
+                  <div className="space-y-1">
+                    <p className="text-muted-foreground text-xs font-medium">
+                      Chart Aggregation
+                    </p>
+                    <p className="bg-muted/30 text-muted-foreground rounded-md border p-3 text-xs leading-relaxed">
+                      {chartTransform.description}
+                    </p>
+                  </div>
+                )}
+              </div>
+            </DialogContent>
+          </Dialog>
         )}
 
         <div className="mt-auto flex flex-col gap-2 border-t pt-2">

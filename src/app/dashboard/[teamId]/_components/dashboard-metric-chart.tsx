@@ -1,7 +1,7 @@
 "use client";
 
 import type { MetricGoal, Role } from "@prisma/client";
-import { AlertTriangle, Loader2, Target, User } from "lucide-react";
+import { AlertTriangle, Info, Loader2, Target, User } from "lucide-react";
 import {
   Area,
   AreaChart,
@@ -32,6 +32,11 @@ import {
   ChartTooltip,
   ChartTooltipContent,
 } from "@/components/ui/chart";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { getUserName } from "@/lib/helpers/get-user-name";
 import { getLatestMetricValue } from "@/lib/metrics/get-latest-value";
 import { getPlatformConfig } from "@/lib/platform-config";
@@ -547,10 +552,31 @@ export function DashboardMetricChart({
     >
       <CardHeader className="flex-shrink-0 space-y-0.5 px-5 pt-3 pb-1">
         <div className="flex items-center justify-between gap-2">
-          <div className="flex min-w-0 items-center gap-2">
+          <div className="flex min-w-0 items-center gap-1.5">
             <CardTitle className="truncate text-sm font-medium">
               {title}
             </CardTitle>
+            {/* Chart description tooltip - always visible if chart exists */}
+            {chartTransform && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    type="button"
+                    className="text-muted-foreground/60 hover:text-muted-foreground shrink-0 transition-colors"
+                  >
+                    <Info className="h-3 w-3" />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom" className="max-w-[280px]">
+                  <p className="text-xs">
+                    {chartTransform.description ??
+                      `Showing ${chartTransform.chartType} chart with ${chartTransform.dataKeys?.join(", ") ?? "data"}`}
+                  </p>
+                </TooltipContent>
+              </Tooltip>
+            )}
+            {/* Spacer to push platform badge to the right */}
+            <div className="flex-1" />
             {platformConfig && (
               <Badge
                 className={cn(

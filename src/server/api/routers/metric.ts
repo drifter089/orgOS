@@ -311,7 +311,7 @@ export const metricRouter = createTRPCRouter({
     .input(z.object({ metricId: z.string() }))
     .query(async ({ ctx, input }) => {
       // Verify metric belongs to org
-      await getMetricAndVerifyAccess(
+      const metric = await getMetricAndVerifyAccess(
         ctx.db,
         input.metricId,
         ctx.workspace.organizationId,
@@ -320,8 +320,6 @@ export const metricRouter = createTRPCRouter({
       const goal = await ctx.db.metricGoal.findUnique({
         where: { metricId: input.metricId },
       });
-
-      if (!goal) return null;
 
       // Get the chart's cadence and chartConfig for goal calculation
       const dashboardChart = await ctx.db.dashboardChart.findFirst({
@@ -332,13 +330,64 @@ export const metricRouter = createTRPCRouter({
         },
       });
 
-      // If no chart or no cadence, return goal without progress
-      if (!dashboardChart?.chartTransformer?.cadence) {
-        return { goal, progress: null, cadence: null };
+      // Get valueLabel from DataIngestionTransformer
+      let valueLabel: string | null = null;
+      if (metric.templateId) {
+        let cacheKey = metric.templateId;
+        if (metric.templateId.startsWith("gsheets-")) {
+          cacheKey = `${metric.templateId}:${metric.id}`;
+        }
+        const transformer = await ctx.db.dataIngestionTransformer.findUnique({
+          where: { templateId: cacheKey },
+          select: { valueLabel: true },
+        });
+        valueLabel = transformer?.valueLabel ?? null;
       }
 
-      // Parse chartConfig as ChartConfig type
-      const chartConfig = dashboardChart.chartConfig as unknown as ChartConfig;
+      // Extract current value from chartConfig
+      let currentValue: number | null = null;
+      let currentValueLabel: string | null = null;
+      const chartConfig = dashboardChart?.chartConfig as unknown as ChartConfig;
+      if (chartConfig?.chartData && chartConfig.chartData.length > 0) {
+        const latestData =
+          chartConfig.chartData[chartConfig.chartData.length - 1];
+        const primaryKey = chartConfig.dataKeys?.[0];
+        if (latestData && primaryKey) {
+          const val = latestData[primaryKey];
+          if (typeof val === "number") {
+            currentValue = val;
+            // Use chartConfig label for what's being displayed, fallback to valueLabel
+            currentValueLabel =
+              chartConfig.chartConfig?.[primaryKey]?.label ??
+              valueLabel ??
+              primaryKey;
+          }
+        }
+      }
+
+      // If no goal, return current value info for goal creation context
+      if (!goal) {
+        return {
+          goal: null,
+          progress: null,
+          cadence: dashboardChart?.chartTransformer?.cadence ?? null,
+          currentValue,
+          currentValueLabel,
+          valueLabel,
+        };
+      }
+
+      // If no chart or no cadence, return goal without progress
+      if (!dashboardChart?.chartTransformer?.cadence) {
+        return {
+          goal,
+          progress: null,
+          cadence: null,
+          currentValue,
+          currentValueLabel,
+          valueLabel,
+        };
+      }
 
       const progress = calculateGoalProgress(
         goal,
@@ -349,6 +398,9 @@ export const metricRouter = createTRPCRouter({
         goal,
         progress,
         cadence: dashboardChart.chartTransformer.cadence,
+        currentValue,
+        currentValueLabel,
+        valueLabel,
       };
     }),
 

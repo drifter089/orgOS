@@ -62,15 +62,18 @@ export const dashboardRouter = createTRPCRouter({
       ),
     ] as string[];
 
-    // Fetch valueLabels from DataIngestionTransformer
+    // Fetch valueLabels and dataDescription from DataIngestionTransformer
     const transformers = await ctx.db.dataIngestionTransformer.findMany({
       where: { templateId: { in: templateIds } },
-      select: { templateId: true, valueLabel: true },
+      select: { templateId: true, valueLabel: true, dataDescription: true },
     });
 
-    // Create a map for quick lookup
+    // Create maps for quick lookup
     const valueLabelMap = new Map(
       transformers.map((t) => [t.templateId, t.valueLabel]),
+    );
+    const dataDescriptionMap = new Map(
+      transformers.map((t) => [t.templateId, t.dataDescription]),
     );
 
     // Calculate goal progress and add valueLabel for each chart
@@ -85,9 +88,17 @@ export const dashboardRouter = createTRPCRouter({
         }
       }
       const valueLabel = cacheKey ? valueLabelMap.get(cacheKey) : null;
+      const dataDescription = cacheKey
+        ? dataDescriptionMap.get(cacheKey)
+        : null;
 
       if (!chart.metric.goal || !chart.chartTransformer?.cadence) {
-        return { ...chart, goalProgress: null, valueLabel: valueLabel ?? null };
+        return {
+          ...chart,
+          goalProgress: null,
+          valueLabel: valueLabel ?? null,
+          dataDescription: dataDescription ?? null,
+        };
       }
 
       // Parse chartConfig as ChartConfig type
@@ -102,6 +113,7 @@ export const dashboardRouter = createTRPCRouter({
         ...chart,
         goalProgress: progress,
         valueLabel: valueLabel ?? null,
+        dataDescription: dataDescription ?? null,
       };
     });
 
@@ -161,15 +173,18 @@ export const dashboardRouter = createTRPCRouter({
         ),
       ] as string[];
 
-      // Fetch valueLabels from DataIngestionTransformer
+      // Fetch valueLabels and dataDescription from DataIngestionTransformer
       const transformers = await ctx.db.dataIngestionTransformer.findMany({
         where: { templateId: { in: templateIds } },
-        select: { templateId: true, valueLabel: true },
+        select: { templateId: true, valueLabel: true, dataDescription: true },
       });
 
-      // Create a map for quick lookup
+      // Create maps for quick lookup
       const valueLabelMap = new Map(
         transformers.map((t) => [t.templateId, t.valueLabel]),
+      );
+      const dataDescriptionMap = new Map(
+        transformers.map((t) => [t.templateId, t.dataDescription]),
       );
 
       // Calculate goal progress and add valueLabel for each chart
@@ -184,12 +199,16 @@ export const dashboardRouter = createTRPCRouter({
           }
         }
         const valueLabel = cacheKey ? valueLabelMap.get(cacheKey) : null;
+        const dataDescription = cacheKey
+          ? dataDescriptionMap.get(cacheKey)
+          : null;
 
         if (!chart.metric.goal || !chart.chartTransformer?.cadence) {
           return {
             ...chart,
             goalProgress: null,
             valueLabel: valueLabel ?? null,
+            dataDescription: dataDescription ?? null,
           };
         }
 
@@ -205,6 +224,7 @@ export const dashboardRouter = createTRPCRouter({
           ...chart,
           goalProgress: progress,
           valueLabel: valueLabel ?? null,
+          dataDescription: dataDescription ?? null,
         };
       });
 
