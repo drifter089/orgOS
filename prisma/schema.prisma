@@ -263,20 +263,15 @@ enum GoalType {
     RELATIVE // Grow by percentage (e.g., grow by 10%)
 }
 
-// Goal Periods
-enum GoalPeriod {
-    WEEKLY  // Monday 00:00 to Sunday 23:59
-    MONTHLY // 1st 00:00 to last day 23:59
-}
-
 // MetricGoal - One goal per metric
+// Note: Goal period is determined by the chart's cadence (ChartTransformer.cadence)
+// This ensures goal calculation uses the same aggregation as the chart display
 model MetricGoal {
     id          String     @id @default(cuid())
     metricId    String     @unique // One goal per metric
     metric      Metric     @relation(fields: [metricId], references: [id], onDelete: Cascade)
 
     goalType    GoalType
-    goalPeriod  GoalPeriod
     targetValue Float      // For ABSOLUTE: target number; For RELATIVE: percentage (e.g., 10 for 10%)
 
     createdAt   DateTime   @default(now())

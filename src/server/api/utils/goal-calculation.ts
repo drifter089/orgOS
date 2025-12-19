@@ -1,4 +1,4 @@
-import type { GoalPeriod, GoalType, MetricGoal } from "@prisma/client";
+import type { Cadence, GoalType, MetricGoal } from "@prisma/client";
 
 import { type db } from "@/server/db";
 
@@ -11,6 +11,9 @@ export interface GoalProgress {
   daysElapsed: number;
   daysTotal: number;
   daysRemaining: number;
+
+  // The cadence used for this calculation
+  cadence: Cadence;
 
   // Values
   baselineValue: number | null;
@@ -29,16 +32,46 @@ export interface GoalProgress {
 }
 
 /**
- * Get period boundaries based on goal period type
+ * Get period boundaries based on chart cadence
  * Uses UTC consistently to avoid timezone issues with data points
+ *
+ * Note: Goal period is now determined by the chart's cadence, not a separate goal period.
+ * This ensures goal calculation uses the same time boundaries as the chart display.
  */
-export function getPeriodBounds(period: GoalPeriod): {
+export function getPeriodBounds(cadence: Cadence): {
   start: Date;
   end: Date;
 } {
   const now = new Date();
 
-  if (period === "WEEKLY") {
+  if (cadence === "DAILY") {
+    // Today 00:00:00 UTC to 23:59:59 UTC
+    const start = new Date(
+      Date.UTC(
+        now.getUTCFullYear(),
+        now.getUTCMonth(),
+        now.getUTCDate(),
+        0,
+        0,
+        0,
+        0,
+      ),
+    );
+    const end = new Date(
+      Date.UTC(
+        now.getUTCFullYear(),
+        now.getUTCMonth(),
+        now.getUTCDate(),
+        23,
+        59,
+        59,
+        999,
+      ),
+    );
+    return { start, end };
+  }
+
+  if (cadence === "WEEKLY") {
     // Monday 00:00:00 UTC to Sunday 23:59:59 UTC
     const dayOfWeek = now.getUTCDay();
     const daysFromMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
@@ -68,30 +101,34 @@ export function getPeriodBounds(period: GoalPeriod): {
     );
 
     return { start, end };
-  } else {
-    // MONTHLY: 1st 00:00:00 UTC to last day 23:59:59 UTC
-    const start = new Date(
-      Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1, 0, 0, 0, 0),
-    );
-    const end = new Date(
-      Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 0, 23, 59, 59, 999),
-    );
-
-    return { start, end };
   }
+
+  // MONTHLY: 1st 00:00:00 UTC to last day 23:59:59 UTC
+  const start = new Date(
+    Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1, 0, 0, 0, 0),
+  );
+  const end = new Date(
+    Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 0, 23, 59, 59, 999),
+  );
+
+  return { start, end };
 }
 
 /**
  * Calculate goal progress for a metric
+ *
+ * @param database - Database instance
+ * @param metricId - The metric ID to calculate progress for
+ * @param goal - The goal configuration (goalType and targetValue)
+ * @param cadence - The chart's cadence, determines the time period for calculation
  */
 export async function calculateGoalProgress(
   database: DB,
   metricId: string,
   goal: MetricGoal,
+  cadence: Cadence,
 ): Promise<GoalProgress> {
-  const { start: periodStart, end: periodEnd } = getPeriodBounds(
-    goal.goalPeriod,
-  );
+  const { start: periodStart, end: periodEnd } = getPeriodBounds(cadence);
   const now = new Date();
 
   // Calculate days - guard against division by zero with || 1
@@ -133,6 +170,7 @@ export async function calculateGoalProgress(
       daysElapsed,
       daysTotal,
       daysRemaining,
+      cadence,
       baselineValue,
       currentValue,
       targetValue: goal.targetValue,
@@ -163,6 +201,7 @@ export async function calculateGoalProgress(
         daysElapsed,
         daysTotal,
         daysRemaining,
+        cadence,
         baselineValue,
         currentValue,
         targetValue: goal.targetValue,
@@ -194,6 +233,7 @@ export async function calculateGoalProgress(
     daysElapsed,
     daysTotal,
     daysRemaining,
+    cadence,
     baselineValue,
     currentValue,
     targetValue: goal.targetValue,

@@ -45,15 +45,17 @@ export const dashboardRouter = createTRPCRouter({
     });
 
     // Calculate goal progress for each metric that has a goal
+    // Goal period is determined by the chart's cadence
     const chartsWithGoalProgress = await Promise.all(
       dashboardCharts.map(async (chart) => {
-        if (!chart.metric.goal) {
+        if (!chart.metric.goal || !chart.chartTransformer?.cadence) {
           return { ...chart, goalProgress: null };
         }
         const progress = await calculateGoalProgress(
           ctx.db,
           chart.metric.id,
           chart.metric.goal,
+          chart.chartTransformer.cadence,
         );
         return { ...chart, goalProgress: progress };
       }),
@@ -99,15 +101,17 @@ export const dashboardRouter = createTRPCRouter({
       });
 
       // Calculate goal progress for each metric that has a goal
+      // Goal period is determined by the chart's cadence
       const chartsWithGoalProgress = await Promise.all(
         dashboardCharts.map(async (chart) => {
-          if (!chart.metric.goal) {
+          if (!chart.metric.goal || !chart.chartTransformer?.cadence) {
             return { ...chart, goalProgress: null };
           }
           const progress = await calculateGoalProgress(
             ctx.db,
             chart.metric.id,
             chart.metric.goal,
+            chart.chartTransformer.cadence,
           );
           return { ...chart, goalProgress: progress };
         }),

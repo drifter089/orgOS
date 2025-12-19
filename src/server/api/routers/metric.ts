@@ -322,12 +322,28 @@ export const metricRouter = createTRPCRouter({
 
       if (!goal) return null;
 
+      // Get the chart's cadence for goal calculation
+      const dashboardChart = await ctx.db.dashboardChart.findFirst({
+        where: { metricId: input.metricId },
+        include: { chartTransformer: { select: { cadence: true } } },
+      });
+
+      // If no chart or no cadence, return goal without progress
+      if (!dashboardChart?.chartTransformer?.cadence) {
+        return { goal, progress: null, cadence: null };
+      }
+
       const progress = await calculateGoalProgress(
         ctx.db,
         input.metricId,
         goal,
+        dashboardChart.chartTransformer.cadence,
       );
-      return { goal, progress };
+      return {
+        goal,
+        progress,
+        cadence: dashboardChart.chartTransformer.cadence,
+      };
     }),
 
   upsertGoal: workspaceProcedure
@@ -335,7 +351,6 @@ export const metricRouter = createTRPCRouter({
       z.object({
         metricId: z.string(),
         goalType: z.enum(["ABSOLUTE", "RELATIVE"]),
-        goalPeriod: z.enum(["WEEKLY", "MONTHLY"]),
         targetValue: z.number().positive(),
       }),
     )
@@ -352,12 +367,10 @@ export const metricRouter = createTRPCRouter({
         create: {
           metricId: input.metricId,
           goalType: input.goalType,
-          goalPeriod: input.goalPeriod,
           targetValue: input.targetValue,
         },
         update: {
           goalType: input.goalType,
-          goalPeriod: input.goalPeriod,
           targetValue: input.targetValue,
         },
       });
