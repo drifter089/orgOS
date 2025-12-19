@@ -1,6 +1,6 @@
 "use client";
 
-import type { Role } from "@prisma/client";
+import type { MetricGoal, Role } from "@prisma/client";
 import { AlertTriangle, Loader2, Target, User } from "lucide-react";
 import {
   Area,
@@ -32,9 +32,12 @@ import {
   ChartTooltip,
   ChartTooltipContent,
 } from "@/components/ui/chart";
+import { getUserName } from "@/lib/helpers/get-user-name";
 import { getLatestMetricValue } from "@/lib/metrics/get-latest-value";
 import { getPlatformConfig } from "@/lib/platform-config";
 import { cn } from "@/lib/utils";
+import type { GoalProgress } from "@/server/api/utils/goal-calculation";
+import { calculateGoalTargetValue } from "@/server/api/utils/goal-calculation";
 import { api } from "@/trpc/react";
 
 import type { ChartTransformResult } from "./dashboard-metric-card";
@@ -47,7 +50,6 @@ export type LoadingPhase =
 
 interface DashboardMetricChartProps {
   title: string;
-  metricId: string;
   chartTransform: ChartTransformResult | null;
   hasChartData: boolean;
   isIntegrationMetric: boolean;
@@ -56,19 +58,9 @@ interface DashboardMetricChartProps {
   loadingPhase?: LoadingPhase;
   integrationId?: string | null;
   roles?: Role[];
-}
-
-// Helper to get user name from members list
-function getUserName(
-  userId: string | null,
-  members:
-    | Array<{ id: string; firstName: string | null; lastName: string | null }>
-    | undefined,
-): string | null {
-  if (!userId || !members) return null;
-  const member = members.find((m) => m.id === userId);
-  if (!member) return null;
-  return [member.firstName, member.lastName].filter(Boolean).join(" ") || null;
+  // Goal data from parent - eliminates N+1 query
+  goal?: MetricGoal | null;
+  goalProgress?: GoalProgress | null;
 }
 
 /**
@@ -89,7 +81,6 @@ function formatValue(value: number): string {
 
 export function DashboardMetricChart({
   title,
-  metricId,
   chartTransform,
   hasChartData,
   isIntegrationMetric,
@@ -98,12 +89,13 @@ export function DashboardMetricChart({
   loadingPhase,
   integrationId,
   roles = [],
+  goal,
+  goalProgress,
 }: DashboardMetricChartProps) {
   const platformConfig = integrationId
     ? getPlatformConfig(integrationId)
     : null;
 
-  const { data: goalData } = api.metric.getGoal.useQuery({ metricId });
   const { data: members } = api.organization.getMembers.useQuery();
 
   const primaryRole = roles[0];
@@ -111,27 +103,11 @@ export function DashboardMetricChart({
     ? getUserName(primaryRole.assignedUserId, members)
     : null;
 
-  const hasNoRole = roles.length === 0;
-  const hasRoleButNoUser = primaryRole && !primaryRole.assignedUserId;
-  const hasNoGoal = !goalData?.goal;
+  const hasNoGoal = !goal;
 
-  const goalTargetValue = (() => {
-    if (!goalData?.goal) return null;
-    const { goal, progress } = goalData;
-
-    if (goal.goalType === "ABSOLUTE") {
-      return goal.targetValue;
-    }
-
-    if (
-      progress.baselineValue !== null &&
-      progress.baselineValue !== undefined
-    ) {
-      return progress.baselineValue * (1 + goal.targetValue / 100);
-    }
-
-    return null;
-  })();
+  // Calculate goal target value using the shared utility
+  const goalTargetValue =
+    goal && goalProgress ? calculateGoalTargetValue(goal, goalProgress) : null;
 
   const currentValue = getLatestMetricValue(chartTransform);
 
@@ -614,14 +590,14 @@ export function DashboardMetricChart({
                   chartTransform.title.split(" ")[0]}
               </span>
             )}
-            {goalTargetValue !== null && goalData?.progress && (
+            {goalTargetValue !== null && goalProgress && (
               <span className="text-muted-foreground ml-auto flex items-center gap-1 text-xs">
                 <Target className="text-destructive h-3 w-3" />
                 <span className="text-destructive">
                   {formatValue(goalTargetValue)}
                 </span>
                 <span className="text-muted-foreground">
-                  ({Math.round(goalData.progress.progressPercent)}%)
+                  ({Math.round(goalProgress.progressPercent)}%)
                 </span>
               </span>
             )}

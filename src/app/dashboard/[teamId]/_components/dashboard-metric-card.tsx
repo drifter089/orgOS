@@ -282,12 +282,14 @@ export function DashboardMetricCard({
         >
           <BarChart3 className="h-3 w-3" />
         </TabsTrigger>
-        <TabsTrigger
-          value="goals-roles"
-          className="data-[state=active]:bg-muted data-[state=active]:text-foreground text-muted-foreground hover:bg-muted/50 hover:text-foreground h-7 rounded-none border-r px-3 text-xs transition-colors"
-        >
-          <Target className="h-3 w-3" />
-        </TabsTrigger>
+        {metric.teamId && (
+          <TabsTrigger
+            value="goals-roles"
+            className="data-[state=active]:bg-muted data-[state=active]:text-foreground text-muted-foreground hover:bg-muted/50 hover:text-foreground h-7 rounded-none border-r px-3 text-xs transition-colors"
+          >
+            <Target className="h-3 w-3" />
+          </TabsTrigger>
+        )}
         {isIntegrationMetric && (
           <TabsTrigger
             value="settings"
@@ -305,7 +307,6 @@ export function DashboardMetricCard({
         >
           <DashboardMetricChart
             title={title}
-            metricId={metric.id}
             chartTransform={chartTransform}
             hasChartData={hasChartData}
             isIntegrationMetric={isIntegrationMetric}
@@ -313,19 +314,24 @@ export function DashboardMetricCard({
             isProcessing={isProcessing}
             integrationId={metric.integration?.providerId}
             roles={roles}
+            goal={metric.goal}
+            goalProgress={dashboardMetric.goalProgress}
           />
         </TabsContent>
 
-        <TabsContent
-          value="goals-roles"
-          className="animate-tab-slide-in absolute inset-0 m-0 data-[state=inactive]:hidden"
-        >
-          <DashboardMetricGoalsRoles
-            metricId={metric.id}
-            metricName={metric.name}
-            roles={roles}
-          />
-        </TabsContent>
+        {metric.teamId && (
+          <TabsContent
+            value="goals-roles"
+            className="animate-tab-slide-in absolute inset-0 m-0 data-[state=inactive]:hidden"
+          >
+            <DashboardMetricGoalsRoles
+              metricId={metric.id}
+              metricName={metric.name}
+              teamId={metric.teamId}
+              roles={roles}
+            />
+          </TabsContent>
+        )}
 
         {isIntegrationMetric && (
           <TabsContent
@@ -333,7 +339,6 @@ export function DashboardMetricCard({
             className="animate-tab-slide-in absolute inset-0 m-0 data-[state=inactive]:hidden"
           >
             <DashboardMetricSettings
-              metricId={metric.id}
               metricName={metric.name}
               metricDescription={metric.description}
               chartTransform={chartTransform}

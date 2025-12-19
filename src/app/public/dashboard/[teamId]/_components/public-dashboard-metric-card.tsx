@@ -34,7 +34,6 @@ export function PublicDashboardMetricCard({
     <div className="h-[380px]">
       <DashboardMetricChart
         title={title}
-        metricId={metric.id}
         chartTransform={chartTransform}
         hasChartData={hasChartData}
         isIntegrationMetric={isIntegrationMetric}

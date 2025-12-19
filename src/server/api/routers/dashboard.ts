@@ -8,6 +8,7 @@ import {
   dashboardCache,
   invalidateCacheByTags,
 } from "@/server/api/utils/cache-strategy";
+import { calculateGoalProgress } from "@/server/api/utils/goal-calculation";
 
 export const dashboardRouter = createTRPCRouter({
   /**
@@ -26,6 +27,7 @@ export const dashboardRouter = createTRPCRouter({
             integration: true,
             roles: true,
             team: true,
+            goal: true,
           },
         },
         chartTransformer: {
@@ -41,7 +43,23 @@ export const dashboardRouter = createTRPCRouter({
         `dashboard_org_${ctx.workspace.organizationId}`,
       ]),
     });
-    return dashboardCharts;
+
+    // Calculate goal progress for each metric that has a goal
+    const chartsWithGoalProgress = await Promise.all(
+      dashboardCharts.map(async (chart) => {
+        if (!chart.metric.goal) {
+          return { ...chart, goalProgress: null };
+        }
+        const progress = await calculateGoalProgress(
+          ctx.db,
+          chart.metric.id,
+          chart.metric.goal,
+        );
+        return { ...chart, goalProgress: progress };
+      }),
+    );
+
+    return chartsWithGoalProgress;
   }),
 
   getDashboardCharts: workspaceProcedure
@@ -65,6 +83,7 @@ export const dashboardRouter = createTRPCRouter({
             include: {
               integration: true,
               roles: true,
+              goal: true,
             },
           },
           chartTransformer: {
@@ -79,7 +98,22 @@ export const dashboardRouter = createTRPCRouter({
         ...cacheStrategyWithTags(dashboardCache, cacheTags),
       });
 
-      return dashboardCharts;
+      // Calculate goal progress for each metric that has a goal
+      const chartsWithGoalProgress = await Promise.all(
+        dashboardCharts.map(async (chart) => {
+          if (!chart.metric.goal) {
+            return { ...chart, goalProgress: null };
+          }
+          const progress = await calculateGoalProgress(
+            ctx.db,
+            chart.metric.id,
+            chart.metric.goal,
+          );
+          return { ...chart, goalProgress: progress };
+        }),
+      );
+
+      return chartsWithGoalProgress;
     }),
 
   /**

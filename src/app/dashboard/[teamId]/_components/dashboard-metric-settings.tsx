@@ -47,7 +47,6 @@ import type { ChartTransformResult } from "./dashboard-metric-card";
 type Cadence = "DAILY" | "WEEKLY" | "MONTHLY";
 
 interface DashboardMetricSettingsProps {
-  metricId: string;
   metricName: string;
   metricDescription: string | null;
   chartTransform: ChartTransformResult | null;
