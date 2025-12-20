@@ -226,8 +226,7 @@ enum GoalType {
 }
 
 // MetricGoal - One goal per metric
-// Note: Goal period is determined by the chart's cadence (ChartTransformer.cadence)
-// This ensures goal calculation uses the same aggregation as the chart display
+// Uses chart's cadence (ChartTransformer.cadence) for period calculation
 model MetricGoal {
     id          String     @id @default(cuid())
     metricId    String     @unique // One goal per metric
@@ -235,6 +234,13 @@ model MetricGoal {
 
     goalType    GoalType
     targetValue Float      // For ABSOLUTE: target number; For RELATIVE: percentage (e.g., 10 for 10%)
+
+    // Baseline captured when goal was created (for RELATIVE goals)
+    baselineValue     Float?
+    baselineTimestamp DateTime?
+
+    // Configurable status threshold (default 0.8 = 80% of expected progress)
+    onTrackThreshold  Float?
 
     createdAt   DateTime   @default(now())
     updatedAt   DateTime   @updatedAt

@@ -2,8 +2,17 @@
 
 import { useState } from "react";
 
+import Link from "next/link";
+
 import * as SheetPrimitive from "@radix-ui/react-dialog";
-import { ChevronDown, ChevronRight, Loader2, Mail, Trash2 } from "lucide-react";
+import {
+  ChevronDown,
+  ChevronRight,
+  ExternalLink,
+  Loader2,
+  Mail,
+  Trash2,
+} from "lucide-react";
 
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -87,32 +96,35 @@ function MemberCard({
       : (member.email ?? "Member");
 
   return (
-    <div className="bg-card hover:bg-accent/50 flex items-center justify-between gap-3 rounded-lg border p-3 shadow-sm transition-colors hover:shadow">
-      <div className="flex min-w-0 flex-1 items-center gap-3 overflow-hidden">
-        <Avatar className="h-9 w-9 flex-shrink-0">
-          <AvatarFallback className="bg-primary/10 text-primary text-xs font-medium">
-            {initials}
-          </AvatarFallback>
-        </Avatar>
-        <div className="min-w-0 flex-1">
-          <p className="truncate text-sm leading-tight font-medium">
-            {userName}
-          </p>
-          <div className="text-muted-foreground mt-0.5 flex items-center gap-1.5 text-xs">
-            <Mail className="h-3 w-3 flex-shrink-0" />
-            <span className="truncate">{member.email ?? "No email"}</span>
+    <Link href={`/member/${member.id}`}>
+      <div className="bg-card hover:bg-accent/50 group flex cursor-pointer items-center justify-between gap-3 rounded-lg border p-3 shadow-sm transition-colors hover:shadow">
+        <div className="flex min-w-0 flex-1 items-center gap-3 overflow-hidden">
+          <Avatar className="group-hover:ring-primary/20 h-9 w-9 flex-shrink-0 transition-all group-hover:ring-2">
+            <AvatarFallback className="bg-primary/10 text-primary text-xs font-medium">
+              {initials}
+            </AvatarFallback>
+          </Avatar>
+          <div className="min-w-0 flex-1">
+            <p className="group-hover:text-primary truncate text-sm leading-tight font-medium transition-colors">
+              {userName}
+            </p>
+            <div className="text-muted-foreground mt-0.5 flex items-center gap-1.5 text-xs">
+              <Mail className="h-3 w-3 flex-shrink-0" />
+              <span className="truncate">{member.email ?? "No email"}</span>
+            </div>
           </div>
         </div>
+        <div className="flex flex-shrink-0 items-center gap-2">
+          <Badge
+            variant="secondary"
+            className="min-w-[2rem] justify-center text-xs font-semibold"
+          >
+            {roleCount}
+          </Badge>
+          <ExternalLink className="text-muted-foreground h-4 w-4 opacity-0 transition-opacity group-hover:opacity-100" />
+        </div>
       </div>
-      <div className="flex-shrink-0">
-        <Badge
-          variant="secondary"
-          className="min-w-[2rem] justify-center text-xs font-semibold"
-        >
-          {roleCount}
-        </Badge>
-      </div>
-    </div>
+    </Link>
   );
 }
 
