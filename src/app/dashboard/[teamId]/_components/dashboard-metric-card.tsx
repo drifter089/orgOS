@@ -403,8 +403,8 @@ export function DashboardMetricCard({
     <Drawer open={isDrawerOpen} onOpenChange={setIsDrawerOpen}>
       {cardContent}
 
-      <DrawerContent className="max-h-[90vh] sm:max-w-2xl md:max-w-3xl lg:max-w-4xl">
-        <div className="mx-auto w-full">
+      <DrawerContent className="flex h-[96vh] max-h-[96vh] flex-col">
+        <div className="mx-auto min-h-0 w-full flex-1">
           <DashboardMetricDrawer
             metricId={metric.id}
             metricName={metric.name}
