@@ -422,6 +422,7 @@ export const metricRouter = createTRPCRouter({
         metricId: z.string(),
         goalType: z.enum(["ABSOLUTE", "RELATIVE"]),
         targetValue: z.number().positive(),
+        onTrackThreshold: z.number().min(0).max(100).optional(),
       }),
     )
     .mutation(async ({ ctx, input }) => {
@@ -432,16 +433,52 @@ export const metricRouter = createTRPCRouter({
         ctx.workspace.organizationId,
       );
 
+      // Check if goal already exists
+      const existingGoal = await ctx.db.metricGoal.findUnique({
+        where: { metricId: input.metricId },
+      });
+
+      // Capture baseline only on goal creation (not update)
+      let baselineValue: number | null = null;
+      let baselineTimestamp: Date | null = null;
+
+      if (!existingGoal) {
+        // NEW GOAL: Capture baseline from current chart data
+        const dashboardChart = await ctx.db.dashboardChart.findFirst({
+          where: { metricId: input.metricId },
+          select: { chartConfig: true },
+        });
+
+        const chartConfig = dashboardChart?.chartConfig as ChartConfig | null;
+        if (chartConfig?.chartData?.length) {
+          const latestData =
+            chartConfig.chartData[chartConfig.chartData.length - 1];
+          const primaryKey = chartConfig.dataKeys?.[0];
+          if (
+            latestData &&
+            primaryKey &&
+            typeof latestData[primaryKey] === "number"
+          ) {
+            baselineValue = latestData[primaryKey];
+            baselineTimestamp = new Date();
+          }
+        }
+      }
+
       return ctx.db.metricGoal.upsert({
         where: { metricId: input.metricId },
         create: {
           metricId: input.metricId,
           goalType: input.goalType,
           targetValue: input.targetValue,
+          baselineValue,
+          baselineTimestamp,
+          onTrackThreshold: input.onTrackThreshold,
         },
         update: {
           goalType: input.goalType,
           targetValue: input.targetValue,
+          onTrackThreshold: input.onTrackThreshold,
         },
       });
     }),
