@@ -55,12 +55,12 @@ export function RoleAssignment({
 
   // Fetch all roles in the team
   const { data: teamRoles, isLoading: isLoadingRoles } =
-    api.role.getByTeam.useQuery({ teamId });
+    api.role.getByTeamId.useQuery({ teamId });
 
   const updateRoleMutation = api.role.update.useMutation({
     onSuccess: () => {
       toast.success("Metric assigned to role");
-      void utils.role.getByTeam.invalidate({ teamId });
+      void utils.role.getByTeamId.invalidate({ teamId });
       void utils.dashboard.getDashboardCharts.invalidate();
       onAssign?.();
     },

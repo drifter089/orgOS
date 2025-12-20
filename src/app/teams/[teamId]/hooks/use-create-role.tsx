@@ -95,9 +95,9 @@ export function useCreateRole({
   return api.role.create.useMutation({
     onMutate: async (variables) => {
       onBeforeMutate?.();
-      await utils.role.getByTeam.cancel({ teamId });
+      await utils.role.getByTeamId.cancel({ teamId });
 
-      const previousRoles = utils.role.getByTeam.getData({ teamId });
+      const previousRoles = utils.role.getByTeamId.getData({ teamId });
       const { nodes: currentNodes, edges: currentEdges } = storeApi.getState();
       const previousNodes = [...currentNodes];
       const previousEdges = [...currentEdges];
@@ -162,7 +162,7 @@ export function useCreateRole({
       markDirty();
 
       // Add optimistic role to cache
-      utils.role.getByTeam.setData({ teamId }, (old) => {
+      utils.role.getByTeamId.setData({ teamId }, (old) => {
         const roleWithPending = optimisticRole as typeof old extends
           | (infer T)[]
           | undefined
@@ -206,7 +206,7 @@ export function useCreateRole({
       setNodes(updatedNodes);
 
       // Replace temp role with real role in cache
-      utils.role.getByTeam.setData({ teamId }, (old) => {
+      utils.role.getByTeamId.setData({ teamId }, (old) => {
         if (!old) return [newRole];
         return old.map((role) =>
           role.id === context.tempRoleId ? newRole : role,
@@ -215,8 +215,12 @@ export function useCreateRole({
     },
     onError: (error, _variables, context) => {
       if (context?.previousRoles !== undefined) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        utils.role.getByTeam.setData({ teamId }, context.previousRoles as any);
+        utils.role.getByTeamId.setData(
+          { teamId },
+          context.previousRoles as Parameters<
+            typeof utils.role.getByTeamId.setData
+          >[1],
+        );
       }
       if (context?.previousNodes) {
         setNodes(context.previousNodes);

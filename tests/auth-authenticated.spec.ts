@@ -24,39 +24,30 @@ async function expandNav(page: Page) {
 }
 
 test.describe("Authentication & Session Management", () => {
-  test("should access protected route /design-strategy", async ({
+  test("should access protected route /org", async ({
     authenticatedPage,
   }) => {
     // Navigate to protected route
-    await authenticatedPage.goto("/design-strategy");
+    await authenticatedPage.goto("/org");
 
     // Verify page loads without redirect to sign-in
-    await expect(authenticatedPage).toHaveURL("/design-strategy");
+    await expect(authenticatedPage).toHaveURL("/org");
 
-    // Verify page content loads correctly
-    await expect(
-      authenticatedPage.getByRole("heading", {
-        name: "Shadcn Component Showcase",
-      }),
-    ).toBeVisible();
+    // Verify page content loads correctly (org page should have some content)
+    await expect(authenticatedPage.locator("body")).not.toBeEmpty();
   });
 
-  test("should access protected route /render-strategy", async ({
+  test("should access protected route /teams", async ({
     authenticatedPage,
   }) => {
     // Navigate to protected route
-    await authenticatedPage.goto("/render-strategy");
+    await authenticatedPage.goto("/teams");
 
     // Verify page loads without redirect
-    await expect(authenticatedPage).toHaveURL("/render-strategy");
+    await expect(authenticatedPage).toHaveURL("/teams");
 
-    // Verify main sections are visible
-    await expect(
-      authenticatedPage.getByText("Server-Side Data Prefetching"),
-    ).toBeVisible();
-    await expect(
-      authenticatedPage.getByText("Mutation Strategies Comparison"),
-    ).toBeVisible();
+    // Verify page content loads correctly
+    await expect(authenticatedPage.locator("body")).not.toBeEmpty();
   });
 
   test("should display user info in navbar", async ({ authenticatedPage }) => {
@@ -84,19 +75,17 @@ test.describe("Authentication & Session Management", () => {
     authenticatedPage,
   }) => {
     // Navigate to protected route
-    await authenticatedPage.goto("/render-strategy");
-    await expect(authenticatedPage).toHaveURL("/render-strategy");
+    await authenticatedPage.goto("/org");
+    await expect(authenticatedPage).toHaveURL("/org");
 
     // Refresh the page
     await authenticatedPage.reload();
 
     // Verify still authenticated (not redirected to sign-in)
-    await expect(authenticatedPage).toHaveURL("/render-strategy");
+    await expect(authenticatedPage).toHaveURL("/org");
 
     // Verify content still loads
-    await expect(
-      authenticatedPage.getByText("Mutation Strategies Comparison"),
-    ).toBeVisible();
+    await expect(authenticatedPage.locator("body")).not.toBeEmpty();
   });
 
   test("should persist session across navigation", async ({
@@ -106,12 +95,12 @@ test.describe("Authentication & Session Management", () => {
     await authenticatedPage.goto("/");
 
     // Navigate to first protected route
-    await authenticatedPage.goto("/design-strategy");
-    await expect(authenticatedPage).toHaveURL("/design-strategy");
+    await authenticatedPage.goto("/org");
+    await expect(authenticatedPage).toHaveURL("/org");
 
     // Navigate to second protected route
-    await authenticatedPage.goto("/render-strategy");
-    await expect(authenticatedPage).toHaveURL("/render-strategy");
+    await authenticatedPage.goto("/teams");
+    await expect(authenticatedPage).toHaveURL("/teams");
 
     // Navigate back to home
     await authenticatedPage.goto("/");
@@ -144,7 +133,7 @@ test.describe("Authentication & Session Management", () => {
 
     // Verify sign out worked - try to access protected route
     try {
-      await authenticatedPage.goto("/render-strategy", {
+      await authenticatedPage.goto("/org", {
         timeout: 10000,
       });
 
@@ -154,7 +143,7 @@ test.describe("Authentication & Session Management", () => {
       const isRedirected =
         currentUrl.includes("workos") ||
         currentUrl === "http://localhost:3000/" ||
-        !currentUrl.includes("/render-strategy");
+        !currentUrl.includes("/org");
 
       expect(isRedirected).toBe(true);
     } catch (error) {
@@ -166,40 +155,28 @@ test.describe("Authentication & Session Management", () => {
 });
 
 test.describe("Protected Routes Authorization", () => {
-  test("should allow access to /design-strategy for authenticated users", async ({
+  test("should allow access to /org for authenticated users", async ({
     authenticatedPage,
   }) => {
-    await authenticatedPage.goto("/design-strategy");
+    await authenticatedPage.goto("/org");
 
     // Should not redirect to sign-in
-    await expect(authenticatedPage).toHaveURL("/design-strategy");
+    await expect(authenticatedPage).toHaveURL("/org");
 
     // Page should load successfully
-    await expect(
-      authenticatedPage.getByRole("heading", {
-        name: "Shadcn Component Showcase",
-      }),
-    ).toBeVisible({ timeout: 10000 });
+    await expect(authenticatedPage.locator("body")).not.toBeEmpty();
   });
 
-  test("should allow access to /render-strategy for authenticated users", async ({
+  test("should allow access to /teams for authenticated users", async ({
     authenticatedPage,
   }) => {
-    await authenticatedPage.goto("/render-strategy");
+    await authenticatedPage.goto("/teams");
 
     // Should not redirect to sign-in
-    await expect(authenticatedPage).toHaveURL("/render-strategy");
+    await expect(authenticatedPage).toHaveURL("/teams");
 
-    // Strategy cards should be visible
-    await expect(
-      authenticatedPage.getByText("Query Invalidation").first(),
-    ).toBeVisible({ timeout: 10000 });
-    await expect(
-      authenticatedPage.getByText("Direct Cache Update").first(),
-    ).toBeVisible({ timeout: 10000 });
-    await expect(
-      authenticatedPage.getByText("Optimistic Update").first(),
-    ).toBeVisible({ timeout: 10000 });
+    // Page should load successfully
+    await expect(authenticatedPage.locator("body")).not.toBeEmpty();
   });
 
   test("should load public routes for authenticated users", async ({

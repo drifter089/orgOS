@@ -61,7 +61,7 @@ export default async function TeamPage({
   }
 
   // Fetch additional data only when user can edit
-  // Prefetch role.getByTeam so useRoleData has instant data (hydrated to client cache)
+  // Prefetch role.getByTeamId so useRoleData has instant data (hydrated to client cache)
   const [members, integrations, dashboardCharts] = await Promise.all([
     api.organization.getMembers().catch(() => []),
     api.integration.listWithStats().catch(() => ({
@@ -69,7 +69,7 @@ export default async function TeamPage({
       stats: { total: 0, active: 0, byProvider: {} },
     })),
     api.dashboard.getDashboardCharts({ teamId }).catch(() => []),
-    api.role.getByTeam.prefetch({ teamId }),
+    api.role.getByTeamId.prefetch({ teamId }),
     api.organization.getMembers.prefetch(),
   ]);
 

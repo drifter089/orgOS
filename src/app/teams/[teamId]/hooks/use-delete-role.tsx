@@ -19,14 +19,14 @@ export function useDeleteRole(teamId: string) {
 
   return api.role.delete.useMutation({
     onMutate: async (variables) => {
-      await utils.role.getByTeam.cancel({ teamId });
+      await utils.role.getByTeamId.cancel({ teamId });
 
-      const previousRoles = utils.role.getByTeam.getData({ teamId });
+      const previousRoles = utils.role.getByTeamId.getData({ teamId });
       const { nodes: currentNodes, edges: currentEdges } = storeApi.getState();
       const previousNodes = [...currentNodes];
       const previousEdges = [...currentEdges];
 
-      utils.role.getByTeam.setData({ teamId }, (old) => {
+      utils.role.getByTeamId.setData({ teamId }, (old) => {
         if (!old) return [];
         return old.filter((role) => role.id !== variables.id);
       });
@@ -56,7 +56,7 @@ export function useDeleteRole(teamId: string) {
         description: error.message ?? "An unexpected error occurred",
       });
       if (context?.previousRoles !== undefined) {
-        utils.role.getByTeam.setData({ teamId }, context.previousRoles);
+        utils.role.getByTeamId.setData({ teamId }, context.previousRoles);
       }
       if (context?.previousNodes && context?.previousEdges) {
         setNodes(context.previousNodes);
@@ -64,7 +64,7 @@ export function useDeleteRole(teamId: string) {
       }
     },
     onSettled: () => {
-      void utils.role.getByTeam.invalidate({ teamId });
+      void utils.role.getByTeamId.invalidate({ teamId });
       // Invalidate team.getById cache to ensure fresh data on next fetch
       void utils.team.getById.invalidate({ id: teamId });
     },

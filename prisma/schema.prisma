@@ -12,29 +12,6 @@ datasource db {
 
 }
 
-model Post {
-    id        Int      @id @default(autoincrement())
-    name      String
-    createdAt DateTime @default(now())
-    updatedAt DateTime @updatedAt
-
-    @@index([name])
-}
-
-model Task {
-    id          String   @id @default(cuid())
-    title       String
-    description String?
-    completed   Boolean  @default(false)
-    priority    Int      @default(0)
-    userId      String
-    createdAt   DateTime @default(now())
-    updatedAt   DateTime @updatedAt
-
-    @@index([userId])
-    @@index([completed])
-}
-
 // Team Management System Models
 
 model Team {
@@ -212,24 +189,7 @@ model DashboardChart {
     @@index([position])
 }
 
-// Systems Canvas - Visual KPI relationship mapping
-model SystemsCanvas {
-    id             String   @id @default(cuid())
-    organizationId String   @unique // One canvas per organization
-
-    // Store only positions and edges (metric data is in DashboardChart)
-    // Node IDs match DashboardChart.id for linking
-    reactFlowNodes Json     @default("[]") // Array of { id, position }
-    reactFlowEdges Json     @default("[]") // Array of edge connection data
-    viewport       Json?    // { x, y, zoom } for canvas position
-
-    createdAt      DateTime @default(now())
-    updatedAt      DateTime @updatedAt
-
-    @@index([organizationId])
-}
-
-// NEW: Metrics Architecture Tables
+// Metrics Architecture Tables
 
 // MetricDataPoint - Time-series storage for ALL metrics
 // Single table for ALL metrics. No table-per-template.

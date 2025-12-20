@@ -71,7 +71,35 @@ export function ShareTeamDialog({
     }
   }, [open, team, initialIsPubliclyShared, initialShareToken]);
 
-  const generateTokenMutation = api.team.generateShareToken.useMutation({
+  const setPublicSharingMutation = api.team.setPublicSharing.useMutation({
+    onMutate: (variables) => {
+      const previousShared = optimisticShared;
+      const previousToken = optimisticToken;
+      setOptimisticShared(variables.enabled);
+      return { previousShared, previousToken };
+    },
+    onSuccess: (data) => {
+      setOptimisticToken(data.shareToken);
+      setOptimisticShared(data.isPubliclyShared);
+      void utils.team.getById.invalidate({ id: teamId });
+      toast.success(
+        data.isPubliclyShared
+          ? "Public sharing enabled"
+          : "Public sharing disabled",
+      );
+    },
+    onError: (error, _variables, context) => {
+      if (context) {
+        setOptimisticShared(context.previousShared);
+        setOptimisticToken(context.previousToken);
+      }
+      toast.error("Failed to update sharing settings", {
+        description: error.message,
+      });
+    },
+  });
+
+  const regenerateTokenMutation = api.team.regenerateShareToken.useMutation({
     onMutate: () => {
       const previousShared = optimisticShared;
       const previousToken = optimisticToken;
@@ -82,80 +110,32 @@ export function ShareTeamDialog({
       setOptimisticToken(data.shareToken);
       setOptimisticShared(true);
       void utils.team.getById.invalidate({ id: teamId });
-      toast.success("Share link generated");
+      toast.success("Share links regenerated");
     },
     onError: (error, _variables, context) => {
       if (context) {
         setOptimisticShared(context.previousShared);
         setOptimisticToken(context.previousToken);
       }
-      toast.error("Failed to generate share link", {
-        description: error.message,
-      });
-    },
-  });
-
-  const enableSharingMutation = api.team.enableSharing.useMutation({
-    onMutate: () => {
-      const previousShared = optimisticShared;
-      setOptimisticShared(true);
-      return { previousShared };
-    },
-    onSuccess: () => {
-      void utils.team.getById.invalidate({ id: teamId });
-      toast.success("Public sharing enabled");
-    },
-    onError: (error, _variables, context) => {
-      if (context) {
-        setOptimisticShared(context.previousShared);
-      }
-      toast.error("Failed to enable sharing", {
-        description: error.message,
-      });
-    },
-  });
-
-  const disableSharingMutation = api.team.disableSharing.useMutation({
-    onMutate: () => {
-      const previousShared = optimisticShared;
-      setOptimisticShared(false);
-      return { previousShared };
-    },
-    onSuccess: () => {
-      void utils.team.getById.invalidate({ id: teamId });
-      toast.success("Public sharing disabled");
-    },
-    onError: (error, _variables, context) => {
-      if (context) {
-        setOptimisticShared(context.previousShared);
-      }
-      toast.error("Failed to disable sharing", {
+      toast.error("Failed to regenerate share links", {
         description: error.message,
       });
     },
   });
 
   const isMutating =
-    generateTokenMutation.isPending ||
-    enableSharingMutation.isPending ||
-    disableSharingMutation.isPending;
+    setPublicSharingMutation.isPending || regenerateTokenMutation.isPending;
 
-  const isGenerating = generateTokenMutation.isPending;
+  const isGenerating =
+    regenerateTokenMutation.isPending ||
+    (setPublicSharingMutation.isPending && !optimisticToken);
 
   const handleToggleSharing = (enabled: boolean) => {
-    if (enabled) {
-      if (optimisticToken) {
-        enableSharingMutation.mutate({ teamId });
-      } else {
-        generateTokenMutation.mutate({ teamId });
-      }
-    } else {
-      disableSharingMutation.mutate({ teamId });
-    }
+    setPublicSharingMutation.mutate({ teamId, enabled });
   };
 
   const handleRegenerateToken = () => {
-    generateTokenMutation.mutate({ teamId });
+    regenerateTokenMutation.mutate({ teamId });
   };
 
   const getShareUrl = (type: "team" | "dashboard") => {
@@ -311,7 +291,7 @@ export function ShareTeamDialog({
                 onClick={handleRegenerateToken}
                 disabled={isMutating}
               >
-                {generateTokenMutation.isPending ? (
+                {regenerateTokenMutation.isPending ? (
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 ) : (
                   <RefreshCw className="mr-2 h-4 w-4" />
