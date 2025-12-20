@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import Link from "next/link";
 
 import { ChevronRight, FolderSync, LogIn, Mail, Users } from "lucide-react";
 
@@ -18,8 +18,6 @@ import {
 import { cn } from "@/lib/utils";
 import { type RouterOutputs } from "@/trpc/react";
 
-import { UserRolesDialog } from "./UserRolesDialog";
-
 type Member = RouterOutputs["organization"]["getMembers"][number];
 
 interface AllMembersSheetProps {
@@ -27,21 +25,6 @@ interface AllMembersSheetProps {
 }
 
 export function AllMembersSheet({ members }: AllMembersSheetProps) {
-  const [selectedMember, setSelectedMember] = useState<Member | null>(null);
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
-
-  const handleMemberClick = (member: Member) => {
-    setSelectedMember(member);
-    setIsDialogOpen(true);
-  };
-
-  const handleKeyDown = (e: React.KeyboardEvent, member: Member) => {
-    if (e.key === "Enter" || e.key === " ") {
-      e.preventDefault();
-      handleMemberClick(member);
-    }
-  };
-
   const totalMembers = members.length;
 
   return (
@@ -79,12 +62,9 @@ export function AllMembersSheet({ members }: AllMembersSheetProps) {
                 member.source === "directory" || member.source === "both";
 
               return (
-                <div
+                <Link
                   key={member.id}
-                  role="button"
-                  tabIndex={0}
-                  onClick={() => handleMemberClick(member)}
-                  onKeyDown={(e) => handleKeyDown(e, member)}
+                  href={`/member/${member.id}`}
                   aria-label={`View details for ${userName}`}
                   className={cn(
                     "group relative flex cursor-pointer items-center justify-between rounded-xl border p-5 transition-all duration-200",
@@ -155,29 +135,12 @@ export function AllMembersSheet({ members }: AllMembersSheetProps) {
                     </Badge>
                     <ChevronRight className="text-muted-foreground group-hover:text-primary h-5 w-5 transition-all group-hover:translate-x-1" />
                   </div>
-                </div>
+                </Link>
               );
             })}
           </div>
         </SheetContent>
       </Sheet>
-
-      {/* User Roles Dialog */}
-      <UserRolesDialog
-        user={
-          selectedMember
-            ? {
-                id: selectedMember.id,
-                email: selectedMember.email,
-                firstName: selectedMember.firstName,
-                lastName: selectedMember.lastName,
-                profilePictureUrl: selectedMember.profilePictureUrl,
-              }
-            : null
-        }
-        isOpen={isDialogOpen}
-        onOpenChange={setIsDialogOpen}
-      />
     </>
   );
 }
