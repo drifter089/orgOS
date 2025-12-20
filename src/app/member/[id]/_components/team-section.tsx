@@ -44,7 +44,14 @@ export function TeamSection({
           <CardHeader className="hover:bg-accent/50 cursor-pointer transition-colors">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <Button variant="ghost" size="icon" className="h-6 w-6">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-6 w-6"
+                  aria-label={
+                    isOpen ? `Collapse ${team.name}` : `Expand ${team.name}`
+                  }
+                >
                   {isOpen ? (
                     <ChevronDown className="h-4 w-4" />
                   ) : (
