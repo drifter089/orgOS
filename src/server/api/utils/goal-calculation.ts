@@ -2,6 +2,22 @@ import type { Cadence, GoalType, MetricGoal } from "@prisma/client";
 
 import type { ChartConfig } from "@/lib/metrics/transformer-types";
 
+/**
+ * Goal progress status types
+ */
+export type GoalProgressStatus =
+  | "exceeded"
+  | "on_track"
+  | "behind"
+  | "at_risk"
+  | "no_data"
+  | "invalid_baseline";
+
+/**
+ * Trend direction for goal progress
+ */
+export type GoalTrend = "accelerating" | "stable" | "decelerating" | "unknown";
+
 export interface GoalProgress {
   // Period info
   periodStart: Date;
@@ -13,7 +29,7 @@ export interface GoalProgress {
   // The cadence used for this calculation
   cadence: Cadence;
 
-  // Values (from chart's aggregated data)
+  // Values
   baselineValue: number | null;
   currentValue: number | null;
   targetValue: number;
@@ -26,11 +42,33 @@ export interface GoalProgress {
   growthPercent?: number;
 
   // Status
-  status: "on_track" | "at_risk" | "exceeded" | "no_data" | "invalid_baseline";
+  status: GoalProgressStatus;
+
+  // Trend analysis
+  trend: GoalTrend;
+  projectedEndValue: number | null;
+
+  // Decline indicator
+  isDecline: boolean;
 }
 
 /**
- * Get period boundaries based on chart cadence
+ * Status thresholds configuration
+ */
+interface StatusThresholds {
+  exceeded: number; // Default: 100
+  onTrack: number; // Default: 80 (% of expected)
+  behind: number; // Default: 50 (% of expected)
+}
+
+const DEFAULT_THRESHOLDS: StatusThresholds = {
+  exceeded: 100,
+  onTrack: 80,
+  behind: 50,
+};
+
+/**
+ * Get period boundaries based on goal cadence
  * Uses UTC consistently to avoid timezone issues with data points
  */
 export function getPeriodBounds(cadence: Cadence): {
@@ -110,12 +148,12 @@ export function getPeriodBounds(cadence: Cadence): {
 }
 
 /**
- * Extract baseline and current values from chart's aggregated data
+ * Extract current value from chart's aggregated data
  * Uses the first dataKey to get numeric values from chartData
  */
-function extractValuesFromChartData(chartConfig: ChartConfig): {
-  baselineValue: number | null;
+function extractCurrentValueFromChartData(chartConfig: ChartConfig): {
   currentValue: number | null;
+  chartBaseline: number | null;
 } {
   const { chartData, dataKeys } = chartConfig;
 
@@ -126,13 +164,13 @@ function extractValuesFromChartData(chartConfig: ChartConfig): {
     !dataKeys ||
     dataKeys.length === 0
   ) {
-    return { baselineValue: null, currentValue: null };
+    return { currentValue: null, chartBaseline: null };
   }
 
   // Use the first dataKey (primary value)
   const valueKey = dataKeys[0];
   if (!valueKey) {
-    return { baselineValue: null, currentValue: null };
+    return { currentValue: null, chartBaseline: null };
   }
 
   // Get first and last data points
@@ -140,7 +178,7 @@ function extractValuesFromChartData(chartConfig: ChartConfig): {
   const lastPoint = chartData[chartData.length - 1];
 
   // Extract numeric values
-  const baselineValue =
+  const chartBaseline =
     firstPoint && valueKey in firstPoint
       ? Number(firstPoint[valueKey]) || null
       : null;
@@ -150,16 +188,117 @@ function extractValuesFromChartData(chartConfig: ChartConfig): {
       ? Number(lastPoint[valueKey]) || null
       : null;
 
-  return { baselineValue, currentValue };
+  return { currentValue, chartBaseline };
 }
 
 /**
- * Calculate goal progress using the chart's aggregated data
+ * Calculate average rate of change for a series of data points
+ */
+function calculateAverageChange(
+  data: Record<string, unknown>[],
+  valueKey: string,
+): number {
+  if (data.length < 2) return 0;
+
+  let totalChange = 0;
+  let validPairs = 0;
+
+  for (let i = 1; i < data.length; i++) {
+    const prevVal = Number(data[i - 1]?.[valueKey]);
+    const currVal = Number(data[i]?.[valueKey]);
+
+    if (!isNaN(prevVal) && !isNaN(currVal) && prevVal !== 0) {
+      totalChange += currVal - prevVal;
+      validPairs++;
+    }
+  }
+
+  return validPairs > 0 ? totalChange / validPairs : 0;
+}
+
+/**
+ * Calculate trend based on acceleration of change
+ */
+function calculateTrend(
+  chartData: Record<string, unknown>[],
+  valueKey: string,
+  daysRemaining: number,
+): { trend: GoalTrend; projectedEndValue: number | null } {
+  // Need at least 3 data points to determine trend
+  if (chartData.length < 3) {
+    return { trend: "unknown", projectedEndValue: null };
+  }
+
+  // Split data into early and recent halves
+  const midpoint = Math.floor(chartData.length / 2);
+  const earlyData = chartData.slice(0, midpoint + 1);
+  const recentData = chartData.slice(midpoint);
+
+  const earlyAvgChange = calculateAverageChange(earlyData, valueKey);
+  const recentAvgChange = calculateAverageChange(recentData, valueKey);
+
+  // Determine trend based on acceleration
+  const acceleration = recentAvgChange - earlyAvgChange;
+  const threshold = Math.abs(earlyAvgChange) * 0.1 || 0.01; // 10% change = significant
+
+  let trend: GoalTrend;
+  if (Math.abs(acceleration) < threshold) {
+    trend = "stable";
+  } else if (acceleration > 0) {
+    trend = "accelerating";
+  } else {
+    trend = "decelerating";
+  }
+
+  // Project end value using linear extrapolation
+  const lastValue = Number(chartData[chartData.length - 1]?.[valueKey]);
+  if (isNaN(lastValue)) {
+    return { trend, projectedEndValue: null };
+  }
+
+  // Use recent average change rate to project
+  const projectedEndValue = lastValue + recentAvgChange * daysRemaining;
+
+  return {
+    trend,
+    projectedEndValue: Math.round(projectedEndValue * 100) / 100,
+  };
+}
+
+/**
+ * Determine goal status based on progress and thresholds
+ */
+function determineStatus(
+  progressPercent: number,
+  expectedProgressPercent: number,
+  thresholds: StatusThresholds,
+): GoalProgressStatus {
+  if (progressPercent >= thresholds.exceeded) {
+    return "exceeded";
+  }
+
+  // Compare to expected progress, adjusted by threshold
+  const onTrackTarget = expectedProgressPercent * (thresholds.onTrack / 100);
+  const behindTarget = expectedProgressPercent * (thresholds.behind / 100);
+
+  if (progressPercent >= onTrackTarget) {
+    return "on_track";
+  }
+  if (progressPercent >= behindTarget) {
+    return "behind";
+  }
+  return "at_risk";
+}
+
+/**
+ * Calculate goal progress using chart's cadence and goal's stored baseline
  *
- * This function uses the chart's already-aggregated data instead of raw data points.
- * This ensures goal progress uses the same values displayed on the chart.
+ * This function uses:
+ * - Chart's cadence for period calculation
+ * - Goal's stored baseline if available, otherwise falls back to chart data
+ * - Chart's current value for progress calculation
  *
- * @param goal - The goal configuration (goalType and targetValue)
+ * @param goal - The goal configuration with baseline and thresholds
  * @param cadence - The chart's cadence (DAILY, WEEKLY, MONTHLY)
  * @param chartConfig - The chart's configuration containing aggregated data
  */
@@ -171,19 +310,44 @@ export function calculateGoalProgress(
   const { start: periodStart, end: periodEnd } = getPeriodBounds(cadence);
   const now = new Date();
 
-  // Calculate days - guard against division by zero with || 1
+  // Calculate days - use Math.floor for accurate "completed days"
   const msPerDay = 24 * 60 * 60 * 1000;
   const daysTotal =
     Math.ceil((periodEnd.getTime() - periodStart.getTime()) / msPerDay) || 1;
   const daysElapsed = Math.max(
     0,
-    Math.ceil((now.getTime() - periodStart.getTime()) / msPerDay),
+    Math.floor((now.getTime() - periodStart.getTime()) / msPerDay),
   );
   const daysRemaining = Math.max(0, daysTotal - daysElapsed);
 
-  // Extract values from chart's aggregated data
-  const { baselineValue, currentValue } =
-    extractValuesFromChartData(chartConfig);
+  // Extract current value from chart data
+  const { currentValue, chartBaseline } =
+    extractCurrentValueFromChartData(chartConfig);
+
+  // Use goal's stored baseline if available, otherwise use chart's first data point
+  const baselineValue = goal.baselineValue ?? chartBaseline;
+
+  // Get value key for trend calculation
+  const valueKey = chartConfig.dataKeys?.[0] ?? "value";
+
+  // Calculate trend
+  const { trend, projectedEndValue } = calculateTrend(
+    chartConfig.chartData ?? [],
+    valueKey,
+    daysRemaining,
+  );
+
+  // Check for decline
+  const isDecline =
+    currentValue !== null &&
+    baselineValue !== null &&
+    currentValue < baselineValue;
+
+  // Get thresholds (use goal's custom threshold or defaults)
+  const thresholds: StatusThresholds = {
+    ...DEFAULT_THRESHOLDS,
+    onTrack: goal.onTrackThreshold ?? DEFAULT_THRESHOLDS.onTrack,
+  };
 
   // Handle no data case
   if (currentValue === null) {
@@ -198,15 +362,19 @@ export function calculateGoalProgress(
       currentValue,
       targetValue: goal.targetValue,
       progressPercent: 0,
-      expectedProgressPercent: (daysElapsed / daysTotal) * 100,
+      expectedProgressPercent: roundToOneDecimal(
+        (daysElapsed / daysTotal) * 100,
+      ),
       status: "no_data",
+      trend,
+      projectedEndValue,
+      isDecline: false,
     };
   }
 
   // Calculate progress based on goal type
   let progressPercent: number;
   let growthPercent: number | undefined;
-  let status: GoalProgress["status"];
 
   // Guard against division by zero for targetValue
   if (!goal.targetValue || goal.targetValue === 0) {
@@ -229,26 +397,33 @@ export function calculateGoalProgress(
         currentValue,
         targetValue: goal.targetValue,
         progressPercent: 0,
-        expectedProgressPercent: (daysElapsed / daysTotal) * 100,
+        expectedProgressPercent: roundToOneDecimal(
+          (daysElapsed / daysTotal) * 100,
+        ),
         status: "invalid_baseline",
+        trend,
+        projectedEndValue,
+        isDecline,
       };
     }
     growthPercent = ((currentValue - baselineValue) / baselineValue) * 100;
     progressPercent = (growthPercent / goal.targetValue) * 100;
+
+    // Cap negative progress at -100% to avoid confusing numbers
+    if (progressPercent < -100) {
+      progressPercent = -100;
+    }
   }
 
   // Calculate expected progress based on time
   const expectedProgressPercent = (daysElapsed / daysTotal) * 100;
 
-  // Determine status
-  if (progressPercent >= 100) {
-    status = "exceeded";
-  } else if (progressPercent >= expectedProgressPercent * 0.8) {
-    // Within 80% of expected = on track
-    status = "on_track";
-  } else {
-    status = "at_risk";
-  }
+  // Determine status using configurable thresholds
+  const status = determineStatus(
+    progressPercent,
+    expectedProgressPercent,
+    thresholds,
+  );
 
   return {
     periodStart,
@@ -260,14 +435,24 @@ export function calculateGoalProgress(
     baselineValue,
     currentValue,
     targetValue: goal.targetValue,
-    progressPercent: Math.round(progressPercent * 10) / 10,
-    expectedProgressPercent: Math.round(expectedProgressPercent * 10) / 10,
+    progressPercent: roundToOneDecimal(progressPercent),
+    expectedProgressPercent: roundToOneDecimal(expectedProgressPercent),
     growthPercent:
       growthPercent !== undefined
-        ? Math.round(growthPercent * 10) / 10
+        ? roundToOneDecimal(growthPercent)
         : undefined,
     status,
+    trend,
+    projectedEndValue,
+    isDecline,
   };
+}
+
+/**
+ * Round a number to one decimal place
+ */
+function roundToOneDecimal(value: number): number {
+  return Math.round(value * 10) / 10;
 }
 
 /**
@@ -276,20 +461,22 @@ export function calculateGoalProgress(
  * For RELATIVE goals: calculates target based on baseline + growth percentage
  */
 export function calculateGoalTargetValue(
-  goal: { goalType: GoalType; targetValue: number },
+  goal: {
+    goalType: GoalType;
+    targetValue: number;
+    baselineValue?: number | null;
+  },
   progress: GoalProgress,
 ): number | null {
   if (goal.goalType === "ABSOLUTE") {
     return goal.targetValue;
   }
 
-  // For RELATIVE goals, calculate the target based on baseline
-  if (
-    progress.baselineValue !== null &&
-    progress.baselineValue !== undefined &&
-    progress.baselineValue !== 0
-  ) {
-    return progress.baselineValue * (1 + goal.targetValue / 100);
+  // For RELATIVE goals, use goal's stored baseline if available, otherwise progress baseline
+  const baseline = goal.baselineValue ?? progress.baselineValue;
+
+  if (baseline !== null && baseline !== undefined && baseline !== 0) {
+    return baseline * (1 + goal.targetValue / 100);
   }
 
   return null;
