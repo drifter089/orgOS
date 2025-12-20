@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { Loader2, User } from "lucide-react";
 import { toast } from "sonner";
@@ -136,6 +136,18 @@ function SingleMetricCheckInCard({
   });
 
   const [isDirty, setIsDirty] = useState(false);
+
+  // Resync form state when existingValues changes (e.g., after refetch)
+  useEffect(() => {
+    const synced: Record<string, string> = {};
+    for (const period of periods) {
+      const existingValue = existingValues[period.label];
+      synced[period.label] =
+        existingValue !== null ? String(existingValue) : "";
+    }
+    setValues(synced);
+    setIsDirty(false);
+  }, [existingValues, periods]);
 
   const utils = api.useUtils();
 
