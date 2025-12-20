@@ -9,6 +9,7 @@ import {
   GripVertical,
   Loader2,
   PenLine,
+  Plus,
 } from "lucide-react";
 
 import {
@@ -189,17 +190,36 @@ export function DashboardSidebar({
                     "google-sheet": GoogleSheetsMetricDialog,
                     linear: LinearMetricDialog,
                   }}
-                />
-
-                {/* Manual Metric Button */}
-                <ManualMetricDialog
-                  teamId={teamId}
-                  onSuccess={onMetricCreated}
-                  trigger={
-                    <Button variant="outline" className="w-full">
-                      <PenLine className="mr-2 h-4 w-4" />
-                      Manual Metric
-                    </Button>
+                  extraCards={
+                    <div className="space-y-3">
+                      <div className="group relative aspect-square">
+                        <div
+                          className={cn(
+                            "flex h-full w-full flex-col items-center justify-center rounded-lg border",
+                            "bg-stone-200 dark:bg-stone-700",
+                          )}
+                        >
+                          <PenLine className="h-10 w-10 text-stone-700 dark:text-stone-200" />
+                          <p className="mt-2 text-xs font-medium text-stone-700 dark:text-stone-200">
+                            Manual
+                          </p>
+                        </div>
+                      </div>
+                      <ManualMetricDialog
+                        teamId={teamId}
+                        onSuccess={onMetricCreated}
+                        trigger={
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="w-full"
+                          >
+                            <Plus className="mr-2 h-4 w-4" />
+                            KPI
+                          </Button>
+                        }
+                      />
+                    </div>
                   }
                 />
               </div>

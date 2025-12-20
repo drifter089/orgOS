@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from "react";
 
+import Link from "next/link";
+
 import type { Cadence, MetricGoal, Role } from "@prisma/client";
 import { formatDistanceToNow } from "date-fns";
 import {
@@ -9,6 +11,7 @@ import {
   Check,
   Clock,
   Loader2,
+  PenLine,
   RefreshCw,
   RotateCcw,
   Sparkles,

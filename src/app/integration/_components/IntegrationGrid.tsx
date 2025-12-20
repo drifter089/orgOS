@@ -4,15 +4,8 @@ import { useState } from "react";
 
 import Image from "next/image";
 
-import {
-  CheckCircle2,
-  FileSpreadsheet,
-  Pencil,
-  Plus,
-  Trash2,
-} from "lucide-react";
+import { FileSpreadsheet, Pencil, Plus, Trash2 } from "lucide-react";
 
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { getPlatformConfig } from "@/lib/platform-config";
@@ -39,6 +32,7 @@ interface IntegrationGridProps {
       connectionId?: string;
     }>
   >;
+  extraCards?: React.ReactNode;
 }
 
 export function IntegrationGrid({
@@ -49,6 +43,7 @@ export function IntegrationGrid({
   onMetricCreated,
   teamId,
   MetricDialogs,
+  extraCards,
 }: IntegrationGridProps) {
   const { confirm } = useConfirmation();
   const utils = api.useUtils();
@@ -148,7 +143,7 @@ export function IntegrationGrid({
     }
   };
 
-  if (!integrations || integrations.length === 0) {
+  if ((!integrations || integrations.length === 0) && !extraCards) {
     return (
       <div className="text-muted-foreground space-y-2 py-8 text-center">
         <p>No platforms connected yet</p>
@@ -294,6 +289,7 @@ export function IntegrationGrid({
           </div>
         );
       })}
+      {extraCards}
     </div>
   );
 }

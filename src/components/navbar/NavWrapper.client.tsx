@@ -11,6 +11,7 @@ import { FancyNav } from "./FancyNav.client";
 
 interface NavWrapperProps {
   user: {
+    id: string;
     firstName?: string | null;
   } | null;
   signUpUrl: string;
