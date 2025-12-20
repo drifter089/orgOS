@@ -23,7 +23,7 @@ export async function NavBar() {
 
   return (
     <NavWrapper
-      user={user ? { firstName: user.firstName } : null}
+      user={user ? { id: user.id, firstName: user.firstName } : null}
       signUpUrl={signUpUrl}
       signOutAction={handleSignOut}
     />

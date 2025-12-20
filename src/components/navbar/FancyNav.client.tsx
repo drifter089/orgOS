@@ -10,6 +10,7 @@ import gsap from "gsap";
 import {
   Building2,
   ChevronDown,
+  ClipboardCheck,
   Code2,
   FlaskConical,
   Github,
@@ -114,6 +115,7 @@ function ThemeToggle({ className = "" }: { className?: string }) {
 
 interface FancyNavProps {
   user: {
+    id: string;
     firstName?: string | null;
   } | null;
   signUpUrl: string;
@@ -757,6 +759,30 @@ export function FancyNav({
                   </div>
                 </Link>
               </div>
+
+              {/* My Check-ins - only show for authenticated users */}
+              {user && (
+                <div className="menu-item">
+                  <Link
+                    href={`/check-in/${user.id}`}
+                    className={cn(
+                      "bg-muted/50 hover:bg-muted flex items-center gap-3 rounded-lg p-3 transition-colors",
+                      isActivePath("/check-in") &&
+                        "bg-primary/10 border-primary border",
+                    )}
+                  >
+                    <div className="bg-primary/10 text-primary flex size-8 items-center justify-center rounded-lg">
+                      <ClipboardCheck className="size-4" />
+                    </div>
+                    <div>
+                      <div className="font-medium">My Check-ins</div>
+                      <div className="text-muted-foreground text-xs">
+                        Update manual metrics
+                      </div>
+                    </div>
+                  </Link>
+                </div>
+              )}
 
               {/* Teams Tree Section */}
               {teams && teams.length > 0 && (
