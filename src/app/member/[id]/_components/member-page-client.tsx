@@ -3,6 +3,7 @@
 import { Skeleton } from "@/components/ui/skeleton";
 import { type RouterOutputs, api } from "@/trpc/react";
 
+import { MemberChartsSection } from "./member-charts-section";
 import { MemberHeader } from "./member-header";
 import { TeamSection } from "./team-section";
 
@@ -18,7 +19,11 @@ interface MemberPageClientProps {
 function LoadingState({ memberInfo }: { memberInfo: Member }) {
   return (
     <div className="container mx-auto px-4 py-8 pt-24">
-      <MemberHeader member={memberInfo} totalEffortPoints={0} />
+      <MemberHeader member={memberInfo} roleCount={0} teamCount={0} />
+      <div className="mt-6 grid gap-4 md:grid-cols-2">
+        <Skeleton className="h-[320px] w-full rounded-lg" />
+        <Skeleton className="h-[320px] w-full rounded-lg" />
+      </div>
       <div className="mt-8 space-y-6">
         <Skeleton className="h-64 w-full rounded-lg" />
         <Skeleton className="h-64 w-full rounded-lg" />
@@ -30,10 +35,10 @@ function LoadingState({ memberInfo }: { memberInfo: Member }) {
 function EmptyState({ memberInfo }: { memberInfo: Member }) {
   return (
     <div className="container mx-auto px-4 py-8 pt-24">
-      <MemberHeader member={memberInfo} totalEffortPoints={0} />
+      <MemberHeader member={memberInfo} roleCount={0} teamCount={0} />
       <div className="mt-8">
         <div className="text-muted-foreground flex flex-col items-center justify-center rounded-lg border border-dashed py-16 text-center">
-          <p className="text-lg font-medium">No roles assigned</p>
+          <h2 className="text-lg font-medium">No roles assigned</h2>
           <p className="mt-1 text-sm">
             This member doesn&apos;t have any roles assigned yet.
           </p>
@@ -85,13 +90,27 @@ export function MemberPageClient({
     0,
   );
 
+  const teamCount = Object.keys(rolesByTeam).length;
+
   const sortedTeamEntries = Object.entries(rolesByTeam).sort(([, a], [, b]) =>
     a[0]!.team.name.localeCompare(b[0]!.team.name),
   );
 
   return (
     <div className="container mx-auto px-4 py-8 pt-24">
-      <MemberHeader member={memberInfo} totalEffortPoints={totalEffortPoints} />
+      <MemberHeader
+        member={memberInfo}
+        roleCount={roles.length}
+        teamCount={teamCount}
+      />
+
+      <div className="mt-6">
+        <MemberChartsSection
+          roles={roles}
+          totalEffortPoints={totalEffortPoints}
+          chartsByMetricId={chartsByMetricId}
+        />
+      </div>
 
       <div className="mt-8 space-y-6">
         {sortedTeamEntries.map(([teamId, teamRoles]) => (

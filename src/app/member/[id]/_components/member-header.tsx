@@ -1,6 +1,6 @@
 "use client";
 
-import { TrendingUp } from "lucide-react";
+import { Briefcase, Users } from "lucide-react";
 
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -11,10 +11,15 @@ type Member = RouterOutputs["organization"]["getMembers"][number];
 
 interface MemberHeaderProps {
   member: Member;
-  totalEffortPoints: number;
+  roleCount: number;
+  teamCount: number;
 }
 
-export function MemberHeader({ member, totalEffortPoints }: MemberHeaderProps) {
+export function MemberHeader({
+  member,
+  roleCount,
+  teamCount,
+}: MemberHeaderProps) {
   const initials =
     member.firstName && member.lastName
       ? `${member.firstName[0]}${member.lastName[0]}`.toUpperCase()
@@ -28,33 +33,33 @@ export function MemberHeader({ member, totalEffortPoints }: MemberHeaderProps) {
   return (
     <Card>
       <CardContent className="flex items-center gap-6 p-6">
-        <Avatar className="h-20 w-20">
-          <AvatarFallback className="bg-primary/10 text-primary text-2xl font-bold">
+        <Avatar className="h-24 w-24">
+          <AvatarFallback className="bg-primary/10 text-primary text-3xl font-bold">
             {initials}
           </AvatarFallback>
         </Avatar>
 
-        <div className="flex-1">
-          <h1 className="text-3xl font-bold tracking-tight">{userName}</h1>
-          <p className="text-muted-foreground mt-1">{member.email}</p>
-          {member.jobTitle && (
-            <p className="text-muted-foreground mt-1 text-sm">
-              {member.jobTitle}
-            </p>
-          )}
-        </div>
-
-        <div className="text-right">
-          <div className="flex items-center gap-2">
-            <TrendingUp className="text-primary h-5 w-5" />
-            <span className="text-muted-foreground text-sm">Total Effort</span>
+        <div className="flex-1 space-y-2">
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight">{userName}</h1>
+            {member.jobTitle && (
+              <p className="text-muted-foreground mt-0.5 text-base">
+                {member.jobTitle}
+              </p>
+            )}
+            <p className="text-muted-foreground text-sm">{member.email}</p>
           </div>
-          <Badge
-            variant="secondary"
-            className="mt-2 px-4 py-2 text-2xl font-bold"
-          >
-            {totalEffortPoints} pts
-          </Badge>
+
+          <div className="flex gap-2 pt-1">
+            <Badge variant="secondary" className="gap-1.5">
+              <Briefcase className="h-3 w-3" />
+              {roleCount} {roleCount === 1 ? "role" : "roles"}
+            </Badge>
+            <Badge variant="outline" className="gap-1.5">
+              <Users className="h-3 w-3" />
+              {teamCount} {teamCount === 1 ? "team" : "teams"}
+            </Badge>
+          </div>
         </div>
       </CardContent>
     </Card>
