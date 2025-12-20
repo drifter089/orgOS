@@ -25,11 +25,16 @@ export const transformerRouter = createTRPCRouter({
    *
    * Uses the unified refreshMetricAndCharts function (same as cron job).
    * This fetches data, saves DataPoints, and updates all associated charts.
+   *
+   * When forceRegenerate is true, deletes existing transformer and recreates
+   * from scratch using AI.
    */
   refreshMetric: workspaceProcedure
     .input(
       z.object({
         metricId: z.string(),
+        /** When true, deletes transformer and regenerates from scratch */
+        forceRegenerate: z.boolean().optional(),
       }),
     )
     .mutation(async ({ ctx, input }) => {
@@ -41,6 +46,7 @@ export const transformerRouter = createTRPCRouter({
 
       const result = await refreshMetricAndCharts({
         metricId: input.metricId,
+        forceRegenerate: input.forceRegenerate,
       });
 
       return {

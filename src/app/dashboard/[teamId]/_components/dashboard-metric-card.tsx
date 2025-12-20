@@ -50,6 +50,7 @@ export function DashboardMetricCard({
 }: DashboardMetricCardProps) {
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [isRegeneratingPipeline, setIsRegeneratingPipeline] = useState(false);
 
   const utils = api.useUtils();
   const { confirm } = useConfirmation();
@@ -232,6 +233,54 @@ export function DashboardMetricCard({
     ],
   );
 
+  /**
+   * Regenerate entire pipeline (both DataIngestion and Chart transformers)
+   * This deletes the existing transformer and recreates it from scratch.
+   * Uses the same refreshMetric mutation with forceRegenerate flag.
+   */
+  const handleRegeneratePipeline = useCallback(async () => {
+    if (!isIntegrationMetric || !metric.templateId || !metric.integration)
+      return;
+
+    setIsRegeneratingPipeline(true);
+    try {
+      const result = await refreshMetricMutation.mutateAsync({
+        metricId: metric.id,
+        forceRegenerate: true,
+      });
+
+      if (result.success) {
+        toast.success("Pipeline regenerated", {
+          description: `Transformers recreated with ${result.dataPointCount} data points`,
+        });
+        // Invalidate dashboard to refetch with new data
+        const teamId = metric.teamId;
+        await utils.dashboard.getDashboardCharts.invalidate();
+        if (teamId) {
+          await utils.dashboard.getDashboardCharts.invalidate({ teamId });
+        }
+      } else {
+        toast.error("Pipeline regeneration failed", {
+          description: result.error,
+        });
+      }
+    } catch (error) {
+      toast.error("Pipeline regeneration failed", {
+        description: error instanceof Error ? error.message : "Unknown error",
+      });
+    } finally {
+      setIsRegeneratingPipeline(false);
+    }
+  }, [
+    isIntegrationMetric,
+    metric.templateId,
+    metric.integration,
+    metric.id,
+    metric.teamId,
+    refreshMetricMutation,
+    utils.dashboard.getDashboardCharts,
+  ]);
+
   const handleRemove = async () => {
     const confirmed = await confirm({
       title: "Delete metric",
@@ -325,8 +374,8 @@ export function DashboardMetricCard({
         />
       </Card>
 
-      <DrawerContent>
-        <div className="mx-auto w-full max-w-sm">
+      <DrawerContent className="max-h-[90vh] sm:max-w-2xl md:max-w-3xl lg:max-w-4xl">
+        <div className="mx-auto w-full">
           <DashboardMetricDrawer
             metricId={metric.id}
             metricName={metric.name}
@@ -350,8 +399,10 @@ export function DashboardMetricCard({
             isProcessing={isProcessing}
             isUpdating={updateMetricMutation.isPending}
             isDeleting={isPending || deleteMetricMutation.isPending}
+            isRegeneratingPipeline={isRegeneratingPipeline}
             onRegenerate={handleRegenerate}
             onRefresh={handleRefresh}
+            onRegeneratePipeline={handleRegeneratePipeline}
             onUpdateMetric={handleUpdateMetric}
             onDelete={handleRemove}
             onClose={() => setIsDrawerOpen(false)}

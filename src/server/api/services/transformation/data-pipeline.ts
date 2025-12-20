@@ -416,6 +416,8 @@ export async function getDataIngestionTransformerByTemplateId(
 
 interface RefreshMetricInput {
   metricId: string;
+  /** When true, deletes existing transformer and regenerates from scratch */
+  forceRegenerate?: boolean;
 }
 
 interface RefreshMetricResult {
@@ -443,14 +445,44 @@ export async function refreshMetricAndCharts(
   const template = getTemplate(metric.templateId);
   const isTimeSeries = template?.isTimeSeries !== false;
 
-  const transformResult = await refreshMetricDataPoints({
-    templateId: metric.templateId,
-    integrationId: metric.integration.providerId,
-    connectionId: metric.integration.connectionId,
-    metricId: metric.id,
-    endpointConfig: (metric.endpointConfig as Record<string, string>) ?? {},
-    isTimeSeries,
-  });
+  let transformResult: TransformResult;
+
+  if (input.forceRegenerate) {
+    // Delete existing transformer to force regeneration
+    const cacheKey = metric.templateId.startsWith("gsheets-")
+      ? `${metric.templateId}:${metric.id}`
+      : metric.templateId;
+
+    await db.dataIngestionTransformer
+      .delete({ where: { templateId: cacheKey } })
+      .catch(() => {
+        // Ignore if doesn't exist
+      });
+
+    console.info(
+      `[RefreshMetric] Force regenerating transformer for: ${cacheKey}`,
+    );
+
+    // Use ingestMetricData which will create new transformer
+    transformResult = await ingestMetricData({
+      templateId: metric.templateId,
+      integrationId: metric.integration.providerId,
+      connectionId: metric.integration.connectionId,
+      metricId: metric.id,
+      endpointConfig: (metric.endpointConfig as Record<string, string>) ?? {},
+      isTimeSeries,
+    });
+  } else {
+    // Normal refresh using existing transformer
+    transformResult = await refreshMetricDataPoints({
+      templateId: metric.templateId,
+      integrationId: metric.integration.providerId,
+      connectionId: metric.integration.connectionId,
+      metricId: metric.id,
+      endpointConfig: (metric.endpointConfig as Record<string, string>) ?? {},
+      isTimeSeries,
+    });
+  }
 
   if (!transformResult.success) {
     await db.metric.update({
