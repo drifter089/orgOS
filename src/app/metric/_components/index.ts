@@ -8,3 +8,6 @@ export { YouTubeMetricDialog } from "./youtube";
 export { PostHogMetricDialog } from "./posthog";
 export { GoogleSheetsMetricDialog } from "./google-sheets";
 export { LinearMetricDialog } from "./linear";
+
+// Manual metrics dialog
+export { ManualMetricDialog } from "./manual";
