@@ -1,43 +1,29 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+This file provides guidance to Claude Code when working with this codebase.
 
-## IMPORTANT: Documentation Policy
+## Documentation Policy
 
 **DO NOT create random .md documentation files when implementing features.**
 
-When working on features or implementing code:
-
-- ❌ **DO NOT** create files like: `IMPLEMENTATION_SUMMARY.md`, `WEBHOOK_FLOW.md`, `NANGO_SETUP.md`, `ARCHITECTURE.md`, etc.
-- ❌ **DO NOT** create tutorial files, setup guides, or explanation documents in the root directory
-- ✅ **DO** provide explanations and summaries in chat messages
-- ✅ **DO** add comments in code where necessary
-- ✅ **DO** update existing documentation (CLAUDE.md, README.md) if absolutely required
-
-**Exception**: Only create documentation files if the user explicitly requests it (e.g., "create a setup guide" or "write documentation for this feature").
-
-The codebase should remain clean. All explanations can be provided through chat messages.
+- Provide explanations in chat messages
+- Add comments in code where necessary
+- Update existing documentation (CLAUDE.md, README.md) only if required
+- Only create documentation files if explicitly requested
 
 ## Project Overview
 
-This is a T3 Stack application built with Next.js 15, tRPC, Prisma, and WorkOS AuthKit for authentication. The project uses pnpm as the package manager and includes a comprehensive documentation system with MDX support.
+A T3 Stack application for team management with visual organization canvases, role & metric tracking, and multi-tenant architecture.
 
-**Core Features:**
+**Core Stack:**
 
-- **Team Management System**: Visual team canvas using React Flow to create and manage organizational roles
-- **Role & Metric System**: Define roles with associated KPIs and metrics, track performance
-- **Organization-Based Access**: Multi-tenant architecture with WorkOS organizations
-- **Interactive Documentation**: MDX-powered docs with live code examples and Mermaid diagrams
-
-## Core Technologies
-
-- **Next.js 15.2.3** - React framework with App Router
-- **tRPC** - End-to-end typesafe APIs
-- **Prisma** - Database ORM with PostgreSQL
-- **WorkOS AuthKit** - Authentication provider
-- **TanStack Query** - Data fetching and caching
-- **Tailwind CSS** - Styling with shadcn/ui components
-- **TypeScript** - Type safety throughout
+- Next.js 15 (App Router)
+- tRPC 11 with TanStack Query
+- Prisma 6 with PostgreSQL (Accelerate caching)
+- WorkOS AuthKit authentication
+- React Flow for canvas visualizations
+- Zustand for local state
+- Tailwind CSS with shadcn/ui
 
 ## Development Commands
 
@@ -45,282 +31,364 @@ This is a T3 Stack application built with Next.js 15, tRPC, Prisma, and WorkOS A
 # Development
 pnpm dev              # Start dev server with Turbo
 pnpm build            # Build for production
-pnpm start            # Start production server
 pnpm preview          # Build and start production server
 
 # Code Quality
-pnpm check            # Run linting and type checking together
-pnpm lint             # Run ESLint
+pnpm check            # Run linting and type checking
 pnpm lint:fix         # Auto-fix ESLint issues
-pnpm typecheck        # Run TypeScript compiler check
-pnpm format:check     # Check formatting with Prettier
 pnpm format:write     # Format code with Prettier
 
 # Database
-pnpm db:generate      # Generate Prisma client and run migrations
-pnpm db:migrate       # Deploy migrations to database
-pnpm db:push          # Push schema changes without migrations
-pnpm db:seed          # Seed database with sample metrics
-pnpm db:studio        # Open Prisma Studio GUI
+pnpm db:generate      # Generate Prisma client
+pnpm db:push          # Push schema changes
+pnpm db:studio        # Open Prisma Studio
 
 # Testing
-pnpm exec playwright test                 # Run all Playwright tests
-pnpm exec playwright test --project=chromium  # Run tests in Chromium only
-pnpm exec playwright test tests/auth-authenticated.spec.ts  # Run specific test file
-pnpm exec playwright test --ui            # Run tests in UI mode
-pnpm exec playwright test --debug         # Run tests in debug mode
-pnpm exec playwright show-report         # Show test report
-pnpm exec playwright codegen             # Generate test code
-
-# Documentation Sync
-pnpm sync:docs        # Validate docs (pattern-based, fast)
-pnpm sync:docs:fix    # Auto-fix version numbers and dates
-pnpm ai-sync:docs     # AI-powered full sync (requires OPENROUTER_API_KEY)
+pnpm exec playwright test                          # Run all tests
+pnpm exec playwright test --project=chromium       # Chromium only
+pnpm exec playwright test tests/auth-authenticated.spec.ts  # Specific file
 ```
 
-## Documentation Sync System
-
-This project has an intelligent documentation system that keeps docs synchronized with code:
-
-**Pattern-Based Sync (Fast):**
-
-- Validates version numbers in CLAUDE.md match package.json
-- Updates date stamps in ROADMAP.md and CHANGELOG.md
-- Runs on pre-commit hooks (non-blocking validation)
-- Use: `pnpm sync:docs:fix` for quick updates
-
-**AI-Powered Sync (Intelligent):**
-
-- Analyzes git commits and code changes with Claude AI via OpenRouter
-- Generates CHANGELOG entries from commits
-- Moves completed ROADMAP items automatically
-- **Updates documentation pages** based on code changes
-- Adds Mermaid diagrams and code examples
-- Works like the `docs-writer` agent
-- Runs daily via GitHub Actions, creates PRs for review
-- Use: `pnpm ai-sync:docs` (requires OPENROUTER_API_KEY)
-
-**Setup AI Sync:**
-
-```bash
-export OPENROUTER_API_KEY="sk-or-your-key-here"
-pnpm ai-sync:docs
-```
-
-**See:** `scripts/README.md` for complete documentation sync guide
-
-## Architecture
-
-**Comprehensive documentation available in:**
-
-- **Fundamental Concepts:** `src/app/docs/architecture/concepts/page.md`
-  - React Server Components vs Client Components
-  - TanStack Query hydration & cache strategies
-  - tRPC dual API pattern (server caller vs client hooks)
-  - Complete data flow diagrams
-
-- **Integration Patterns:** `src/app/docs/architecture/patterns/page.md`
-  - Server prefetching for instant UI
-  - Cache update patterns (invalidation, direct updates, optimistic)
-  - Authentication architecture (no manual checks needed)
-  - Custom tRPC procedures (admin, role-based)
-
-### Quick Reference
-
-**Authentication:**
-
-- WorkOS middleware (src/middleware.ts) runs on all routes, allowing unauthenticated access only to `/` and `/docs`
-- For tRPC API routes (`/api/trpc/*`), the route handler calls `withAuth()` and passes user through tRPC context
-- tRPC `protectedProcedure` validates that `ctx.user` exists and provides type-safe access
-- **No manual auth checks needed** - the route handler + protected procedures handle authentication
-- NavBar includes try-catch for graceful auth handling on public routes
-- See patterns/page.md "Authentication Architecture" section for complete flow details
-
-**tRPC Dual API Pattern:**
-
-- **Server Components:** Use `api` from `src/trpc/server.ts` - direct function calls, 10x faster
-- **Client Components:** Use `api` from `src/trpc/react.tsx` - React hooks with TanStack Query
-- **Data Flow:** Server prefetch → Dehydrate → Client hydrate → Background refetch
-- See concepts/page.md "tRPC: Type-Safe API Layer" section for complete flow
-
-**Adding New tRPC Routes:**
-
-1. Create router in `src/server/api/routers/[name].ts`
-2. Use `publicProcedure`, `protectedProcedure`, or create custom procedures (e.g., `adminProcedure`)
-3. Add router to `appRouter` in `src/server/api/root.ts`
-4. See patterns/page.md "tRPC Procedure Types & Custom Middleware" for examples
-
-**Authorization Helpers (src/server/api/utils/authorization.ts):**
-
-- `getUserOrganizationId(userId)`: Get WorkOS organization ID for a user
-- `getTeamAndVerifyAccess(db, teamId, userId)`: Verify user has access to team within their organization
-- These utilities enforce multi-tenant isolation at the data layer
-
-### Directory Structure
+## Directory Structure
 
 ```
 src/
-├── app/                    # Next.js App Router pages
-│   ├── api/               # API routes (WorkOS callbacks, tRPC)
-│   ├── docs/              # MDX documentation with custom components
-│   ├── teams/             # Team management canvas
-│   ├── dashboard/         # Metrics dashboard
-│   ├── org/               # Organization settings
-│   └── _components/       # Page-specific components
-├── components/            # Shared UI components
-│   ├── ui/               # shadcn/ui components
-│   └── navbar/           # Navigation components
-├── hooks/                 # Shared custom hooks
-├── providers/            # React context providers (Theme, Transition)
-├── server/               # Server-only code
-│   ├── api/             # tRPC routers and procedures
-│   └── db.ts            # Prisma client singleton
-├── trpc/                 # tRPC client setup
-├── styles/               # Global CSS
-├── lib/                  # Utility functions
-├── env.js                # Environment variable validation with Zod
-└── middleware.ts         # WorkOS authentication middleware
+├── app/                           # Next.js pages
+│   ├── _components/               # Root-level page components
+│   │   ├── landing/               # Landing page sections
+│   │   └── feature-demos/         # Interactive demos
+│   ├── api/                       # API routes (cron, callbacks)
+│   ├── dashboard/[teamId]/        # Metrics dashboard
+│   ├── docs/                      # MDX documentation
+│   ├── integration/               # Integration management
+│   ├── metric/_components/        # Metric dialogs (per provider)
+│   ├── org/                       # Organization settings
+│   ├── public/                    # Public-facing views
+│   └── teams/[teamId]/            # Team canvas (React Flow)
+│
+├── components/                    # Shared UI
+│   ├── ui/                        # shadcn/ui components (54 files)
+│   ├── charts/                    # Recharts wrappers
+│   ├── navbar/                    # Navigation
+│   └── react-flow/                # BaseNode, BaseHandle, ZoomSlider
+│
+├── lib/                           # Utilities
+│   ├── canvas/                    # Reusable React Flow library
+│   ├── integrations/              # Provider configurations
+│   ├── metrics/                   # Transformer types
+│   └── helpers/                   # Helper functions
+│
+├── server/                        # Server-only code
+│   ├── api/
+│   │   ├── routers/               # tRPC routers (12 total)
+│   │   ├── services/              # Business logic
+│   │   └── utils/                 # Authorization, caching
+│   └── db.ts                      # Prisma singleton
+│
+├── trpc/                          # tRPC client setup
+├── providers/                     # React context providers
+├── hooks/                         # Shared hooks
+└── middleware.ts                  # Auth middleware
 ```
 
-### MDX Documentation System
+## Architecture Patterns
 
-The docs system (src/app/docs/) supports:
+### Authentication Flow
 
-- Custom MDX components defined in mdx-components.tsx
-- Client-side syntax highlighting via CodeBlock component
-- Mermaid diagram rendering via MermaidDiagram component
-- shadcn/ui components (Button, Card, Alert, Badge) directly in MDX
+WorkOS middleware runs on all routes. Public routes: `/`, `/docs`, `/public/*`.
 
-## Environment Variables
+```tsx
+// tRPC: protectedProcedure validates ctx.user
+// No manual auth checks needed in components
+// NavBar uses try-catch for graceful auth handling
+```
 
-Required environment variables (see .env.example):
+### tRPC Dual API Pattern
 
-- `DATABASE_URL` - PostgreSQL connection string
-- `WORKOS_API_KEY` - WorkOS API key (sk*test*...)
-- `WORKOS_CLIENT_ID` - WorkOS client ID
-- `WORKOS_COOKIE_PASSWORD` - 32-character secret for session cookies
-- `NEXT_PUBLIC_WORKOS_REDIRECT_URI` - OAuth callback URL (e.g., http://localhost:3000/api/callback)
-- `TEST_USER_EMAIL` - Test user email for Playwright tests
-- `TEST_USER_PASSWORD` - Test user password for Playwright tests
+```tsx
+// Server Components: Direct calls (10x faster)
+import { api } from "@/trpc/server";
+const data = await api.team.getById({ id });
 
-Environment variables are validated using @t3-oss/env-nextjs in src/env.js. When adding new variables:
+// Client Components: React hooks with TanStack Query
+import { api } from "@/trpc/react";
+const { data } = api.team.getById.useQuery({ id });
+```
 
-1. Add validation schema in src/env.js
-2. Add to runtimeEnv object
-3. Update .env.example
+### Adding New tRPC Routes
 
-## Code Quality
+1. Create router in `src/server/api/routers/[name].ts`
+2. Use `protectedProcedure` or `workspaceProcedure`
+3. Add to `appRouter` in `src/server/api/root.ts`
+4. Add authorization checks using utils from `authorization.ts`
 
-Pre-commit hooks (via Husky and lint-staged):
+### Authorization Helpers
 
-- Auto-format with Prettier
-- Auto-fix ESLint issues
-- Run on staged files only
+```tsx
+import {
+  getMetricAndVerifyAccess,
+  getRoleAndVerifyAccess,
+  getTeamAndVerifyAccess,
+} from "@/server/api/utils/authorization";
 
-Import sorting: Uses @trivago/prettier-plugin-sort-imports with inline type imports enforced by ESLint rule `@typescript-eslint/consistent-type-imports`.
+// Always verify resource belongs to user's organization
+const team = await getTeamAndVerifyAccess(db, teamId, userId, workspace);
+```
 
-## Database
+## Team Canvas System
 
-- PostgreSQL database configured in prisma/schema.prisma
-- Use `pnpm db:generate` after schema changes to update client
-- The db client is a singleton exported from src/server/db.ts
-- In development, Prisma logs all queries, errors, and warnings
+The team canvas (`/teams/[teamId]`) is a React Flow-based visualization with 30 files.
 
-**Data Model:**
+### Data Flow
 
-- **Team**: Organization-scoped teams with React Flow canvas state (nodes, edges, viewport)
-- **Role**: Team roles with titles, purposes, assigned users, and associated metrics
-- **Metric**: KPIs with integration-backed data, polling configuration, and goals
-- **Integration**: Nango connection records for external data sources (GitHub, YouTube, etc.)
-- **DashboardChart**: Chart configurations with transformers for metric visualization
+```
+page.tsx (Server)
+  → Prefetch: role.getByTeam, organization.getMembers
+  → enrichNodesWithRoleData(storedNodes)
+  → <HydrateClient>
+    → <TeamStoreProvider> (Zustand)
+      → <ChartDragProvider>
+        → <TeamCanvas> (React Flow)
+```
 
-See prisma/schema.prisma for complete relationships and indexes.
+### Node Types
 
-## Working with Components
+| Type       | Data Stored             | Display Source           |
+| ---------- | ----------------------- | ------------------------ |
+| role-node  | `{ roleId }`            | TanStack Query cache     |
+| text-node  | `{ text, fontSize }`    | Direct node.data         |
+| chart-node | `{ dashboardMetricId }` | Database via props       |
+| freehand   | `{ points }`            | Session only (not saved) |
 
-UI components are from shadcn/ui and located in src/components/ui/. They use:
+### Key Pattern: Cache-First Nodes
 
-- Radix UI primitives
-- Tailwind CSS with class-variance-authority
-- cn() utility from src/lib/utils.ts for class merging
+Role nodes store ONLY `roleId`. Display data fetched from TanStack Query cache:
 
-When adding new shadcn components, use the CLI (configured in components.json) rather than manual copying.
+```tsx
+// use-role-data.tsx
+export function useRoleData(roleId: string) {
+  const { data: roles } = api.role.getByTeam.useQuery({ teamId });
+  return useMemo(() => roles?.find((r) => r.id === roleId), [roles, roleId]);
+}
+```
 
-## State Management
+### Store Pattern
 
-The project uses multiple state management approaches:
+```tsx
+// Zustand + Context pattern in team-store.tsx
+const TeamStoreContext = createContext<StoreApi<TeamStore> | null>(null);
 
-- **Zustand:** Local state management for canvas features
-  - Context-based store pattern with Provider component
-  - Used for team canvas and dashboard state management
-  - See `src/app/teams/[teamId]/store/` for examples
-- **TanStack Query:** Server state (via tRPC hooks)
-  - Handles data fetching, caching, and synchronization
-  - Automatic cache invalidation and refetching
-- **React Context:** Theme, transitions, and feature-specific state
+// Access in components
+const nodes = useTeamStore((state) => state.nodes);
+const storeApi = useTeamStoreApi(); // For callbacks (avoids stale closures)
+```
 
-## Testing
+### Auto-Save System
 
-The project uses Playwright for end-to-end testing:
+```
+Canvas changes → markDirty() → Debounce 2s → serializeNodes/Edges → tRPC mutation
+                                              ↓
+                                    beforeunload: sendBeacon fallback
+```
 
-- **Test Directory:** `tests/`
-- **Configuration:** `playwright.config.ts`
-- **Test Setup:** Global setup in `tests/global-setup.ts` handles authentication
-- **Fixtures:** Custom fixtures in `tests/fixtures/auth.fixture.ts` provide authenticated browser contexts
-- **CI Integration:** GitHub Actions workflow in `.github/workflows/playwright.yml`
+### Canvas Library (`src/lib/canvas/`)
 
-**Writing Tests:**
-
-1. Use the `authenticatedPage` fixture for tests requiring auth
-2. Tests run against `http://localhost:3000` (dev server auto-starts)
-3. Test environment variables configured in `.env` (see TEST*USER*\* vars)
-4. See `tests/auth-authenticated.spec.ts` for examples
-
-## React Flow Features
-
-### Shared Canvas Library (`src/lib/canvas/`)
-
-Reusable patterns for building React Flow canvas UIs:
+Reusable patterns for React Flow canvases:
 
 ```
 src/lib/canvas/
-├── index.ts                      # Public exports
-├── store/
-│   ├── create-canvas-store.tsx   # Factory for typed Zustand stores
-│   └── types.ts                  # BaseCanvasState, BaseCanvasActions
-├── hooks/
-│   └── use-auto-save.ts          # Debounced auto-save hook factory
-├── components/
-│   └── save-status.tsx           # Save indicator (Saving/Unsaved/Saved)
-├── edges/
-│   └── edge-action-buttons.tsx   # Add/delete buttons on edges
-└── types/
-    └── serialization.ts          # StoredNode, StoredEdge for DB
+├── store/create-canvas-store.tsx   # Generic store factory
+├── hooks/use-auto-save.ts          # Debounced save hook
+├── components/save-status.tsx      # Save indicator UI
+├── edges/edge-action-buttons.tsx   # Edge interaction buttons
+├── edges/floating-edge-utils.ts    # Edge path calculations
+└── freehand/                       # Drawing mode components
 ```
 
-**Adding a New Canvas Feature:**
+## Metrics Pipeline
 
-1. Create feature folder: `src/app/[feature]/`
-2. Use shared components:
+### Three-Stage Transformation
+
+```
+Stage 1: API → DataPoints
+  fetchData() → DataIngestionTransformer (AI-generated) → MetricDataPoint[]
+
+Stage 2: DataPoints → ChartConfig
+  MetricDataPoint[] → ChartTransformer (AI-generated) → ChartConfig
+
+Stage 3: ChartConfig → UI
+  ChartConfig → DashboardMetricChart (Recharts)
+```
+
+### Key Models
+
+- **Metric**: Core metric with integrationId, templateId, pollFrequency
+- **MetricDataPoint**: Time-series data (unique on metricId + timestamp)
+- **DashboardChart**: Chart configuration linked to Metric
+- **DataIngestionTransformer**: AI code for API → DataPoints
+- **ChartTransformer**: AI code for DataPoints → ChartConfig
+
+### Polling System
+
+Cron (`/api/cron/poll-metrics`) runs every 15 minutes for metrics with `nextPollAt <= now()`.
+
+Poll frequencies: `frequent` (15m), `hourly`, `daily`, `weekly`, `manual`
+
+### Adding New Integrations
+
+1. Create provider config in `src/lib/integrations/`
+2. Add metric dialog in `src/app/metric/_components/[provider]/`
+3. Create `[Provider]MetricDialog.tsx` + `[Provider]MetricContent.tsx`
+4. Register in `src/app/metric/_components/index.ts`
+
+## Environment Variables
+
+Required (see `.env.example`):
+
+```
+DATABASE_URL           # PostgreSQL connection
+WORKOS_API_KEY         # WorkOS API key
+WORKOS_CLIENT_ID       # WorkOS client ID
+WORKOS_COOKIE_PASSWORD # 32-char session secret
+NEXT_PUBLIC_WORKOS_REDIRECT_URI  # OAuth callback
+TEST_USER_EMAIL        # Playwright test user
+TEST_USER_PASSWORD     # Playwright test password
+```
+
+Validated via `@t3-oss/env-nextjs` in `src/env.js`.
+
+## Code Quality
+
+Pre-commit hooks (Husky + lint-staged):
+
+- ESLint auto-fix
+- Prettier formatting
+- Runs on staged files only
+
+Import sorting: `@trivago/prettier-plugin-sort-imports` with inline type imports.
+
+## Component Patterns
+
+### shadcn/ui Components
+
+Located in `src/components/ui/`. Use CLI for new components:
+
+```bash
+npx shadcn@latest add [component-name]
+```
+
+### React Flow Primitives
+
+Shared in `src/components/react-flow/`:
+
+- `BaseNode` - Styled node container
+- `BaseHandle` - Styled handles
+- `ZoomSlider` - Zoom controls
+
+### Metric Dialogs
+
+Each integration in `src/app/metric/_components/`:
+
+```
+github/
+  ├── GitHubMetricDialog.tsx    # Dialog wrapper
+  └── GitHubMetricContent.tsx   # Form content
+linear/
+  ├── LinearMetricDialog.tsx
+  └── LinearMetricContent.tsx
+```
+
+Uses shared `MetricDialogBase` from `base/`.
+
+## Testing
+
+Playwright E2E tests in `tests/`.
+
+- Global setup handles authentication
+- Use `authenticatedPage` fixture for auth-required tests
+- Tests run against `http://localhost:3000`
+
+## Common Tasks
+
+### Adding Canvas Node Types
+
+1. Create node component in `teams/[teamId]/_components/`
+2. Add type to `TeamNode` union in `types/canvas.ts`
+3. Register in `nodeTypes` in `team-canvas.tsx`
+4. Update serialization in `canvas-serialization.ts`
+
+### Adding tRPC Procedures
+
+1. Add procedure to appropriate router
+2. Use `workspaceProcedure` for org-scoped operations
+3. Call authorization helpers for resource verification
+4. Invalidate cache tags after mutations:
    ```tsx
-   import { BaseNode, ZoomSlider } from "@/components/react-flow";
-   import { EdgeActionButtons, SaveStatus } from "@/lib/canvas";
+   await invalidateCacheByTags(ctx.db, [`team_${teamId}`]);
    ```
-3. Create store with Zustand + Context pattern (see `team-store.tsx`)
-4. Create canvas wrapper for server → client data bridge
-5. Define custom nodes in `_components/` folder
-6. Use `SaveStatus` for consistent save UX
-7. Use `EdgeActionButtons` for edge interactions
 
-### React Flow Primitives (`src/components/react-flow/`)
+## Known Issues & Cleanup Needed
 
-- `BaseNode` - Styled node container with selection states
-- `BaseHandle` - Styled connection handles
-- `ZoomSlider` - Zoom controls panel
+### Security Issues
 
-### Team Canvas (`/teams/[teamId]`)
+- `metric.getById` missing authorization check (can access any metric by ID)
+- `metric.getByTeamId` doesn't verify team belongs to org
 
-- **Persistence:** Canvas state stored in Team model as JSON
-- **Data Flow:** Server fetches team → Enrich nodes with role data → Client canvas
-- **Components:** TeamCanvasWrapper, TeamSidebar, role-node, text-node, team-edge
-- **State:** TeamStoreProvider with auto-save
+### Dead Code to Remove
+
+**Unused Components (never imported):**
+
+- `src/app/_components/benefits-section.tsx`
+- `src/app/_components/cta-section.tsx`
+- `src/app/_components/demo-charts.tsx`
+- `src/app/_components/features-carousel.tsx`
+- `src/app/_components/features-carousel-v2.tsx`
+- `src/app/_components/features-product-carousel.tsx`
+- All of `src/app/_components/feature-demos/` (only used by unused carousel)
+
+**Unused Hooks:**
+
+- `src/hooks/use-dropdown.tsx`
+- `src/hooks/use-mobile.ts`
+
+**Unused UI Components:**
+
+- `src/components/ui/skiper-ui/skiper26.tsx` (1,192 lines)
+- `src/components/ui/skiper-ui/skiper40.tsx`
+- `src/components/ui/skiper-ui/skiper4.tsx`
+
+### Duplications to Consolidate
+
+**Metric Dialogs (5 nearly identical wrappers):**
+
+- Consider factory pattern to reduce duplication
+
+**Role Nodes:**
+
+- `role-node.tsx` vs `public-role-node.tsx` - 75% identical
+- Extract shared `RoleNodeTemplate` with `isEditable` prop
+
+**Dashboard Cards:**
+
+- `dashboard-metric-card.tsx` vs `public-dashboard-metric-card.tsx`
+- Add `readOnly` mode instead of separate components
+
+**Team Edges:**
+
+- Both team-edge.tsx and public-team-edge.tsx duplicate `getFloatingEdgeParams`
+- Should import from `src/lib/canvas/edges/floating-edge-utils.ts`
+
+**Backend Procedures:**
+
+- `team.generateShareToken`, `team.enableSharing`, `team.disableSharing` → merge to 2
+- `role.assign`, `role.unassign` → single `updateRoleAssignment`
+
+### Naming Inconsistencies
+
+- `role.getByTeam` vs `metric.getByTeamId` - standardize to `getByTeamId`
+
+### Performance Issues
+
+- `MetricApiLog` writes on every fetch (debugging overhead in production)
+- Double data point fetching on metric refresh
+- Goal calculation utility is 271 lines (could be 50)
