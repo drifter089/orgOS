@@ -426,6 +426,17 @@ interface RefreshMetricResult {
   error?: string;
 }
 
+/** Helper to update refresh status */
+async function setRefreshStatus(
+  metricId: string,
+  status: string | null,
+): Promise<void> {
+  await db.metric.update({
+    where: { id: metricId },
+    data: { refreshStatus: status },
+  });
+}
+
 /** Refresh metric data and update all associated charts. Used by cron and manual refresh. */
 export async function refreshMetricAndCharts(
   input: RefreshMetricInput,
@@ -442,82 +453,112 @@ export async function refreshMetricAndCharts(
     return { success: false, error: "Metric not found or not configured" };
   }
 
-  const template = getTemplate(metric.templateId);
-  const isTimeSeries = template?.isTimeSeries !== false;
+  try {
+    // Step 1: Fetching API data
+    await setRefreshStatus(input.metricId, "fetching-api");
 
-  let transformResult: TransformResult;
+    const template = getTemplate(metric.templateId);
+    const isTimeSeries = template?.isTimeSeries !== false;
 
-  if (input.forceRegenerate) {
-    // Delete existing transformer to force regeneration
-    const cacheKey = metric.templateId.startsWith("gsheets-")
-      ? `${metric.templateId}:${metric.id}`
-      : metric.templateId;
+    let transformResult: TransformResult;
 
-    await db.dataIngestionTransformer
-      .delete({ where: { templateId: cacheKey } })
-      .catch(() => {
-        // Ignore if doesn't exist
+    if (input.forceRegenerate) {
+      // Delete existing transformer to force regeneration
+      const cacheKey = metric.templateId.startsWith("gsheets-")
+        ? `${metric.templateId}:${metric.id}`
+        : metric.templateId;
+
+      await db.dataIngestionTransformer
+        .delete({ where: { templateId: cacheKey } })
+        .catch(() => {
+          // Ignore if doesn't exist
+        });
+
+      console.info(
+        `[RefreshMetric] Force regenerating transformer for: ${cacheKey}`,
+      );
+
+      // Step 2: AI regenerating transformer
+      await setRefreshStatus(input.metricId, "ai-regenerating");
+
+      // Use ingestMetricData which will create new transformer
+      transformResult = await ingestMetricData({
+        templateId: metric.templateId,
+        integrationId: metric.integration.providerId,
+        connectionId: metric.integration.connectionId,
+        metricId: metric.id,
+        endpointConfig: (metric.endpointConfig as Record<string, string>) ?? {},
+        isTimeSeries,
       });
+    } else {
+      // Step 2: Running existing transformer
+      await setRefreshStatus(input.metricId, "running-transformer");
 
-    console.info(
-      `[RefreshMetric] Force regenerating transformer for: ${cacheKey}`,
-    );
+      // Normal refresh using existing transformer
+      transformResult = await refreshMetricDataPoints({
+        templateId: metric.templateId,
+        integrationId: metric.integration.providerId,
+        connectionId: metric.integration.connectionId,
+        metricId: metric.id,
+        endpointConfig: (metric.endpointConfig as Record<string, string>) ?? {},
+        isTimeSeries,
+      });
+    }
 
-    // Use ingestMetricData which will create new transformer
-    transformResult = await ingestMetricData({
-      templateId: metric.templateId,
-      integrationId: metric.integration.providerId,
-      connectionId: metric.integration.connectionId,
-      metricId: metric.id,
-      endpointConfig: (metric.endpointConfig as Record<string, string>) ?? {},
-      isTimeSeries,
-    });
-  } else {
-    // Normal refresh using existing transformer
-    transformResult = await refreshMetricDataPoints({
-      templateId: metric.templateId,
-      integrationId: metric.integration.providerId,
-      connectionId: metric.integration.connectionId,
-      metricId: metric.id,
-      endpointConfig: (metric.endpointConfig as Record<string, string>) ?? {},
-      isTimeSeries,
-    });
-  }
+    if (!transformResult.success) {
+      await db.metric.update({
+        where: { id: input.metricId },
+        data: { lastError: transformResult.error, refreshStatus: null },
+      });
+      return { success: false, error: transformResult.error };
+    }
 
-  if (!transformResult.success) {
+    // Step 3: Saving data points (already done in ingestMetricData/refreshMetricDataPoints)
+    await setRefreshStatus(input.metricId, "saving-data");
+
     await db.metric.update({
       where: { id: input.metricId },
-      data: { lastError: transformResult.error },
+      data: { lastFetchedAt: new Date(), lastError: null },
     });
-    return { success: false, error: transformResult.error };
-  }
 
-  await db.metric.update({
-    where: { id: input.metricId },
-    data: { lastFetchedAt: new Date(), lastError: null },
-  });
+    // Step 4: Updating charts
+    await setRefreshStatus(input.metricId, "updating-chart");
 
-  // Dynamic import to avoid circular dependency
-  const { executeChartTransformerForDashboardChart } = await import(
-    "./chart-generator"
-  );
+    // Dynamic import to avoid circular dependency
+    const { executeChartTransformerForDashboardChart } = await import(
+      "./chart-generator"
+    );
 
-  for (const dc of metric.dashboardCharts) {
-    if (dc.chartTransformer) {
-      try {
-        await executeChartTransformerForDashboardChart(dc.id);
-      } catch (chartError) {
-        console.error(
-          `[RefreshMetric] Chart transformer error for ${dc.id}:`,
-          chartError,
-        );
-        // Continue with other charts even if one fails
+    for (const dc of metric.dashboardCharts) {
+      if (dc.chartTransformer) {
+        try {
+          await executeChartTransformerForDashboardChart(dc.id);
+        } catch (chartError) {
+          console.error(
+            `[RefreshMetric] Chart transformer error for ${dc.id}:`,
+            chartError,
+          );
+          // Continue with other charts even if one fails
+        }
       }
     }
-  }
 
-  return {
-    success: true,
-    dataPointCount: transformResult.dataPoints?.length ?? 0,
-  };
+    // Clear status on success
+    await setRefreshStatus(input.metricId, null);
+
+    return {
+      success: true,
+      dataPointCount: transformResult.dataPoints?.length ?? 0,
+    };
+  } catch (error) {
+    // Clear status on error
+    await db.metric.update({
+      where: { id: input.metricId },
+      data: {
+        refreshStatus: null,
+        lastError: error instanceof Error ? error.message : "Unknown error",
+      },
+    });
+    throw error;
+  }
 }

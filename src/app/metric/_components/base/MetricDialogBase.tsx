@@ -153,6 +153,7 @@ export function MetricDialogBase({
         pollFrequency: "daily",
         nextPollAt: null,
         lastError: null,
+        refreshStatus: null,
         createdAt: new Date(),
         updatedAt: new Date(),
         integration: connection

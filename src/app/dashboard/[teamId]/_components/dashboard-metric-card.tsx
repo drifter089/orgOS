@@ -54,10 +54,24 @@ export function DashboardMetricCard({
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [isRegeneratingPipeline, setIsRegeneratingPipeline] = useState(false);
-  const [loadingPhase, setLoadingPhase] = useState<LoadingPhase>(null);
 
   const utils = api.useUtils();
   const { confirm } = useConfirmation();
+
+  // Poll for refresh status when processing
+  const { data: refreshStatus } = api.metric.getRefreshStatus.useQuery(
+    { metricId: dashboardMetric.metric.id },
+    {
+      enabled: isProcessing || isRegeneratingPipeline,
+      refetchInterval: 500,
+    },
+  );
+
+  // Derive loadingPhase from polled status
+  const loadingPhase: LoadingPhase =
+    isProcessing || isRegeneratingPipeline
+      ? ((refreshStatus as LoadingPhase) ?? "fetching-api")
+      : null;
 
   const isPending = dashboardMetric.id.startsWith("temp-");
   const { metric } = dashboardMetric;
@@ -147,28 +161,20 @@ export function DashboardMetricCard({
   });
 
   /**
-   * Refresh metric data using existing transformer
+   * Refresh metric data using existing transformer.
+   * Progress status is polled from the database.
    */
   const handleRefresh = useCallback(async () => {
     if (!isIntegrationMetric || !metric.templateId || !metric.integration)
       return;
 
     setIsProcessing(true);
-    setLoadingPhase("fetching-api");
     try {
-      // Simulate phase progression (actual phases happen server-side)
-      const phaseTimer = setTimeout(
-        () => setLoadingPhase("running-transformer"),
-        1500,
-      );
-
       const result = await refreshMetricMutation.mutateAsync({
         metricId: metric.id,
       });
-      clearTimeout(phaseTimer);
 
       if (result.success) {
-        setLoadingPhase("updating-chart");
         toast.success("Data refreshed", {
           description: `${result.dataPointCount} data points updated`,
         });
@@ -186,7 +192,6 @@ export function DashboardMetricCard({
       });
     } finally {
       setIsProcessing(false);
-      setLoadingPhase(null);
     }
   }, [
     isIntegrationMetric,
@@ -244,35 +249,21 @@ export function DashboardMetricCard({
   );
 
   /**
-   * Regenerate entire pipeline (both DataIngestion and Chart transformers)
-   * This deletes the existing transformer and recreates it from scratch.
+   * Regenerate entire pipeline (both DataIngestion and Chart transformers).
+   * Progress status is polled from the database.
    */
   const handleRegeneratePipeline = useCallback(async () => {
     if (!isIntegrationMetric || !metric.templateId || !metric.integration)
       return;
 
     setIsRegeneratingPipeline(true);
-    setLoadingPhase("fetching-api");
     try {
-      // Show AI regenerating phase after initial fetch
-      const phaseTimer1 = setTimeout(
-        () => setLoadingPhase("ai-regenerating"),
-        2000,
-      );
-      const phaseTimer2 = setTimeout(
-        () => setLoadingPhase("saving-data"),
-        8000,
-      );
-
       const result = await refreshMetricMutation.mutateAsync({
         metricId: metric.id,
         forceRegenerate: true,
       });
-      clearTimeout(phaseTimer1);
-      clearTimeout(phaseTimer2);
 
       if (result.success) {
-        setLoadingPhase("updating-chart");
         toast.success("Pipeline regenerated", {
           description: `Transformers recreated with ${result.dataPointCount} data points`,
         });
@@ -292,7 +283,6 @@ export function DashboardMetricCard({
       });
     } finally {
       setIsRegeneratingPipeline(false);
-      setLoadingPhase(null);
     }
   }, [
     isIntegrationMetric,
