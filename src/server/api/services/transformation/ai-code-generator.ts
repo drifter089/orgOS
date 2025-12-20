@@ -30,6 +30,8 @@ interface GenerateDataIngestionTransformerInput {
   metricDescription: string;
   availableParams: string[];
   endpointConfig?: Record<string, string>;
+  /** Developer-authored extraction prompt with hints about timestamp, aggregation, dimensions */
+  extractionPrompt?: string;
 }
 
 interface DataStats {
@@ -259,6 +261,19 @@ export async function generateDataIngestionTransformerCode(
 
   const sanitizedResponse = safeStringifyForPrompt(input.sampleApiResponse);
 
+  // Build system prompt - prepend extraction prompt if provided
+  let systemPrompt = METRIC_TRANSFORMER_SYSTEM_PROMPT;
+  if (input.extractionPrompt) {
+    systemPrompt = `DEVELOPER EXTRACTION GUIDANCE (FOLLOW THIS):
+════════════════════════════════════════════════════════════════════════════════
+${input.extractionPrompt}
+════════════════════════════════════════════════════════════════════════════════
+
+The above guidance comes from the template author. Follow it precisely.
+
+${systemPrompt}`;
+  }
+
   const userPrompt = `Template: ${input.templateId}
 Integration: ${input.integrationId}
 Endpoint: ${input.method} ${input.endpoint}
@@ -280,7 +295,7 @@ Generate the JavaScript transform function and return as JSON with code, valueLa
 
   const result = await generateText({
     model: openrouter("anthropic/claude-sonnet-4"),
-    system: METRIC_TRANSFORMER_SYSTEM_PROMPT,
+    system: systemPrompt,
     prompt: userPrompt,
     maxOutputTokens: 4000,
     temperature: 0.1,
@@ -297,6 +312,30 @@ Generate the JavaScript transform function and return as JSON with code, valueLa
 }
 
 /**
+ * Extract JSON from a response that may contain markdown or prose.
+ * Handles cases where AI adds explanation text before/after the JSON.
+ */
+function extractJsonFromResponse(response: string): string | null {
+  // Try to find JSON in markdown code block first
+  const jsonBlockMatch = /```(?:json)?\s*\n?([\s\S]*?)\n?```/.exec(response);
+  if (jsonBlockMatch?.[1]) {
+    const content = jsonBlockMatch[1].trim();
+    // Verify it looks like JSON (starts with { or [)
+    if (content.startsWith("{") || content.startsWith("[")) {
+      return content;
+    }
+  }
+
+  // Try to find raw JSON object in the response
+  const jsonMatch = /\{[\s\S]*"code"[\s\S]*\}/.exec(response);
+  if (jsonMatch?.[0]) {
+    return jsonMatch[0];
+  }
+
+  return null;
+}
+
+/**
  * Parse AI response that returns JSON with code, valueLabel, and dataDescription
  */
 function parseDataIngestionTransformerResponse(response: string): {
@@ -304,8 +343,8 @@ function parseDataIngestionTransformerResponse(response: string): {
   valueLabel?: string;
   dataDescription?: string;
 } {
+  // First try direct JSON parse
   try {
-    // Try to parse as JSON first
     const parsed = JSON.parse(response) as {
       code?: string;
       valueLabel?: string;
@@ -319,10 +358,42 @@ function parseDataIngestionTransformerResponse(response: string): {
       };
     }
   } catch {
-    // If JSON parsing fails, treat the whole response as code (fallback)
+    // Direct parse failed, try to extract JSON from response
   }
 
-  // Fallback: treat the entire response as code (for backward compatibility)
+  // Try to extract JSON from markdown or prose
+  const extractedJson = extractJsonFromResponse(response);
+  if (extractedJson) {
+    try {
+      const parsed = JSON.parse(extractedJson) as {
+        code?: string;
+        valueLabel?: string;
+        dataDescription?: string;
+      };
+      if (parsed.code) {
+        return {
+          code: cleanGeneratedCode(parsed.code),
+          valueLabel: parsed.valueLabel,
+          dataDescription: parsed.dataDescription,
+        };
+      }
+    } catch {
+      // Extracted content wasn't valid JSON either
+    }
+  }
+
+  // Last resort: try to extract just the function from the response
+  const functionMatch = /function\s+transform\s*\([^)]*\)\s*\{[\s\S]*\}/.exec(
+    response,
+  );
+  if (functionMatch?.[0]) {
+    return { code: cleanGeneratedCode(functionMatch[0]) };
+  }
+
+  // Fallback: treat the entire response as code (will likely fail validation)
+  console.error(
+    "[AI-GEN] Could not extract JSON from response, falling back to raw response",
+  );
   return { code: cleanGeneratedCode(response) };
 }
 
@@ -463,6 +534,19 @@ export async function regenerateDataIngestionTransformerCode(
 
   const sanitizedResponse = safeStringifyForPrompt(input.sampleApiResponse);
 
+  // Build system prompt - prepend extraction prompt if provided
+  let systemPrompt = METRIC_TRANSFORMER_SYSTEM_PROMPT;
+  if (input.extractionPrompt) {
+    systemPrompt = `DEVELOPER EXTRACTION GUIDANCE (FOLLOW THIS):
+════════════════════════════════════════════════════════════════════════════════
+${input.extractionPrompt}
+════════════════════════════════════════════════════════════════════════════════
+
+The above guidance comes from the template author. Follow it precisely.
+
+${systemPrompt}`;
+  }
+
   let userPrompt = `Template: ${input.templateId}
 Integration: ${input.integrationId}
 Endpoint: ${input.method} ${input.endpoint}
@@ -494,7 +578,7 @@ Fix the error while ensuring:
 
   const result = await generateText({
     model: openrouter("anthropic/claude-sonnet-4"),
-    system: METRIC_TRANSFORMER_SYSTEM_PROMPT,
+    system: systemPrompt,
     prompt: userPrompt,
     maxOutputTokens: 4000,
     temperature: 0.2,
