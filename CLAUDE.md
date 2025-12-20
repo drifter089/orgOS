@@ -163,12 +163,9 @@ src/
 ├── app/                    # Next.js App Router pages
 │   ├── api/               # API routes (WorkOS callbacks, tRPC)
 │   ├── docs/              # MDX documentation with custom components
-│   ├── workflow/          # React Flow workflow builder with custom nodes/edges
-│   │   ├── components/   # Workflow UI components (nodes, edges, controls)
-│   │   ├── store/        # Zustand state management for workflow
-│   │   └── hooks/        # Workflow-specific hooks (layout, runner)
-│   ├── design-strategy/  # Component showcase/design system demo
-│   ├── render-strategy/  # tRPC data fetching patterns demo
+│   ├── teams/             # Team management canvas
+│   ├── dashboard/         # Metrics dashboard
+│   ├── org/               # Organization settings
 │   └── _components/       # Page-specific components
 ├── components/            # Shared UI components
 │   ├── ui/               # shadcn/ui components
@@ -233,9 +230,9 @@ Import sorting: Uses @trivago/prettier-plugin-sort-imports with inline type impo
 
 - **Team**: Organization-scoped teams with React Flow canvas state (nodes, edges, viewport)
 - **Role**: Team roles with titles, purposes, assigned users, and associated metrics
-- **Metric**: KPIs with types (percentage, number, duration, rate), targets, and current values
-- **Task**: User tasks with completion tracking (legacy demo model)
-- **Post**: Simple demo model for tRPC examples
+- **Metric**: KPIs with integration-backed data, polling configuration, and goals
+- **Integration**: Nango connection records for external data sources (GitHub, YouTube, etc.)
+- **DashboardChart**: Chart configurations with transformers for metric visualization
 
 See prisma/schema.prisma for complete relationships and indexes.
 
@@ -253,10 +250,10 @@ When adding new shadcn components, use the CLI (configured in components.json) r
 
 The project uses multiple state management approaches:
 
-- **Zustand:** Local state management (see src/app/workflow/store/)
+- **Zustand:** Local state management for canvas features
   - Context-based store pattern with Provider component
-  - Used for workflow builder state management
-  - Example: `useAppStore` hook in workflow feature
+  - Used for team canvas and dashboard state management
+  - See `src/app/teams/[teamId]/store/` for examples
 - **TanStack Query:** Server state (via tRPC hooks)
   - Handles data fetching, caching, and synchronization
   - Automatic cache invalidation and refetching
@@ -321,24 +318,9 @@ src/lib/canvas/
 - `BaseHandle` - Styled connection handles
 - `ZoomSlider` - Zoom controls panel
 
-### Workflow Builder (`/workflow`) - Reference Only
-
-Example implementation (not production):
-
-- **Custom Nodes:** src/app/workflow/components/nodes/
-- **Custom Edges:** src/app/workflow/components/edges/
-- **Auto Layout:** ELK.js-based (src/app/workflow/hooks/use-layout.tsx)
-- **State:** Zustand store with Context pattern
-
 ### Team Canvas (`/teams/[teamId]`)
 
 - **Persistence:** Canvas state stored in Team model as JSON
 - **Data Flow:** Server fetches team → Enrich nodes with role data → Client canvas
 - **Components:** TeamCanvasWrapper, TeamSidebar, role-node, text-node, team-edge
 - **State:** TeamStoreProvider with auto-save
-
-### Systems Canvas (`/systems`)
-
-- **Persistence:** Canvas state stored in SystemsCanvas model
-- **Components:** SystemsCanvasWrapper, metric-card-node
-- **State:** SystemsStoreProvider with auto-save

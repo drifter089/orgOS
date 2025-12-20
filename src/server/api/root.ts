@@ -8,8 +8,6 @@ import { metricRouter } from "@/server/api/routers/metric";
 import { organizationRouter } from "@/server/api/routers/organization";
 import { publicViewRouter } from "@/server/api/routers/public-view";
 import { roleRouter } from "@/server/api/routers/role";
-import { systemsCanvasRouter } from "@/server/api/routers/systems-canvas";
-import { taskRouter } from "@/server/api/routers/task";
 import { teamRouter } from "@/server/api/routers/team";
 import { transformerRouter } from "@/server/api/routers/transformer";
 import { createCallerFactory, createTRPCRouter } from "@/server/api/trpc";
@@ -20,7 +18,6 @@ import { createCallerFactory, createTRPCRouter } from "@/server/api/trpc";
  * All routers added in /api/routers should be manually added here.
  */
 export const appRouter = createTRPCRouter({
-  task: taskRouter,
   organization: organizationRouter,
   team: teamRouter,
   role: roleRouter,
@@ -29,7 +26,6 @@ export const appRouter = createTRPCRouter({
   integration: integrationRouter,
   dashboard: dashboardRouter,
   feedback: feedbackRouter,
-  systemsCanvas: systemsCanvasRouter,
   publicView: publicViewRouter,
   adminPortal: adminPortalRouter,
   transformer: transformerRouter,
