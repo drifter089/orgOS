@@ -672,8 +672,7 @@ export const metricRouter = createTRPCRouter({
               metricName: metric.name,
               metricDescription: metric.description ?? "Manual metric",
               chartType: "line",
-              dateRange: "30d",
-              aggregation: "none",
+              cadence: "DAILY",
             });
             console.info(
               `[metric.addDataPoints] Created chart transformer for manual metric ${metric.id}`,
