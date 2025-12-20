@@ -301,6 +301,10 @@ model DataIngestionTransformer {
     //          Data is aggregated daily by commit date."
     dataDescription String?  @db.Text
 
+    // The extraction prompt that was used to generate this transformer
+    // Allows debugging and comparing what prompt produced what code
+    extractionPromptUsed String?  @db.Text
+
     createdAt       DateTime @default(now())
     updatedAt       DateTime @updatedAt
 

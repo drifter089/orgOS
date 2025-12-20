@@ -99,6 +99,27 @@ export const templates: MetricTemplate[] = [
     defaultPollFrequency: "daily",
     isTimeSeries: true,
 
+    extractionPrompt: `
+RESPONSE STRUCTURE: data.issues.nodes[]
+
+TIMESTAMP: Use "completedAt" field (NOT createdAt).
+This tracks when work was COMPLETED, not when it was created.
+
+FILTER: Only include issues where completedAt is not null.
+Skip issues that are still open or were canceled.
+
+VALUE: Count of issues completed per day.
+Group by completedAt date (normalized to midnight UTC).
+
+DIMENSIONS to preserve:
+- estimate (story points, number or null)
+- priority (0-4 scale)
+- team.name (string)
+- project.name (string, may be null)
+
+AGGREGATION: SUM (count completed issues per day)
+`,
+
     requiredParams: [
       {
         name: "USER_ID",
@@ -179,6 +200,27 @@ export const templates: MetricTemplate[] = [
     defaultPollFrequency: "daily",
     isTimeSeries: true,
 
+    extractionPrompt: `
+RESPONSE STRUCTURE: data.project.issues.nodes[]
+
+TIMESTAMP: Use "completedAt" field (NOT createdAt).
+This tracks when work was COMPLETED, not when it was created.
+
+FILTER: Only include issues where completedAt is not null.
+Skip issues that are still open or were canceled.
+
+VALUE: Count of issues completed per day.
+Group by completedAt date (normalized to midnight UTC).
+
+DIMENSIONS to preserve:
+- estimate (story points, number or null)
+- priority (0-4 scale)
+- team.name (string)
+- assignee.name (string, may be null)
+
+AGGREGATION: SUM (count completed issues per day)
+`,
+
     requiredParams: [
       {
         name: "PROJECT_ID",
@@ -256,6 +298,27 @@ export const templates: MetricTemplate[] = [
     historicalDataLimit: "90d",
     defaultPollFrequency: "daily",
     isTimeSeries: true,
+
+    extractionPrompt: `
+RESPONSE STRUCTURE: data.team.issues.nodes[]
+
+TIMESTAMP: Use "completedAt" field (NOT createdAt).
+This tracks when work was COMPLETED, not when it was created.
+
+FILTER: Only include issues where completedAt is not null.
+Skip issues that are still open or were canceled.
+
+VALUE: Count of issues completed per day.
+Group by completedAt date (normalized to midnight UTC).
+
+DIMENSIONS to preserve:
+- estimate (story points, number or null)
+- priority (0-4 scale)
+- project.name (string, may be null)
+- assignee.name (string, may be null)
+
+AGGREGATION: SUM (count completed issues per day)
+`,
 
     requiredParams: [
       {

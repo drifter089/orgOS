@@ -200,6 +200,7 @@ async function getOrCreateDataIngestionTransformer(
     metricDescription: template.description,
     availableParams: template.requiredParams.map((p) => p.name),
     endpointConfig,
+    extractionPrompt: template.extractionPrompt,
   });
 
   const testResult = await testDataIngestionTransformer(
@@ -222,6 +223,7 @@ async function getOrCreateDataIngestionTransformer(
       metricDescription: template.description,
       availableParams: template.requiredParams.map((p) => p.name),
       endpointConfig,
+      extractionPrompt: template.extractionPrompt,
       previousCode: generated.code,
       error: testResult.error,
     });
@@ -252,6 +254,7 @@ async function getOrCreateDataIngestionTransformer(
       transformerCode: finalCode,
       valueLabel: finalValueLabel,
       dataDescription: finalDataDescription,
+      extractionPromptUsed: template.extractionPrompt,
     },
     update: {},
   });

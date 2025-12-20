@@ -70,6 +70,25 @@ export interface MetricTemplate {
   historicalDataLimit?: string; // "30d", "90d", "365d" - how far back to fetch on creation
   defaultPollFrequency?: "frequent" | "hourly" | "daily" | "weekly" | "manual";
   isTimeSeries?: boolean; // default true, false for snapshot data (Google Sheets)
+
+  /**
+   * Developer-authored instructions for AI to extract metric data.
+   * Contains ALL hints in natural language - timestamp field, aggregation,
+   * dimensions to preserve, filtering rules, response structure, etc.
+   *
+   * Example:
+   * ```
+   * Use completedAt for timestamp (not createdAt).
+   * Count issues per day where completedAt is not null.
+   * Store estimate, priority, team.name in dimensions.
+   * Aggregation: SUM (count per day).
+   * Response structure: data.issues.nodes[]
+   * ```
+   *
+   * Optional for backward compatibility - templates without this
+   * continue to use generic AI inference based on `description`.
+   */
+  extractionPrompt?: string;
 }
 
 // =============================================================================
