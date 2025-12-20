@@ -370,3 +370,40 @@ export async function getChartTransformerByDashboardChartId(
     where: { dashboardChartId },
   });
 }
+
+/**
+ * Execute chart transformer with pre-fetched data.
+ * Avoids re-fetching data that was already loaded by the caller.
+ * Used by cron jobs where we already have the metric data.
+ */
+export async function executeChartTransformerWithData(input: {
+  dashboardChartId: string;
+  transformerCode: string;
+  chartType: string;
+  cadence: string;
+  dataPoints: DataPoint[];
+}): Promise<ChartTransformResult> {
+  if (input.dataPoints.length === 0) {
+    return { success: false, error: "No data points provided" };
+  }
+
+  const result = await executeChartTransformer(
+    input.transformerCode,
+    input.dataPoints,
+    {
+      chartType: input.chartType,
+      cadence: input.cadence,
+    },
+  );
+
+  if (!result.success) {
+    return { success: false, error: result.error };
+  }
+
+  await db.dashboardChart.update({
+    where: { id: input.dashboardChartId },
+    data: { chartConfig: chartConfigToJson(result.data) },
+  });
+
+  return { success: true, chartConfig: result.data };
+}
