@@ -56,7 +56,10 @@ import type { GoalProgress } from "@/server/api/utils/goal-calculation";
 import { calculateGoalTargetValue } from "@/server/api/utils/goal-calculation";
 
 import type { ChartTransformResult } from "./dashboard-metric-card";
-import { DashboardMetricChart } from "./dashboard-metric-chart";
+import {
+  DashboardMetricChart,
+  type LoadingPhase,
+} from "./dashboard-metric-chart";
 
 const CADENCE_OPTIONS: Cadence[] = ["DAILY", "WEEKLY", "MONTHLY"];
 
@@ -82,6 +85,7 @@ interface DashboardMetricDrawerProps {
   isUpdating: boolean;
   isDeleting: boolean;
   isRegeneratingPipeline: boolean;
+  loadingPhase: LoadingPhase;
   onRegenerate: (
     chartType?: string,
     cadence?: Cadence,
@@ -116,6 +120,7 @@ export function DashboardMetricDrawer({
   isUpdating,
   isDeleting,
   isRegeneratingPipeline,
+  loadingPhase,
   onRegenerate,
   onRefresh,
   onRegeneratePipeline,
@@ -248,6 +253,7 @@ export function DashboardMetricDrawer({
                     isIntegrationMetric={isIntegrationMetric}
                     isPending={false}
                     isProcessing={isProcessing || isRegeneratingPipeline}
+                    loadingPhase={loadingPhase}
                     integrationId={integrationId}
                     roles={roles}
                     goal={goal}
