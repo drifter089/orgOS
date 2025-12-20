@@ -16,16 +16,12 @@ interface TeamCanvasWrapperProps {
   initialNodes: TeamNode[];
   initialEdges: StoredEdge[];
   teamId: string;
-  shareToken: string | null;
-  isPubliclyShared: boolean;
 }
 
 export function TeamCanvasWrapper({
   initialNodes,
   initialEdges,
   teamId,
-  shareToken,
-  isPubliclyShared,
 }: TeamCanvasWrapperProps) {
   const setNodes = useTeamStore((state) => state.setNodes);
   const setEdges = useTeamStore((state) => state.setEdges);
@@ -47,11 +43,7 @@ export function TeamCanvasWrapper({
     <ReactFlowProvider>
       <div className="relative h-full w-full">
         <div className="absolute top-4 left-4 z-20">
-          <ShareTeamDialog
-            teamId={teamId}
-            initialShareToken={shareToken}
-            initialIsPubliclyShared={isPubliclyShared}
-          />
+          <ShareTeamDialog teamId={teamId} />
         </div>
 
         <TeamCanvas />

@@ -23,7 +23,12 @@ import {
   useTeamStoreApi,
 } from "../store/team-store";
 
-export type TeamEdge = Edge;
+export type TeamEdgeData = {
+  /** When true, hides action buttons (for public views) */
+  readOnly?: boolean;
+};
+
+export type TeamEdge = Edge<TeamEdgeData>;
 
 export function TeamEdge({
   id,
@@ -32,6 +37,7 @@ export function TeamEdge({
   style = {},
   markerEnd,
   selected,
+  data,
 }: EdgeProps<TeamEdge>) {
   const sourceNode = useInternalNode(source);
   const targetNode = useInternalNode(target);
@@ -147,6 +153,8 @@ export function TeamEdge({
   // Update the position ref each render so onMutate has access to current values
   positionRef.current = { x: labelX, y: labelY };
 
+  const isReadOnly = data?.readOnly ?? false;
+
   return (
     <>
       <BaseEdge
@@ -159,15 +167,17 @@ export function TeamEdge({
           pointerEvents: "auto",
         }}
       />
-      <EdgeActionButtons
-        labelX={labelX}
-        labelY={labelY}
-        selected={selected}
-        onAdd={handleAddRole}
-        onDelete={handleDeleteEdge}
-        isAdding={createRole.isPending}
-        addTitle="Add role between"
-      />
+      {!isReadOnly && (
+        <EdgeActionButtons
+          labelX={labelX}
+          labelY={labelY}
+          selected={selected}
+          onAdd={handleAddRole}
+          onDelete={handleDeleteEdge}
+          isAdding={createRole.isPending}
+          addTitle="Add role between"
+        />
+      )}
     </>
   );
 }

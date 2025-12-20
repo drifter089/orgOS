@@ -8,7 +8,7 @@ import {
   useInternalNode,
 } from "@xyflow/react";
 
-import { getFloatingEdgeParams } from "@/lib/canvas/edges/floating-edge-utils";
+import { getFloatingEdgeParams } from "@/lib/canvas";
 
 export type PublicTeamEdge = Edge;
 
@@ -31,7 +31,6 @@ export function PublicTeamEdge({
     sourceNode,
     targetNode,
   );
-
   const [edgePath] = getBezierPath({
     sourceX: sx,
     sourceY: sy,
@@ -48,8 +47,8 @@ export function PublicTeamEdge({
       markerEnd={markerEnd}
       style={{
         ...style,
-        stroke: "#b1b1b7",
         strokeWidth: selected ? 2 : 1.5,
+        pointerEvents: "auto",
       }}
     />
   );

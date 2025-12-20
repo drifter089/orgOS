@@ -133,7 +133,9 @@ export const teamRouter = createTRPCRouter({
     }),
 
   /**
-   * Set public sharing on or off. If enabling and no token exists, generates one.
+   * Set public sharing on or off.
+   * - When enabling: Always generates a NEW token (invalidates any previous links)
+   * - When disabling: Clears the token entirely (old links stop working immediately)
    */
   setPublicSharing: workspaceProcedure
     .input(z.object({ teamId: z.string(), enabled: z.boolean() }))
@@ -146,16 +148,11 @@ export const teamRouter = createTRPCRouter({
       );
 
       if (input.enabled) {
-        // When enabling, ensure there's a share token
-        const team = await ctx.db.team.findUnique({
-          where: { id: input.teamId },
-          select: { shareToken: true },
-        });
-
-        return ctx.db.team.update({
+        // When enabling, ALWAYS generate a new token (security: invalidates old links)
+        const result = await ctx.db.team.update({
           where: { id: input.teamId },
           data: {
-            shareToken: team?.shareToken ?? randomUUID(),
+            shareToken: randomUUID(),
             isPubliclyShared: true,
           },
           select: {
@@ -164,17 +161,30 @@ export const teamRouter = createTRPCRouter({
             isPubliclyShared: true,
           },
         });
+
+        // Invalidate cache so old tokens are rejected immediately
+        await invalidateCacheByTags(ctx.db, [`team_${input.teamId}`]);
+
+        return result;
       } else {
-        // When disabling, just update the flag
-        return ctx.db.team.update({
+        // When disabling, CLEAR the token (security: prevents reuse if re-enabled)
+        const result = await ctx.db.team.update({
           where: { id: input.teamId },
-          data: { isPubliclyShared: false },
+          data: {
+            shareToken: null,
+            isPubliclyShared: false,
+          },
           select: {
             id: true,
             shareToken: true,
             isPubliclyShared: true,
           },
         });
+
+        // Invalidate cache so token rejection is immediate
+        await invalidateCacheByTags(ctx.db, [`team_${input.teamId}`]);
+
+        return result;
       }
     }),
 
@@ -191,7 +201,7 @@ export const teamRouter = createTRPCRouter({
         ctx.workspace,
       );
 
-      return ctx.db.team.update({
+      const result = await ctx.db.team.update({
         where: { id: input.teamId },
         data: {
           shareToken: randomUUID(),
@@ -203,5 +213,10 @@ export const teamRouter = createTRPCRouter({
           isPubliclyShared: true,
         },
       });
+
+      // Invalidate cache so old tokens are rejected immediately
+      await invalidateCacheByTags(ctx.db, [`team_${input.teamId}`]);
+
+      return result;
     }),
 });

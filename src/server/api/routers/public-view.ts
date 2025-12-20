@@ -4,9 +4,10 @@ import { z } from "zod";
 import { createTRPCRouter, publicProcedure } from "@/server/api/trpc";
 import {
   authCheckCache,
-  cacheStrategy,
+  cacheStrategyWithTags,
   dashboardCache,
 } from "@/server/api/utils/cache-strategy";
+import { enrichChartsWithGoalProgress } from "@/server/api/utils/enrich-charts-with-goal-progress";
 
 // Read-only procedures for publicly shared teams/dashboards (no auth required)
 export const publicViewRouter = createTRPCRouter({
@@ -17,10 +18,20 @@ export const publicViewRouter = createTRPCRouter({
         where: { id: input.teamId },
         include: {
           roles: {
-            include: { metric: true },
+            include: {
+              metric: {
+                include: {
+                  // Include dashboardCharts for metric value display on role nodes
+                  dashboardCharts: {
+                    take: 1,
+                    orderBy: { position: "asc" },
+                  },
+                },
+              },
+            },
           },
         },
-        ...cacheStrategy(authCheckCache),
+        ...cacheStrategyWithTags(authCheckCache, [`team_${input.teamId}`]),
       });
 
       if (!team) {
@@ -52,7 +63,7 @@ export const publicViewRouter = createTRPCRouter({
           shareToken: true,
           organizationId: true,
         },
-        ...cacheStrategy(authCheckCache),
+        ...cacheStrategyWithTags(authCheckCache, [`team_${input.teamId}`]),
       });
 
       if (!team) {
@@ -79,19 +90,33 @@ export const publicViewRouter = createTRPCRouter({
             include: {
               integration: true,
               roles: true,
+              goal: true, // Include goal data for goalProgress display
+            },
+          },
+          chartTransformer: {
+            select: {
+              chartType: true,
+              cadence: true,
+              userPrompt: true,
             },
           },
         },
         orderBy: { position: "asc" },
-        ...cacheStrategy(dashboardCache),
+        ...cacheStrategyWithTags(dashboardCache, [`team_${input.teamId}`]),
       });
+
+      // Enrich charts with goal progress and value labels
+      const enrichedCharts = await enrichChartsWithGoalProgress(
+        dashboardCharts,
+        ctx.db,
+      );
 
       return {
         team: {
           id: team.id,
           name: team.name,
         },
-        dashboardCharts,
+        dashboardCharts: enrichedCharts,
       };
     }),
 });

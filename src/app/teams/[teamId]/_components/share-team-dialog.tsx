@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 
 import {
   Check,
@@ -29,70 +29,36 @@ import { api } from "@/trpc/react";
 
 interface ShareTeamDialogProps {
   teamId: string;
-  initialShareToken: string | null;
-  initialIsPubliclyShared: boolean;
 }
 
-export function ShareTeamDialog({
-  teamId,
-  initialShareToken,
-  initialIsPubliclyShared,
-}: ShareTeamDialogProps) {
+/**
+ * Dialog for managing public sharing of a team.
+ * Uses a simple fetch → mutate → invalidate pattern for reliable state.
+ */
+export function ShareTeamDialog({ teamId }: ShareTeamDialogProps) {
   const [open, setOpen] = useState(false);
   const [copiedLink, setCopiedLink] = useState<"team" | "dashboard" | null>(
     null,
   );
 
-  const [optimisticShared, setOptimisticShared] = useState(
-    initialIsPubliclyShared,
-  );
-  const [optimisticToken, setOptimisticToken] = useState(initialShareToken);
-
   const utils = api.useUtils();
 
-  const { data: team } = api.team.getById.useQuery(
+  // Fetch fresh data when dialog opens
+  const { data: team, isLoading } = api.team.getById.useQuery(
     { id: teamId },
-    {
-      enabled: open,
-    },
+    { enabled: open },
   );
 
-  useEffect(() => {
-    if (team) {
-      setOptimisticShared(team.isPubliclyShared);
-      setOptimisticToken(team.shareToken);
-    }
-  }, [team]);
-
-  useEffect(() => {
-    if (open && !team) {
-      setOptimisticShared(initialIsPubliclyShared);
-      setOptimisticToken(initialShareToken);
-    }
-  }, [open, team, initialIsPubliclyShared, initialShareToken]);
-
   const setPublicSharingMutation = api.team.setPublicSharing.useMutation({
-    onMutate: (variables) => {
-      const previousShared = optimisticShared;
-      const previousToken = optimisticToken;
-      setOptimisticShared(variables.enabled);
-      return { previousShared, previousToken };
-    },
     onSuccess: (data) => {
-      setOptimisticToken(data.shareToken);
-      setOptimisticShared(data.isPubliclyShared);
       void utils.team.getById.invalidate({ id: teamId });
       toast.success(
         data.isPubliclyShared
-          ? "Public sharing enabled"
-          : "Public sharing disabled",
+          ? "Public sharing enabled - new link generated"
+          : "Public sharing disabled - all links invalidated",
       );
     },
-    onError: (error, _variables, context) => {
-      if (context) {
-        setOptimisticShared(context.previousShared);
-        setOptimisticToken(context.previousToken);
-      }
+    onError: (error) => {
       toast.error("Failed to update sharing settings", {
         description: error.message,
       });
@@ -100,23 +66,11 @@ export function ShareTeamDialog({
   });
 
   const regenerateTokenMutation = api.team.regenerateShareToken.useMutation({
-    onMutate: () => {
-      const previousShared = optimisticShared;
-      const previousToken = optimisticToken;
-      setOptimisticShared(true);
-      return { previousShared, previousToken };
-    },
-    onSuccess: (data) => {
-      setOptimisticToken(data.shareToken);
-      setOptimisticShared(true);
+    onSuccess: () => {
       void utils.team.getById.invalidate({ id: teamId });
-      toast.success("Share links regenerated");
+      toast.success("Share links regenerated - old links no longer work");
     },
-    onError: (error, _variables, context) => {
-      if (context) {
-        setOptimisticShared(context.previousShared);
-        setOptimisticToken(context.previousToken);
-      }
+    onError: (error) => {
       toast.error("Failed to regenerate share links", {
         description: error.message,
       });
@@ -126,9 +80,8 @@ export function ShareTeamDialog({
   const isMutating =
     setPublicSharingMutation.isPending || regenerateTokenMutation.isPending;
 
-  const isGenerating =
-    regenerateTokenMutation.isPending ||
-    (setPublicSharingMutation.isPending && !optimisticToken);
+  const isShared = team?.isPubliclyShared ?? false;
+  const shareToken = team?.shareToken ?? null;
 
   const handleToggleSharing = (enabled: boolean) => {
     setPublicSharingMutation.mutate({ teamId, enabled });
@@ -139,9 +92,9 @@ export function ShareTeamDialog({
   };
 
   const getShareUrl = (type: "team" | "dashboard") => {
-    if (typeof window === "undefined" || !optimisticToken) return "";
+    if (typeof window === "undefined" || !shareToken) return "";
     const baseUrl = window.location.origin;
-    return `${baseUrl}/public/${type}/${teamId}?token=${optimisticToken}`;
+    return `${baseUrl}/public/${type}/${teamId}?token=${shareToken}`;
   };
 
   const handleCopy = async (type: "team" | "dashboard") => {
@@ -167,9 +120,6 @@ export function ShareTeamDialog({
     }
   };
 
-  const showLinks = optimisticShared && optimisticToken && !isGenerating;
-  const showLoading = isGenerating;
-
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
@@ -182,125 +132,128 @@ export function ShareTeamDialog({
         <DialogHeader>
           <DialogTitle>Share Team</DialogTitle>
           <DialogDescription>
-            Share a read-only view of your team canvas or dashboard with anyone.
+            Share a read-only view of your team canvas and dashboard with
+            anyone. Disabling sharing invalidates all existing links.
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4 py-4">
-          <div className="flex items-center justify-between rounded-lg border px-4 py-3">
-            <div className="flex items-center gap-3">
-              <Link2 className="text-muted-foreground h-5 w-5" />
-              <div>
-                <Label htmlFor="share-toggle" className="text-sm font-medium">
-                  Public sharing
-                </Label>
-                <p className="text-muted-foreground text-xs">
-                  Anyone with the link can view
-                </p>
-              </div>
-            </div>
-            <Switch
-              id="share-toggle"
-              checked={optimisticShared}
-              onCheckedChange={handleToggleSharing}
-              disabled={isMutating}
-            />
+        {isLoading ? (
+          <div className="flex items-center justify-center py-8">
+            <Loader2 className="text-muted-foreground h-6 w-6 animate-spin" />
           </div>
-
-          {showLoading && (
-            <div className="flex items-center justify-center py-8">
-              <Loader2 className="text-muted-foreground h-6 w-6 animate-spin" />
-              <span className="text-muted-foreground ml-2 text-sm">
-                Generating share links...
-              </span>
-            </div>
-          )}
-
-          {showLinks && (
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <Label className="text-sm font-medium">Team Canvas</Label>
-                <div className="flex gap-2">
-                  <Input
-                    readOnly
-                    value={getShareUrl("team")}
-                    className="text-sm"
-                  />
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    className="flex-shrink-0"
-                    onClick={() => handleCopy("team")}
-                    title="Copy link"
-                  >
-                    {copiedLink === "team" ? (
-                      <Check className="h-4 w-4 text-green-500" />
-                    ) : (
-                      <Copy className="h-4 w-4" />
-                    )}
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    className="flex-shrink-0"
-                    onClick={() => handleOpenPreview("team")}
-                    title="Open in new tab"
-                  >
-                    <ExternalLink className="h-4 w-4" />
-                  </Button>
+        ) : (
+          <div className="space-y-4 py-4">
+            {/* Toggle */}
+            <div className="flex items-center justify-between rounded-lg border px-4 py-3">
+              <div className="flex items-center gap-3">
+                <Link2 className="text-muted-foreground h-5 w-5" />
+                <div>
+                  <Label htmlFor="share-toggle" className="text-sm font-medium">
+                    Public sharing
+                  </Label>
+                  <p className="text-muted-foreground text-xs">
+                    Anyone with the link can view
+                  </p>
                 </div>
               </div>
-
-              <div className="space-y-2">
-                <Label className="text-sm font-medium">Dashboard</Label>
-                <div className="flex gap-2">
-                  <Input
-                    readOnly
-                    value={getShareUrl("dashboard")}
-                    className="text-sm"
-                  />
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    className="flex-shrink-0"
-                    onClick={() => handleCopy("dashboard")}
-                    title="Copy link"
-                  >
-                    {copiedLink === "dashboard" ? (
-                      <Check className="h-4 w-4 text-green-500" />
-                    ) : (
-                      <Copy className="h-4 w-4" />
-                    )}
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    className="flex-shrink-0"
-                    onClick={() => handleOpenPreview("dashboard")}
-                    title="Open in new tab"
-                  >
-                    <ExternalLink className="h-4 w-4" />
-                  </Button>
-                </div>
-              </div>
-
-              <Button
-                variant="ghost"
-                size="sm"
-                className="text-muted-foreground w-full"
-                onClick={handleRegenerateToken}
+              <Switch
+                id="share-toggle"
+                checked={isShared}
+                onCheckedChange={handleToggleSharing}
                 disabled={isMutating}
-              >
-                {regenerateTokenMutation.isPending ? (
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                ) : (
-                  <RefreshCw className="mr-2 h-4 w-4" />
-                )}
-                Regenerate share links
-              </Button>
+              />
             </div>
-          )}
-        </div>
+
+            {/* Links - only show when sharing is enabled */}
+            {isShared && shareToken && (
+              <div className="space-y-4">
+                {/* Team Canvas Link */}
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium">Team Canvas</Label>
+                  <div className="flex gap-2">
+                    <Input
+                      readOnly
+                      value={getShareUrl("team")}
+                      className="text-sm"
+                    />
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      className="flex-shrink-0"
+                      onClick={() => handleCopy("team")}
+                      title="Copy link"
+                    >
+                      {copiedLink === "team" ? (
+                        <Check className="h-4 w-4 text-green-500" />
+                      ) : (
+                        <Copy className="h-4 w-4" />
+                      )}
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      className="flex-shrink-0"
+                      onClick={() => handleOpenPreview("team")}
+                      title="Open in new tab"
+                    >
+                      <ExternalLink className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+
+                {/* Dashboard Link */}
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium">Dashboard</Label>
+                  <div className="flex gap-2">
+                    <Input
+                      readOnly
+                      value={getShareUrl("dashboard")}
+                      className="text-sm"
+                    />
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      className="flex-shrink-0"
+                      onClick={() => handleCopy("dashboard")}
+                      title="Copy link"
+                    >
+                      {copiedLink === "dashboard" ? (
+                        <Check className="h-4 w-4 text-green-500" />
+                      ) : (
+                        <Copy className="h-4 w-4" />
+                      )}
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      className="flex-shrink-0"
+                      onClick={() => handleOpenPreview("dashboard")}
+                      title="Open in new tab"
+                    >
+                      <ExternalLink className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+
+                {/* Regenerate Button */}
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="text-muted-foreground w-full"
+                  onClick={handleRegenerateToken}
+                  disabled={isMutating}
+                >
+                  {regenerateTokenMutation.isPending ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : (
+                    <RefreshCw className="mr-2 h-4 w-4" />
+                  )}
+                  Regenerate share links (invalidates old links)
+                </Button>
+              </div>
+            )}
+          </div>
+        )}
       </DialogContent>
     </Dialog>
   );

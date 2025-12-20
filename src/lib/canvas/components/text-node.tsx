@@ -41,6 +41,8 @@ export type TextNodeConfig = {
   placeholder?: string;
   /** Whether to show visible border in non-editing state (default: false) */
   showBorder?: boolean;
+  /** When true, hides resizer and toolbar, disables editing (for public views) */
+  readOnly?: boolean;
 };
 
 const FONT_SIZE_OPTIONS: { value: TextNodeFontSize; label: string }[] = [
@@ -82,9 +84,11 @@ function TextNodeInner({
     minHeight = 24,
     placeholder = "Type...",
     showBorder = false,
+    readOnly = false,
   } = config ?? {};
 
-  const isEditing = editingTextNodeId === id;
+  // In readOnly mode, never allow editing
+  const isEditing = !readOnly && editingTextNodeId === id;
   const fontSize = data.fontSize ?? "medium";
   const fontSizePx = FONT_SIZE_VALUES[fontSize];
 
@@ -133,8 +137,10 @@ function TextNodeInner({
   }, [isEditing, autoResize]);
 
   const handleDoubleClick = useCallback(() => {
-    setEditingTextNodeId(id);
-  }, [id, setEditingTextNodeId]);
+    if (!readOnly) {
+      setEditingTextNodeId(id);
+    }
+  }, [id, setEditingTextNodeId, readOnly]);
 
   const handleSave = useCallback(() => {
     updateTextNodeContent(id, localText);
@@ -189,54 +195,60 @@ function TextNodeInner({
       className="group relative h-full w-full"
       onDoubleClick={handleDoubleClick}
     >
-      <NodeResizer
-        isVisible={selected}
-        minWidth={minWidth}
-        minHeight={minHeight}
-        lineClassName="!border-primary/40"
-        handleClassName="!h-1.5 !w-1.5 !rounded-full !border-primary/60 !bg-background"
-      />
+      {/* NodeResizer - hidden in readOnly mode */}
+      {!readOnly && (
+        <NodeResizer
+          isVisible={selected}
+          minWidth={minWidth}
+          minHeight={minHeight}
+          lineClassName="!border-primary/40"
+          handleClassName="!h-1.5 !w-1.5 !rounded-full !border-primary/60 !bg-background"
+        />
+      )}
 
-      <div
-        className={cn(
-          "nodrag bg-background absolute -top-8 left-0 z-10 flex items-center gap-1 rounded-md border px-1 py-0.5 shadow-sm transition-opacity",
-          isEditing ? "opacity-100" : "opacity-0 group-hover:opacity-100",
-        )}
-      >
-        {FONT_SIZE_OPTIONS.map((option) => (
-          <button
-            key={option.value}
+      {/* Toolbar - hidden in readOnly mode */}
+      {!readOnly && (
+        <div
+          className={cn(
+            "nodrag bg-background absolute -top-8 left-0 z-10 flex items-center gap-1 rounded-md border px-1 py-0.5 shadow-sm transition-opacity",
+            isEditing ? "opacity-100" : "opacity-0 group-hover:opacity-100",
+          )}
+        >
+          {FONT_SIZE_OPTIONS.map((option) => (
+            <button
+              key={option.value}
+              onClick={(e) => {
+                e.stopPropagation();
+                handleFontSizeChange(option.value);
+              }}
+              onMouseDown={(e) => e.preventDefault()}
+              className={cn(
+                "h-6 w-6 rounded text-xs font-medium transition-colors",
+                fontSize === option.value
+                  ? "bg-primary text-primary-foreground"
+                  : "hover:bg-accent",
+              )}
+            >
+              {option.label}
+            </button>
+          ))}
+
+          <div className="bg-border mx-1 h-4 w-px" />
+
+          <Button
+            variant="ghost"
+            size="icon"
             onClick={(e) => {
               e.stopPropagation();
-              handleFontSizeChange(option.value);
+              handleDelete();
             }}
             onMouseDown={(e) => e.preventDefault()}
-            className={cn(
-              "h-6 w-6 rounded text-xs font-medium transition-colors",
-              fontSize === option.value
-                ? "bg-primary text-primary-foreground"
-                : "hover:bg-accent",
-            )}
+            className="hover:bg-destructive/10 hover:text-destructive h-6 w-6"
           >
-            {option.label}
-          </button>
-        ))}
-
-        <div className="bg-border mx-1 h-4 w-px" />
-
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={(e) => {
-            e.stopPropagation();
-            handleDelete();
-          }}
-          onMouseDown={(e) => e.preventDefault()}
-          className="hover:bg-destructive/10 hover:text-destructive h-6 w-6"
-        >
-          <Trash2 className="h-3 w-3" />
-        </Button>
-      </div>
+            <Trash2 className="h-3 w-3" />
+          </Button>
+        </div>
+      )}
 
       <div
         className={cn(

@@ -3,9 +3,8 @@
 import { memo } from "react";
 
 import { Handle, type Node, type NodeProps, Position } from "@xyflow/react";
-import { Gauge, TrendingUp, User } from "lucide-react";
+import { Gauge, Loader2, TrendingUp, User } from "lucide-react";
 
-import { Badge } from "@/components/ui/badge";
 import {
   Tooltip,
   TooltipContent,
@@ -13,23 +12,17 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { stripHtml } from "@/lib/html-utils";
+import { getLatestMetricValue } from "@/lib/metrics/get-latest-value";
+import type { ChartTransformResult } from "@/lib/metrics/transformer-types";
 import { cn } from "@/lib/utils";
 
-import { RoleViewDialog } from "./role-view-dialog";
+import {
+  type PublicRoleData,
+  usePublicRoleData,
+} from "../../../_hooks/use-public-role-data";
 
 export type PublicRoleNodeData = {
   roleId: string;
-  title: string;
-  purpose: string;
-  accountabilities?: string;
-  metricId?: string;
-  metricName?: string;
-  metricValue?: number;
-  metricUnit?: string;
-  assignedUserId?: string | null;
-  assignedUserName?: string;
-  effortPoints?: number | null;
-  color?: string;
 };
 
 export type PublicRoleNode = Node<PublicRoleNodeData, "role-node">;
@@ -38,10 +31,25 @@ function PublicRoleNodeComponent({
   data,
   selected,
 }: NodeProps<PublicRoleNode>) {
-  const color = data.color ?? "#3b82f6";
+  const role: PublicRoleData | undefined = usePublicRoleData(data.roleId);
 
-  // Strip HTML and truncate for display
-  const plainPurpose = stripHtml(data.purpose);
+  const title = role?.title ?? "Untitled Role";
+  const purpose = role?.purpose ?? "";
+  const color = role?.color ?? "#3b82f6";
+  const metricName = role?.metric?.name;
+  const effortPoints = role?.effortPoints;
+
+  const dashboardCharts = role?.metric?.dashboardCharts;
+  const chartConfig = dashboardCharts?.[0]?.chartConfig as
+    | ChartTransformResult
+    | null
+    | undefined;
+  const latestMetric = getLatestMetricValue(chartConfig ?? null);
+  const metricValue = latestMetric?.value;
+  const metricDate = latestMetric?.date;
+  const isValueLoading = Boolean(metricName && dashboardCharts?.length === 0);
+
+  const plainPurpose = stripHtml(purpose);
   const truncatedPurpose =
     plainPurpose.length > 100
       ? plainPurpose.substring(0, 100) + "..."
@@ -77,10 +85,6 @@ function PublicRoleNodeComponent({
         )}
       />
 
-      <div className="nodrag absolute top-1 right-1 z-10 opacity-0 transition-opacity group-hover:opacity-100">
-        <RoleViewDialog data={data} />
-      </div>
-
       <div
         className="flex shrink-0 items-center gap-2 rounded-t-md px-4 py-2"
         style={{
@@ -88,7 +92,7 @@ function PublicRoleNodeComponent({
         }}
       >
         <User className="h-5 w-5" style={{ color }} />
-        <h3 className="truncate text-sm font-semibold">{data.title}</h3>
+        <h3 className="truncate text-sm font-semibold">{title}</h3>
       </div>
 
       <div className="flex min-h-0 flex-1 flex-col gap-1.5 overflow-hidden px-4 py-2">
@@ -108,34 +112,37 @@ function PublicRoleNodeComponent({
         </TooltipProvider>
 
         <div className="mt-auto space-y-1">
-          {data.metricName && (
-            <div className="flex items-center gap-2 text-xs">
-              <TrendingUp className="text-muted-foreground h-3 w-3 shrink-0" />
-              <span className="truncate font-medium">{data.metricName}</span>
-              {data.metricValue !== undefined && data.metricValue !== null && (
-                <Badge variant="secondary" className="shrink-0 text-xs">
-                  {data.metricValue.toFixed(1)} {data.metricUnit ?? ""}
-                </Badge>
+          {metricName && (
+            <div className="space-y-0.5">
+              <div className="flex items-center gap-2 text-xs">
+                <TrendingUp className="text-muted-foreground h-3 w-3 shrink-0" />
+                <span className="truncate font-medium">{metricName}</span>
+                {isValueLoading ? (
+                  <Loader2 className="text-muted-foreground ml-auto h-3 w-3 shrink-0 animate-spin" />
+                ) : metricValue !== undefined ? (
+                  <span className="text-primary ml-auto shrink-0 font-semibold">
+                    {Number.isInteger(metricValue)
+                      ? metricValue
+                      : metricValue.toFixed(1)}
+                  </span>
+                ) : null}
+              </div>
+              {metricDate && (
+                <p className="text-muted-foreground/70 pl-5 text-[10px]">
+                  {metricDate}
+                </p>
               )}
-            </div>
-          )}
-          {data.assignedUserName && (
-            <div className="flex items-center gap-2 text-xs">
-              <User className="text-muted-foreground h-3 w-3 shrink-0" />
-              <span className="truncate font-medium">
-                {data.assignedUserName}
-              </span>
             </div>
           )}
         </div>
       </div>
 
-      {data.effortPoints && (
+      {effortPoints && (
         <div className="border-border/50 shrink-0 border-t px-4 py-1.5">
           <div className="text-muted-foreground flex items-center gap-1.5 text-xs">
             <Gauge className="h-3.5 w-3.5" />
             <span>
-              {data.effortPoints} {data.effortPoints === 1 ? "point" : "points"}
+              {effortPoints} {effortPoints === 1 ? "point" : "points"}
             </span>
           </div>
         </div>
