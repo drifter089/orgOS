@@ -2,12 +2,13 @@
 
 import { useCallback, useState } from "react";
 
-import { AlertCircle, BarChart3, Bug, Settings, Target } from "lucide-react";
+import { AlertCircle, Bug, Settings } from "lucide-react";
 import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Card } from "@/components/ui/card";
+import { Drawer, DrawerContent, DrawerTrigger } from "@/components/ui/drawer";
 import {
   Tooltip,
   TooltipContent,
@@ -20,8 +21,7 @@ import type { RouterOutputs } from "@/trpc/react";
 import { api } from "@/trpc/react";
 
 import { DashboardMetricChart } from "./dashboard-metric-chart";
-import { DashboardMetricGoalsRoles } from "./dashboard-metric-goals-roles";
-import { DashboardMetricSettings } from "./dashboard-metric-settings";
+import { DashboardMetricDrawer } from "./dashboard-metric-drawer";
 
 type DashboardMetrics = RouterOutputs["dashboard"]["getDashboardCharts"];
 type DashboardMetricWithRelations = DashboardMetrics[number];
@@ -48,9 +48,8 @@ interface DashboardMetricCardProps {
 export function DashboardMetricCard({
   dashboardMetric,
 }: DashboardMetricCardProps) {
-  const [prompt, setPrompt] = useState("");
+  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [activeTab, setActiveTab] = useState("chart");
 
   const utils = api.useUtils();
   const { confirm } = useConfirmation();
@@ -258,143 +257,107 @@ export function DashboardMetricCard({
   const title = chartTransform?.title ?? metric.name;
 
   return (
-    <Tabs
-      value={activeTab}
-      onValueChange={setActiveTab}
-      className="relative h-[420px]"
-    >
-      {/* Error indicator */}
-      {hasError && (
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Badge
-              variant="destructive"
-              className="absolute top-4 left-3 z-10 h-6 gap-1 px-2"
-            >
-              <AlertCircle className="h-3 w-3" />
-              <span className="text-xs">Error</span>
-            </Badge>
-          </TooltipTrigger>
-          <TooltipContent side="bottom" className="max-w-[300px]">
-            <p className="text-sm">{metric.lastError}</p>
-          </TooltipContent>
-        </Tooltip>
-      )}
-
-      <TabsList className="absolute top-0 right-0 z-10 h-7 gap-0 border-b border-l bg-transparent p-0">
-        <TabsTrigger
-          value="chart"
-          className="data-[state=active]:bg-muted data-[state=active]:text-foreground text-muted-foreground hover:bg-muted/50 hover:text-foreground h-7 rounded-none border-r px-3 text-xs transition-colors"
-        >
-          <BarChart3 className="h-3 w-3" />
-        </TabsTrigger>
-        {metric.teamId && (
-          <TabsTrigger
-            value="goals-roles"
-            className="data-[state=active]:bg-muted data-[state=active]:text-foreground text-muted-foreground hover:bg-muted/50 hover:text-foreground h-7 rounded-none border-r px-3 text-xs transition-colors"
-          >
-            <Target className="h-3 w-3" />
-          </TabsTrigger>
+    <Drawer open={isDrawerOpen} onOpenChange={setIsDrawerOpen}>
+      <Card className="relative h-[420px]">
+        {/* Error indicator */}
+        {hasError && (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Badge
+                variant="destructive"
+                className="absolute top-4 left-3 z-10 h-6 gap-1 px-2"
+              >
+                <AlertCircle className="h-3 w-3" />
+                <span className="text-xs">Error</span>
+              </Badge>
+            </TooltipTrigger>
+            <TooltipContent side="bottom" className="max-w-[300px]">
+              <p className="text-sm">{metric.lastError}</p>
+            </TooltipContent>
+          </Tooltip>
         )}
-        {isIntegrationMetric && (
-          <TabsTrigger
-            value="settings"
-            className="data-[state=active]:bg-muted data-[state=active]:text-foreground text-muted-foreground hover:bg-muted/50 hover:text-foreground h-7 rounded-none px-3 text-xs transition-colors"
+
+        {/* Settings trigger - top right */}
+        <DrawerTrigger asChild>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="absolute top-2 right-2 z-10 h-7 w-7"
           >
-            <Settings className="h-3 w-3" />
-          </TabsTrigger>
+            <Settings className="h-4 w-4" />
+          </Button>
+        </DrawerTrigger>
+
+        {/* Dev Tool Button - Only visible in development mode */}
+        {isDevMode() && (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-muted-foreground absolute top-0 left-0 z-10 h-7 w-7 p-0 hover:text-amber-600"
+                onClick={() => {
+                  window.open(`/dev-metric-tool/${metric.id}`, "_blank");
+                }}
+              >
+                <Bug className="h-3.5 w-3.5" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="right">
+              <p className="text-xs">Open Pipeline Debug Tool</p>
+            </TooltipContent>
+          </Tooltip>
         )}
-      </TabsList>
 
-      {/* Dev Tool Button - Only visible in development mode */}
-      {isDevMode() && (
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="text-muted-foreground absolute top-0 left-0 z-10 h-7 w-7 p-0 hover:text-amber-600"
-              onClick={() => {
-                window.open(`/dev-metric-tool/${metric.id}`, "_blank");
-              }}
-            >
-              <Bug className="h-3.5 w-3.5" />
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent side="right">
-            <p className="text-xs">Open Pipeline Debug Tool</p>
-          </TooltipContent>
-        </Tooltip>
-      )}
+        {/* Chart content - directly rendered */}
+        <DashboardMetricChart
+          title={title}
+          chartTransform={chartTransform}
+          hasChartData={hasChartData}
+          isIntegrationMetric={isIntegrationMetric}
+          isPending={isPending}
+          isProcessing={isProcessing}
+          integrationId={metric.integration?.providerId}
+          roles={roles}
+          goal={metric.goal}
+          goalProgress={dashboardMetric.goalProgress}
+          valueLabel={dashboardMetric.valueLabel}
+        />
+      </Card>
 
-      <div className="relative h-full w-full overflow-hidden">
-        <TabsContent
-          value="chart"
-          className="animate-tab-slide-in absolute inset-0 m-0 data-[state=inactive]:hidden"
-        >
-          <DashboardMetricChart
-            title={title}
+      <DrawerContent>
+        <div className="mx-auto w-full max-w-sm">
+          <DashboardMetricDrawer
+            metricId={metric.id}
+            metricName={metric.name}
+            metricDescription={metric.description}
+            teamId={metric.teamId}
             chartTransform={chartTransform}
-            hasChartData={hasChartData}
-            isIntegrationMetric={isIntegrationMetric}
-            isPending={isPending}
-            isProcessing={isProcessing}
-            integrationId={metric.integration?.providerId}
+            currentChartType={
+              dashboardMetric.chartTransformer?.chartType ?? null
+            }
+            currentCadence={dashboardMetric.chartTransformer?.cadence ?? null}
             roles={roles}
+            valueLabel={dashboardMetric.valueLabel ?? null}
+            dataDescription={dashboardMetric.dataDescription ?? null}
+            integrationId={metric.integration?.providerId ?? null}
+            isIntegrationMetric={isIntegrationMetric}
+            lastFetchedAt={metric.lastFetchedAt}
+            lastError={metric.lastError}
+            pollFrequency={metric.pollFrequency}
             goal={metric.goal}
-            goalProgress={dashboardMetric.goalProgress}
-            valueLabel={dashboardMetric.valueLabel}
+            goalProgress={dashboardMetric.goalProgress ?? null}
+            isProcessing={isProcessing}
+            isUpdating={updateMetricMutation.isPending}
+            isDeleting={isPending || deleteMetricMutation.isPending}
+            onRegenerate={handleRegenerate}
+            onRefresh={handleRefresh}
+            onUpdateMetric={handleUpdateMetric}
+            onDelete={handleRemove}
+            onClose={() => setIsDrawerOpen(false)}
           />
-        </TabsContent>
-
-        {metric.teamId && (
-          <TabsContent
-            value="goals-roles"
-            className="animate-tab-slide-in absolute inset-0 m-0 data-[state=inactive]:hidden"
-          >
-            <DashboardMetricGoalsRoles
-              metricId={metric.id}
-              metricName={metric.name}
-              teamId={metric.teamId}
-              roles={roles}
-            />
-          </TabsContent>
-        )}
-
-        {isIntegrationMetric && (
-          <TabsContent
-            value="settings"
-            className="animate-tab-slide-in absolute inset-0 m-0 data-[state=inactive]:hidden"
-          >
-            <DashboardMetricSettings
-              metricName={metric.name}
-              metricDescription={metric.description}
-              chartTransform={chartTransform}
-              hasChartData={hasChartData}
-              integrationId={metric.integration?.providerId ?? null}
-              lastFetchedAt={metric.lastFetchedAt}
-              lastError={metric.lastError}
-              pollFrequency={metric.pollFrequency}
-              isProcessing={isProcessing}
-              isUpdating={updateMetricMutation.isPending}
-              isDeleting={isPending || deleteMetricMutation.isPending}
-              prompt={prompt}
-              currentChartType={
-                dashboardMetric.chartTransformer?.chartType ?? null
-              }
-              currentCadence={dashboardMetric.chartTransformer?.cadence ?? null}
-              roles={roles}
-              dataDescription={dashboardMetric.dataDescription}
-              valueLabel={dashboardMetric.valueLabel}
-              onPromptChange={setPrompt}
-              onRegenerate={handleRegenerate}
-              onRefresh={handleRefresh}
-              onUpdateMetric={handleUpdateMetric}
-              onDelete={handleRemove}
-            />
-          </TabsContent>
-        )}
-      </div>
-    </Tabs>
+        </div>
+      </DrawerContent>
+    </Drawer>
   );
 }
