@@ -16,7 +16,7 @@ import { useTeamStore } from "../store/team-store";
  */
 export function useRoleData(roleId: string) {
   const teamId = useTeamStore((state) => state.teamId);
-  const { data: roles } = api.role.getByTeam.useQuery(
+  const { data: roles } = api.role.getByTeamId.useQuery(
     { teamId },
     { enabled: !!teamId },
   );
@@ -40,7 +40,7 @@ export function useRoleDataWithStatus(roleId: string) {
     data: roles,
     isLoading,
     isError,
-  } = api.role.getByTeam.useQuery(
+  } = api.role.getByTeamId.useQuery(
     { teamId },
     { enabled: !!teamId && !!roleId },
   );

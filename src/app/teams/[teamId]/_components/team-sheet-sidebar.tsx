@@ -128,7 +128,7 @@ function RolesList({
   const { confirm } = useConfirmation();
   const deleteRoleMutation = useDeleteRole(teamId);
 
-  const { data: roles, isLoading } = api.role.getByTeam.useQuery({ teamId });
+  const { data: roles, isLoading } = api.role.getByTeamId.useQuery({ teamId });
 
   if (isLoading) {
     return (
@@ -267,7 +267,7 @@ export function TeamSheetSidebar({
   const { data: members, isLoading: membersLoading } =
     api.organization.getMembers.useQuery();
 
-  const { data: teamRoles } = api.role.getByTeam.useQuery({ teamId });
+  const { data: teamRoles } = api.role.getByTeamId.useQuery({ teamId });
   const nodes = useTeamStore((state) => state.nodes);
 
   const handleRoleClick = (roleId: string) => {

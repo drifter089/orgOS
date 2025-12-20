@@ -40,7 +40,7 @@ import {
   DropdownMenuContentNoPortal,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { useThemeToggle } from "@/components/ui/skiper-ui/skiper26";
+import { useThemeToggle } from "@/hooks/use-theme-toggle";
 import type { BreadcrumbItem } from "@/lib/nav-tree";
 import { cn } from "@/lib/utils";
 import { api } from "@/trpc/react";

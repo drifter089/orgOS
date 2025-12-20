@@ -1,8 +1,6 @@
 # Codebase Cleanup Plan
 
-Updated after PR #191 cleanup (removed ~6,500 lines of demo pages).
-
----
+This plan outlines all cleanup tasks identified during the comprehensive codebase analysis.
 
 ## Phase 1: Security Fixes (CRITICAL)
 
@@ -11,7 +9,7 @@ Updated after PR #191 cleanup (removed ~6,500 lines of demo pages).
 **File:** `src/server/api/routers/metric.ts` (lines 49-55)
 
 ```tsx
-// BEFORE (insecure - can access any metric by ID)
+// BEFORE (insecure)
 getById: workspaceProcedure
   .input(z.object({ id: z.string() }))
   .query(async ({ ctx, input }) => {
@@ -40,13 +38,12 @@ Add team ownership verification before querying metrics.
 
 **Files to delete:**
 
-- [ ] `src/app/_components/benefits-section.tsx` (198 lines)
-- [ ] `src/app/_components/cta-section.tsx` (114 lines)
-- [ ] `src/app/_components/hero-section.tsx` (105 lines)
-- [ ] `src/app/_components/demo-charts.tsx` (~50 lines)
-- [ ] `src/app/_components/features-carousel.tsx` (306 lines)
-- [ ] `src/app/_components/features-carousel-v2.tsx` (298 lines)
-- [ ] `src/app/_components/features-product-carousel.tsx` (223 lines)
+- [ ] `src/app/_components/benefits-section.tsx`
+- [ ] `src/app/_components/cta-section.tsx`
+- [ ] `src/app/_components/demo-charts.tsx`
+- [ ] `src/app/_components/features-carousel.tsx`
+- [ ] `src/app/_components/features-carousel-v2.tsx`
+- [ ] `src/app/_components/features-product-carousel.tsx`
 
 **Update index.ts:**
 
@@ -57,56 +54,37 @@ Add team ownership verification before querying metrics.
 **Directory to delete:**
 
 - [ ] `src/app/_components/feature-demos/` (entire folder)
-  - collaboration-demo.tsx
-  - metrics-tracking-demo.tsx
-  - mini-chart-demo.tsx
-  - mini-role-canvas.tsx
-  - visual-org-structure.tsx
+  - CollaborationDemo.tsx
+  - MetricsTrackingDemo.tsx
+  - MiniChartDemo.tsx
+  - MiniRoleCanvas.tsx
+  - VisualOrgStructure.tsx
   - index.ts
 
 ### 2.3 Remove Unused Hooks
 
 **Files to delete:**
 
-- [ ] `src/hooks/use-dropdown.tsx` (29 lines) - 0 imports found
-
-**KEEP:**
-
-- `src/hooks/use-mobile.ts` - Used in `src/components/ui/sidebar.tsx`
+- [ ] `src/hooks/use-dropdown.tsx`
+- [ ] `src/hooks/use-mobile.ts`
 
 ### 2.4 Remove Unused Skiper UI Components
 
 **Files to delete:**
 
-- [ ] `src/components/ui/skiper-ui/skiper4.tsx` - Not imported anywhere
-- [ ] `src/components/ui/skiper-ui/skiper40.tsx` - Not imported anywhere
+- [ ] `src/components/ui/skiper-ui/skiper26.tsx` (1,192 lines)
+- [ ] `src/components/ui/skiper-ui/skiper40.tsx`
+- [ ] `src/components/ui/skiper-ui/skiper4.tsx`
 
-**KEEP:**
+**Check if folder can be removed:**
 
-- `skiper26.tsx` - Used in `src/components/navbar/FancyNav.client.tsx`
+- [ ] If `skiper-ui/` is empty after deletion, remove the folder
 
 ---
 
 ## Phase 3: Fix Duplications
 
-### 3.1 Extract getBaseUrl Utility
-
-**Problem:** `getBaseUrl()` defined in two places with different implementations
-
-**Location 1:** `src/trpc/react.tsx` (lines 80-84)
-
-- Comprehensive: checks browser, VERCEL_URL, localhost fallback
-
-**Location 2:** `src/server/api/routers/admin-portal.ts` (lines 17-19)
-
-- Simple: only checks NEXT_PUBLIC_APP_URL
-
-**Fix:**
-
-- [ ] Create `src/lib/get-base-url.ts` with unified implementation
-- [ ] Update both files to import from shared utility
-
-### 3.2 Consolidate Team Edge Utilities
+### 3.1 Consolidate Team Edge Utilities
 
 **Problem:** `public-team-edge.tsx` duplicates `getFloatingEdgeParams` locally
 
@@ -116,7 +94,7 @@ Add team ownership verification before querying metrics.
 - [ ] Import from `@/lib/canvas/edges/floating-edge-utils`
 - [ ] Remove local duplicate function
 
-### 3.3 Merge Share Token Procedures (Follow-up PR)
+### 3.2 Merge Share Token Procedures
 
 **File:** `src/server/api/routers/team.ts`
 
@@ -128,99 +106,114 @@ Add team ownership verification before querying metrics.
 
 **Target (2 procedures):**
 
-- [ ] `setPublicSharing(teamId, enabled: boolean)`
-- [ ] `regenerateShareToken(teamId)`
+- [ ] `setPublicSharing(teamId, enabled: boolean)` - handles enable/disable
+- [ ] `regenerateShareToken(teamId)` - refreshes token only
 
-### 3.4 Merge Role Assignment Procedures (Follow-up PR)
+**Update frontend:**
+
+- [ ] `src/app/teams/[teamId]/_components/share-team-dialog.tsx`
+
+### 3.3 Merge Role Assignment Procedures
 
 **File:** `src/server/api/routers/role.ts`
 
-**Current:** `assign` + `unassign`
-**Target:** `updateAssignment(id, userId: string | null)`
+**Current (2 procedures):**
 
-### 3.5 Standardize Procedure Naming
+- `assign` (lines 185-207)
+- `unassign` (lines 209-229)
 
-- [ ] `role.getByTeam` → `role.getByTeamId`
+**Target (1 procedure):**
 
----
+- [ ] `updateAssignment(id, userId: string | null)`
 
-## Phase 4: Naming Convention Fixes
+**Update frontend usages**
 
-### 4.1 Client/Server File Naming (Low Priority)
+### 3.4 Standardize Procedure Naming
 
-**Current inconsistent patterns:**
+**Rename:**
 
-- `.client.tsx` suffix: `FancyNav.client.tsx`, `ThemeSwitch.client.tsx`
-- `-client.tsx` suffix: `dashboard-client.tsx`
-- `Client.tsx` suffix: `MembersListClient.tsx`
-- No suffix (just 'use client'): Most components
+- [ ] `role.getByTeam` → `role.getByTeamId` in `src/server/api/routers/role.ts`
 
-**Recommendation:** Standardize to 'use client' directive only (Next.js standard)
+**Update all usages:**
 
-### 4.2 Component File Naming (Low Priority)
-
-**Mixed patterns:**
-
-- PascalCase: `UserRolesDialog.tsx`, `AllMembersSheet.tsx`
-- kebab-case: `team-canvas.tsx`, `role-dialog.tsx`
-
-**Recommendation:** Standardize to kebab-case
+- Search for `role.getByTeam` and update to `role.getByTeamId`
 
 ---
 
-## Phase 5: Future Improvements
+## Phase 4: Create Shared Components (Optional - Future)
 
-### 5.1 Extract Shared Components
+### 4.1 Extract RoleNodeTemplate
 
-- RoleNodeTemplate (combine role-node.tsx + public-role-node.tsx)
-- Delete confirmation hook
+**Combine:**
 
-### 5.2 Metric Dialog Factory
+- `src/app/teams/[teamId]/_components/role-node.tsx`
+- `src/app/public/team/[teamId]/_components/public-role-node.tsx`
 
-Create factory pattern for 5 nearly identical dialog wrappers
+**Create:**
 
-### 5.3 Performance
+- `src/components/canvas/role-node-template.tsx` with `isEditable` prop
 
-- Make MetricApiLog conditional on NODE_ENV
-- Fix double data point fetch
-- Simplify goal calculation (271 → ~50 lines)
+### 4.2 Extract Delete Confirmation Hook
+
+**Create:** `src/app/teams/[teamId]/hooks/use-confirm-delete-role.tsx`
+
+**Consolidate from:**
+
+- `role-node.tsx` (lines 154-161)
+- `team-sheet-sidebar.tsx` (lines 217-232)
+
+### 4.3 Metric Dialog Factory (Future)
+
+**Create factory pattern for:**
+
+- GitHubMetricDialog
+- LinearMetricDialog
+- YouTubeMetricDialog
+- PostHogMetricDialog
+- GoogleSheetsMetricDialog
+
+---
+
+## Phase 5: Performance Improvements (Optional - Future)
+
+### 5.1 Remove MetricApiLog in Production
+
+**File:** `src/server/api/services/transformation/data-pipeline.ts`
+
+Make MetricApiLog writes conditional on `NODE_ENV === 'development'`
+
+### 5.2 Fix Double Data Point Fetch
+
+**File:** `src/server/api/services/transformation/data-pipeline.ts`
+
+Share data points between `refreshMetricDataPoints` and `executeChartTransformer`
+
+### 5.3 Simplify Goal Calculation
+
+**File:** `src/server/api/utils/goal-calculation.ts`
+
+Reduce from 271 lines to ~50 lines
 
 ---
 
 ## Execution Order
 
-### This PR (Immediate)
+### Immediate (This PR)
 
-1. Phase 1: Security fixes
-2. Phase 2: Remove dead code
-3. Phase 3.1: Extract getBaseUrl
-4. Phase 3.2: Fix edge utility duplication
-5. Phase 3.5: Standardize naming
+1. ✅ Phase 1: Security fixes
+2. ✅ Phase 2: Remove dead code
+3. ✅ Phase 3.1: Fix edge utility duplication
+4. ✅ Phase 3.4: Standardize naming
 
 ### Follow-up PR
 
-6. Phase 3.3: Merge share token procedures
-7. Phase 3.4: Merge role assignment procedures
+5. Phase 3.2: Merge share token procedures
+6. Phase 3.3: Merge role assignment procedures
 
-### Future
+### Future PRs
 
-8. Phase 4: Naming conventions
-9. Phase 5: Shared components & performance
-
----
-
-## Summary Table
-
-| Category                  | Files         | Lines            | Priority |
-| ------------------------- | ------------- | ---------------- | -------- |
-| Security fixes            | 1             | ~20              | CRITICAL |
-| Unused landing components | 7             | ~1,300           | HIGH     |
-| Unused feature demos      | 6             | ~400             | HIGH     |
-| Unused hooks              | 1             | ~30              | MEDIUM   |
-| Unused skiper UI          | 2             | ~500             | MEDIUM   |
-| Duplicate utilities       | 2             | ~10              | MEDIUM   |
-| Edge utility duplication  | 1             | ~20              | MEDIUM   |
-| **Total removals**        | **~18 files** | **~2,300 lines** |          |
+7. Phase 4: Shared components
+8. Phase 5: Performance improvements
 
 ---
 
@@ -228,9 +221,31 @@ Create factory pattern for 5 nearly identical dialog wrappers
 
 After cleanup:
 
-- [ ] `pnpm check` (lint + typecheck)
-- [ ] `pnpm build` (production build)
-- [ ] `pnpm exec playwright test` (E2E tests)
-- [ ] Manual: Team canvas CRUD
-- [ ] Manual: Dashboard metrics
-- [ ] Manual: Public sharing
+- [ ] Run `pnpm check` (lint + typecheck)
+- [ ] Run `pnpm build` (production build)
+- [ ] Run `pnpm exec playwright test` (E2E tests)
+- [ ] Manual test: Team canvas CRUD
+- [ ] Manual test: Dashboard metrics
+- [ ] Manual test: Public sharing
+
+---
+
+## Files Changed Summary
+
+### Deleted (~3,300 lines)
+
+- 6 landing components
+- 5 feature demo components
+- 2 unused hooks
+- 3 skiper UI components
+
+### Modified
+
+- `src/server/api/routers/metric.ts` (security fix)
+- `src/server/api/routers/role.ts` (rename procedure)
+- `src/app/public/team/[teamId]/_components/public-team-edge.tsx` (use shared util)
+- `src/app/_components/index.ts` (remove dead exports)
+
+### Created
+
+- `CLAUDE.md` (rewritten)

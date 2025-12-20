@@ -132,7 +132,56 @@ export const teamRouter = createTRPCRouter({
       return { success: true };
     }),
 
-  generateShareToken: workspaceProcedure
+  /**
+   * Set public sharing on or off. If enabling and no token exists, generates one.
+   */
+  setPublicSharing: workspaceProcedure
+    .input(z.object({ teamId: z.string(), enabled: z.boolean() }))
+    .mutation(async ({ ctx, input }) => {
+      await getTeamAndVerifyAccess(
+        ctx.db,
+        input.teamId,
+        ctx.user.id,
+        ctx.workspace,
+      );
+
+      if (input.enabled) {
+        // When enabling, ensure there's a share token
+        const team = await ctx.db.team.findUnique({
+          where: { id: input.teamId },
+          select: { shareToken: true },
+        });
+
+        return ctx.db.team.update({
+          where: { id: input.teamId },
+          data: {
+            shareToken: team?.shareToken ?? randomUUID(),
+            isPubliclyShared: true,
+          },
+          select: {
+            id: true,
+            shareToken: true,
+            isPubliclyShared: true,
+          },
+        });
+      } else {
+        // When disabling, just update the flag
+        return ctx.db.team.update({
+          where: { id: input.teamId },
+          data: { isPubliclyShared: false },
+          select: {
+            id: true,
+            shareToken: true,
+            isPubliclyShared: true,
+          },
+        });
+      }
+    }),
+
+  /**
+   * Generate a new share token (invalidates old links). Also enables sharing.
+   */
+  regenerateShareToken: workspaceProcedure
     .input(z.object({ teamId: z.string() }))
     .mutation(async ({ ctx, input }) => {
       await getTeamAndVerifyAccess(
@@ -146,56 +195,6 @@ export const teamRouter = createTRPCRouter({
         where: { id: input.teamId },
         data: {
           shareToken: randomUUID(),
-          isPubliclyShared: true,
-        },
-        select: {
-          id: true,
-          shareToken: true,
-          isPubliclyShared: true,
-        },
-      });
-    }),
-
-  disableSharing: workspaceProcedure
-    .input(z.object({ teamId: z.string() }))
-    .mutation(async ({ ctx, input }) => {
-      await getTeamAndVerifyAccess(
-        ctx.db,
-        input.teamId,
-        ctx.user.id,
-        ctx.workspace,
-      );
-
-      return ctx.db.team.update({
-        where: { id: input.teamId },
-        data: { isPubliclyShared: false },
-        select: {
-          id: true,
-          shareToken: true,
-          isPubliclyShared: true,
-        },
-      });
-    }),
-
-  enableSharing: workspaceProcedure
-    .input(z.object({ teamId: z.string() }))
-    .mutation(async ({ ctx, input }) => {
-      await getTeamAndVerifyAccess(
-        ctx.db,
-        input.teamId,
-        ctx.user.id,
-        ctx.workspace,
-      );
-
-      const team = await ctx.db.team.findUnique({
-        where: { id: input.teamId },
-        select: { shareToken: true },
-      });
-
-      return ctx.db.team.update({
-        where: { id: input.teamId },
-        data: {
-          shareToken: team?.shareToken ?? randomUUID(),
           isPubliclyShared: true,
         },
         select: {

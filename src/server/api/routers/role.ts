@@ -28,7 +28,7 @@ export const roleRouter = createTRPCRouter({
       );
     }),
 
-  getByTeam: workspaceProcedure
+  getByTeamId: workspaceProcedure
     .input(z.object({ teamId: z.string() }))
     .query(async ({ ctx, input }) => {
       await getTeamAndVerifyAccess(
@@ -180,52 +180,6 @@ export const roleRouter = createTRPCRouter({
       await invalidateCacheByTags(ctx.db, [`team_${role.teamId}`]);
 
       return { success: true };
-    }),
-
-  assign: workspaceProcedure
-    .input(z.object({ id: z.string(), userId: z.string() }))
-    .mutation(async ({ ctx, input }) => {
-      await getRoleAndVerifyAccess(
-        ctx.db,
-        input.id,
-        ctx.user.id,
-        ctx.workspace,
-      );
-
-      await validateUserAssignable(ctx.workspace, input.userId);
-
-      const role = await ctx.db.role.update({
-        where: { id: input.id },
-        data: { assignedUserId: input.userId },
-        include: { metric: metricInclude, team: true },
-      });
-
-      // Invalidate Prisma Accelerate cache for this team
-      await invalidateCacheByTags(ctx.db, [`team_${role.teamId}`]);
-
-      return role;
-    }),
-
-  unassign: workspaceProcedure
-    .input(z.object({ id: z.string() }))
-    .mutation(async ({ ctx, input }) => {
-      await getRoleAndVerifyAccess(
-        ctx.db,
-        input.id,
-        ctx.user.id,
-        ctx.workspace,
-      );
-
-      const role = await ctx.db.role.update({
-        where: { id: input.id },
-        data: { assignedUserId: null },
-        include: { metric: metricInclude, team: true },
-      });
-
-      // Invalidate Prisma Accelerate cache for this team
-      await invalidateCacheByTags(ctx.db, [`team_${role.teamId}`]);
-
-      return role;
     }),
 
   getByUser: workspaceProcedure

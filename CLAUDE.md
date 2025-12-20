@@ -54,9 +54,7 @@ pnpm exec playwright test tests/auth-authenticated.spec.ts  # Specific file
 ```
 src/
 ├── app/                           # Next.js pages
-│   ├── _components/               # Root-level page components
-│   │   ├── landing/               # Landing page sections
-│   │   └── feature-demos/         # Interactive demos
+│   ├── _components/               # Root-level page components (landing)
 │   ├── api/                       # API routes (cron, callbacks)
 │   ├── dashboard/[teamId]/        # Metrics dashboard
 │   ├── docs/                      # MDX documentation
@@ -143,7 +141,7 @@ The team canvas (`/teams/[teamId]`) is a React Flow-based visualization with 30 
 
 ```
 page.tsx (Server)
-  → Prefetch: role.getByTeam, organization.getMembers
+  → Prefetch: role.getByTeamId, organization.getMembers
   → enrichNodesWithRoleData(storedNodes)
   → <HydrateClient>
     → <TeamStoreProvider> (Zustand)
@@ -167,7 +165,7 @@ Role nodes store ONLY `roleId`. Display data fetched from TanStack Query cache:
 ```tsx
 // use-role-data.tsx
 export function useRoleData(roleId: string) {
-  const { data: roles } = api.role.getByTeam.useQuery({ teamId });
+  const { data: roles } = api.role.getByTeamId.useQuery({ teamId });
   return useMemo(() => roles?.find((r) => r.id === roleId), [roles, roleId]);
 }
 ```
@@ -329,34 +327,6 @@ Playwright E2E tests in `tests/`.
 
 ## Known Issues & Cleanup Needed
 
-### Security Issues
-
-- `metric.getById` missing authorization check (can access any metric by ID)
-- `metric.getByTeamId` doesn't verify team belongs to org
-
-### Dead Code to Remove
-
-**Unused Components (never imported):**
-
-- `src/app/_components/benefits-section.tsx`
-- `src/app/_components/cta-section.tsx`
-- `src/app/_components/demo-charts.tsx`
-- `src/app/_components/features-carousel.tsx`
-- `src/app/_components/features-carousel-v2.tsx`
-- `src/app/_components/features-product-carousel.tsx`
-- All of `src/app/_components/feature-demos/` (only used by unused carousel)
-
-**Unused Hooks:**
-
-- `src/hooks/use-dropdown.tsx`
-- `src/hooks/use-mobile.ts`
-
-**Unused UI Components:**
-
-- `src/components/ui/skiper-ui/skiper26.tsx` (1,192 lines)
-- `src/components/ui/skiper-ui/skiper40.tsx`
-- `src/components/ui/skiper-ui/skiper4.tsx`
-
 ### Duplications to Consolidate
 
 **Metric Dialogs (5 nearly identical wrappers):**
@@ -372,20 +342,6 @@ Playwright E2E tests in `tests/`.
 
 - `dashboard-metric-card.tsx` vs `public-dashboard-metric-card.tsx`
 - Add `readOnly` mode instead of separate components
-
-**Team Edges:**
-
-- Both team-edge.tsx and public-team-edge.tsx duplicate `getFloatingEdgeParams`
-- Should import from `src/lib/canvas/edges/floating-edge-utils.ts`
-
-**Backend Procedures:**
-
-- `team.generateShareToken`, `team.enableSharing`, `team.disableSharing` → merge to 2
-- `role.assign`, `role.unassign` → single `updateRoleAssignment`
-
-### Naming Inconsistencies
-
-- `role.getByTeam` vs `metric.getByTeamId` - standardize to `getByTeamId`
 
 ### Performance Issues
 

@@ -12,6 +12,7 @@ import { createTRPCRouter, workspaceProcedure } from "@/server/api/trpc";
 import {
   getIntegrationAndVerifyAccess,
   getMetricAndVerifyAccess,
+  getTeamAndVerifyAccess,
 } from "@/server/api/utils/authorization";
 import { invalidateCacheByTags } from "@/server/api/utils/cache-strategy";
 import { calculateGoalProgress } from "@/server/api/utils/goal-calculation";
@@ -34,6 +35,14 @@ export const metricRouter = createTRPCRouter({
   getByTeamId: workspaceProcedure
     .input(z.object({ teamId: z.string() }))
     .query(async ({ ctx, input }) => {
+      // Verify team belongs to user's organization
+      await getTeamAndVerifyAccess(
+        ctx.db,
+        input.teamId,
+        ctx.user.id,
+        ctx.workspace,
+      );
+
       return ctx.db.metric.findMany({
         where: {
           organizationId: ctx.workspace.organizationId,
@@ -49,9 +58,12 @@ export const metricRouter = createTRPCRouter({
   getById: workspaceProcedure
     .input(z.object({ id: z.string() }))
     .query(async ({ ctx, input }) => {
-      return ctx.db.metric.findUnique({
-        where: { id: input.id },
-      });
+      // Verify metric belongs to user's organization
+      return getMetricAndVerifyAccess(
+        ctx.db,
+        input.id,
+        ctx.workspace.organizationId,
+      );
     }),
 
   /**

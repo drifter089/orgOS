@@ -28,9 +28,9 @@ export function useUpdateRole({
     onMutate: async (variables) => {
       onBeforeMutate?.();
 
-      await utils.role.getByTeam.cancel({ teamId });
+      await utils.role.getByTeamId.cancel({ teamId });
 
-      const previousRoles = utils.role.getByTeam.getData({ teamId });
+      const previousRoles = utils.role.getByTeamId.getData({ teamId });
 
       // Look up metric from cache for optimistic display
       const metrics = utils.metric.getByTeamId.getData({ teamId });
@@ -38,7 +38,7 @@ export function useUpdateRole({
         ? metrics?.find((m) => m.id === variables.metricId)
         : null;
 
-      utils.role.getByTeam.setData({ teamId }, (old) => {
+      utils.role.getByTeamId.setData({ teamId }, (old) => {
         if (!old) return old;
         return old.map((role) =>
           role.id === variables.id
@@ -71,7 +71,7 @@ export function useUpdateRole({
       void utils.team.getById.invalidate({ id: teamId });
 
       // Update role cache with server response (includes metric relation)
-      utils.role.getByTeam.setData({ teamId }, (old) => {
+      utils.role.getByTeamId.setData({ teamId }, (old) => {
         if (!old) return [updatedRole];
         return old.map((role) =>
           role.id === updatedRole.id ? updatedRole : role,
@@ -81,7 +81,10 @@ export function useUpdateRole({
     onError: (error, _variables, context) => {
       if (context?.previousRoles !== undefined) {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        utils.role.getByTeam.setData({ teamId }, context.previousRoles as any);
+        utils.role.getByTeamId.setData(
+          { teamId },
+          context.previousRoles as any,
+        );
       }
       toast.error("Failed to update role", {
         description: error.message ?? "An unexpected error occurred",
