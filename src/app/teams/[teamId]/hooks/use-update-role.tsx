@@ -80,10 +80,11 @@ export function useUpdateRole({
     },
     onError: (error, _variables, context) => {
       if (context?.previousRoles !== undefined) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         utils.role.getByTeamId.setData(
           { teamId },
-          context.previousRoles as any,
+          context.previousRoles as Parameters<
+            typeof utils.role.getByTeamId.setData
+          >[1],
         );
       }
       toast.error("Failed to update role", {

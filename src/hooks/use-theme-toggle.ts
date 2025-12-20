@@ -26,7 +26,7 @@ interface UseThemeToggleOptions {
  * Options are accepted for API compatibility but animations are simplified.
  */
 export function useThemeToggle(_options?: UseThemeToggleOptions) {
-  const { theme, setTheme, resolvedTheme } = useTheme();
+  const { setTheme, resolvedTheme } = useTheme();
   const [isDark, setIsDark] = useState(false);
 
   // Sync isDark state with resolved theme after hydration
@@ -35,9 +35,8 @@ export function useThemeToggle(_options?: UseThemeToggleOptions) {
   }, [resolvedTheme]);
 
   const toggleTheme = useCallback(() => {
-    setIsDark(!isDark);
-    setTheme(theme === "light" ? "dark" : "light");
-  }, [isDark, theme, setTheme]);
+    setTheme(resolvedTheme === "light" ? "dark" : "light");
+  }, [resolvedTheme, setTheme]);
 
   return { isDark, toggleTheme };
 }
