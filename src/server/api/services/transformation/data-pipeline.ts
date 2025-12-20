@@ -465,15 +465,41 @@ export async function refreshMetricAndCharts(
     data: { lastFetchedAt: new Date(), lastError: null },
   });
 
-  // Dynamic import to avoid circular dependency
-  const { executeChartTransformerForDashboardChart } = await import(
-    "./chart-generator"
+  // Fetch dataPoints once for all chart transformers (avoids N+1 queries)
+  const chartsWithTransformers = metric.dashboardCharts.filter(
+    (dc) => dc.chartTransformer,
   );
 
-  for (const dc of metric.dashboardCharts) {
-    if (dc.chartTransformer) {
+  if (chartsWithTransformers.length > 0) {
+    // Get fresh dataPoints once - up to 1000 for chart generation
+    const freshDataPoints = await db.metricDataPoint.findMany({
+      where: { metricId: metric.id },
+      orderBy: { timestamp: "desc" },
+      take: 1000,
+    });
+
+    const dataPointsForChart: DataPoint[] = freshDataPoints.map((dp) => ({
+      timestamp: dp.timestamp,
+      value: dp.value,
+      dimensions: dp.dimensions as Record<string, unknown> | null,
+    }));
+
+    // Dynamic import to avoid circular dependency
+    const { executeChartTransformerWithData } = await import(
+      "./chart-generator"
+    );
+
+    for (const dc of chartsWithTransformers) {
+      const transformer = dc.chartTransformer!;
       try {
-        await executeChartTransformerForDashboardChart(dc.id);
+        // Pass data directly - no re-fetching
+        await executeChartTransformerWithData({
+          dashboardChartId: dc.id,
+          transformerCode: transformer.transformerCode,
+          chartType: transformer.chartType,
+          cadence: transformer.cadence,
+          dataPoints: dataPointsForChart,
+        });
       } catch (chartError) {
         console.error(
           `[RefreshMetric] Chart transformer error for ${dc.id}:`,
