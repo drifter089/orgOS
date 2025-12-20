@@ -2,7 +2,14 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 
-import { Check, Eye, EyeOff, GripVertical, Loader2 } from "lucide-react";
+import {
+  Check,
+  Eye,
+  EyeOff,
+  GripVertical,
+  Loader2,
+  PenLine,
+} from "lucide-react";
 
 import {
   AddPlatformButton,
@@ -12,6 +19,7 @@ import {
   GitHubMetricDialog,
   GoogleSheetsMetricDialog,
   LinearMetricDialog,
+  ManualMetricDialog,
   MetricTabsDisplay,
   PostHogMetricDialog,
   YouTubeMetricDialog,
@@ -182,6 +190,18 @@ export function DashboardSidebar({
                     linear: LinearMetricDialog,
                   }}
                 />
+
+                {/* Manual Metric Button */}
+                <ManualMetricDialog
+                  teamId={teamId}
+                  onSuccess={onMetricCreated}
+                  trigger={
+                    <Button variant="outline" className="w-full">
+                      <PenLine className="mr-2 h-4 w-4" />
+                      Manual Metric
+                    </Button>
+                  }
+                />
               </div>
 
               <Separator />
@@ -250,7 +270,7 @@ export function DashboardSidebar({
                           className={cn(
                             "h-8 w-1 rounded-full",
                             getPlatformConfig(
-                              metric.integration?.providerId ?? "unknown",
+                              metric.integration?.providerId ?? "manual",
                             ).bgColor,
                           )}
                         />
@@ -280,7 +300,7 @@ export function DashboardSidebar({
                             )}
                           </div>
                           <p className="text-muted-foreground text-xs capitalize">
-                            {metric.integration?.providerId ?? "unknown"}
+                            {metric.integration?.providerId ?? "manual"}
                           </p>
                         </div>
 

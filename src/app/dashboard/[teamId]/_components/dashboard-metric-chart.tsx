@@ -674,10 +674,10 @@ export function DashboardMetricChart({
         {hasChartData && renderChart()}
 
         {!hasChartData && !isProcessing && (
-          <div className="text-muted-foreground flex flex-1 items-center justify-center rounded-md border border-dashed text-center text-sm">
+          <div className="text-muted-foreground flex flex-1 items-center justify-center rounded-md border border-dashed p-4 text-center text-sm">
             {isIntegrationMetric
               ? "Loading chart..."
-              : "Manual metrics don't have charts"}
+              : "Add data points via check-in to see chart"}
           </div>
         )}
 

@@ -104,6 +104,34 @@ export interface EndpointConfig {
 }
 
 // =============================================================================
+// Manual Metric Configuration
+// =============================================================================
+
+/**
+ * Configuration for manual metrics (user-entered KPIs).
+ * Stored in the Metric.endpointConfig JSON field.
+ */
+export interface ManualMetricConfig {
+  type: "manual";
+  unitType: "number" | "percentage";
+  cadence: "daily" | "weekly" | "monthly";
+}
+
+/**
+ * Type guard to check if a metric config is for a manual metric
+ */
+export function isManualMetricConfig(
+  config: unknown,
+): config is ManualMetricConfig {
+  return (
+    typeof config === "object" &&
+    config !== null &&
+    "type" in config &&
+    (config as ManualMetricConfig).type === "manual"
+  );
+}
+
+// =============================================================================
 // Legacy Type Support (for backward compatibility during migration)
 // =============================================================================
 

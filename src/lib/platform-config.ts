@@ -1,9 +1,10 @@
-import { FileSpreadsheet } from "lucide-react";
+import { FileSpreadsheet, PenLine } from "lucide-react";
 
 type PlatformConfig = {
   name: string;
   logo?: string;
   useLucideIcon?: boolean;
+  lucideIcon?: "file-spreadsheet" | "pen-line";
   bgColor: string;
   textColor: string;
 };
@@ -81,6 +82,13 @@ export const PLATFORM_CONFIG: Record<string, PlatformConfig> = {
     bgColor: "bg-blue-500",
     textColor: "text-white",
   },
+  manual: {
+    name: "Manual",
+    useLucideIcon: true,
+    lucideIcon: "pen-line",
+    bgColor: "bg-stone-200 dark:bg-stone-700",
+    textColor: "text-stone-700 dark:text-stone-200",
+  },
 };
 
 export const getPlatformConfig = (id: string): PlatformConfig => {
@@ -94,5 +102,5 @@ export const getPlatformConfig = (id: string): PlatformConfig => {
   );
 };
 
-// Export FileSpreadsheet icon for consumers
-export { FileSpreadsheet };
+// Export Lucide icons for consumers
+export { FileSpreadsheet, PenLine };
