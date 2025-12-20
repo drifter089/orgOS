@@ -774,6 +774,43 @@ export const metricRouter = createTRPCRouter({
       return grouped;
     }),
 
+  /**
+   * Get a single manual metric by ID for the metric check-in page
+   */
+  getManualMetricById: workspaceProcedure
+    .input(z.object({ metricId: z.string() }))
+    .query(async ({ ctx, input }) => {
+      const metric = await ctx.db.metric.findFirst({
+        where: {
+          id: input.metricId,
+          organizationId: ctx.workspace.organizationId,
+          integrationId: null, // Manual metrics only
+        },
+        include: {
+          dataPoints: {
+            orderBy: { timestamp: "desc" },
+            take: 10,
+          },
+          roles: {
+            include: {
+              team: {
+                select: { id: true, name: true },
+              },
+            },
+          },
+        },
+      });
+
+      if (!metric) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Manual metric not found",
+        });
+      }
+
+      return metric;
+    }),
+
   // ===========================================================================
   // Integration Data Fetching (Single Query for dropdowns AND raw data)
   // ===========================================================================
