@@ -46,10 +46,13 @@ interface DashboardMetricCardProps {
     valueLabel?: string | null;
     dataDescription?: string | null;
   };
+  /** When true, hides settings drawer and dev tool button (for public views) */
+  readOnly?: boolean;
 }
 
 export function DashboardMetricCard({
   dashboardMetric,
+  readOnly = false,
 }: DashboardMetricCardProps) {
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -318,28 +321,29 @@ export function DashboardMetricCard({
   // Use AI-generated chart title when available, fallback to metric name
   const title = chartTransform?.title ?? metric.name;
 
-  return (
-    <Drawer open={isDrawerOpen} onOpenChange={setIsDrawerOpen}>
-      <Card className="relative h-[420px]">
-        {/* Error indicator */}
-        {hasError && (
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Badge
-                variant="destructive"
-                className="absolute top-4 left-3 z-10 h-6 gap-1 px-2"
-              >
-                <AlertCircle className="h-3 w-3" />
-                <span className="text-xs">Error</span>
-              </Badge>
-            </TooltipTrigger>
-            <TooltipContent side="bottom" className="max-w-[300px]">
-              <p className="text-sm">{metric.lastError}</p>
-            </TooltipContent>
-          </Tooltip>
-        )}
+  // Card content shared between readOnly and editable modes
+  const cardContent = (
+    <Card className="relative h-[420px]">
+      {/* Error indicator */}
+      {hasError && (
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Badge
+              variant="destructive"
+              className="absolute top-4 left-3 z-10 h-6 gap-1 px-2"
+            >
+              <AlertCircle className="h-3 w-3" />
+              <span className="text-xs">Error</span>
+            </Badge>
+          </TooltipTrigger>
+          <TooltipContent side="bottom" className="max-w-[300px]">
+            <p className="text-sm">{metric.lastError}</p>
+          </TooltipContent>
+        </Tooltip>
+      )}
 
-        {/* Settings trigger - top right */}
+      {/* Settings trigger - top right (hidden in readOnly mode) */}
+      {!readOnly && (
         <DrawerTrigger asChild>
           <Button
             variant="ghost"
@@ -349,44 +353,55 @@ export function DashboardMetricCard({
             <Settings className="h-4 w-4" />
           </Button>
         </DrawerTrigger>
+      )}
 
-        {/* Dev Tool Button - Only visible in development mode */}
-        {isDevMode() && (
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="text-muted-foreground absolute top-0 left-0 z-10 h-7 w-7 p-0 hover:text-amber-600"
-                onClick={() => {
-                  window.open(`/dev-metric-tool/${metric.id}`, "_blank");
-                }}
-              >
-                <Bug className="h-3.5 w-3.5" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent side="right">
-              <p className="text-xs">Open Pipeline Debug Tool</p>
-            </TooltipContent>
-          </Tooltip>
-        )}
+      {/* Dev Tool Button - Only visible in development mode (hidden in readOnly mode) */}
+      {!readOnly && isDevMode() && (
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="text-muted-foreground absolute top-0 left-0 z-10 h-7 w-7 p-0 hover:text-amber-600"
+              onClick={() => {
+                window.open(`/dev-metric-tool/${metric.id}`, "_blank");
+              }}
+            >
+              <Bug className="h-3.5 w-3.5" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent side="right">
+            <p className="text-xs">Open Pipeline Debug Tool</p>
+          </TooltipContent>
+        </Tooltip>
+      )}
 
-        {/* Chart content - directly rendered */}
-        <DashboardMetricChart
-          title={title}
-          chartTransform={chartTransform}
-          hasChartData={hasChartData}
-          isIntegrationMetric={isIntegrationMetric}
-          isPending={isPending}
-          isProcessing={isProcessing}
-          loadingPhase={loadingPhase}
-          integrationId={metric.integration?.providerId}
-          roles={roles}
-          goal={metric.goal}
-          goalProgress={dashboardMetric.goalProgress}
-          valueLabel={dashboardMetric.valueLabel}
-        />
-      </Card>
+      {/* Chart content - directly rendered */}
+      <DashboardMetricChart
+        title={title}
+        chartTransform={chartTransform}
+        hasChartData={hasChartData}
+        isIntegrationMetric={isIntegrationMetric}
+        isPending={isPending}
+        isProcessing={isProcessing}
+        loadingPhase={loadingPhase}
+        integrationId={metric.integration?.providerId}
+        roles={roles}
+        goal={metric.goal}
+        goalProgress={dashboardMetric.goalProgress}
+        valueLabel={dashboardMetric.valueLabel}
+      />
+    </Card>
+  );
+
+  // In readOnly mode, just render the card without the Drawer wrapper
+  if (readOnly) {
+    return cardContent;
+  }
+
+  return (
+    <Drawer open={isDrawerOpen} onOpenChange={setIsDrawerOpen}>
+      {cardContent}
 
       <DrawerContent className="max-h-[90vh] sm:max-w-2xl md:max-w-3xl lg:max-w-4xl">
         <div className="mx-auto w-full">

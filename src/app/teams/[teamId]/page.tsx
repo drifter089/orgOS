@@ -125,8 +125,6 @@ export default async function TeamPage({
                 initialNodes={nodes}
                 initialEdges={edges}
                 teamId={team.id}
-                shareToken={team.shareToken}
-                isPubliclyShared={team.isPubliclyShared}
               />
             </div>
 

@@ -2,26 +2,15 @@
 
 import { Eye } from "lucide-react";
 
+import { DashboardMetricCard } from "@/app/dashboard/[teamId]/_components/dashboard-metric-card";
 import { Badge } from "@/components/ui/badge";
-import { api } from "@/trpc/react";
 
-import { PublicDashboardMetricCard } from "./public-dashboard-metric-card";
+import { usePublicView } from "../../../_context/public-view-context";
 
-interface PublicDashboardClientProps {
-  teamId: string;
-  token: string;
-}
+export function PublicDashboardUnified() {
+  const { dashboard } = usePublicView();
 
-export function PublicDashboardClient({
-  teamId,
-  token,
-}: PublicDashboardClientProps) {
-  const { data } = api.publicView.getDashboardByShareToken.useQuery({
-    teamId,
-    token,
-  });
-
-  if (!data) {
+  if (!dashboard) {
     return (
       <div className="container mx-auto px-4 py-8">
         <div className="mb-8">
@@ -35,15 +24,19 @@ export function PublicDashboardClient({
     );
   }
 
-  const { dashboardCharts } = data;
+  const { team, dashboardCharts } = dashboard;
 
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="mb-8">
-        <Badge variant="secondary" className="mb-4 gap-1.5 px-3 py-1.5">
-          <Eye className="h-3.5 w-3.5" />
-          Preview
-        </Badge>
+        <div className="mb-4 flex items-center gap-3">
+          <Badge variant="secondary" className="gap-1.5 px-3 py-1.5">
+            <Eye className="h-3.5 w-3.5" />
+            Preview
+          </Badge>
+          <h1 className="text-2xl font-bold">{team.name}</h1>
+        </div>
+
         {dashboardCharts.length > 0 && (
           <p className="text-muted-foreground text-sm">
             {`Showing ${dashboardCharts.length} metric${dashboardCharts.length === 1 ? "" : "s"}`}
@@ -63,9 +56,10 @@ export function PublicDashboardClient({
       ) : (
         <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
           {dashboardCharts.map((dashboardMetric) => (
-            <PublicDashboardMetricCard
+            <DashboardMetricCard
               key={dashboardMetric.id}
               dashboardMetric={dashboardMetric}
+              readOnly
             />
           ))}
         </div>

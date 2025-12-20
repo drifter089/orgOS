@@ -1,8 +1,9 @@
 import { notFound } from "next/navigation";
 
-import { HydrateClient, api } from "@/trpc/server";
+import { api } from "@/trpc/server";
 
-import { PublicDashboardClient } from "./_components/public-dashboard-client";
+import { PublicViewProvider } from "../../_context/public-view-context";
+import { PublicDashboardUnified } from "./_components/public-dashboard-unified";
 
 interface PublicDashboardPageProps {
   params: Promise<{ teamId: string }>;
@@ -20,17 +21,21 @@ export default async function PublicDashboardPage({
     notFound();
   }
 
-  // Prefetch public data (validates token server-side)
+  // Fetch dashboard data with share token validation
+  let dashboardData;
   try {
-    await api.publicView.getDashboardByShareToken.prefetch({ teamId, token });
+    dashboardData = await api.publicView.getDashboardByShareToken({
+      teamId,
+      token,
+    });
   } catch {
     // Invalid token or team not found
     notFound();
   }
 
   return (
-    <HydrateClient>
-      <PublicDashboardClient teamId={teamId} token={token} />
-    </HydrateClient>
+    <PublicViewProvider dashboard={dashboardData} token={token}>
+      <PublicDashboardUnified />
+    </PublicViewProvider>
   );
 }

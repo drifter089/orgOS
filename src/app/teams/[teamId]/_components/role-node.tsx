@@ -41,6 +41,8 @@ export type RoleNodeData = {
   pendingTitle?: string;
   /** Temporary color during optimistic create */
   pendingColor?: string;
+  /** When true, hides edit/delete buttons and disables interactions (for public views) */
+  readOnly?: boolean;
 };
 
 export type RoleNode = Node<RoleNodeData, "role-node">;
@@ -68,7 +70,9 @@ function RoleNodeComponent({ data, selected, id }: NodeProps<RoleNode>) {
   const dashboardCharts = role?.metric?.dashboardCharts;
   const chartConfig = dashboardCharts?.[0]
     ?.chartConfig as ChartTransformResult | null;
-  const metricValue = getLatestMetricValue(chartConfig)?.value;
+  const latestMetric = getLatestMetricValue(chartConfig);
+  const metricValue = latestMetric?.value;
+  const metricDate = latestMetric?.date;
   const isValueLoading = metricName && dashboardCharts?.length === 0;
 
   const handleDelete = useCallback(async () => {
@@ -99,12 +103,12 @@ function RoleNodeComponent({ data, selected, id }: NodeProps<RoleNode>) {
       ? plainPurpose.substring(0, 100) + "..."
       : plainPurpose;
 
-  // Double-click to edit (only if not pending)
+  // Double-click to edit (only if not pending and not readOnly)
   const handleDoubleClick = useCallback(() => {
-    if (!isPending) {
+    if (!isPending && !data.readOnly) {
       setEditingNodeId(id);
     }
-  }, [isPending, setEditingNodeId, id]);
+  }, [isPending, data.readOnly, setEditingNodeId, id]);
 
   return (
     <div
@@ -140,8 +144,8 @@ function RoleNodeComponent({ data, selected, id }: NodeProps<RoleNode>) {
         )}
       />
 
-      {/* Action Buttons - Positioned in top-right corner */}
-      {!isPending && (
+      {/* Action Buttons - Positioned in top-right corner (hidden in readOnly mode) */}
+      {!isPending && !data.readOnly && (
         <div className="nodrag absolute top-1 right-1 z-10 flex gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
           <Button
             variant="ghost"
@@ -224,18 +228,25 @@ function RoleNodeComponent({ data, selected, id }: NodeProps<RoleNode>) {
         <div className="mt-auto space-y-1">
           {/* Metric */}
           {metricName && (
-            <div className="flex items-center gap-2 text-xs">
-              <TrendingUp className="text-muted-foreground h-3 w-3 shrink-0" />
-              <span className="truncate font-medium">{metricName}</span>
-              {isValueLoading ? (
-                <Loader2 className="text-muted-foreground ml-auto h-3 w-3 shrink-0 animate-spin" />
-              ) : metricValue !== undefined ? (
-                <span className="text-primary ml-auto shrink-0 font-semibold">
-                  {Number.isInteger(metricValue)
-                    ? metricValue
-                    : metricValue.toFixed(1)}
-                </span>
-              ) : null}
+            <div className="space-y-0.5">
+              <div className="flex items-center gap-2 text-xs">
+                <TrendingUp className="text-muted-foreground h-3 w-3 shrink-0" />
+                <span className="truncate font-medium">{metricName}</span>
+                {isValueLoading ? (
+                  <Loader2 className="text-muted-foreground ml-auto h-3 w-3 shrink-0 animate-spin" />
+                ) : metricValue !== undefined ? (
+                  <span className="text-primary ml-auto shrink-0 font-semibold">
+                    {Number.isInteger(metricValue)
+                      ? metricValue
+                      : metricValue.toFixed(1)}
+                  </span>
+                ) : null}
+              </div>
+              {metricDate && (
+                <p className="text-muted-foreground/70 pl-5 text-[10px]">
+                  {metricDate}
+                </p>
+              )}
             </div>
           )}
 

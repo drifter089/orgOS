@@ -6,6 +6,7 @@ import {
   Background,
   BackgroundVariant,
   ConnectionMode,
+  type Edge,
   MarkerType,
   type Node,
   type ProOptions,
@@ -19,23 +20,26 @@ import { ZoomSlider } from "@/components/react-flow";
 import { Badge } from "@/components/ui/badge";
 import type { StoredEdge, StoredNode } from "@/lib/canvas";
 import { cn } from "@/lib/utils";
-import type { RouterOutputs } from "@/trpc/react";
 
+import { usePublicView } from "../../../_context/public-view-context";
+import {
+  type PublicChartNodeData,
+  PublicChartNodeMemo,
+} from "./public-chart-node-unified";
 import {
   type PublicRoleNodeData,
   PublicRoleNodeMemo,
-} from "./public-role-node";
-import { PublicTeamEdge } from "./public-team-edge";
+} from "./public-role-node-unified";
+import { PublicTeamEdge } from "./public-team-edge-unified";
 import {
   type PublicTextNodeData,
   PublicTextNodeMemo,
-} from "./public-text-node";
-
-type PublicTeamData = RouterOutputs["publicView"]["getTeamByShareToken"];
+} from "./public-text-node-unified";
 
 const nodeTypes = {
   "role-node": PublicRoleNodeMemo,
   "text-node": PublicTextNodeMemo,
+  "chart-node": PublicChartNodeMemo,
 };
 
 const edgeTypes = {
@@ -44,17 +48,19 @@ const edgeTypes = {
 
 const proOptions: ProOptions = { hideAttribution: true };
 
-interface PublicTeamCanvasProps {
-  team: PublicTeamData;
-}
+type PublicTeamNode =
+  | Node<PublicRoleNodeData, "role-node">
+  | Node<PublicTextNodeData, "text-node">
+  | Node<PublicChartNodeData, "chart-node">;
 
-type PublicTeamNode = Node<PublicRoleNodeData | PublicTextNodeData>;
+export function PublicTeamCanvasUnified() {
+  const { team } = usePublicView();
 
-export function PublicTeamCanvas({ team }: PublicTeamCanvasProps) {
-  const nodes = useMemo(() => {
-    const storedNodes = (team.reactFlowNodes as StoredNode[]) ?? [];
+  const nodes = useMemo<PublicTeamNode[]>(() => {
+    if (!team) return [];
+    const storedNodes = (team.reactFlowNodes as StoredNode[] | null) ?? [];
 
-    return storedNodes.map((node): PublicTeamNode => {
+    return storedNodes.map((node) => {
       if (node.type === "text-node") {
         return {
           id: node.id,
@@ -69,40 +75,50 @@ export function PublicTeamCanvas({ team }: PublicTeamCanvasProps) {
         };
       }
 
+      if (node.type === "chart-node") {
+        const dashboardMetricId = (node.data as { dashboardMetricId?: string })
+          ?.dashboardMetricId;
+
+        return {
+          id: node.id,
+          type: "chart-node" as const,
+          position: node.position,
+          data: {
+            dashboardMetricId: dashboardMetricId ?? "",
+          },
+        };
+      }
+
       const roleId = (node.data as { roleId?: string })?.roleId;
-      const role = team.roles.find((r) => r.id === roleId);
 
       return {
         id: node.id,
         type: "role-node" as const,
         position: node.position,
         data: {
-          roleId: role?.id ?? roleId ?? "",
-          title: role?.title ?? "Untitled Role",
-          purpose: role?.purpose ?? "",
-          accountabilities: role?.accountabilities ?? undefined,
-          metricId: role?.metric?.id,
-          metricName: role?.metric?.name,
-          assignedUserId: role?.assignedUserId ?? null,
-          effortPoints: role?.effortPoints ?? null,
-          color: role?.color ?? "#3b82f6",
+          roleId: roleId ?? "",
         },
       };
     });
-  }, [team.reactFlowNodes, team.roles]);
+  }, [team]);
 
-  const edges = useMemo(() => {
-    const storedEdges = (team.reactFlowEdges as StoredEdge[]) ?? [];
+  const edges = useMemo<Edge[]>(() => {
+    if (!team) return [];
+    const storedEdges = (team.reactFlowEdges as StoredEdge[] | null) ?? [];
 
     return storedEdges.map((edge, index) => ({
-      id: `public-edge-${index}-${edge.source}-${edge.target}`,
+      id: `edge-${index}-${edge.source}-${edge.target}`,
       source: edge.source,
       target: edge.target,
       type: "team-edge",
       animated: edge.animated ?? true,
       markerEnd: { type: MarkerType.ArrowClosed, width: 20, height: 20 },
     }));
-  }, [team.reactFlowEdges]);
+  }, [team]);
+
+  const viewport = (team?.viewport ?? undefined) as
+    | { x: number; y: number; zoom: number }
+    | undefined;
 
   return (
     <ReactFlowProvider>
@@ -121,11 +137,9 @@ export function PublicTeamCanvas({ team }: PublicTeamCanvasProps) {
           edgeTypes={edgeTypes}
           proOptions={proOptions}
           connectionMode={ConnectionMode.Loose}
-          fitView
-          fitViewOptions={{
-            maxZoom: 0.65,
-            minZoom: 0.65,
-          }}
+          defaultViewport={viewport}
+          fitView={!viewport}
+          fitViewOptions={{ maxZoom: 0.65, minZoom: 0.65 }}
           className={cn("bg-background")}
           nodesDraggable={false}
           nodesConnectable={false}

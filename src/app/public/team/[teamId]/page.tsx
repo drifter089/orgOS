@@ -2,7 +2,8 @@ import { notFound } from "next/navigation";
 
 import { api } from "@/trpc/server";
 
-import { PublicTeamCanvas } from "./_components/public-team-canvas";
+import { PublicViewProvider } from "../../_context/public-view-context";
+import { PublicTeamCanvasUnified } from "./_components/public-team-canvas-unified";
 
 interface PublicTeamPageProps {
   params: Promise<{ teamId: string }>;
@@ -20,10 +21,14 @@ export default async function PublicTeamPage({
     notFound();
   }
 
-  // Fetch team data with share token validation
+  // Fetch team and dashboard data with share token validation
   let team;
+  let dashboard;
   try {
-    team = await api.publicView.getTeamByShareToken({ teamId, token });
+    [team, dashboard] = await Promise.all([
+      api.publicView.getTeamByShareToken({ teamId, token }),
+      api.publicView.getDashboardByShareToken({ teamId, token }),
+    ]);
   } catch {
     // Invalid token or team not found
     notFound();
@@ -34,8 +39,10 @@ export default async function PublicTeamPage({
   }
 
   return (
-    <div className="h-screen w-full">
-      <PublicTeamCanvas team={team} />
-    </div>
+    <PublicViewProvider team={team} dashboard={dashboard} token={token}>
+      <div className="h-screen w-full">
+        <PublicTeamCanvasUnified />
+      </div>
+    </PublicViewProvider>
   );
 }
