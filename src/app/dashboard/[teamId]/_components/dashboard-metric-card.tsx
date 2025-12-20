@@ -20,7 +20,10 @@ import { useConfirmation } from "@/providers/ConfirmationDialogProvider";
 import type { RouterOutputs } from "@/trpc/react";
 import { api } from "@/trpc/react";
 
-import { DashboardMetricChart } from "./dashboard-metric-chart";
+import {
+  DashboardMetricChart,
+  type LoadingPhase,
+} from "./dashboard-metric-chart";
 import { DashboardMetricDrawer } from "./dashboard-metric-drawer";
 
 type DashboardMetrics = RouterOutputs["dashboard"]["getDashboardCharts"];
@@ -50,9 +53,25 @@ export function DashboardMetricCard({
 }: DashboardMetricCardProps) {
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [isRegeneratingPipeline, setIsRegeneratingPipeline] = useState(false);
 
   const utils = api.useUtils();
   const { confirm } = useConfirmation();
+
+  // Poll for refresh status when processing
+  const { data: refreshStatus } = api.metric.getRefreshStatus.useQuery(
+    { metricId: dashboardMetric.metric.id },
+    {
+      enabled: isProcessing || isRegeneratingPipeline,
+      refetchInterval: 500,
+    },
+  );
+
+  // Derive loadingPhase from polled status
+  const loadingPhase: LoadingPhase =
+    isProcessing || isRegeneratingPipeline
+      ? ((refreshStatus as LoadingPhase) ?? "fetching-api")
+      : null;
 
   const isPending = dashboardMetric.id.startsWith("temp-");
   const { metric } = dashboardMetric;
@@ -142,10 +161,8 @@ export function DashboardMetricCard({
   });
 
   /**
-   * Refresh metric data using MetricTransformer
-   * 1. Fetch data via MetricTransformer
-   * 2. Store in MetricDataPoints
-   * 3. Invalidate cache to refresh UI
+   * Refresh metric data using existing transformer.
+   * Progress status is polled from the database.
    */
   const handleRefresh = useCallback(async () => {
     if (!isIntegrationMetric || !metric.templateId || !metric.integration)
@@ -161,7 +178,6 @@ export function DashboardMetricCard({
         toast.success("Data refreshed", {
           description: `${result.dataPointCount} data points updated`,
         });
-        // Invalidate dashboard to refetch with new data
         const teamId = metric.teamId;
         await utils.dashboard.getDashboardCharts.invalidate();
         if (teamId) {
@@ -231,6 +247,52 @@ export function DashboardMetricCard({
       metric.teamId,
     ],
   );
+
+  /**
+   * Regenerate entire pipeline (both DataIngestion and Chart transformers).
+   * Progress status is polled from the database.
+   */
+  const handleRegeneratePipeline = useCallback(async () => {
+    if (!isIntegrationMetric || !metric.templateId || !metric.integration)
+      return;
+
+    setIsRegeneratingPipeline(true);
+    try {
+      const result = await refreshMetricMutation.mutateAsync({
+        metricId: metric.id,
+        forceRegenerate: true,
+      });
+
+      if (result.success) {
+        toast.success("Pipeline regenerated", {
+          description: `Transformers recreated with ${result.dataPointCount} data points`,
+        });
+        const teamId = metric.teamId;
+        await utils.dashboard.getDashboardCharts.invalidate();
+        if (teamId) {
+          await utils.dashboard.getDashboardCharts.invalidate({ teamId });
+        }
+      } else {
+        toast.error("Pipeline regeneration failed", {
+          description: result.error,
+        });
+      }
+    } catch (error) {
+      toast.error("Pipeline regeneration failed", {
+        description: error instanceof Error ? error.message : "Unknown error",
+      });
+    } finally {
+      setIsRegeneratingPipeline(false);
+    }
+  }, [
+    isIntegrationMetric,
+    metric.templateId,
+    metric.integration,
+    metric.id,
+    metric.teamId,
+    refreshMetricMutation,
+    utils.dashboard.getDashboardCharts,
+  ]);
 
   const handleRemove = async () => {
     const confirmed = await confirm({
@@ -317,6 +379,7 @@ export function DashboardMetricCard({
           isIntegrationMetric={isIntegrationMetric}
           isPending={isPending}
           isProcessing={isProcessing}
+          loadingPhase={loadingPhase}
           integrationId={metric.integration?.providerId}
           roles={roles}
           goal={metric.goal}
@@ -325,8 +388,8 @@ export function DashboardMetricCard({
         />
       </Card>
 
-      <DrawerContent>
-        <div className="mx-auto w-full max-w-sm">
+      <DrawerContent className="max-h-[90vh] sm:max-w-2xl md:max-w-3xl lg:max-w-4xl">
+        <div className="mx-auto w-full">
           <DashboardMetricDrawer
             metricId={metric.id}
             metricName={metric.name}
@@ -350,8 +413,11 @@ export function DashboardMetricCard({
             isProcessing={isProcessing}
             isUpdating={updateMetricMutation.isPending}
             isDeleting={isPending || deleteMetricMutation.isPending}
+            isRegeneratingPipeline={isRegeneratingPipeline}
+            loadingPhase={loadingPhase}
             onRegenerate={handleRegenerate}
             onRefresh={handleRefresh}
+            onRegeneratePipeline={handleRegeneratePipeline}
             onUpdateMetric={handleUpdateMetric}
             onDelete={handleRemove}
             onClose={() => setIsDrawerOpen(false)}

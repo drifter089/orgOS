@@ -9,9 +9,9 @@ import {
   Check,
   ChevronRight,
   Clock,
-  Database,
   Loader2,
   RefreshCw,
+  RotateCcw,
   Sparkles,
   Target,
   Trash2,
@@ -24,6 +24,7 @@ import { GoalEditor } from "@/components/metric/goal-editor";
 import { RoleAssignment } from "@/components/metric/role-assignment";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Collapsible,
   CollapsibleContent,
@@ -37,6 +38,7 @@ import {
   DrawerTitle,
 } from "@/components/ui/drawer";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
@@ -46,11 +48,18 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { formatValue } from "@/lib/helpers/format-value";
+import { getLatestMetricValue } from "@/lib/metrics/get-latest-value";
 import { getPlatformConfig } from "@/lib/platform-config";
 import { cn } from "@/lib/utils";
 import type { GoalProgress } from "@/server/api/utils/goal-calculation";
+import { calculateGoalTargetValue } from "@/server/api/utils/goal-calculation";
 
 import type { ChartTransformResult } from "./dashboard-metric-card";
+import {
+  DashboardMetricChart,
+  type LoadingPhase,
+} from "./dashboard-metric-chart";
 
 const CADENCE_OPTIONS: Cadence[] = ["DAILY", "WEEKLY", "MONTHLY"];
 
@@ -75,33 +84,18 @@ interface DashboardMetricDrawerProps {
   isProcessing: boolean;
   isUpdating: boolean;
   isDeleting: boolean;
+  isRegeneratingPipeline: boolean;
+  loadingPhase: LoadingPhase;
   onRegenerate: (
     chartType?: string,
     cadence?: Cadence,
     prompt?: string,
   ) => void;
   onRefresh: () => void;
+  onRegeneratePipeline: () => void;
   onUpdateMetric: (name: string, description: string) => void;
   onDelete: () => void;
   onClose: () => void;
-}
-
-interface DrawerSectionProps {
-  icon: React.ElementType;
-  title: string;
-  children: React.ReactNode;
-}
-
-function DrawerSection({ icon: Icon, title, children }: DrawerSectionProps) {
-  return (
-    <div className="space-y-3">
-      <div className="flex items-center gap-2">
-        <Icon className="text-muted-foreground h-4 w-4" />
-        <h4 className="text-sm font-medium">{title}</h4>
-      </div>
-      {children}
-    </div>
-  );
 }
 
 export function DashboardMetricDrawer({
@@ -114,7 +108,7 @@ export function DashboardMetricDrawer({
   currentCadence,
   roles,
   valueLabel,
-  dataDescription,
+  dataDescription: _dataDescription,
   integrationId,
   isIntegrationMetric,
   lastFetchedAt,
@@ -125,8 +119,11 @@ export function DashboardMetricDrawer({
   isProcessing,
   isUpdating,
   isDeleting,
+  isRegeneratingPipeline,
+  loadingPhase,
   onRegenerate,
   onRefresh,
+  onRegeneratePipeline,
   onUpdateMetric,
   onDelete,
   onClose,
@@ -179,6 +176,14 @@ export function DashboardMetricDrawer({
     ? getPlatformConfig(integrationId)
     : null;
 
+  const hasChartData = !!(
+    chartTransform?.chartData && chartTransform.chartData.length > 0
+  );
+
+  const currentValue = getLatestMetricValue(chartTransform);
+  const goalTargetValue =
+    goal && goalProgress ? calculateGoalTargetValue(goal, goalProgress) : null;
+
   return (
     <>
       <DrawerHeader className="border-b">
@@ -202,6 +207,17 @@ export function DashboardMetricDrawer({
               {platformConfig.name}
             </Badge>
           )}
+          {lastFetchedAt && (
+            <span className="text-muted-foreground flex items-center gap-1 text-xs">
+              <Clock className="h-3 w-3" />
+              {formatDistanceToNow(new Date(lastFetchedAt), {
+                addSuffix: true,
+              })}
+            </span>
+          )}
+          <Badge variant="outline" className="text-[10px]">
+            {pollFrequency}
+          </Badge>
           {lastError && (
             <Tooltip>
               <TooltipTrigger asChild>
@@ -218,42 +234,169 @@ export function DashboardMetricDrawer({
       </DrawerHeader>
 
       <ScrollArea className="flex-1 overflow-auto">
-        <div className="space-y-6 p-4">
-          {teamId && (
-            <>
-              <DrawerSection icon={Target} title="Goal Settings">
-                <GoalEditor
-                  metricId={metricId}
-                  initialGoal={goal}
-                  initialProgress={goalProgress}
-                  cadence={currentCadence}
-                  compact={true}
-                />
-              </DrawerSection>
-              <Separator />
-            </>
-          )}
+        <div className="grid gap-6 p-4 md:grid-cols-2">
+          {/* Left Column: Chart Preview & Current Values */}
+          <div className="space-y-4">
+            {/* Chart Preview */}
+            <Card className="overflow-hidden">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium">
+                  Chart Preview
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="p-0">
+                <div className="h-[280px]">
+                  <DashboardMetricChart
+                    title={chartTransform?.title ?? metricName}
+                    chartTransform={chartTransform}
+                    hasChartData={hasChartData}
+                    isIntegrationMetric={isIntegrationMetric}
+                    isPending={false}
+                    isProcessing={isProcessing || isRegeneratingPipeline}
+                    loadingPhase={loadingPhase}
+                    integrationId={integrationId}
+                    roles={roles}
+                    goal={goal}
+                    goalProgress={goalProgress}
+                    valueLabel={valueLabel}
+                  />
+                </div>
+              </CardContent>
+            </Card>
 
-          {teamId && (
-            <>
-              <DrawerSection icon={Users} title="Role Assignment">
-                <RoleAssignment
-                  metricId={metricId}
-                  metricName={metricName}
-                  teamId={teamId}
-                  assignedRoleIds={roles.map((r) => r.id)}
-                />
-              </DrawerSection>
-              <Separator />
-            </>
-          )}
-
-          {isIntegrationMetric && (
-            <>
-              <DrawerSection icon={BarChart3} title="Chart Settings">
-                <div className="space-y-3">
+            {/* Current Value & Goal Summary */}
+            <Card>
+              <CardContent className="space-y-4 pt-4">
+                <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-1">
-                    <label className="text-muted-foreground text-[10px] font-medium tracking-wider uppercase">
+                    <p className="text-muted-foreground text-xs font-medium">
+                      Current Value
+                    </p>
+                    <p className="text-2xl font-bold">
+                      {currentValue ? formatValue(currentValue.value) : "--"}
+                    </p>
+                    {valueLabel && (
+                      <p className="text-muted-foreground text-xs">
+                        {valueLabel}
+                      </p>
+                    )}
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-muted-foreground text-xs font-medium">
+                      Goal Target
+                    </p>
+                    <p className="text-2xl font-bold">
+                      {goalTargetValue !== null
+                        ? formatValue(goalTargetValue)
+                        : "--"}
+                    </p>
+                    {goalProgress && (
+                      <p
+                        className={cn(
+                          "text-xs font-medium",
+                          goalProgress.progressPercent >= 100
+                            ? "text-green-600"
+                            : goalProgress.progressPercent >= 70
+                              ? "text-blue-600"
+                              : "text-amber-600",
+                        )}
+                      >
+                        {Math.round(goalProgress.progressPercent)}% complete
+                      </p>
+                    )}
+                  </div>
+                </div>
+
+                {/* Data Info */}
+                {chartTransform?.dataKeys &&
+                  chartTransform.dataKeys.length > 0 && (
+                    <div className="space-y-2">
+                      <p className="text-muted-foreground text-xs font-medium">
+                        Tracked Metrics
+                      </p>
+                      <div className="flex flex-wrap gap-1.5">
+                        {chartTransform.dataKeys.map((key) => (
+                          <Badge
+                            key={key}
+                            variant="outline"
+                            className="text-xs"
+                          >
+                            {chartTransform.chartConfig?.[key]?.label ?? key}
+                          </Badge>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                {chartTransform?.description && (
+                  <div className="space-y-1">
+                    <p className="text-muted-foreground text-xs font-medium">
+                      Chart Aggregation
+                    </p>
+                    <p className="text-muted-foreground text-xs leading-relaxed">
+                      {chartTransform.description}
+                    </p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Right Column: Settings */}
+          <div className="space-y-4">
+            {/* Goal Settings */}
+            {teamId && (
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="flex items-center gap-2 text-sm font-medium">
+                    <Target className="h-4 w-4" />
+                    Goal Settings
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <GoalEditor
+                    metricId={metricId}
+                    initialGoal={goal}
+                    initialProgress={goalProgress}
+                    cadence={currentCadence}
+                    compact={true}
+                  />
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Role Assignment */}
+            {teamId && (
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="flex items-center gap-2 text-sm font-medium">
+                    <Users className="h-4 w-4" />
+                    Role Assignment
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <RoleAssignment
+                    metricId={metricId}
+                    metricName={metricName}
+                    teamId={teamId}
+                    assignedRoleIds={roles.map((r) => r.id)}
+                  />
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Chart Settings (Integration metrics only) */}
+            {isIntegrationMetric && (
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="flex items-center gap-2 text-sm font-medium">
+                    <BarChart3 className="h-4 w-4" />
+                    Chart Settings
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="space-y-1">
+                    <label className="text-muted-foreground text-xs font-medium">
                       Metric Name
                     </label>
                     <div className="flex items-center gap-2">
@@ -282,7 +425,7 @@ export function DashboardMetricDrawer({
                   </div>
 
                   <div className="space-y-1">
-                    <label className="text-muted-foreground text-[10px] font-medium tracking-wider uppercase">
+                    <label className="text-muted-foreground text-xs font-medium">
                       Visualization
                     </label>
                     <ToggleGroup
@@ -311,7 +454,7 @@ export function DashboardMetricDrawer({
                   </div>
 
                   <div className="space-y-1">
-                    <label className="text-muted-foreground text-[10px] font-medium tracking-wider uppercase">
+                    <label className="text-muted-foreground text-xs font-medium">
                       Time Cadence
                     </label>
                     <ToggleGroup
@@ -345,7 +488,7 @@ export function DashboardMetricDrawer({
                     open={isAdvancedOpen}
                     onOpenChange={setIsAdvancedOpen}
                   >
-                    <CollapsibleTrigger className="text-muted-foreground hover:text-foreground flex w-full items-center gap-1 text-[10px] tracking-wider uppercase transition-colors">
+                    <CollapsibleTrigger className="text-muted-foreground hover:text-foreground flex w-full items-center gap-1 text-xs font-medium transition-colors">
                       <ChevronRight
                         className={cn(
                           "h-3 w-3 transition-transform",
@@ -379,124 +522,88 @@ export function DashboardMetricDrawer({
                     )}
                     Apply Changes
                   </Button>
-                </div>
-              </DrawerSection>
-              <Separator />
-            </>
-          )}
+                </CardContent>
+              </Card>
+            )}
 
-          {(dataDescription ?? valueLabel ?? chartTransform?.dataKeys) && (
-            <>
-              <DrawerSection icon={Database} title="Data Information">
-                <div className="space-y-3">
-                  {valueLabel && (
-                    <div className="space-y-1">
-                      <p className="text-muted-foreground text-xs font-medium">
-                        Value Unit
-                      </p>
-                      <Badge variant="secondary" className="text-xs">
-                        {valueLabel}
-                      </Badge>
-                    </div>
-                  )}
+            {/* Actions Card */}
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="flex items-center gap-2 text-sm font-medium">
+                  <RefreshCw className="h-4 w-4" />
+                  Actions
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {isIntegrationMetric && (
+                  <>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={onRefresh}
+                      disabled={isProcessing || isRegeneratingPipeline}
+                      className="h-8 w-full text-xs"
+                    >
+                      <RefreshCw
+                        className={cn(
+                          "mr-1.5 h-3.5 w-3.5",
+                          isProcessing && "animate-spin",
+                        )}
+                      />
+                      Refresh Data
+                    </Button>
 
-                  {chartTransform?.dataKeys &&
-                    chartTransform.dataKeys.length > 0 && (
-                      <div className="space-y-1">
-                        <p className="text-muted-foreground text-xs font-medium">
-                          Tracked Metrics
-                        </p>
-                        <div className="flex flex-wrap gap-1.5">
-                          {chartTransform.dataKeys.map((key) => (
-                            <Badge
-                              key={key}
-                              variant="outline"
-                              className="text-xs"
-                            >
-                              {chartTransform.chartConfig?.[key]?.label ?? key}
-                            </Badge>
-                          ))}
+                    <Separator />
+
+                    {/* Regenerate Pipeline Section */}
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <div className="space-y-0.5">
+                          <Label className="text-xs font-medium">
+                            Regenerate Pipeline
+                          </Label>
+                          <p className="text-muted-foreground text-[10px]">
+                            Re-run AI to recreate transformers
+                          </p>
                         </div>
                       </div>
-                    )}
-
-                  {dataDescription && (
-                    <div className="space-y-1">
-                      <p className="text-muted-foreground text-xs font-medium">
-                        Data Structure
-                      </p>
-                      <p className="bg-muted/30 text-muted-foreground rounded-md border p-3 text-xs leading-relaxed">
-                        {dataDescription}
-                      </p>
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        onClick={onRegeneratePipeline}
+                        disabled={isProcessing || isRegeneratingPipeline}
+                        className="h-8 w-full text-xs"
+                      >
+                        {isRegeneratingPipeline ? (
+                          <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                        ) : (
+                          <RotateCcw className="mr-1.5 h-3.5 w-3.5" />
+                        )}
+                        Regenerate Transformers
+                      </Button>
                     </div>
-                  )}
 
-                  {chartTransform?.description && (
-                    <div className="space-y-1">
-                      <p className="text-muted-foreground text-xs font-medium">
-                        Chart Aggregation
-                      </p>
-                      <p className="bg-muted/30 text-muted-foreground rounded-md border p-3 text-xs leading-relaxed">
-                        {chartTransform.description}
-                      </p>
-                    </div>
-                  )}
-                </div>
-              </DrawerSection>
-              <Separator />
-            </>
-          )}
-
-          <DrawerSection icon={RefreshCw} title="Actions">
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                {lastFetchedAt && (
-                  <span className="text-muted-foreground flex items-center gap-1 text-xs">
-                    <Clock className="h-3.5 w-3.5" />
-                    {formatDistanceToNow(new Date(lastFetchedAt), {
-                      addSuffix: true,
-                    })}
-                  </span>
+                    <Separator />
+                  </>
                 )}
-                <Badge variant="outline" className="text-xs">
-                  {pollFrequency}
-                </Badge>
-              </div>
 
-              {isIntegrationMetric && (
                 <Button
-                  variant="outline"
+                  variant="destructive"
                   size="sm"
-                  onClick={onRefresh}
-                  disabled={isProcessing}
+                  onClick={handleDelete}
+                  disabled={isDeleting}
                   className="h-8 w-full text-xs"
                 >
-                  <RefreshCw
-                    className={cn(
-                      "mr-1.5 h-3.5 w-3.5",
-                      isProcessing && "animate-spin",
-                    )}
-                  />
-                  Refresh Data
+                  {isDeleting ? (
+                    <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <Trash2 className="mr-1.5 h-3.5 w-3.5" />
+                  )}
+                  Delete Metric
                 </Button>
-              )}
-
-              <Button
-                variant="destructive"
-                size="sm"
-                onClick={handleDelete}
-                disabled={isDeleting}
-                className="h-8 w-full text-xs"
-              >
-                {isDeleting ? (
-                  <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
-                ) : (
-                  <Trash2 className="mr-1.5 h-3.5 w-3.5" />
-                )}
-                Delete Metric
-              </Button>
-            </div>
-          </DrawerSection>
+              </CardContent>
+            </Card>
+          </div>
         </div>
       </ScrollArea>
 

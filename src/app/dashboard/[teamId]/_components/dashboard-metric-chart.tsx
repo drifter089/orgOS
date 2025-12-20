@@ -50,8 +50,10 @@ import type { ChartTransformResult } from "./dashboard-metric-card";
 
 export type LoadingPhase =
   | "fetching-api"
-  | "ai-transforming"
-  | "loading-chart"
+  | "running-transformer"
+  | "ai-regenerating"
+  | "saving-data"
+  | "updating-chart"
   | null;
 
 interface DashboardMetricChartProps {
@@ -584,11 +586,15 @@ export function DashboardMetricChart({
                 ? "Saving..."
                 : loadingPhase === "fetching-api"
                   ? "Fetching..."
-                  : loadingPhase === "ai-transforming"
-                    ? "AI..."
-                    : loadingPhase === "loading-chart"
-                      ? "Loading..."
-                      : "Processing..."}
+                  : loadingPhase === "running-transformer"
+                    ? "Transforming..."
+                    : loadingPhase === "ai-regenerating"
+                      ? "AI Regenerating..."
+                      : loadingPhase === "saving-data"
+                        ? "Saving..."
+                        : loadingPhase === "updating-chart"
+                          ? "Updating..."
+                          : "Processing..."}
             </Badge>
           )}
         </div>
@@ -682,11 +688,15 @@ export function DashboardMetricChart({
               <p className="text-muted-foreground mt-2 text-sm">
                 {loadingPhase === "fetching-api"
                   ? "Fetching data from API..."
-                  : loadingPhase === "ai-transforming"
-                    ? "AI is analyzing your data..."
-                    : loadingPhase === "loading-chart"
-                      ? "Rendering chart..."
-                      : "Generating chart..."}
+                  : loadingPhase === "running-transformer"
+                    ? "Processing data..."
+                    : loadingPhase === "ai-regenerating"
+                      ? "AI is regenerating transformer..."
+                      : loadingPhase === "saving-data"
+                        ? "Saving data points..."
+                        : loadingPhase === "updating-chart"
+                          ? "Updating chart..."
+                          : "Processing..."}
               </p>
             </div>
           </div>

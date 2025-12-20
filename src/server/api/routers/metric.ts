@@ -66,6 +66,22 @@ export const metricRouter = createTRPCRouter({
       );
     }),
 
+  /** Lightweight query for polling refresh status */
+  getRefreshStatus: workspaceProcedure
+    .input(z.object({ metricId: z.string() }))
+    .query(async ({ ctx, input }) => {
+      const metric = await ctx.db.metric.findUnique({
+        where: { id: input.metricId },
+        select: { refreshStatus: true, organizationId: true },
+      });
+
+      if (!metric || metric.organizationId !== ctx.workspace.organizationId) {
+        return null;
+      }
+
+      return metric.refreshStatus;
+    }),
+
   /**
    * Create a metric with initial data using the unified transformer flow.
    * Single API fetch, transaction-locked transformer creation, batch data saves.

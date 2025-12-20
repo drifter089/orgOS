@@ -103,6 +103,7 @@ model Metric {
     pollFrequency  String    @default("daily")  // "frequent", "hourly", "daily", "weekly", "manual"
     nextPollAt     DateTime?                     // When to poll next
     lastError      String?   @db.Text            // Last error message
+    refreshStatus  String?                       // Current refresh status for progress tracking
 
     team              Team?             @relation(fields: [teamId], references: [id], onDelete: Cascade)
     integration       Integration?      @relation(fields: [integrationId], references: [connectionId], onDelete: Cascade)
