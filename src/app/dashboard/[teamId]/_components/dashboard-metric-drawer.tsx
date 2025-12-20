@@ -36,7 +36,6 @@ import {
 } from "@/components/ui/drawer";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
@@ -228,7 +227,7 @@ export function DashboardMetricDrawer({
         </div>
       </DrawerHeader>
 
-      <ScrollArea className="flex-1">
+      <div className="flex-1 overflow-y-auto">
         <div className="flex flex-col gap-6 p-6">
           {/* Hero Section: Chart & Key Stats */}
           <div className="grid gap-6 lg:grid-cols-[1fr_300px]">
@@ -599,7 +598,7 @@ export function DashboardMetricDrawer({
             </div>
           </div>
         </div>
-      </ScrollArea>
+      </div>
 
       <DrawerFooter className="border-t py-2">
         <div className="flex w-full items-center justify-between px-2">
