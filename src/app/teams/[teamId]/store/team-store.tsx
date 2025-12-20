@@ -19,9 +19,10 @@ import { type StoreApi, create, useStore } from "zustand";
 
 import { type FreehandNodeType } from "@/lib/canvas";
 
-import { type ChartNode } from "../_components/chart-node";
+import { type ChartNode, type ChartNodeData } from "../_components/chart-node";
 import { type RoleNodeData } from "../_components/role-node";
-import { type TextNodeFontSize } from "../types/canvas";
+import { type KpiEdgeData, type TextNodeFontSize } from "../types/canvas";
+import { determineEdgeType } from "../utils/generate-metric-edges";
 
 // Text node data type
 export type TextNodeData = {
@@ -164,12 +165,45 @@ export function createTeamStore(
     },
 
     onConnect: (connection) => {
+      const nodes = get().nodes;
+      const sourceNode = nodes.find((n) => n.id === connection.source);
+      const targetNode = nodes.find((n) => n.id === connection.target);
+
+      const edgeType = determineEdgeType(sourceNode?.type, targetNode?.type);
+
+      // Build edge data for KPI edges
+      let edgeData: KpiEdgeData | undefined;
+      if (edgeType === "kpi-edge") {
+        // Extract roleId and metricId from connected nodes
+        const roleNode =
+          sourceNode?.type === "role-node" ? sourceNode : targetNode;
+        const chartNode =
+          sourceNode?.type === "chart-node" ? sourceNode : targetNode;
+
+        if (
+          roleNode?.type === "role-node" &&
+          chartNode?.type === "chart-node"
+        ) {
+          const roleData = roleNode.data;
+          const chartData = chartNode.data;
+          const roleId = roleData.roleId;
+          const metricId = chartData.dashboardMetric?.metric?.id;
+
+          if (roleId && metricId) {
+            edgeData = { roleId, metricId };
+          }
+        }
+      }
+
       const nextEdges = addEdge(
         {
           ...connection,
-          type: "team-edge",
+          type: edgeType,
           animated: true,
-          markerEnd: { type: MarkerType.ArrowClosed, width: 20, height: 20 },
+          ...(edgeType === "team-edge" && {
+            markerEnd: { type: MarkerType.ArrowClosed, width: 20, height: 20 },
+          }),
+          ...(edgeData && { data: edgeData }),
         },
         get().edges,
       );

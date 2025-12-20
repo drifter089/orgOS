@@ -36,6 +36,7 @@ import { useChartDragContext } from "../context/chart-drag-context";
 import { useAutoSave } from "../hooks/use-auto-save";
 import { useChartDragDrop } from "../hooks/use-chart-drag-drop";
 import { useCreateRole } from "../hooks/use-create-role";
+import { useRoleMetricSync } from "../hooks/use-role-metric-sync";
 import { useRoleSuggestions } from "../hooks/use-role-suggestions";
 import {
   type TeamEdge as TeamEdgeType,
@@ -44,9 +45,12 @@ import {
   useTeamStore,
   useTeamStoreApi,
 } from "../store/team-store";
-import { ChartNodeMemo } from "./chart-node";
+import { type KpiEdgeData } from "../types/canvas";
+import { determineEdgeType } from "../utils/generate-metric-edges";
+import { type ChartNodeData, ChartNodeMemo } from "./chart-node";
+import { KpiEdge } from "./kpi-edge";
 import { RoleDialog } from "./role-dialog";
-import { RoleNodeMemo } from "./role-node";
+import { type RoleNodeData, RoleNodeMemo } from "./role-node";
 import { TeamCanvasControls } from "./team-canvas-controls";
 import { TeamEdge } from "./team-edge";
 import { TextNodeMemo } from "./text-node";
@@ -60,6 +64,7 @@ const nodeTypes = {
 
 const edgeTypes = {
   "team-edge": TeamEdge,
+  "kpi-edge": KpiEdge,
 };
 
 const proOptions: ProOptions = { hideAttribution: true };
@@ -182,6 +187,9 @@ export function TeamCanvas() {
   const mousePositionRef = useRef<{ x: number; y: number } | null>(null);
   const { isSaving, lastSaved } = useAutoSave();
   const { consumeNextRole } = useRoleSuggestions(teamId);
+
+  // Sync KPI edge changes (role-metric assignments) to backend
+  useRoleMetricSync();
   const {
     onDrop: onChartDrop,
     onDragOver: onChartDragOver,
@@ -258,6 +266,7 @@ export function TeamCanvas() {
     (node: Node) => {
       const { nodeLookup } = reactFlowStore.getState();
       const internalNode = getInternalNode(node.id);
+      const currentNodes = storeApi.getState().nodes;
 
       if (!internalNode) return null;
 
@@ -288,19 +297,51 @@ export function TeamCanvas() {
       const closeNodeIsSource =
         closestNodeX < internalNode.internals.positionAbsolute.x;
 
+      const sourceId = closeNodeIsSource ? closestNodeId : node.id;
+      const targetId = closeNodeIsSource ? node.id : closestNodeId;
+
+      // Determine edge type based on connected node types
+      const sourceNode = currentNodes.find((n) => n.id === sourceId);
+      const targetNode = currentNodes.find((n) => n.id === targetId);
+      const edgeType = determineEdgeType(sourceNode?.type, targetNode?.type);
+
+      // Build KPI edge data if applicable
+      let edgeData: KpiEdgeData | undefined;
+      if (edgeType === "kpi-edge") {
+        const roleNode =
+          sourceNode?.type === "role-node" ? sourceNode : targetNode;
+        const chartNode =
+          sourceNode?.type === "chart-node" ? sourceNode : targetNode;
+
+        if (
+          roleNode?.type === "role-node" &&
+          chartNode?.type === "chart-node"
+        ) {
+          const roleData = roleNode.data;
+          const chartData = chartNode.data;
+          const roleId = roleData.roleId;
+          const metricId = chartData.dashboardMetric?.metric?.id;
+
+          if (roleId && metricId) {
+            edgeData = { roleId, metricId };
+          }
+        }
+      }
+
       return {
-        id: closeNodeIsSource
-          ? `edge-${closestNodeId}-${node.id}`
-          : `edge-${node.id}-${closestNodeId}`,
-        source: closeNodeIsSource ? closestNodeId : node.id,
-        target: closeNodeIsSource ? node.id : closestNodeId,
-        type: "team-edge" as const,
+        id: `edge-${sourceId}-${targetId}`,
+        source: sourceId,
+        target: targetId,
+        type: edgeType,
         animated: true,
-        markerEnd: { type: MarkerType.ArrowClosed, width: 20, height: 20 },
+        ...(edgeType === "team-edge" && {
+          markerEnd: { type: MarkerType.ArrowClosed, width: 20, height: 20 },
+        }),
+        ...(edgeData && { data: edgeData }),
         className: "temp",
       };
     },
-    [reactFlowStore, getInternalNode],
+    [reactFlowStore, getInternalNode, storeApi],
   );
 
   const onNodeDragStart = useCallback(

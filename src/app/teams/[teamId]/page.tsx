@@ -13,6 +13,7 @@ import { ChartDragProvider } from "./context/chart-drag-context";
 import { TeamStoreProvider } from "./store/team-store";
 import { type StoredEdge, type StoredNode } from "./types/canvas";
 import { enrichNodesWithRoleData } from "./utils/canvas-serialization";
+import { generateMetricEdges } from "./utils/generate-metric-edges";
 
 export default async function TeamPage({
   params,
@@ -61,15 +62,15 @@ export default async function TeamPage({
   }
 
   // Fetch additional data only when user can edit
-  // Prefetch role.getByTeamId so useRoleData has instant data (hydrated to client cache)
-  const [members, integrations, dashboardCharts] = await Promise.all([
+  // Fetch roles with metricId for auto-edge generation, also hydrated to client cache
+  const [members, integrations, dashboardCharts, roles] = await Promise.all([
     api.organization.getMembers().catch(() => []),
     api.integration.listWithStats().catch(() => ({
       active: [],
       stats: { total: 0, active: 0, byProvider: {} },
     })),
     api.dashboard.getDashboardCharts({ teamId }).catch(() => []),
-    api.role.getByTeamId.prefetch({ teamId }),
+    api.role.getByTeamId({ teamId }).catch(() => []),
     api.organization.getMembers.prefetch(),
   ]);
 
@@ -95,9 +96,18 @@ export default async function TeamPage({
     dashboardCharts,
   );
 
-  const edges: StoredEdge[] = Array.isArray(team.reactFlowEdges)
+  const storedEdges: StoredEdge[] = Array.isArray(team.reactFlowEdges)
     ? (team.reactFlowEdges as StoredEdge[])
     : [];
+
+  // Generate KPI edges for roles that have metrics assigned
+  // This ensures existing role-metric assignments from database are visualized on canvas
+  const edges = generateMetricEdges(
+    storedNodes,
+    storedEdges,
+    roles,
+    dashboardCharts,
+  );
 
   // Parse viewport from JSON if available
   const initialViewport = team.viewport as {

@@ -5,13 +5,33 @@
 import {
   FONT_SIZE_VALUES,
   type Points,
-  type StoredEdge,
+  type StoredEdge as StoredEdgeBase,
   type StoredNode as StoredNodeBase,
   type TextNodeFontSize,
 } from "@/lib/canvas";
 
 // Re-export shared types
-export { FONT_SIZE_VALUES, type StoredEdge, type TextNodeFontSize };
+export { FONT_SIZE_VALUES, type TextNodeFontSize };
+
+/**
+ * KPI edge data for role-metric connections.
+ * Stored with the edge to enable backend sync.
+ */
+export type KpiEdgeData = {
+  /** When true, hides action buttons (for public views) */
+  readOnly?: boolean;
+  /** The role ID being connected */
+  roleId: string;
+  /** The metric ID being assigned to the role */
+  metricId: string;
+};
+
+/**
+ * Team-specific stored edge that can include KPI edge data.
+ */
+export type StoredEdge = StoredEdgeBase & {
+  data?: KpiEdgeData;
+};
 
 /**
  * Team-specific stored node data shape.
