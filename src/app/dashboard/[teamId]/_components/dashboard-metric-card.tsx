@@ -163,47 +163,74 @@ export function DashboardMetricCard({
   });
 
   /**
-   * Refresh metric data using existing transformer.
-   * Progress status is polled from the database.
+   * Refresh metric data using existing transformer, or regenerate entire pipeline
+   * when forceRebuild is true. Progress status is polled from the database.
    */
-  const handleRefresh = useCallback(async () => {
-    if (!isIntegrationMetric || !metric.templateId || !metric.integration)
-      return;
+  const handleRefresh = useCallback(
+    async (forceRebuild = false) => {
+      if (!isIntegrationMetric || !metric.templateId || !metric.integration)
+        return;
 
-    setIsProcessing(true);
-    try {
-      const result = await refreshMetricMutation.mutateAsync({
-        metricId: metric.id,
-      });
-
-      if (result.success) {
-        toast.success("Data refreshed", {
-          description: `${result.dataPointCount} data points updated`,
-        });
-        const teamId = metric.teamId;
-        await utils.dashboard.getDashboardCharts.invalidate();
-        if (teamId) {
-          await utils.dashboard.getDashboardCharts.invalidate({ teamId });
-        }
+      if (forceRebuild) {
+        setIsRegeneratingPipeline(true);
       } else {
-        toast.error("Refresh failed", { description: result.error });
+        setIsProcessing(true);
       }
-    } catch (error) {
-      toast.error("Refresh failed", {
-        description: error instanceof Error ? error.message : "Unknown error",
-      });
-    } finally {
-      setIsProcessing(false);
-    }
-  }, [
-    isIntegrationMetric,
-    metric.templateId,
-    metric.integration,
-    metric.id,
-    metric.teamId,
-    refreshMetricMutation,
-    utils.dashboard.getDashboardCharts,
-  ]);
+
+      try {
+        const result = await refreshMetricMutation.mutateAsync({
+          metricId: metric.id,
+          forceRegenerate: forceRebuild,
+        });
+
+        if (result.success) {
+          toast.success(
+            forceRebuild ? "Pipeline regenerated" : "Data refreshed",
+            {
+              description: forceRebuild
+                ? `Transformers recreated with ${result.dataPointCount} data points`
+                : `${result.dataPointCount} data points updated`,
+            },
+          );
+          const teamId = metric.teamId;
+          await utils.dashboard.getDashboardCharts.refetch();
+          if (teamId) {
+            await utils.dashboard.getDashboardCharts.refetch({ teamId });
+          }
+        } else {
+          toast.error(
+            forceRebuild ? "Pipeline regeneration failed" : "Refresh failed",
+            {
+              description: result.error,
+            },
+          );
+        }
+      } catch (error) {
+        toast.error(
+          forceRebuild ? "Pipeline regeneration failed" : "Refresh failed",
+          {
+            description:
+              error instanceof Error ? error.message : "Unknown error",
+          },
+        );
+      } finally {
+        if (forceRebuild) {
+          setIsRegeneratingPipeline(false);
+        } else {
+          setIsProcessing(false);
+        }
+      }
+    },
+    [
+      isIntegrationMetric,
+      metric.templateId,
+      metric.integration,
+      metric.id,
+      metric.teamId,
+      refreshMetricMutation,
+      utils.dashboard.getDashboardCharts,
+    ],
+  );
 
   /**
    * Regenerate chart with AI using optional prompt, chartType, and cadence
@@ -225,11 +252,10 @@ export function DashboardMetricCard({
 
         if (result.success) {
           toast.success("Chart regenerated");
-          // Invalidate to refetch with new chart config
           const teamId = metric.teamId;
-          await utils.dashboard.getDashboardCharts.invalidate();
+          await utils.dashboard.getDashboardCharts.refetch();
           if (teamId) {
-            await utils.dashboard.getDashboardCharts.invalidate({ teamId });
+            await utils.dashboard.getDashboardCharts.refetch({ teamId });
           }
         } else {
           toast.error("Regeneration failed", { description: result.error });
@@ -249,52 +275,6 @@ export function DashboardMetricCard({
       metric.teamId,
     ],
   );
-
-  /**
-   * Regenerate entire pipeline (both DataIngestion and Chart transformers).
-   * Progress status is polled from the database.
-   */
-  const handleRegeneratePipeline = useCallback(async () => {
-    if (!isIntegrationMetric || !metric.templateId || !metric.integration)
-      return;
-
-    setIsRegeneratingPipeline(true);
-    try {
-      const result = await refreshMetricMutation.mutateAsync({
-        metricId: metric.id,
-        forceRegenerate: true,
-      });
-
-      if (result.success) {
-        toast.success("Pipeline regenerated", {
-          description: `Transformers recreated with ${result.dataPointCount} data points`,
-        });
-        const teamId = metric.teamId;
-        await utils.dashboard.getDashboardCharts.invalidate();
-        if (teamId) {
-          await utils.dashboard.getDashboardCharts.invalidate({ teamId });
-        }
-      } else {
-        toast.error("Pipeline regeneration failed", {
-          description: result.error,
-        });
-      }
-    } catch (error) {
-      toast.error("Pipeline regeneration failed", {
-        description: error instanceof Error ? error.message : "Unknown error",
-      });
-    } finally {
-      setIsRegeneratingPipeline(false);
-    }
-  }, [
-    isIntegrationMetric,
-    metric.templateId,
-    metric.integration,
-    metric.id,
-    metric.teamId,
-    refreshMetricMutation,
-    utils.dashboard.getDashboardCharts,
-  ]);
 
   const handleRemove = async () => {
     const confirmed = await confirm({
@@ -431,7 +411,6 @@ export function DashboardMetricCard({
             loadingPhase={loadingPhase}
             onRegenerate={handleRegenerate}
             onRefresh={handleRefresh}
-            onRegeneratePipeline={handleRegeneratePipeline}
             onUpdateMetric={handleUpdateMetric}
             onDelete={handleRemove}
             onClose={() => setIsDrawerOpen(false)}
