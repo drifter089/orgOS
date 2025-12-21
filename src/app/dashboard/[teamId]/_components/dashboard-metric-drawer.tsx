@@ -19,6 +19,7 @@ import {
 import { Link } from "next-transition-router";
 
 import { GoalEditor } from "@/components/metric/goal-editor";
+import { GoalProgressDisplay } from "@/components/metric/goal-progress-display";
 import { RoleAssignment } from "@/components/metric/role-assignment";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -33,12 +34,10 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { formatValue } from "@/lib/helpers/format-value";
 import { getLatestMetricValue } from "@/lib/metrics/get-latest-value";
 import { getPlatformConfig } from "@/lib/platform-config";
 import { cn } from "@/lib/utils";
 import type { GoalProgress } from "@/server/api/utils/goal-calculation";
-import { calculateGoalTargetValue } from "@/server/api/utils/goal-calculation";
 
 import type { ChartTransformResult } from "./dashboard-metric-card";
 import {
@@ -164,8 +163,6 @@ export function DashboardMetricDrawer({
   );
 
   const currentValue = getLatestMetricValue(chartTransform);
-  const goalTargetValue =
-    goal && goalProgress ? calculateGoalTargetValue(goal, goalProgress) : null;
 
   return (
     <div className="flex h-full flex-col">
@@ -321,54 +318,14 @@ export function DashboardMetricDrawer({
             />
           </div>
 
-          <div className="grid grid-cols-3 gap-6">
-            <div>
-              <p className="text-muted-foreground text-xs font-medium tracking-wide uppercase">
-                Current
-              </p>
-              <p className="mt-1 text-2xl font-bold">
-                {currentValue ? formatValue(currentValue.value) : "--"}
-              </p>
-              {valueLabel && (
-                <p className="text-muted-foreground text-xs">{valueLabel}</p>
-              )}
-            </div>
-            <div>
-              <p className="text-muted-foreground text-xs font-medium tracking-wide uppercase">
-                Target
-              </p>
-              <p className="mt-1 text-2xl font-bold">
-                {goalTargetValue !== null ? formatValue(goalTargetValue) : "--"}
-              </p>
-            </div>
-            <div>
-              <p className="text-muted-foreground text-xs font-medium tracking-wide uppercase">
-                Progress
-              </p>
-              <p className="mt-1 text-2xl font-bold">
-                {goalProgress
-                  ? `${Math.round(goalProgress.progressPercent)}%`
-                  : "--"}
-              </p>
-              {goalProgress && (
-                <div className="bg-muted mt-2 h-1.5 w-full overflow-hidden rounded-full">
-                  <div
-                    className={cn(
-                      "h-full transition-[width] duration-300 ease-out",
-                      goalProgress.progressPercent >= 100
-                        ? "bg-green-500"
-                        : goalProgress.progressPercent >= 70
-                          ? "bg-blue-500"
-                          : "bg-amber-500",
-                    )}
-                    style={{
-                      width: `${Math.min(goalProgress.progressPercent, 100)}%`,
-                    }}
-                  />
-                </div>
-              )}
-            </div>
-          </div>
+          <GoalProgressDisplay
+            currentValue={currentValue}
+            valueLabel={valueLabel}
+            goal={goal}
+            goalProgress={goalProgress}
+            isLoading={isProcessing || isRegeneratingPipeline}
+            lastFetchedAt={lastFetchedAt}
+          />
 
           <div className="border-t pt-6">
             <div className="grid gap-8 md:grid-cols-2">
@@ -417,7 +374,6 @@ export function DashboardMetricDrawer({
                     <GoalEditor
                       metricId={metricId}
                       initialGoal={goal}
-                      initialProgress={goalProgress}
                       cadence={currentCadence}
                       compact={true}
                     />

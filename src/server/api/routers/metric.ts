@@ -443,7 +443,7 @@ export const metricRouter = createTRPCRouter({
     )
     .mutation(async ({ ctx, input }) => {
       // Verify metric belongs to org
-      await getMetricAndVerifyAccess(
+      const metric = await getMetricAndVerifyAccess(
         ctx.db,
         input.metricId,
         ctx.workspace.organizationId,
@@ -481,7 +481,7 @@ export const metricRouter = createTRPCRouter({
         }
       }
 
-      return ctx.db.metricGoal.upsert({
+      const goal = await ctx.db.metricGoal.upsert({
         where: { metricId: input.metricId },
         create: {
           metricId: input.metricId,
@@ -497,13 +497,22 @@ export const metricRouter = createTRPCRouter({
           onTrackThreshold: input.onTrackThreshold,
         },
       });
+
+      // Invalidate dashboard cache
+      const cacheTags = [`dashboard_org_${ctx.workspace.organizationId}`];
+      if (metric.teamId) {
+        cacheTags.push(`dashboard_team_${metric.teamId}`);
+      }
+      await invalidateCacheByTags(ctx.db, cacheTags);
+
+      return goal;
     }),
 
   deleteGoal: workspaceProcedure
     .input(z.object({ metricId: z.string() }))
     .mutation(async ({ ctx, input }) => {
       // Verify metric belongs to org
-      await getMetricAndVerifyAccess(
+      const metric = await getMetricAndVerifyAccess(
         ctx.db,
         input.metricId,
         ctx.workspace.organizationId,
@@ -512,6 +521,13 @@ export const metricRouter = createTRPCRouter({
       await ctx.db.metricGoal.delete({
         where: { metricId: input.metricId },
       });
+
+      // Invalidate dashboard cache
+      const cacheTags = [`dashboard_org_${ctx.workspace.organizationId}`];
+      if (metric.teamId) {
+        cacheTags.push(`dashboard_team_${metric.teamId}`);
+      }
+      await invalidateCacheByTags(ctx.db, cacheTags);
 
       return { success: true };
     }),
