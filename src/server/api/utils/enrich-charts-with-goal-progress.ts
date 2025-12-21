@@ -10,6 +10,7 @@ import { type GoalProgress, calculateGoalProgress } from "./goal-calculation";
 type DashboardChartWithRelations = {
   id: string;
   chartConfig: Prisma.JsonValue;
+  updatedAt?: Date;
   metric: {
     id: string;
     templateId: string | null;

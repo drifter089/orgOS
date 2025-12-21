@@ -400,6 +400,7 @@ export function DashboardMetricCard({
             integrationId={metric.integration?.providerId ?? null}
             isIntegrationMetric={isIntegrationMetric}
             lastFetchedAt={metric.lastFetchedAt}
+            chartUpdatedAt={dashboardMetric.chartTransformer?.updatedAt ?? null}
             lastError={metric.lastError}
             pollFrequency={metric.pollFrequency}
             goal={metric.goal}
