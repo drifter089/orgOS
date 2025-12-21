@@ -2,8 +2,6 @@
 
 import { useState } from "react";
 
-import Link from "next/link";
-
 import * as SheetPrimitive from "@radix-ui/react-dialog";
 import {
   ChevronDown,
@@ -13,6 +11,7 @@ import {
   Mail,
   Trash2,
 } from "lucide-react";
+import { Link } from "next-transition-router";
 
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
