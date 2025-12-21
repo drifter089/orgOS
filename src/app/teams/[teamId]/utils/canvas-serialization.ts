@@ -62,18 +62,28 @@ export function serializeNodes(nodes: TeamNode[]): StoredNode[] {
 }
 
 /**
- * Serialize edges to StoredEdges for database storage
+ * Serialize edges to StoredEdges for database storage.
+ * KPI edges include their data for backend sync restoration.
  */
 export function serializeEdges(edges: Edge[]): StoredEdge[] {
-  return edges.map((edge) => ({
-    id: edge.id,
-    source: edge.source,
-    target: edge.target,
-    sourceHandle: edge.sourceHandle,
-    targetHandle: edge.targetHandle,
-    type: edge.type,
-    animated: edge.animated,
-  }));
+  return edges.map((edge) => {
+    const baseEdge: StoredEdge = {
+      id: edge.id,
+      source: edge.source,
+      target: edge.target,
+      sourceHandle: edge.sourceHandle,
+      targetHandle: edge.targetHandle,
+      type: edge.type,
+      animated: edge.animated,
+    };
+
+    // Preserve data for KPI edges (contains roleId, metricId for sync)
+    if (edge.type === "kpi-edge" && edge.data) {
+      baseEdge.data = edge.data as StoredEdge["data"];
+    }
+
+    return baseEdge;
+  });
 }
 
 /**
