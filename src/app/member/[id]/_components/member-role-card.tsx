@@ -3,8 +3,6 @@
 import { TrendingUp } from "lucide-react";
 
 import { DashboardMetricCard } from "@/app/dashboard/[teamId]/_components/dashboard-metric-card";
-import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { stripHtml } from "@/lib/html-utils";
 import { type RouterOutputs } from "@/trpc/react";
 
@@ -17,56 +15,58 @@ interface MemberRoleCardProps {
 }
 
 export function MemberRoleCard({ role, dashboardChart }: MemberRoleCardProps) {
-  return (
-    <Card className="overflow-hidden">
-      <CardHeader className="pb-3">
-        <div className="flex items-start justify-between">
-          <div className="flex items-center gap-2">
-            <div
-              className="border-background h-3 w-3 rounded-full border-2 shadow-sm"
-              style={{
-                backgroundColor: role.color,
-                boxShadow: `0 0 0 1px ${role.color}40`,
-              }}
-            />
-            <CardTitle className="text-lg">{role.title}</CardTitle>
-          </div>
-          {role.effortPoints && (
-            <Badge variant="secondary" className="font-semibold">
-              {role.effortPoints} pts
-            </Badge>
-          )}
-        </div>
-        <p className="text-muted-foreground mt-2 line-clamp-2 text-sm">
-          {stripHtml(role.purpose ?? "")}
-        </p>
-      </CardHeader>
+  const purpose = stripHtml(role.purpose ?? "");
 
-      <CardContent className="pt-0">
+  return (
+    <div className="border-border/60 hover:border-border bg-card flex flex-col border transition-colors">
+      <div className="flex items-start justify-between px-4 py-3">
+        <div className="flex items-center gap-2">
+          <div
+            className="h-2.5 w-2.5 shrink-0"
+            style={{ backgroundColor: role.color }}
+          />
+          <span className="font-semibold">{role.title}</span>
+        </div>
+        {role.effortPoints && (
+          <span className="bg-muted text-muted-foreground shrink-0 px-1.5 py-0.5 text-xs font-medium">
+            {role.effortPoints} pts
+          </span>
+        )}
+      </div>
+
+      {purpose && (
+        <div className="border-border/60 border-t px-4 py-2">
+          <p className="text-muted-foreground line-clamp-2 text-xs">
+            {purpose}
+          </p>
+        </div>
+      )}
+
+      <div className="border-border/60 mt-auto border-t">
         {dashboardChart ? (
-          <div className="overflow-hidden rounded-lg border">
+          <div className="overflow-hidden">
             <DashboardMetricCard dashboardMetric={dashboardChart} />
           </div>
         ) : role.metric ? (
-          <div className="bg-muted/50 space-y-2 rounded-lg p-3">
-            <div className="flex items-center gap-2">
-              <TrendingUp className="text-primary h-4 w-4" />
-              <span className="text-sm font-medium">
-                KPI: {role.metric.name}
+          <div className="bg-muted/30 flex items-center gap-2 px-4 py-3">
+            <TrendingUp className="text-primary h-3.5 w-3.5 shrink-0" />
+            <div className="min-w-0">
+              <span className="block truncate text-sm font-medium">
+                {role.metric.name}
               </span>
+              {role.metric.description && (
+                <span className="text-muted-foreground block truncate text-xs">
+                  {role.metric.description}
+                </span>
+              )}
             </div>
-            {role.metric.description && (
-              <p className="text-muted-foreground text-xs">
-                {role.metric.description}
-              </p>
-            )}
           </div>
         ) : (
-          <div className="text-muted-foreground py-4 text-center text-sm">
-            No KPI assigned to this role
+          <div className="text-muted-foreground px-4 py-3 text-center text-xs">
+            No KPI assigned
           </div>
         )}
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   );
 }

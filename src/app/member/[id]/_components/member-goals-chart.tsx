@@ -1,8 +1,13 @@
 "use client";
 
-import { DashboardRadarChart } from "@/components/charts";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import type { ChartConfig } from "@/components/ui/chart";
+import { PolarAngleAxis, PolarGrid, Radar, RadarChart } from "recharts";
+
+import {
+  type ChartConfig,
+  ChartContainer,
+  ChartTooltip,
+  ChartTooltipContent,
+} from "@/components/ui/chart";
 import type { GoalProgress } from "@/server/api/utils/goal-calculation";
 
 interface GoalData {
@@ -18,16 +23,21 @@ interface MemberGoalsChartProps {
 export function MemberGoalsChart({ goalsData }: MemberGoalsChartProps) {
   if (goalsData.length === 0) {
     return (
-      <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="text-base">Goal Progress</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="text-muted-foreground flex h-[200px] items-center justify-center text-sm">
-            No goals assigned to roles
+      <div className="border-border/60 bg-card flex flex-col border">
+        <div className="border-border/60 flex items-center justify-between border-b px-4 py-3">
+          <div>
+            <h3 className="text-sm font-semibold tracking-wider uppercase">
+              Goal Progress
+            </h3>
+            <p className="text-muted-foreground text-xs">
+              Progress toward metric goals
+            </p>
           </div>
-        </CardContent>
-      </Card>
+        </div>
+        <div className="text-muted-foreground flex h-[200px] items-center justify-center text-sm">
+          No goals assigned to roles
+        </div>
+      </div>
     );
   }
 
@@ -44,14 +54,41 @@ export function MemberGoalsChart({ goalsData }: MemberGoalsChartProps) {
   };
 
   return (
-    <DashboardRadarChart
-      title="Goal Progress"
-      description="Progress toward metric goals (%)"
-      chartData={chartData}
-      chartConfig={chartConfig}
-      xAxisKey="goal"
-      dataKeys={["progress"]}
-      showLegend={false}
-    />
+    <div className="border-border/60 bg-card flex flex-col border">
+      <div className="border-border/60 flex items-center justify-between border-b px-4 py-3">
+        <div>
+          <h3 className="text-sm font-semibold tracking-wider uppercase">
+            Goal Progress
+          </h3>
+          <p className="text-muted-foreground text-xs">
+            Progress toward metric goals
+          </p>
+        </div>
+        <span className="text-muted-foreground text-xs">
+          {goalsData.length} {goalsData.length === 1 ? "goal" : "goals"}
+        </span>
+      </div>
+      <div className="flex-1 p-4">
+        <ChartContainer
+          config={chartConfig}
+          className="mx-auto aspect-square max-h-[220px]"
+        >
+          <RadarChart data={chartData}>
+            <ChartTooltip cursor={false} content={<ChartTooltipContent />} />
+            <PolarAngleAxis dataKey="goal" />
+            <PolarGrid />
+            <Radar
+              dataKey="progress"
+              fill="var(--color-progress)"
+              fillOpacity={0.6}
+              dot={{
+                r: 4,
+                fillOpacity: 1,
+              }}
+            />
+          </RadarChart>
+        </ChartContainer>
+      </div>
+    </div>
   );
 }

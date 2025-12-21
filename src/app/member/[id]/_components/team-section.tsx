@@ -2,11 +2,8 @@
 
 import { useState } from "react";
 
-import { ChevronDown, ChevronRight, Users } from "lucide-react";
+import { ChevronDown, ChevronRight } from "lucide-react";
 
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Collapsible,
   CollapsibleContent,
@@ -39,41 +36,36 @@ export function TeamSection({
 
   return (
     <Collapsible open={isOpen} onOpenChange={setIsOpen}>
-      <Card>
+      <div className="border-border/60 bg-card border">
         <CollapsibleTrigger asChild>
-          <CardHeader className="hover:bg-accent/50 cursor-pointer transition-colors">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-6 w-6"
-                  aria-label={
-                    isOpen ? `Collapse ${team.name}` : `Expand ${team.name}`
-                  }
-                >
-                  {isOpen ? (
-                    <ChevronDown className="h-4 w-4" />
-                  ) : (
-                    <ChevronRight className="h-4 w-4" />
-                  )}
-                </Button>
-                <CardTitle className="text-xl">{team.name}</CardTitle>
-                <Badge variant="secondary" className="gap-1.5">
-                  <Users className="h-3 w-3" />
-                  {roles.length} {roles.length === 1 ? "role" : "roles"}
-                </Badge>
+          <button
+            className="hover:bg-accent/30 flex w-full items-center justify-between px-4 py-3 text-left transition-colors"
+            aria-label={
+              isOpen ? `Collapse ${team.name}` : `Expand ${team.name}`
+            }
+          >
+            <div className="flex items-center gap-3">
+              <div className="text-muted-foreground">
+                {isOpen ? (
+                  <ChevronDown className="h-4 w-4" />
+                ) : (
+                  <ChevronRight className="h-4 w-4" />
+                )}
               </div>
-              <Badge variant="outline" className="text-lg font-semibold">
-                {teamEffortPoints} pts
-              </Badge>
+              <span className="text-lg font-semibold">{team.name}</span>
+              <span className="text-muted-foreground text-xs tracking-wider uppercase">
+                {roles.length} {roles.length === 1 ? "role" : "roles"}
+              </span>
             </div>
-          </CardHeader>
+            <span className="bg-muted px-2 py-1 text-sm font-medium">
+              {teamEffortPoints} pts
+            </span>
+          </button>
         </CollapsibleTrigger>
 
         <CollapsibleContent>
-          <CardContent className="pt-0">
-            <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+          <div className="border-border/60 border-t px-4 py-3">
+            <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
               {roles.map((role) => (
                 <MemberRoleCard
                   key={role.id}
@@ -86,9 +78,9 @@ export function TeamSection({
                 />
               ))}
             </div>
-          </CardContent>
+          </div>
         </CollapsibleContent>
-      </Card>
+      </div>
     </Collapsible>
   );
 }
