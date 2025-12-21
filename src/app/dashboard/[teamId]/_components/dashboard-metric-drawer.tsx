@@ -225,12 +225,28 @@ export function DashboardMetricDrawer({
               </Tooltip>
             </>
           ) : (
-            <Button variant="default" size="sm" asChild>
-              <Link href={`/metric/check-in/${metricId}`}>
-                <ClipboardCheck className="mr-2 h-4 w-4" />
-                Check-in
-              </Link>
-            </Button>
+            <>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => onRefresh(true)}
+                disabled={isProcessing || isRegeneratingPipeline}
+              >
+                <RefreshCw
+                  className={cn(
+                    "mr-2 h-4 w-4",
+                    (isProcessing || isRegeneratingPipeline) && "animate-spin",
+                  )}
+                />
+                Regenerate
+              </Button>
+              <Button variant="default" size="sm" asChild>
+                <Link href={`/metric/check-in/${metricId}`}>
+                  <ClipboardCheck className="mr-2 h-4 w-4" />
+                  Check-in
+                </Link>
+              </Button>
+            </>
           )}
           <DrawerClose asChild>
             <Button variant="ghost" size="icon" className="h-8 w-8">
@@ -242,64 +258,62 @@ export function DashboardMetricDrawer({
 
       <div className="flex-1 overflow-y-auto">
         <div className="space-y-6 px-8 py-6">
-          {isIntegrationMetric && (
-            <div className="bg-muted/30 space-y-4 rounded-lg border p-4">
-              <div className="flex flex-wrap items-center gap-4">
-                <ToggleGroup
-                  type="single"
-                  value={selectedChartType}
-                  onValueChange={(v) => v && setSelectedChartType(v)}
-                  size="sm"
-                >
-                  <ToggleGroupItem value="bar" aria-label="Bar Chart">
-                    <BarChart3 className="h-4 w-4" />
-                  </ToggleGroupItem>
-                  <ToggleGroupItem value="line" aria-label="Line Chart">
-                    <TrendingUp className="h-4 w-4" />
-                  </ToggleGroupItem>
-                </ToggleGroup>
-                <ToggleGroup
-                  type="single"
-                  value={selectedCadence}
-                  onValueChange={(v) => v && setSelectedCadence(v as Cadence)}
-                  size="sm"
-                >
-                  {CADENCE_OPTIONS.map((c) => (
-                    <ToggleGroupItem key={c} value={c} className="text-xs">
-                      {c.charAt(0) + c.slice(1).toLowerCase()}
-                    </ToggleGroupItem>
-                  ))}
-                </ToggleGroup>
-                {lastFetchedAt && (
-                  <span className="text-muted-foreground ml-auto flex items-center gap-1.5 text-xs">
-                    <Clock className="h-3 w-3" />
-                    {formatDistanceToNow(new Date(lastFetchedAt), {
-                      addSuffix: true,
-                    })}
-                  </span>
-                )}
-              </div>
-              <Textarea
-                placeholder="AI Customization (optional) - e.g., 'Group by user', 'Show cumulative growth'..."
-                value={prompt}
-                onChange={(e) => setPrompt(e.target.value)}
-                className="min-h-[60px] resize-none"
-              />
-              <Button
+          <div className="bg-muted/30 space-y-4 rounded-lg border p-4">
+            <div className="flex flex-wrap items-center gap-4">
+              <ToggleGroup
+                type="single"
+                value={selectedChartType}
+                onValueChange={(v) => v && setSelectedChartType(v)}
                 size="sm"
-                onClick={handleApplyChanges}
-                disabled={isProcessing || !hasChartChanges}
-                className="w-full"
               >
-                {isProcessing ? (
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                ) : (
-                  <Sparkles className="mr-2 h-4 w-4" />
-                )}
-                Apply Changes
-              </Button>
+                <ToggleGroupItem value="bar" aria-label="Bar Chart">
+                  <BarChart3 className="h-4 w-4" />
+                </ToggleGroupItem>
+                <ToggleGroupItem value="line" aria-label="Line Chart">
+                  <TrendingUp className="h-4 w-4" />
+                </ToggleGroupItem>
+              </ToggleGroup>
+              <ToggleGroup
+                type="single"
+                value={selectedCadence}
+                onValueChange={(v) => v && setSelectedCadence(v as Cadence)}
+                size="sm"
+              >
+                {CADENCE_OPTIONS.map((c) => (
+                  <ToggleGroupItem key={c} value={c} className="text-xs">
+                    {c.charAt(0) + c.slice(1).toLowerCase()}
+                  </ToggleGroupItem>
+                ))}
+              </ToggleGroup>
+              {lastFetchedAt && (
+                <span className="text-muted-foreground ml-auto flex items-center gap-1.5 text-xs">
+                  <Clock className="h-3 w-3" />
+                  {formatDistanceToNow(new Date(lastFetchedAt), {
+                    addSuffix: true,
+                  })}
+                </span>
+              )}
             </div>
-          )}
+            <Textarea
+              placeholder="AI Customization (optional) - e.g., 'Group by user', 'Show cumulative growth'..."
+              value={prompt}
+              onChange={(e) => setPrompt(e.target.value)}
+              className="min-h-[60px] resize-none"
+            />
+            <Button
+              size="sm"
+              onClick={handleApplyChanges}
+              disabled={isProcessing || !hasChartChanges}
+              className="w-full"
+            >
+              {isProcessing ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <Sparkles className="mr-2 h-4 w-4" />
+              )}
+              {isIntegrationMetric ? "Apply Changes" : "Regenerate Chart"}
+            </Button>
+          </div>
 
           <div className="h-[400px]">
             <DashboardMetricChart

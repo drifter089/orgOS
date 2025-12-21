@@ -675,25 +675,33 @@ export const metricRouter = createTRPCRouter({
       );
 
       // Check if we should generate a chart transformer
-      // Generate when we have at least 3 data points and no transformer exists
+      // Generate when we have at least 1 data point and no transformer exists
       const dataPointCount = await ctx.db.metricDataPoint.count({
         where: { metricId: input.metricId },
       });
 
       const dashboardChart = metric.dashboardCharts[0];
-      if (dataPointCount >= 3 && dashboardChart) {
+      if (dataPointCount >= 1 && dashboardChart) {
         const existingTransformer = await ctx.db.chartTransformer.findUnique({
           where: { dashboardChartId: dashboardChart.id },
         });
 
         if (!existingTransformer) {
+          // Get cadence from manual metric's endpointConfig
+          const endpointConfig = metric.endpointConfig as {
+            type?: string;
+            cadence?: string;
+          } | null;
+          const metricCadence =
+            endpointConfig?.cadence?.toUpperCase() ?? "DAILY";
+
           try {
             await createChartTransformer({
               dashboardChartId: dashboardChart.id,
               metricName: metric.name,
               metricDescription: metric.description ?? "Manual metric",
               chartType: "line",
-              cadence: "DAILY",
+              cadence: metricCadence as "DAILY" | "WEEKLY" | "MONTHLY",
             });
             console.info(
               `[metric.addDataPoints] Created chart transformer for manual metric ${metric.id}`,
