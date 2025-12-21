@@ -588,3 +588,82 @@ export async function refreshMetricAndCharts(
     throw error;
   }
 }
+
+/**
+ * Update chart for manual metric. Reuses existing transformer code if available.
+ * Only calls AI to generate new code if no transformer exists.
+ */
+export async function updateManualMetricChart(input: {
+  metricId: string;
+}): Promise<{ success: boolean; error?: string }> {
+  const metric = await db.metric.findUnique({
+    where: { id: input.metricId },
+    include: {
+      dashboardCharts: { include: { chartTransformer: true } },
+    },
+  });
+
+  if (!metric) {
+    return { success: false, error: "Metric not found" };
+  }
+
+  const dashboardChart = metric.dashboardCharts[0];
+  if (!dashboardChart) {
+    return { success: false, error: "No dashboard chart found" };
+  }
+
+  // Get fresh data points
+  const freshDataPoints = await db.metricDataPoint.findMany({
+    where: { metricId: metric.id },
+    orderBy: { timestamp: "desc" },
+    take: 1000,
+  });
+
+  if (freshDataPoints.length === 0) {
+    return { success: false, error: "No data points to visualize" };
+  }
+
+  const dataPointsForChart: DataPoint[] = freshDataPoints.map((dp) => ({
+    timestamp: dp.timestamp,
+    value: dp.value,
+    dimensions: dp.dimensions as Record<string, unknown> | null,
+  }));
+
+  const transformer = dashboardChart.chartTransformer;
+
+  if (transformer) {
+    // Transformer exists - just execute existing code (no AI)
+    const { executeChartTransformerWithData } = await import(
+      "./chart-generator"
+    );
+
+    const result = await executeChartTransformerWithData({
+      dashboardChartId: dashboardChart.id,
+      transformerCode: transformer.transformerCode,
+      chartType: transformer.chartType,
+      cadence: transformer.cadence,
+      dataPoints: dataPointsForChart,
+    });
+
+    return { success: result.success, error: result.error };
+  } else {
+    // No transformer - create one (AI call, happens once)
+    const { createChartTransformer } = await import("./chart-generator");
+
+    const endpointConfig = metric.endpointConfig as {
+      cadence?: string;
+    } | null;
+    const cadence = endpointConfig?.cadence?.toUpperCase() ?? "DAILY";
+
+    await createChartTransformer({
+      dashboardChartId: dashboardChart.id,
+      metricName: metric.name,
+      metricDescription: metric.description ?? "Manual metric",
+      chartType: "line",
+      cadence: cadence as "DAILY" | "WEEKLY" | "MONTHLY",
+    });
+
+    // createChartTransformer throws on failure, so if we get here it succeeded
+    return { success: true };
+  }
+}

@@ -97,8 +97,7 @@ export function BaseMetricCheckInForm({
   }, [existingValues, periods]);
 
   const addDataPointsMutation = api.metric.addDataPoints.useMutation();
-  const regenerateChartMutation =
-    api.transformer.regenerateChartTransformer.useMutation();
+  const updateChartMutation = api.transformer.updateManualChart.useMutation();
 
   const handleValueChange = useCallback(
     (periodLabel: string, value: string) => {
@@ -139,14 +138,13 @@ export function BaseMetricCheckInForm({
       toast.success("Values saved");
       setIsDirty(false);
 
-      // Regenerate chart using existing pipeline (auto, non-blocking)
-      const dashboardChartId = metric.dashboardCharts[0]?.id;
-      if (dashboardChartId) {
-        regenerateChartMutation.mutate(
-          { dashboardChartId },
+      // Update chart (reuses existing transformer, no AI call)
+      if (metric.dashboardCharts.length > 0) {
+        updateChartMutation.mutate(
+          { metricId: metric.id },
           {
             onSuccess: () => {
-              toast.success("Chart updated", { id: "chart-regen" });
+              toast.success("Chart updated", { id: "chart-update" });
             },
           },
         );
@@ -165,7 +163,7 @@ export function BaseMetricCheckInForm({
     metric.id,
     metric.dashboardCharts,
     addDataPointsMutation,
-    regenerateChartMutation,
+    updateChartMutation,
     onSuccess,
   ]);
 
