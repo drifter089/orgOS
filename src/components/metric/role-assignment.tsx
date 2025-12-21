@@ -100,14 +100,17 @@ export function RoleAssignment({
 
   return (
     <>
-      <div className="space-y-1">
-        <div className="flex items-center gap-1.5">
-          <Users className="text-muted-foreground h-3 w-3" />
-          <span className="text-muted-foreground text-[10px] font-medium tracking-wide uppercase">
-            Assign to Role
+      <div className="space-y-2">
+        <div className="flex items-center gap-2">
+          <Users className="text-muted-foreground h-3.5 w-3.5" />
+          <span className="text-muted-foreground text-[10px] font-bold tracking-widest uppercase">
+            ASSIGN TO ROLE
           </span>
           {assignedRoleIds.length > 0 && (
-            <Badge variant="secondary" className="ml-auto h-4 px-1 text-[10px]">
+            <Badge
+              variant="secondary"
+              className="ml-auto h-4 rounded-none px-1.5 text-[9px] font-bold"
+            >
               {assignedRoleIds.length}
             </Badge>
           )}
@@ -118,8 +121,8 @@ export function RoleAssignment({
             <Loader2 className="text-muted-foreground h-4 w-4 animate-spin" />
           </div>
         ) : !teamRoles || teamRoles.length === 0 ? (
-          <div className="text-muted-foreground rounded border border-dashed p-1.5 text-center text-[10px]">
-            No roles in this team
+          <div className="text-muted-foreground border-foreground/10 border border-dashed p-2 text-center text-[10px] tracking-wider uppercase">
+            NO ROLES IN THIS TEAM
           </div>
         ) : (
           <Select
@@ -127,32 +130,33 @@ export function RoleAssignment({
             onValueChange={handleRoleSelect}
             disabled={updateRoleMutation.isPending}
           >
-            <SelectTrigger className="h-auto min-h-[32px] py-1.5 text-xs">
-              <SelectValue placeholder="Select a role to assign">
+            <SelectTrigger className="border-foreground/10 h-9 min-h-[36px] rounded-none py-1.5 text-xs">
+              <SelectValue placeholder="SELECT A ROLE TO ASSIGN">
                 {assignedRole && (
-                  <div className="flex items-center gap-1.5">
+                  <div className="flex items-center gap-2">
                     <div
-                      className="h-2.5 w-2.5 shrink-0 rounded-full"
+                      className="h-2 w-2 shrink-0 rounded-full"
                       style={{ backgroundColor: assignedRole.color }}
                     />
-                    <span className="truncate font-medium">
+                    <span className="truncate font-bold tracking-wide uppercase">
                       {assignedRole.title}
                     </span>
                     {assignedRole.assignedUserId && (
                       <>
-                        <span className="text-muted-foreground">•</span>
-                        <span className="text-muted-foreground truncate">
+                        <span className="text-muted-foreground/50 text-[10px]">
+                          |
+                        </span>
+                        <span className="text-muted-foreground truncate text-[10px] tracking-wider uppercase">
                           {getUserName(assignedRole.assignedUserId, members) ??
-                            "Assigned"}
+                            "ASSIGNED"}
                         </span>
                       </>
                     )}
-                    <Check className="text-primary ml-auto h-3 w-3" />
                   </div>
                 )}
               </SelectValue>
             </SelectTrigger>
-            <SelectContent>
+            <SelectContent className="border-foreground/10 rounded-none">
               {teamRoles.map((role) => {
                 const userName = getUserName(role.assignedUserId, members);
                 const isAssigned = assignedRoleIds.includes(role.id);
@@ -160,25 +164,33 @@ export function RoleAssignment({
                   role.metricId && role.metricId !== metricId;
 
                 return (
-                  <SelectItem key={role.id} value={role.id} className="text-xs">
+                  <SelectItem
+                    key={role.id}
+                    value={role.id}
+                    className="focus:bg-muted rounded-none text-xs"
+                  >
                     <div className="flex items-center gap-2">
                       <div
-                        className="h-2.5 w-2.5 shrink-0 rounded-full"
+                        className="h-2 w-2 shrink-0 rounded-full"
                         style={{ backgroundColor: role.color }}
                       />
-                      <span className="font-medium">{role.title}</span>
+                      <span className="font-bold tracking-wide uppercase">
+                        {role.title}
+                      </span>
                       {role.assignedUserId && (
                         <>
-                          <span className="text-muted-foreground">•</span>
-                          <span className="text-muted-foreground truncate text-[10px]">
-                            {userName ?? "Assigned"}
+                          <span className="text-muted-foreground/50 text-[10px]">
+                            |
+                          </span>
+                          <span className="text-muted-foreground truncate text-[9px] tracking-wider uppercase">
+                            {userName ?? "ASSIGNED"}
                           </span>
                         </>
                       )}
                       {role.effortPoints && role.effortPoints > 0 && (
                         <Badge
                           variant="secondary"
-                          className="h-4 gap-0.5 px-1 text-[9px]"
+                          className="h-4 gap-0.5 rounded-none px-1 text-[9px] font-bold"
                         >
                           <Gauge className="h-2.5 w-2.5" />
                           {role.effortPoints}
@@ -190,9 +202,9 @@ export function RoleAssignment({
                       {hasOtherMetric && !isAssigned && (
                         <Badge
                           variant="outline"
-                          className="text-muted-foreground ml-auto h-4 px-1 text-[9px]"
+                          className="text-muted-foreground border-foreground/10 ml-auto h-4 rounded-none px-1 text-[9px] tracking-wider uppercase"
                         >
-                          Has metric
+                          HAS METRIC
                         </Badge>
                       )}
                     </div>
@@ -208,25 +220,40 @@ export function RoleAssignment({
         open={confirmDialog?.open}
         onOpenChange={(open) => !open && setConfirmDialog(null)}
       >
-        <AlertDialogContent>
+        <AlertDialogContent className="border-foreground/10 rounded-none">
           <AlertDialogHeader>
-            <AlertDialogTitle className="flex items-center gap-2">
-              <AlertTriangle className="text-destructive h-5 w-5" />
-              Replace existing metric?
+            <AlertDialogTitle className="flex items-center gap-2 text-sm font-bold tracking-widest uppercase">
+              <AlertTriangle className="text-destructive h-4 w-4" />
+              REPLACE EXISTING METRIC?
             </AlertDialogTitle>
-            <AlertDialogDescription>
-              The role <strong>{confirmDialog?.roleTitle}</strong> is currently
-              tracking <strong>{confirmDialog?.existingMetricName}</strong>.
+            <AlertDialogDescription className="text-xs">
+              The role{" "}
+              <strong className="text-foreground uppercase">
+                {confirmDialog?.roleTitle}
+              </strong>{" "}
+              is currently tracking{" "}
+              <strong className="text-foreground uppercase">
+                {confirmDialog?.existingMetricName}
+              </strong>
+              .
               <br />
               <br />
-              Assigning <strong>{metricName}</strong> will replace the existing
-              metric assignment.
+              Assigning{" "}
+              <strong className="text-foreground uppercase">
+                {metricName}
+              </strong>{" "}
+              will replace the existing metric assignment.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleConfirmReplace}>
-              Replace
+            <AlertDialogCancel className="border-foreground/10 rounded-none text-xs font-bold tracking-widest uppercase">
+              CANCEL
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleConfirmReplace}
+              className="rounded-none text-xs font-bold tracking-widest uppercase"
+            >
+              REPLACE
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

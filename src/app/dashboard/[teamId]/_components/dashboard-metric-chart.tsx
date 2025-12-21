@@ -171,7 +171,7 @@ export function DashboardMetricChart({
                 </linearGradient>
               ))}
             </defs>
-            <CartesianGrid vertical={false} />
+            <CartesianGrid vertical={false} strokeDasharray="3 3" />
             <XAxis
               dataKey={xAxisKey}
               tickLine={false}
@@ -273,7 +273,7 @@ export function DashboardMetricChart({
       return (
         <ChartContainer config={chartConfig} className="h-[220px] w-full">
           <BarChart accessibilityLayer data={chartData}>
-            <CartesianGrid vertical={false} />
+            <CartesianGrid vertical={false} strokeDasharray="3 3" />
             <XAxis
               dataKey={xAxisKey}
               tickLine={false}
@@ -333,7 +333,7 @@ export function DashboardMetricChart({
                 key={key}
                 dataKey={key}
                 fill={`var(--color-${key})`}
-                radius={4}
+                radius={0}
                 stackId={stacked ? "a" : undefined}
               />
             ))}
@@ -505,7 +505,7 @@ export function DashboardMetricChart({
     return (
       <ChartContainer config={chartConfig} className="h-[220px] w-full">
         <BarChart accessibilityLayer data={chartData}>
-          <CartesianGrid vertical={false} />
+          <CartesianGrid vertical={false} strokeDasharray="3 3" />
           <XAxis
             dataKey={xAxisKey}
             tickLine={false}
@@ -541,7 +541,7 @@ export function DashboardMetricChart({
               key={key}
               dataKey={key}
               fill={`var(--color-${key})`}
-              radius={4}
+              radius={0}
             />
           ))}
           {showLegend && <ChartLegend content={<ChartLegendContent />} />}
@@ -552,14 +552,11 @@ export function DashboardMetricChart({
 
   return (
     <Card
-      className={`flex h-[420px] flex-col ${isPending ? "animate-pulse opacity-70" : ""}`}
+      className={`flex h-[420px] flex-col rounded-none border-0 shadow-none ${isPending ? "animate-pulse opacity-70" : ""}`}
     >
-      <CardHeader className="flex-shrink-0 space-y-0.5 px-5 pt-3 pb-1">
+      <CardHeader className="flex-shrink-0 space-y-0.5 px-0 pt-0 pb-2">
         <div className="flex items-center justify-between gap-2">
           <div className="flex min-w-0 items-center gap-1.5">
-            <CardTitle className="truncate text-sm font-medium">
-              {title}
-            </CardTitle>
             {/* Chart description tooltip - always visible if chart exists */}
             {chartTransform && (
               <Tooltip>
@@ -584,7 +581,7 @@ export function DashboardMetricChart({
             {platformConfig && (
               <Badge
                 className={cn(
-                  "shrink-0 text-[10px]",
+                  "shrink-0 rounded-none text-[9px] tracking-wider uppercase",
                   platformConfig.bgColor,
                   platformConfig.textColor,
                 )}
@@ -596,7 +593,7 @@ export function DashboardMetricChart({
           {(isPending || isProcessing || loadingPhase) && (
             <Badge
               variant="outline"
-              className="text-muted-foreground shrink-0 text-[10px]"
+              className="text-muted-foreground border-foreground/10 shrink-0 rounded-none text-[9px] tracking-wider uppercase"
             >
               <Loader2 className="mr-1 h-2.5 w-2.5 animate-spin" />
               {isPending
@@ -618,23 +615,25 @@ export function DashboardMetricChart({
 
         {currentValue && (
           <div className="flex items-baseline gap-2">
-            <span className="text-2xl font-bold tracking-tight">
+            <span className="text-xl font-bold tracking-tight">
               {formatValue(currentValue.value)}
             </span>
             {/* Show valueLabel from transformer, fallback to chart data key */}
-            <span className="text-muted-foreground text-xs">
+            <span className="text-muted-foreground text-[10px] tracking-wide uppercase">
               {valueLabel ??
                 chartTransform?.dataKeys?.[0] ??
                 chartTransform?.title?.split(" ")[0] ??
                 ""}
             </span>
             {goalTargetValue !== null && goalProgress && (
-              <span className="text-muted-foreground ml-auto flex items-center gap-1 text-xs">
+              <span className="text-muted-foreground ml-auto flex items-center gap-1 text-[10px]">
                 <Target className="text-destructive h-3 w-3" />
                 <span className="text-destructive">
                   {formatValue(goalTargetValue)}
                   {valueLabel && (
-                    <span className="ml-0.5 text-[10px]">{valueLabel}</span>
+                    <span className="ml-0.5 text-[9px] uppercase">
+                      {valueLabel}
+                    </span>
                   )}
                 </span>
                 <span className="text-muted-foreground">
@@ -649,15 +648,19 @@ export function DashboardMetricChart({
           {primaryRole ? (
             <span className="text-muted-foreground flex items-center gap-1">
               <div
-                className="h-2 w-2 rounded-full"
+                className="h-1.5 w-1.5 rounded-full"
                 style={{ backgroundColor: primaryRole.color }}
               />
-              <span className="font-medium">{primaryRole.title}</span>
+              <span className="font-bold tracking-wider uppercase">
+                {primaryRole.title}
+              </span>
               {assignedUserName ? (
                 <>
                   <span>•</span>
                   <User className="h-2.5 w-2.5" />
-                  <span>{assignedUserName}</span>
+                  <span className="tracking-wider uppercase">
+                    {assignedUserName}
+                  </span>
                 </>
               ) : (
                 <span className="text-warning flex items-center gap-0.5">
@@ -668,30 +671,34 @@ export function DashboardMetricChart({
           ) : (
             <span className="text-muted-foreground flex items-center gap-1">
               <AlertTriangle className="h-2.5 w-2.5 text-amber-500" />
-              <span className="text-amber-500">No role</span>
+              <span className="font-bold tracking-wider text-amber-500 uppercase">
+                No role
+              </span>
             </span>
           )}
 
           {hasNoGoal && (
             <span className="text-muted-foreground ml-auto flex items-center gap-1">
               <AlertTriangle className="h-2.5 w-2.5 text-amber-500" />
-              <span className="text-amber-500">No goal</span>
+              <span className="font-bold tracking-wider text-amber-500 uppercase">
+                No goal
+              </span>
             </span>
           )}
         </div>
 
         {currentValue?.date && (
-          <p className="text-muted-foreground/70 text-[10px]">
+          <p className="text-muted-foreground/70 text-[9px] tracking-widest uppercase">
             {currentValue.date}
           </p>
         )}
       </CardHeader>
 
-      <CardContent className="relative flex flex-1 flex-col overflow-hidden px-4 pt-0 pb-4">
+      <CardContent className="relative flex flex-1 flex-col overflow-hidden px-0 pt-0 pb-4">
         {hasChartData && renderChart()}
 
         {!hasChartData && !isProcessing && !loadingPhase && (
-          <div className="text-muted-foreground flex flex-1 items-center justify-center rounded-md border border-dashed p-4 text-center text-sm">
+          <div className="text-muted-foreground border-foreground/10 bg-muted/5 flex flex-1 items-center justify-center border border-dashed p-4 text-center text-xs tracking-wider uppercase">
             {isIntegrationMetric
               ? "Loading chart..."
               : "Add data points via check-in to see chart"}
@@ -699,10 +706,10 @@ export function DashboardMetricChart({
         )}
 
         {(isProcessing || loadingPhase) && hasChartData && (
-          <div className="bg-background/80 absolute inset-0 flex items-center justify-center rounded-md backdrop-blur-sm">
+          <div className="bg-background/80 absolute inset-0 flex items-center justify-center backdrop-blur-sm">
             <div className="text-center">
               <Loader2 className="text-muted-foreground mx-auto h-6 w-6 animate-spin" />
-              <p className="text-muted-foreground mt-2 text-sm">
+              <p className="text-muted-foreground mt-2 text-xs tracking-wider uppercase">
                 {getLoadingMessage(loadingPhase)}
               </p>
             </div>
@@ -710,10 +717,10 @@ export function DashboardMetricChart({
         )}
 
         {(isProcessing || loadingPhase) && !hasChartData && (
-          <div className="flex flex-1 items-center justify-center rounded-md border border-dashed">
+          <div className="border-foreground/10 bg-muted/5 flex flex-1 items-center justify-center border border-dashed">
             <div className="text-center">
               <Loader2 className="text-muted-foreground mx-auto h-6 w-6 animate-spin" />
-              <p className="text-muted-foreground mt-2 text-sm">
+              <p className="text-muted-foreground mt-2 text-xs tracking-wider uppercase">
                 {getLoadingMessage(loadingPhase)}
               </p>
             </div>
