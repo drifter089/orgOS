@@ -98,6 +98,7 @@ export const publicViewRouter = createTRPCRouter({
               chartType: true,
               cadence: true,
               userPrompt: true,
+              updatedAt: true,
             },
           },
         },

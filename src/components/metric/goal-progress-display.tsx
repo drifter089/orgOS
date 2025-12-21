@@ -28,6 +28,19 @@ interface GoalProgressDisplayProps {
   goalProgress: GoalProgress | null;
   isLoading?: boolean;
   lastFetchedAt: Date | null;
+  chartUpdatedAt?: Date | null;
+}
+
+/**
+ * Format time remaining based on cadence
+ * - DAILY: show hours (e.g., "8h left")
+ * - WEEKLY/MONTHLY: show days (e.g., "3d left")
+ */
+function formatTimeRemaining(goalProgress: GoalProgress): string {
+  if (goalProgress.cadence === "DAILY") {
+    return `${goalProgress.hoursRemaining}h left`;
+  }
+  return `${goalProgress.daysRemaining}d left`;
 }
 
 function getStatusConfig(status: string) {
@@ -78,6 +91,7 @@ export function GoalProgressDisplay({
   goalProgress,
   isLoading = false,
   lastFetchedAt,
+  chartUpdatedAt,
 }: GoalProgressDisplayProps) {
   if (isLoading) {
     return (
@@ -206,12 +220,12 @@ export function GoalProgressDisplay({
             {format(new Date(goalProgress.periodStart), "MMM d")} -{" "}
             {format(new Date(goalProgress.periodEnd), "MMM d")}
             <span className="text-foreground ml-1 font-medium">
-              ({goalProgress.daysRemaining}d left)
+              ({formatTimeRemaining(goalProgress)})
             </span>
           </span>
         )}
 
-        {(currentValue?.date ?? lastFetchedAt) && (
+        {(currentValue?.date ?? lastFetchedAt ?? chartUpdatedAt) && (
           <>
             {goalProgress && (
               <span className="text-muted-foreground/50">|</span>
@@ -227,6 +241,15 @@ export function GoalProgressDisplay({
                 <Clock className="h-3 w-3" />
                 Fetched{" "}
                 {formatDistanceToNow(new Date(lastFetchedAt), {
+                  addSuffix: true,
+                })}
+              </span>
+            )}
+            {chartUpdatedAt && (
+              <span className="flex items-center gap-1">
+                <TrendingUp className="h-3 w-3" />
+                Chart{" "}
+                {formatDistanceToNow(new Date(chartUpdatedAt), {
                   addSuffix: true,
                 })}
               </span>

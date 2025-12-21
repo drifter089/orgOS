@@ -61,6 +61,7 @@ interface DashboardMetricDrawerProps {
   integrationId: string | null;
   isIntegrationMetric: boolean;
   lastFetchedAt: Date | null;
+  chartUpdatedAt: Date | null;
   lastError: string | null;
   pollFrequency: string;
   goal: MetricGoal | null;
@@ -95,6 +96,7 @@ export function DashboardMetricDrawer({
   integrationId,
   isIntegrationMetric,
   lastFetchedAt,
+  chartUpdatedAt,
   lastError,
   pollFrequency: _pollFrequency,
   goal,
@@ -325,6 +327,7 @@ export function DashboardMetricDrawer({
             goalProgress={goalProgress}
             isLoading={isProcessing || isRegeneratingPipeline}
             lastFetchedAt={lastFetchedAt}
+            chartUpdatedAt={chartUpdatedAt}
           />
 
           <div className="border-t pt-6">

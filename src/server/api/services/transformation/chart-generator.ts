@@ -1,5 +1,5 @@
 /** Chart transformer creation, execution, and regeneration. */
-import type { Prisma } from "@prisma/client";
+import type { Cadence, Prisma } from "@prisma/client";
 import { TRPCError } from "@trpc/server";
 
 import type { ChartConfig, DataPoint } from "@/lib/metrics/transformer-types";
@@ -8,6 +8,56 @@ import { db } from "@/server/db";
 
 import { generateChartTransformerCode } from "./ai-code-generator";
 import { executeChartTransformer, testChartTransformer } from "./executor";
+
+/**
+ * Recapture baseline from chart config when cadence changes.
+ * This ensures the goal baseline aligns with the new period boundaries.
+ * Applies to both ABSOLUTE and RELATIVE goals for consistency.
+ */
+async function recaptureGoalBaseline(
+  metricId: string,
+  newChartConfig: ChartConfig,
+  newCadence: Cadence,
+  oldCadence: Cadence | null,
+): Promise<void> {
+  // Only recapture if cadence actually changed
+  if (oldCadence === newCadence) return;
+
+  // Check if metric has a goal
+  const goal = await db.metricGoal.findUnique({
+    where: { metricId },
+    select: { id: true, goalType: true },
+  });
+
+  if (!goal) return;
+
+  // Extract new baseline from the first data point in the chart
+  const chartData = newChartConfig.chartData;
+  const dataKeys = newChartConfig.dataKeys;
+
+  if (!chartData?.length || !dataKeys?.length) return;
+
+  const firstDataPoint = chartData[0];
+  const primaryKey = dataKeys[0];
+
+  if (!firstDataPoint || !primaryKey) return;
+
+  const newBaselineValue = Number(firstDataPoint[primaryKey]);
+  if (isNaN(newBaselineValue)) return;
+
+  // Update the goal with the new baseline
+  await db.metricGoal.update({
+    where: { id: goal.id },
+    data: {
+      baselineValue: newBaselineValue,
+      baselineTimestamp: new Date(),
+    },
+  });
+
+  console.info(
+    `[ChartGenerator] Recaptured baseline for goal ${goal.id}: ${newBaselineValue} (cadence changed from ${oldCadence} to ${newCadence})`,
+  );
+}
 
 function chartConfigToJson(
   config: ChartConfig | undefined,
@@ -279,6 +329,9 @@ export async function regenerateChartTransformer(input: {
           description: true,
           templateId: true,
           teamId: true,
+          goal: {
+            select: { id: true, goalType: true },
+          },
           dataPoints: {
             orderBy: { timestamp: "desc" },
             take: 1000, // Get up to 1000 data points for better AI context
@@ -303,7 +356,8 @@ export async function regenerateChartTransformer(input: {
     const currentTransformer = dashboardChart.chartTransformer;
     const chartType =
       input.chartType ?? currentTransformer?.chartType ?? "line";
-    const cadence = input.cadence ?? currentTransformer?.cadence ?? "DAILY";
+    const oldCadence = currentTransformer?.cadence ?? null;
+    const cadence = input.cadence ?? oldCadence ?? "DAILY";
 
     const allDataPoints = dashboardChart.metric.dataPoints.map((dp) => ({
       timestamp: dp.timestamp,
@@ -373,6 +427,16 @@ export async function regenerateChartTransformer(input: {
       where: { id: input.dashboardChartId },
       data: { chartConfig: chartConfigToJson(testResult.data), chartType },
     });
+
+    // Recapture goal baseline if cadence changed (for RELATIVE goals)
+    if (testResult.data) {
+      await recaptureGoalBaseline(
+        metricId,
+        testResult.data,
+        effectiveCadence as Cadence,
+        oldCadence,
+      );
+    }
 
     const cacheTags = [`dashboard_org_${dashboardChart.organizationId}`];
     if (dashboardChart.metric.teamId) {

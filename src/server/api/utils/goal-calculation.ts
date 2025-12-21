@@ -25,6 +25,7 @@ export interface GoalProgress {
   daysElapsed: number;
   daysTotal: number;
   daysRemaining: number;
+  hoursRemaining: number; // For DAILY cadence display
 
   // The cadence used for this calculation
   cadence: Cadence;
@@ -312,6 +313,7 @@ export function calculateGoalProgress(
 
   // Calculate days - use Math.floor for accurate "completed days"
   const msPerDay = 24 * 60 * 60 * 1000;
+  const msPerHour = 60 * 60 * 1000;
   const daysTotal =
     Math.ceil((periodEnd.getTime() - periodStart.getTime()) / msPerDay) || 1;
   const daysElapsed = Math.max(
@@ -319,6 +321,12 @@ export function calculateGoalProgress(
     Math.floor((now.getTime() - periodStart.getTime()) / msPerDay),
   );
   const daysRemaining = Math.max(0, daysTotal - daysElapsed);
+
+  // Calculate hours remaining (for DAILY cadence display)
+  const hoursRemaining = Math.max(
+    0,
+    Math.ceil((periodEnd.getTime() - now.getTime()) / msPerHour),
+  );
 
   // Extract current value from chart data
   const { currentValue, chartBaseline } =
@@ -357,6 +365,7 @@ export function calculateGoalProgress(
       daysElapsed,
       daysTotal,
       daysRemaining,
+      hoursRemaining,
       cadence,
       baselineValue,
       currentValue,
@@ -392,6 +401,7 @@ export function calculateGoalProgress(
         daysElapsed,
         daysTotal,
         daysRemaining,
+        hoursRemaining,
         cadence,
         baselineValue,
         currentValue,
@@ -431,6 +441,7 @@ export function calculateGoalProgress(
     daysElapsed,
     daysTotal,
     daysRemaining,
+    hoursRemaining,
     cadence,
     baselineValue,
     currentValue,
