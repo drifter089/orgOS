@@ -1,27 +1,19 @@
 "use client";
 
-import { Briefcase, ClipboardCheck, Users } from "lucide-react";
+import { ClipboardCheck } from "lucide-react";
 import { Link } from "next-transition-router";
 
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
 import { type RouterOutputs } from "@/trpc/react";
 
 type Member = RouterOutputs["organization"]["getMembers"][number];
 
 interface MemberHeaderProps {
   member: Member;
-  roleCount: number;
-  teamCount: number;
 }
 
-export function MemberHeader({
-  member,
-  roleCount,
-  teamCount,
-}: MemberHeaderProps) {
+export function MemberHeader({ member }: MemberHeaderProps) {
   const initials =
     member.firstName && member.lastName
       ? `${member.firstName[0]}${member.lastName[0]}`.toUpperCase()
@@ -33,44 +25,31 @@ export function MemberHeader({
       : (member.email ?? "Member");
 
   return (
-    <Card>
-      <CardContent className="flex items-center gap-6 p-6">
-        <Avatar className="h-24 w-24">
-          <AvatarFallback className="bg-primary/10 text-primary text-3xl font-bold">
-            {initials}
-          </AvatarFallback>
-        </Avatar>
+    <div className="border-border/60 bg-card flex h-full items-center gap-4 border p-4">
+      <Avatar className="h-16 w-16 shrink-0">
+        <AvatarFallback className="bg-primary/10 text-primary text-xl font-bold">
+          {initials}
+        </AvatarFallback>
+      </Avatar>
 
-        <div className="flex-1 space-y-2">
-          <div>
-            <h1 className="text-3xl font-bold tracking-tight">{userName}</h1>
-            {member.jobTitle && (
-              <p className="text-muted-foreground mt-0.5 text-base">
-                {member.jobTitle}
-              </p>
-            )}
-            <p className="text-muted-foreground text-sm">{member.email}</p>
-          </div>
+      <div className="min-w-0 flex-1 space-y-1">
+        <h1 className="truncate text-2xl font-bold tracking-tight">
+          {userName}
+        </h1>
+        {member.jobTitle && (
+          <p className="text-muted-foreground truncate text-sm">
+            {member.jobTitle}
+          </p>
+        )}
+        <p className="text-muted-foreground truncate text-xs">{member.email}</p>
+      </div>
 
-          <div className="flex gap-2 pt-1">
-            <Badge variant="secondary" className="gap-1.5">
-              <Briefcase className="h-3 w-3" />
-              {roleCount} {roleCount === 1 ? "role" : "roles"}
-            </Badge>
-            <Badge variant="outline" className="gap-1.5">
-              <Users className="h-3 w-3" />
-              {teamCount} {teamCount === 1 ? "team" : "teams"}
-            </Badge>
-          </div>
-        </div>
-
-        <Link href={`/check-in/${member.id}`}>
-          <Button variant="default" className="gap-2">
-            <ClipboardCheck className="h-4 w-4" />
-            Check-in
-          </Button>
-        </Link>
-      </CardContent>
-    </Card>
+      <Link href={`/check-in/${member.id}`} className="shrink-0">
+        <Button variant="default" size="sm" className="gap-1.5">
+          <ClipboardCheck className="h-3.5 w-3.5" />
+          Check-in
+        </Button>
+      </Link>
+    </div>
   );
 }
