@@ -35,7 +35,7 @@ export function MemberEffortChart({
             Effort Distribution
           </h3>
         </div>
-        <div className="text-muted-foreground flex h-[200px] items-center justify-center text-sm">
+        <div className="text-muted-foreground flex h-[18.75rem] items-center justify-center text-sm">
           No effort points assigned
         </div>
       </div>
@@ -69,7 +69,7 @@ export function MemberEffortChart({
       <div className="flex-1 p-4">
         <ChartContainer
           config={chartConfig}
-          className="mx-auto aspect-square h-[220px]"
+          className="mx-auto aspect-square h-[20rem]"
         >
           <PieChart>
             <ChartTooltip
