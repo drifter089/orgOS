@@ -120,7 +120,7 @@ export function GoalEditor({
   if (shouldFetch && isGoalLoading) {
     return (
       <div className="flex items-center justify-center py-4">
-        <Loader2 className="text-muted-foreground h-4 w-4 animate-spin" />
+        <Loader2 className="h-4 w-4 animate-spin text-gray-400" />
       </div>
     );
   }
@@ -130,65 +130,63 @@ export function GoalEditor({
     return (
       <div className={`flex flex-col gap-3 ${compact ? "gap-2" : "gap-3"}`}>
         <div className="flex items-center gap-2">
-          <Target className="text-muted-foreground h-3.5 w-3.5" />
-          <span className="text-muted-foreground text-[10px] font-bold tracking-widest uppercase">
-            {goal ? "EDIT GOAL" : "SET NEW GOAL"}
+          <Target className="h-4 w-4 text-gray-500" />
+          <span className="text-xs font-medium text-gray-500">
+            {goal ? "Edit Goal" : "Set New Goal"}
           </span>
         </div>
 
-        <div className="space-y-1">
-          <span className="text-muted-foreground text-[10px] font-bold tracking-wider uppercase">
-            GOAL TYPE
-          </span>
+        <div className="space-y-1.5">
+          <span className="text-xs font-medium text-gray-500">Goal Type</span>
           <ToggleGroup
             type="single"
             value={goalType}
             onValueChange={(v) => v && setGoalType(v as GoalType)}
-            className="border-foreground/10 grid w-full grid-cols-2 gap-0 border"
+            className="grid w-full grid-cols-2 gap-1"
           >
             <ToggleGroupItem
               value="ABSOLUTE"
-              className="data-[state=on]:bg-foreground data-[state=on]:text-background border-foreground/10 h-8 rounded-none border-r text-[10px] font-bold tracking-wider uppercase transition-all"
+              className="dark:border-border dark:data-[state=on]:bg-primary dark:data-[state=on]:text-primary-foreground h-9 rounded-lg border border-gray-200 text-xs font-medium data-[state=on]:bg-gray-900 data-[state=on]:text-white"
             >
-              ABSOLUTE
+              Absolute
             </ToggleGroupItem>
             <ToggleGroupItem
               value="RELATIVE"
-              className="data-[state=on]:bg-foreground data-[state=on]:text-background h-8 rounded-none text-[10px] font-bold tracking-wider uppercase transition-all"
+              className="dark:border-border dark:data-[state=on]:bg-primary dark:data-[state=on]:text-primary-foreground h-9 rounded-lg border border-gray-200 text-xs font-medium data-[state=on]:bg-gray-900 data-[state=on]:text-white"
             >
-              RELATIVE %
+              Relative %
             </ToggleGroupItem>
           </ToggleGroup>
         </div>
 
         {/* Show cadence as read-only info */}
         {cadence && (
-          <div className="space-y-1">
-            <span className="text-muted-foreground text-[10px] font-bold tracking-wider uppercase">
-              PERIOD (FROM CHART)
+          <div className="space-y-1.5">
+            <span className="text-xs font-medium text-gray-500">
+              Period (from chart)
             </span>
-            <div className="bg-muted/10 border-foreground/10 flex h-8 items-center border px-3">
-              <span className="text-muted-foreground text-[10px] font-bold tracking-wider uppercase">
+            <div className="dark:border-border dark:bg-muted/50 flex h-9 items-center rounded-lg border border-gray-200 bg-gray-50 px-3">
+              <span className="text-xs text-gray-500">
                 {formatCadence(cadence)}
               </span>
             </div>
           </div>
         )}
 
-        <div className="space-y-1">
-          <span className="text-muted-foreground text-[10px] font-bold tracking-wider uppercase">
-            TARGET {goalType === "RELATIVE" ? "GROWTH %" : "VALUE"}
+        <div className="space-y-1.5">
+          <span className="text-xs font-medium text-gray-500">
+            Target {goalType === "RELATIVE" ? "Growth %" : "Value"}
           </span>
           <Input
             type="number"
             placeholder={
               goalType === "RELATIVE"
-                ? "E.G., 10 FOR 10% GROWTH"
-                : "ENTER TARGET VALUE"
+                ? "e.g., 10 for 10% growth"
+                : "Enter target value"
             }
             value={targetValue}
             onChange={(e) => setTargetValue(e.target.value)}
-            className="border-foreground/10 h-8 rounded-none text-xs tracking-wide placeholder:text-[10px] placeholder:uppercase"
+            className="h-9 rounded-lg text-sm"
           />
         </div>
 
@@ -198,21 +196,21 @@ export function GoalEditor({
               variant="outline"
               size="sm"
               onClick={handleCancelEdit}
-              className="border-foreground/10 h-8 flex-1 rounded-none text-[10px] font-bold tracking-wider uppercase"
+              className="h-9 flex-1 rounded-lg"
             >
-              CANCEL
+              Cancel
             </Button>
           )}
           <Button
             size="sm"
             onClick={handleSaveGoal}
             disabled={upsertGoalMutation.isPending || !targetValue}
-            className="h-8 flex-1 rounded-none text-[10px] font-bold tracking-wider uppercase"
+            className="h-9 flex-1 rounded-lg"
           >
             {upsertGoalMutation.isPending && (
               <Loader2 className="mr-2 h-3 w-3 animate-spin" />
             )}
-            SAVE GOAL
+            Save Goal
           </Button>
         </div>
       </div>
@@ -221,18 +219,20 @@ export function GoalEditor({
 
   // Collapsed view (goal exists, not editing)
   return (
-    <div className="border-foreground/10 bg-background hover:border-foreground/20 flex items-center justify-between border p-3 transition-colors">
+    <div className="dark:border-border dark:bg-background dark:hover:border-border/80 flex items-center justify-between rounded-xl border border-gray-200 bg-white p-4 transition-colors hover:border-gray-300">
       <div className="flex items-center gap-3">
-        <Target className="text-primary h-4 w-4" />
+        <div className="dark:bg-muted flex h-8 w-8 items-center justify-center rounded-lg bg-gray-100">
+          <Target className="dark:text-foreground h-4 w-4 text-gray-900" />
+        </div>
         <div className="flex flex-col">
-          <span className="text-sm font-bold tracking-tight">
+          <span className="dark:text-foreground text-sm font-semibold text-gray-900">
             {goal.goalType === "ABSOLUTE"
               ? formatValue(goal.targetValue)
               : `+${goal.targetValue}%`}
           </span>
           {cadence && (
-            <span className="text-muted-foreground text-[10px] tracking-wider uppercase">
-              {formatCadence(cadence)} TARGET
+            <span className="dark:text-muted-foreground text-xs text-gray-500">
+              {formatCadence(cadence)} Target
             </span>
           )}
         </div>
@@ -242,7 +242,7 @@ export function GoalEditor({
           variant="outline"
           size="icon"
           onClick={handleEditGoal}
-          className="border-foreground/10 hover:bg-muted h-7 w-7 rounded-none"
+          className="h-8 w-8 rounded-lg"
         >
           <Pencil className="h-3.5 w-3.5" />
         </Button>
@@ -251,7 +251,7 @@ export function GoalEditor({
           size="icon"
           onClick={handleDelete}
           disabled={deleteGoalMutation.isPending}
-          className="text-muted-foreground hover:bg-destructive/10 hover:text-destructive h-7 w-7 rounded-none"
+          className="h-8 w-8 rounded-lg text-gray-400 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-900/20"
         >
           {deleteGoalMutation.isPending ? (
             <Loader2 className="h-3.5 w-3.5 animate-spin" />

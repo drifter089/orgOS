@@ -18,6 +18,7 @@ import {
 
 import { GoalEditor } from "@/components/metric/goal-editor";
 import { RoleAssignment } from "@/components/metric/role-assignment";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -90,39 +91,39 @@ function getStatusStyles(status?: string) {
     case "exceeded":
     case "on_track":
       return {
-        bg: "bg-emerald-50 dark:bg-emerald-950/20",
+        bg: "bg-emerald-50 dark:bg-emerald-950/30",
         text: "text-emerald-700 dark:text-emerald-400",
-        border: "border-emerald-200 dark:border-emerald-800",
-        icon: <TrendingUp className="h-3.5 w-3.5" />,
+        border: "border-emerald-200 dark:border-emerald-900",
+        icon: <TrendingUp className="h-4 w-4" />,
         label: "On Track",
-        bar: "bg-emerald-500",
+        gradient: "from-emerald-400 to-emerald-500",
       };
     case "behind":
       return {
-        bg: "bg-red-50 dark:bg-red-950/20",
+        bg: "bg-red-50 dark:bg-red-950/30",
         text: "text-red-700 dark:text-red-400",
-        border: "border-red-200 dark:border-red-800",
-        icon: <AlertTriangle className="h-3.5 w-3.5" />,
+        border: "border-red-200 dark:border-red-900",
+        icon: <AlertTriangle className="h-4 w-4" />,
         label: "Behind",
-        bar: "bg-red-500",
+        gradient: "from-red-400 to-red-500",
       };
     case "at_risk":
       return {
-        bg: "bg-amber-50 dark:bg-amber-950/20",
+        bg: "bg-amber-50 dark:bg-amber-950/30",
         text: "text-amber-700 dark:text-amber-400",
-        border: "border-amber-200 dark:border-amber-800",
-        icon: <AlertTriangle className="h-3.5 w-3.5" />,
+        border: "border-amber-200 dark:border-amber-900",
+        icon: <AlertTriangle className="h-4 w-4" />,
         label: "At Risk",
-        bar: "bg-amber-500",
+        gradient: "from-amber-400 to-amber-500",
       };
     default:
       return {
-        bg: "bg-muted/50",
-        text: "text-muted-foreground",
-        border: "border-border",
+        bg: "bg-gray-50 dark:bg-muted",
+        text: "text-gray-700 dark:text-muted-foreground",
+        border: "border-gray-200 dark:border-border",
         icon: null,
         label: "No Goal",
-        bar: "bg-muted-foreground/30",
+        gradient: "from-gray-300 to-gray-400",
       };
   }
 }
@@ -201,42 +202,40 @@ export function DashboardMetricDrawer({
   const assignedRole = roles.length > 0 ? roles[0] : null;
 
   return (
-    <div className="bg-background text-foreground flex h-full flex-col font-sans transition-colors duration-300">
-      {/* 1. Header Section - Minimalist & Pure Grid */}
-      <div className="border-b px-6 py-5">
+    <div className="dark:bg-background flex h-full flex-col bg-white">
+      {/* 1. Header Section */}
+      <div className="dark:border-border border-b border-gray-100 px-5 py-4">
         <div className="flex items-start justify-between">
-          <div className="space-y-1.5">
-            <div className="flex items-center gap-3">
-              <h2 className="text-xl font-medium tracking-tight">
+          <div className="flex-1 space-y-1">
+            <div className="flex items-center gap-2">
+              <h2 className="dark:text-foreground text-lg font-semibold text-gray-900">
                 {metricName}
               </h2>
               {platformConfig && (
-                <Badge
-                  variant="secondary"
+                <span
                   className={cn(
-                    "rounded-none border px-2 py-0.5 text-[10px] font-semibold tracking-widest uppercase transition-colors",
+                    "rounded px-2 py-0.5 text-xs font-medium",
                     platformConfig.bgColor,
                     platformConfig.textColor,
-                    "border-foreground/10",
                   )}
                 >
                   {platformConfig.name}
-                </Badge>
+                </span>
               )}
             </div>
-            <div className="text-muted-foreground flex items-center gap-3 text-xs tracking-wide">
+            <div className="dark:text-muted-foreground flex items-center gap-2 text-sm text-gray-500">
               {lastFetchedAt && (
-                <span className="flex items-center gap-1.5">
-                  <Clock className="h-3 w-3" />
+                <span>
+                  Updated{" "}
                   {formatDistanceToNow(new Date(lastFetchedAt), {
                     addSuffix: true,
                   })}
                 </span>
               )}
               {isProcessing && (
-                <span className="text-primary flex items-center gap-1.5">
-                  <span className="bg-primary h-1.5 w-1.5 animate-pulse" />
-                  SYNCING
+                <span className="text-primary flex items-center gap-1">
+                  <span className="bg-primary h-1.5 w-1.5 animate-pulse rounded-full" />
+                  Syncing...
                 </span>
               )}
             </div>
@@ -245,23 +244,23 @@ export function DashboardMetricDrawer({
             <Button
               variant="ghost"
               size="icon"
-              className="text-muted-foreground hover:bg-muted hover:text-foreground h-9 w-9 rounded-none transition-all"
+              className="dark:hover:bg-muted h-8 w-8 rounded-lg hover:bg-gray-100"
             >
-              <X className="h-5 w-5" />
+              <X className="h-5 w-5 text-gray-400" />
             </Button>
           </DrawerClose>
         </div>
       </div>
 
-      {/* 2. Progress Hero Section - Ma (Space) & Bold Typography */}
-      <div className="border-b px-6 py-8">
-        <div className="mb-6 flex items-end justify-between">
-          <div className="flex items-baseline gap-3">
-            <span className="text-5xl font-bold tracking-tighter">
+      {/* 2. Progress Hero Section */}
+      <div className="dark:border-border border-b border-gray-100 px-5 py-5">
+        <div className="mb-4 flex items-end justify-between">
+          <div>
+            <span className="dark:text-foreground text-4xl font-bold text-gray-900">
               {currentValue ? formatValue(currentValue.value) : "--"}
             </span>
-            <span className="text-muted-foreground/40 text-2xl font-light">
-              /{" "}
+            <span className="dark:text-muted-foreground/50 text-2xl font-medium text-gray-400">
+              {" / "}
               {goal
                 ? goal.goalType === "ABSOLUTE"
                   ? formatValue(goalTargetValue ?? goal.targetValue)
@@ -272,7 +271,7 @@ export function DashboardMetricDrawer({
           {goalProgress && (
             <div
               className={cn(
-                "flex items-center gap-2 rounded-none border px-4 py-1.5 text-xs font-bold tracking-widest uppercase",
+                "flex items-center gap-1 rounded-full border px-3 py-1.5 text-sm font-medium",
                 statusStyles.bg,
                 statusStyles.text,
                 statusStyles.border,
@@ -284,51 +283,48 @@ export function DashboardMetricDrawer({
           )}
         </div>
 
-        {/* Progress bar - Strict Grid, No Rounding */}
-        <div className="relative space-y-3">
-          <div className="border-foreground/5 bg-muted/30 h-3 w-full border p-[1px]">
+        {/* Progress bar */}
+        <div className="relative">
+          <div className="dark:bg-muted h-2.5 overflow-hidden rounded-full bg-gray-100">
             <div
               className={cn(
-                "h-full transition-all duration-700 ease-in-out",
-                statusStyles.bar,
+                "h-full rounded-full bg-gradient-to-r transition-all duration-500",
+                statusStyles.gradient,
               )}
               style={{
                 width: `${Math.min(goalProgress?.progressPercent ?? 0, 100)}%`,
               }}
             />
           </div>
-          <div className="text-muted-foreground/70 flex justify-between text-[11px] font-semibold tracking-widest uppercase">
+          <div className="dark:text-muted-foreground mt-2 flex justify-between text-xs text-gray-500">
             <span>
               {goalProgress
-                ? `${Math.round(goalProgress.progressPercent)}% COMPLETE`
-                : "NO PROGRESS DATA"}
+                ? `${Math.round(goalProgress.progressPercent)}% complete`
+                : "No progress data"}
             </span>
             {goalProgress && (
               <span>
-                {goalProgress.daysRemaining}D LEFT •{" "}
-                {format(
-                  new Date(goalProgress.periodEnd),
-                  "MMM d",
-                ).toUpperCase()}
+                {goalProgress.daysRemaining}d left •{" "}
+                {format(new Date(goalProgress.periodEnd), "MMM d")}
               </span>
             )}
           </div>
         </div>
       </div>
 
-      {/* 3. Tabs Navigation - Elegant Line Hierarchy */}
+      {/* 3. Tabs Navigation */}
       <Tabs
         value={activeTab}
         onValueChange={setActiveTab}
         className="flex flex-1 flex-col overflow-hidden"
       >
-        <div className="border-b px-6">
-          <TabsList className="h-auto w-full justify-start gap-8 rounded-none bg-transparent p-0">
+        <div className="dark:border-border border-b border-gray-100 px-5">
+          <TabsList className="h-auto w-full justify-start gap-1 rounded-none bg-transparent p-0">
             {["overview", "history", "settings"].map((tab) => (
               <TabsTrigger
                 key={tab}
                 value={tab}
-                className="text-muted-foreground data-[state=active]:border-foreground data-[state=active]:text-foreground hover:text-foreground/80 relative rounded-none border-b-2 border-transparent px-0 py-4 text-xs font-bold tracking-[0.2em] uppercase transition-all data-[state=active]:shadow-none"
+                className="dark:text-muted-foreground dark:hover:text-foreground dark:data-[state=active]:border-foreground dark:data-[state=active]:text-foreground relative rounded-none border-b-2 border-transparent px-4 py-3 text-sm font-medium text-gray-500 capitalize hover:text-gray-700 data-[state=active]:border-gray-900 data-[state=active]:text-gray-900 data-[state=active]:shadow-none"
               >
                 {tab}
               </TabsTrigger>
@@ -336,16 +332,16 @@ export function DashboardMetricDrawer({
           </TabsList>
         </div>
 
-        {/* 4. Tab Content - Gridlines Background */}
-        <div className="gridlines-subtle flex-1 overflow-y-auto p-6">
-          <TabsContent value="overview" className="mt-0 space-y-8">
-            {/* Mini Chart Card - Clean Border, No Shadow */}
-            <div className="bg-background/80 hover:border-foreground/20 border p-5 backdrop-blur-sm transition-all">
-              <div className="mb-4 flex items-center justify-between">
-                <span className="text-muted-foreground text-xs font-bold tracking-widest uppercase">
-                  TREND ANALYSIS
+        {/* 4. Tab Content */}
+        <div className="dark:bg-background flex-1 overflow-y-auto bg-white p-5">
+          <TabsContent value="overview" className="mt-0 space-y-5">
+            {/* Mini Chart Card */}
+            <div className="dark:bg-muted/30 rounded-xl bg-gray-50 p-4">
+              <div className="mb-3 flex items-center justify-between">
+                <span className="dark:text-foreground text-sm font-medium text-gray-700">
+                  Trend Analysis
                 </span>
-                <div className="border-foreground/10 bg-muted/20 flex border p-0.5">
+                <div className="dark:border-border dark:bg-card flex gap-1 rounded-lg border border-gray-200 bg-white p-0.5">
                   {CADENCE_OPTIONS.map((c) => (
                     <button
                       key={c}
@@ -358,10 +354,10 @@ export function DashboardMetricDrawer({
                         );
                       }}
                       className={cn(
-                        "rounded-none px-3 py-1 text-[10px] font-bold tracking-widest transition-all",
+                        "rounded px-2.5 py-1 text-xs font-medium transition-colors",
                         selectedCadence === c
-                          ? "bg-foreground text-background shadow-none"
-                          : "text-muted-foreground hover:bg-foreground/5 hover:text-foreground",
+                          ? "dark:bg-primary dark:text-primary-foreground bg-gray-900 text-white"
+                          : "dark:text-muted-foreground dark:hover:bg-muted dark:hover:text-foreground text-gray-500 hover:bg-gray-100 hover:text-gray-900",
                       )}
                     >
                       {c.charAt(0)}
@@ -388,122 +384,130 @@ export function DashboardMetricDrawer({
               </div>
             </div>
 
-            {/* Details List - Strict Row Grid */}
-            <div className="space-y-0">
-              <h3 className="text-muted-foreground/50 mb-4 text-[11px] font-bold tracking-[0.25em] uppercase">
-                METRIC SPECIFICATIONS
+            {/* Details List */}
+            <div className="space-y-3">
+              <h3 className="text-xs font-semibold tracking-wider text-gray-400 uppercase">
+                Details
               </h3>
 
-              <div className="border-foreground/5 hover:bg-muted/10 flex items-center justify-between border-b py-4 transition-colors">
-                <span className="text-muted-foreground text-xs font-medium tracking-widest uppercase">
-                  Tracked Field
-                </span>
-                {chartTransform?.dataKeys &&
-                chartTransform.dataKeys.length > 0 ? (
-                  <div className="flex flex-wrap justify-end gap-2">
-                    {chartTransform.dataKeys.map((key) => (
-                      <Badge
-                        key={key}
-                        variant="outline"
-                        className="border-foreground/10 bg-muted/10 rounded-none text-[10px] font-bold tracking-wider"
-                      >
-                        {(
-                          chartTransform.chartConfig?.[key]?.label ?? key
-                        ).toUpperCase()}
-                      </Badge>
-                    ))}
-                  </div>
-                ) : (
-                  <span className="text-muted-foreground/30 text-sm font-bold">
-                    --
+              <div className="space-y-1">
+                <div className="dark:border-border flex items-center justify-between border-b border-gray-100 py-3">
+                  <span className="dark:text-muted-foreground text-sm text-gray-500">
+                    Tracked Field
                   </span>
-                )}
-              </div>
-
-              <div className="border-foreground/5 hover:bg-muted/10 flex items-center justify-between border-b py-4 transition-colors">
-                <span className="text-muted-foreground text-xs font-medium tracking-widest uppercase">
-                  Responsibility
-                </span>
-                {assignedRole ? (
-                  <div className="flex items-center gap-3">
-                    <div className="bg-primary/10 text-primary flex h-8 w-8 items-center justify-center text-[11px] font-bold">
-                      {assignedRole.title.charAt(0).toUpperCase()}
+                  {chartTransform?.dataKeys &&
+                  chartTransform.dataKeys.length > 0 ? (
+                    <div className="flex flex-wrap justify-end gap-1">
+                      {chartTransform.dataKeys.map((key) => (
+                        <span
+                          key={key}
+                          className="dark:bg-muted dark:text-foreground rounded-md bg-gray-100 px-3 py-1 text-sm font-medium text-gray-900"
+                        >
+                          {chartTransform.chartConfig?.[key]?.label ?? key}
+                        </span>
+                      ))}
                     </div>
-                    <div className="text-right">
-                      <p className="text-foreground text-xs font-bold tracking-wide uppercase">
-                        {assignedRole.title}
-                      </p>
-                    </div>
-                  </div>
-                ) : (
-                  <span className="text-muted-foreground/30 text-xs font-bold tracking-widest uppercase">
-                    UNASSIGNED
-                  </span>
-                )}
-              </div>
+                  ) : (
+                    <span className="text-sm text-gray-400">--</span>
+                  )}
+                </div>
 
-              <div className="hover:bg-muted/10 flex items-center justify-between py-4 transition-colors">
-                <span className="text-muted-foreground text-xs font-medium tracking-widest uppercase">
-                  Origin
-                </span>
-                {platformConfig ? (
-                  <div className="flex items-center gap-2">
-                    <span className="text-foreground text-xs font-bold tracking-widest uppercase">
-                      {platformConfig.name}
-                    </span>
-                  </div>
-                ) : (
-                  <span className="text-muted-foreground text-xs font-bold tracking-widest uppercase">
-                    MANUAL ENTRY
+                <div className="dark:border-border flex items-center justify-between border-b border-gray-100 py-3">
+                  <span className="dark:text-muted-foreground text-sm text-gray-500">
+                    Owner
                   </span>
-                )}
+                  {assignedRole ? (
+                    <div className="flex items-center gap-2">
+                      <Avatar className="h-8 w-8">
+                        <AvatarFallback className="bg-blue-500 text-sm font-medium text-white">
+                          {assignedRole.title.charAt(0).toUpperCase()}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className="text-right">
+                        <p className="dark:text-foreground text-sm font-medium text-gray-900">
+                          {assignedRole.title}
+                        </p>
+                      </div>
+                    </div>
+                  ) : (
+                    <span className="text-sm text-gray-400">Unassigned</span>
+                  )}
+                </div>
+
+                <div className="flex items-center justify-between py-3">
+                  <span className="dark:text-muted-foreground text-sm text-gray-500">
+                    Data Source
+                  </span>
+                  {platformConfig ? (
+                    <div className="flex items-center gap-2">
+                      <div className="flex h-6 w-6 items-center justify-center rounded bg-orange-100 dark:bg-orange-900/30">
+                        <span className="text-xs">📊</span>
+                      </div>
+                      <span className="dark:text-foreground text-sm font-medium text-gray-900">
+                        {platformConfig.name}
+                      </span>
+                    </div>
+                  ) : (
+                    <span className="text-sm text-gray-500">Manual</span>
+                  )}
+                </div>
               </div>
             </div>
 
-            {/* AI Insights Collapsible - Minimal Border, Muted */}
+            {/* AI Insights Collapsible */}
             {isIntegrationMetric && (
               <Collapsible
                 open={isAIInsightsOpen}
                 onOpenChange={setIsAIInsightsOpen}
-                className="border-foreground/10 bg-background/50 border backdrop-blur-sm"
+                className="dark:border-border overflow-hidden rounded-xl border border-gray-200"
               >
                 <CollapsibleTrigger asChild>
                   <Button
                     variant="ghost"
-                    className="hover:bg-muted/30 flex w-full items-center justify-between rounded-none p-5"
+                    className="dark:hover:bg-muted/50 flex w-full items-center justify-between p-4 hover:bg-gray-50"
                   >
-                    <div className="flex items-center gap-2.5">
-                      <Sparkles className="text-primary h-4 w-4" />
-                      <span className="text-xs font-bold tracking-widest uppercase">
-                        AI Configuration
+                    <div className="flex items-center gap-2">
+                      <span className="text-lg">✨</span>
+                      <span className="dark:text-foreground text-sm font-medium text-gray-900">
+                        AI Insights
+                      </span>
+                      <span className="text-xs text-gray-400">
+                        Ask questions about this metric
                       </span>
                     </div>
                     <ChevronDown
                       className={cn(
-                        "text-muted-foreground h-4 w-4 transition-transform duration-300",
+                        "h-5 w-5 text-gray-400 transition-transform duration-200",
                         isAIInsightsOpen && "rotate-180",
                       )}
                     />
                   </Button>
                 </CollapsibleTrigger>
-                <CollapsibleContent className="border-foreground/5 border-t p-5">
-                  <div className="space-y-4">
-                    <Label className="text-muted-foreground text-[10px] font-bold tracking-[0.2em] uppercase">
-                      TRANSFORMATION QUERY
+                <CollapsibleContent className="dark:border-border dark:bg-muted/30 border-t border-gray-100 bg-gray-50 p-4">
+                  <div className="space-y-3">
+                    <Label className="dark:text-muted-foreground text-xs font-medium text-gray-500">
+                      Customize Chart Data
                     </Label>
                     <Textarea
                       placeholder="e.g., 'Group by user', 'Show cumulative growth'..."
                       value={prompt}
                       onChange={(e) => setPrompt(e.target.value)}
-                      className="bg-muted/10 focus:bg-background min-h-[100px] rounded-none border-dashed text-xs tracking-wide"
+                      className="dark:border-border dark:bg-background min-h-[80px] resize-none border-gray-200 bg-white text-sm"
                     />
                     <Button
                       size="sm"
                       onClick={handleApplyAIChanges}
                       disabled={isProcessing}
-                      className="w-full rounded-none font-bold tracking-widest uppercase"
+                      className="w-full"
                     >
-                      {isProcessing ? "PROCESSING..." : "APPLY CHANGES"}
+                      {isProcessing ? (
+                        <span className="flex items-center gap-2">
+                          <span className="h-3 w-3 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                          Processing...
+                        </span>
+                      ) : (
+                        "Apply Changes"
+                      )}
                     </Button>
                   </div>
                 </CollapsibleContent>
@@ -511,38 +515,33 @@ export function DashboardMetricDrawer({
             )}
           </TabsContent>
 
-          <TabsContent value="history" className="mt-0">
-            <div className="border-foreground/10 bg-muted/5 border border-dashed p-12 text-center">
-              <BarChart3 className="text-muted-foreground/20 mx-auto h-10 w-10" />
-              <p className="text-muted-foreground mt-4 text-xs font-bold tracking-[0.2em] uppercase">
-                HISTORICAL DATA PENDING
+          <TabsContent value="history" className="mt-0 space-y-4">
+            <div className="dark:border-border rounded-xl border border-dashed border-gray-200 p-8 text-center">
+              <BarChart3 className="dark:text-muted-foreground/50 mx-auto h-8 w-8 text-gray-300" />
+              <p className="dark:text-muted-foreground mt-2 text-sm text-gray-500">
+                Detailed history view is coming soon.
               </p>
             </div>
           </TabsContent>
 
-          <TabsContent value="settings" className="mt-0 space-y-10">
-            <div className="space-y-6">
-              <h3 className="text-foreground/70 text-xs font-bold tracking-[0.25em] uppercase">
-                GENERAL SETTINGS
+          <TabsContent value="settings" className="mt-0 space-y-8">
+            <div className="space-y-4">
+              <h3 className="dark:text-foreground text-sm font-semibold text-gray-900">
+                General
               </h3>
               <div className="space-y-3">
-                <Label
-                  htmlFor="metric-name"
-                  className="text-muted-foreground text-[10px] font-bold tracking-widest uppercase"
-                >
-                  METRIC IDENTIFIER
-                </Label>
+                <Label htmlFor="metric-name">Metric Name</Label>
                 <div className="flex gap-2">
                   <Input
                     id="metric-name"
                     value={name}
                     onChange={(e) => setName(e.target.value)}
-                    className="border-foreground/10 rounded-none"
+                    className="rounded-lg"
                   />
                   <Button
                     size="icon"
                     variant="outline"
-                    className="border-foreground/10 rounded-none"
+                    className="rounded-lg"
                     onClick={handleSaveName}
                     disabled={!hasNameChanges || !name.trim()}
                   >
@@ -554,75 +553,74 @@ export function DashboardMetricDrawer({
 
             {teamId && (
               <>
-                <div className="space-y-6">
-                  <h3 className="text-foreground/70 text-xs font-bold tracking-[0.25em] uppercase">
-                    PERFORMANCE GOALS
+                <div className="space-y-4">
+                  <h3 className="dark:text-foreground text-sm font-semibold text-gray-900">
+                    Goals
                   </h3>
-                  <div className="border-foreground/5 bg-muted/5 border p-4">
-                    <GoalEditor
-                      metricId={metricId}
-                      initialGoal={goal}
-                      cadence={currentCadence}
-                      compact={false}
-                    />
-                  </div>
+                  <GoalEditor
+                    metricId={metricId}
+                    initialGoal={goal}
+                    cadence={currentCadence}
+                    compact={false}
+                  />
                 </div>
 
-                <div className="space-y-6">
-                  <h3 className="text-foreground/70 text-xs font-bold tracking-[0.25em] uppercase">
-                    OWNERSHIP ASSIGNMENT
+                <div className="space-y-4">
+                  <h3 className="dark:text-foreground text-sm font-semibold text-gray-900">
+                    Assignment
                   </h3>
-                  <div className="border-foreground/5 bg-muted/5 border p-4">
-                    <RoleAssignment
-                      metricId={metricId}
-                      metricName={metricName}
-                      teamId={teamId}
-                      assignedRoleIds={roles.map((r) => r.id)}
-                    />
-                  </div>
+                  <RoleAssignment
+                    metricId={metricId}
+                    metricName={metricName}
+                    teamId={teamId}
+                    assignedRoleIds={roles.map((r) => r.id)}
+                  />
                 </div>
               </>
             )}
 
-            <div className="space-y-6 pt-6">
-              <h3 className="text-xs font-bold tracking-[0.25em] text-red-600/70 uppercase">
-                CRITICAL ACTIONS
+            <div className="space-y-4 pt-4">
+              <h3 className="text-sm font-semibold text-red-600">
+                Danger Zone
               </h3>
               <Button
                 variant="outline"
-                className="w-full justify-start rounded-none border-red-200 text-xs font-bold tracking-[0.2em] text-red-600 uppercase transition-all hover:bg-red-50 hover:text-red-700 dark:border-red-900/30 dark:hover:bg-red-900/20"
+                className="w-full justify-start rounded-lg border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700 dark:border-red-900/50 dark:hover:bg-red-900/20"
                 onClick={onDelete}
               >
-                DELETE METRIC
+                Delete Metric
               </Button>
             </div>
           </TabsContent>
         </div>
       </Tabs>
 
-      {/* 5. Footer Actions - Consistent Square Style */}
-      <div className="bg-muted/10 border-t px-6 py-5">
-        <div className="flex gap-4">
+      {/* 5. Footer Actions */}
+      <div className="dark:border-border dark:bg-muted/10 border-t border-gray-200 bg-gray-50 px-5 py-4">
+        <div className="flex gap-3">
           <Button
-            className="flex-1 rounded-none text-xs font-bold tracking-[0.2em] uppercase"
+            className="dark:bg-primary dark:text-primary-foreground dark:hover:bg-primary/90 flex-1 rounded-lg bg-gray-900 text-white hover:bg-gray-800"
             onClick={() => setActiveTab("settings")}
-            variant={activeTab === "settings" ? "secondary" : "default"}
           >
-            {activeTab === "settings" ? "VIEWING SETTINGS" : "EDIT METRIC"}
+            {activeTab === "settings" ? "Editing Settings" : "Edit Metric"}
           </Button>
 
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="icon" className="rounded-none">
-                <MoreVertical className="h-4 w-4" />
+              <Button
+                variant="outline"
+                size="icon"
+                className="dark:bg-background dark:hover:bg-muted rounded-lg bg-white hover:bg-gray-100"
+              >
+                <MoreVertical className="dark:text-muted-foreground h-5 w-5 text-gray-600" />
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="rounded-none border-2">
+            <DropdownMenuContent align="end" className="rounded-lg">
               <DropdownMenuItem
-                className="text-destructive focus:bg-destructive focus:text-destructive-foreground rounded-none text-xs font-bold tracking-widest uppercase"
+                className="text-destructive focus:text-destructive"
                 onClick={onDelete}
               >
-                DELETE METRIC
+                Delete Metric
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
