@@ -292,75 +292,107 @@ export async function regenerateChartTransformer(input: {
     return { success: false, error: "DashboardChart not found" };
   }
 
-  const currentTransformer = dashboardChart.chartTransformer;
-  const chartType = input.chartType ?? currentTransformer?.chartType ?? "line";
-  const cadence = input.cadence ?? currentTransformer?.cadence ?? "DAILY";
+  const metricId = dashboardChart.metric.id;
 
-  const allDataPoints = dashboardChart.metric.dataPoints.map((dp) => ({
-    timestamp: dp.timestamp,
-    value: dp.value,
-    dimensions: dp.dimensions as Record<string, unknown> | null,
-  }));
-
-  // Calculate data statistics for AI context
-  const dataStats = calculateDataStats(allDataPoints);
-
-  const generated = await generateChartTransformerCode({
-    metricName: dashboardChart.metric.name,
-    metricDescription: dashboardChart.metric.description ?? "",
-    sampleDataPoints: allDataPoints,
-    chartType,
-    cadence,
-    userPrompt: input.userPrompt,
-    dataStats,
-    templateId: dashboardChart.metric.templateId ?? undefined,
+  await db.metric.update({
+    where: { id: metricId },
+    data: { refreshStatus: "ai-regenerating" },
   });
 
-  // Use suggested cadence if AI detected one from user prompt
-  const effectiveCadence = generated.suggestedCadence ?? cadence;
+  try {
+    const currentTransformer = dashboardChart.chartTransformer;
+    const chartType =
+      input.chartType ?? currentTransformer?.chartType ?? "line";
+    const cadence = input.cadence ?? currentTransformer?.cadence ?? "DAILY";
 
-  const testResult = await testChartTransformer(generated.code, allDataPoints, {
-    chartType,
-    cadence: effectiveCadence,
-  });
-  if (!testResult.success) {
-    return {
-      success: false,
-      error: `Failed to generate chart: ${testResult.error}`,
-    };
-  }
+    const allDataPoints = dashboardChart.metric.dataPoints.map((dp) => ({
+      timestamp: dp.timestamp,
+      value: dp.value,
+      dimensions: dp.dimensions as Record<string, unknown> | null,
+    }));
 
-  await db.chartTransformer.upsert({
-    where: { dashboardChartId: input.dashboardChartId },
-    create: {
-      dashboardChartId: input.dashboardChartId,
-      transformerCode: generated.code,
+    // Calculate data statistics for AI context
+    const dataStats = calculateDataStats(allDataPoints);
+
+    const generated = await generateChartTransformerCode({
+      metricName: dashboardChart.metric.name,
+      metricDescription: dashboardChart.metric.description ?? "",
+      sampleDataPoints: allDataPoints,
       chartType,
-      cadence: effectiveCadence as "DAILY" | "WEEKLY" | "MONTHLY",
+      cadence,
       userPrompt: input.userPrompt,
-    },
-    update: {
-      transformerCode: generated.code,
-      chartType,
-      cadence: effectiveCadence as "DAILY" | "WEEKLY" | "MONTHLY",
-      userPrompt: input.userPrompt,
-      version: { increment: 1 },
-    },
-  });
+      dataStats,
+      templateId: dashboardChart.metric.templateId ?? undefined,
+    });
 
-  await db.dashboardChart.update({
-    where: { id: input.dashboardChartId },
-    data: { chartConfig: chartConfigToJson(testResult.data), chartType },
-  });
+    const effectiveCadence = generated.suggestedCadence ?? cadence;
 
-  // Invalidate dashboard cache so queries return fresh transformer fields
-  const cacheTags = [`dashboard_org_${dashboardChart.organizationId}`];
-  if (dashboardChart.metric.teamId) {
-    cacheTags.push(`dashboard_team_${dashboardChart.metric.teamId}`);
+    await db.metric.update({
+      where: { id: metricId },
+      data: { refreshStatus: "updating-chart" },
+    });
+
+    const testResult = await testChartTransformer(
+      generated.code,
+      allDataPoints,
+      {
+        chartType,
+        cadence: effectiveCadence,
+      },
+    );
+    if (!testResult.success) {
+      await db.metric.update({
+        where: { id: metricId },
+        data: { refreshStatus: null },
+      });
+      return {
+        success: false,
+        error: `Failed to generate chart: ${testResult.error}`,
+      };
+    }
+
+    await db.chartTransformer.upsert({
+      where: { dashboardChartId: input.dashboardChartId },
+      create: {
+        dashboardChartId: input.dashboardChartId,
+        transformerCode: generated.code,
+        chartType,
+        cadence: effectiveCadence as "DAILY" | "WEEKLY" | "MONTHLY",
+        userPrompt: input.userPrompt,
+      },
+      update: {
+        transformerCode: generated.code,
+        chartType,
+        cadence: effectiveCadence as "DAILY" | "WEEKLY" | "MONTHLY",
+        userPrompt: input.userPrompt,
+        version: { increment: 1 },
+      },
+    });
+
+    await db.dashboardChart.update({
+      where: { id: input.dashboardChartId },
+      data: { chartConfig: chartConfigToJson(testResult.data), chartType },
+    });
+
+    const cacheTags = [`dashboard_org_${dashboardChart.organizationId}`];
+    if (dashboardChart.metric.teamId) {
+      cacheTags.push(`dashboard_team_${dashboardChart.metric.teamId}`);
+    }
+    await invalidateCacheByTags(db, cacheTags);
+
+    await db.metric.update({
+      where: { id: metricId },
+      data: { refreshStatus: null },
+    });
+
+    return { success: true, chartConfig: testResult.data };
+  } catch (error) {
+    await db.metric.update({
+      where: { id: metricId },
+      data: { refreshStatus: null },
+    });
+    throw error;
   }
-  await invalidateCacheByTags(db, cacheTags);
-
-  return { success: true, chartConfig: testResult.data };
 }
 
 export async function getChartTransformerByDashboardChartId(

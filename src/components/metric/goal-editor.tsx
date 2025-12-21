@@ -99,6 +99,7 @@ export function GoalEditor({
   const [isEditing, setIsEditing] = useState(startEditing);
   const [goalType, setGoalType] = useState<GoalType>("ABSOLUTE");
   const [targetValue, setTargetValue] = useState("");
+  const [isCalculating, setIsCalculating] = useState(false);
 
   const utils = api.useUtils();
 
@@ -134,24 +135,38 @@ export function GoalEditor({
   }, [startEditing, goal]);
 
   const upsertGoalMutation = api.metric.upsertGoal.useMutation({
-    onSuccess: () => {
+    onMutate: () => {
+      setIsCalculating(true);
+    },
+    onSuccess: async () => {
       toast.success("Goal saved");
       setIsEditing(false);
-      void utils.metric.getGoal.invalidate({ metricId });
-      void utils.dashboard.getDashboardCharts.invalidate();
+      await utils.metric.getGoal.refetch({ metricId });
+      await utils.dashboard.getDashboardCharts.refetch();
+      setIsCalculating(false);
       onSave?.();
     },
-    onError: (err) => toast.error(err.message),
+    onError: (err) => {
+      toast.error(err.message);
+      setIsCalculating(false);
+    },
   });
 
   const deleteGoalMutation = api.metric.deleteGoal.useMutation({
-    onSuccess: () => {
+    onMutate: () => {
+      setIsCalculating(true);
+    },
+    onSuccess: async () => {
       toast.success("Goal deleted");
-      void utils.metric.getGoal.invalidate({ metricId });
-      void utils.dashboard.getDashboardCharts.invalidate();
+      await utils.metric.getGoal.refetch({ metricId });
+      await utils.dashboard.getDashboardCharts.refetch();
+      setIsCalculating(false);
       onDelete?.();
     },
-    onError: (err) => toast.error(err.message),
+    onError: (err) => {
+      toast.error(err.message);
+      setIsCalculating(false);
+    },
   });
 
   const handleSaveGoal = () => {
@@ -310,7 +325,17 @@ export function GoalEditor({
         </span>
       </div>
 
-      <div className="rounded border p-1.5">
+      <div className="relative rounded border p-1.5">
+        {isCalculating && (
+          <div className="bg-background/80 absolute inset-0 z-10 flex items-center justify-center rounded backdrop-blur-sm">
+            <div className="flex items-center gap-2 text-xs">
+              <Loader2 className="text-muted-foreground h-3 w-3 animate-spin" />
+              <span className="text-muted-foreground">
+                Calculating progress...
+              </span>
+            </div>
+          </div>
+        )}
         <div className="flex items-center justify-between">
           <span className="text-xs font-medium capitalize">
             {cadence ? formatCadence(cadence) : "—"} goal

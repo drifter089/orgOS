@@ -56,6 +56,23 @@ export type LoadingPhase =
   | "updating-chart"
   | null;
 
+function getLoadingMessage(phase: LoadingPhase | undefined): string {
+  switch (phase) {
+    case "fetching-api":
+      return "Fetching data from API...";
+    case "running-transformer":
+      return "Processing data...";
+    case "ai-regenerating":
+      return "AI is regenerating...";
+    case "saving-data":
+      return "Saving data points...";
+    case "updating-chart":
+      return "Updating chart...";
+    default:
+      return "Processing...";
+  }
+}
+
 interface DashboardMetricChartProps {
   title: string;
   chartTransform: ChartTransformResult | null;
@@ -670,10 +687,10 @@ export function DashboardMetricChart({
         )}
       </CardHeader>
 
-      <CardContent className="flex flex-1 flex-col overflow-hidden px-4 pt-0 pb-4">
+      <CardContent className="relative flex flex-1 flex-col overflow-hidden px-4 pt-0 pb-4">
         {hasChartData && renderChart()}
 
-        {!hasChartData && !isProcessing && (
+        {!hasChartData && !isProcessing && !loadingPhase && (
           <div className="text-muted-foreground flex flex-1 items-center justify-center rounded-md border border-dashed p-4 text-center text-sm">
             {isIntegrationMetric
               ? "Loading chart..."
@@ -681,22 +698,23 @@ export function DashboardMetricChart({
           </div>
         )}
 
-        {(isProcessing || loadingPhase) && (
+        {(isProcessing || loadingPhase) && hasChartData && (
+          <div className="bg-background/80 absolute inset-0 flex items-center justify-center rounded-md backdrop-blur-sm">
+            <div className="text-center">
+              <Loader2 className="text-muted-foreground mx-auto h-6 w-6 animate-spin" />
+              <p className="text-muted-foreground mt-2 text-sm">
+                {getLoadingMessage(loadingPhase)}
+              </p>
+            </div>
+          </div>
+        )}
+
+        {(isProcessing || loadingPhase) && !hasChartData && (
           <div className="flex flex-1 items-center justify-center rounded-md border border-dashed">
             <div className="text-center">
               <Loader2 className="text-muted-foreground mx-auto h-6 w-6 animate-spin" />
               <p className="text-muted-foreground mt-2 text-sm">
-                {loadingPhase === "fetching-api"
-                  ? "Fetching data from API..."
-                  : loadingPhase === "running-transformer"
-                    ? "Processing data..."
-                    : loadingPhase === "ai-regenerating"
-                      ? "AI is regenerating transformer..."
-                      : loadingPhase === "saving-data"
-                        ? "Saving data points..."
-                        : loadingPhase === "updating-chart"
-                          ? "Updating chart..."
-                          : "Processing..."}
+                {getLoadingMessage(loadingPhase)}
               </p>
             </div>
           </div>

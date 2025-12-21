@@ -2,8 +2,6 @@
 
 import { useEffect, useState } from "react";
 
-import Link from "next/link";
-
 import type { Cadence, MetricGoal, Role } from "@prisma/client";
 import { formatDistanceToNow } from "date-fns";
 import {
@@ -11,9 +9,7 @@ import {
   Check,
   Clock,
   Loader2,
-  PenLine,
   RefreshCw,
-  RotateCcw,
   Sparkles,
   Trash2,
   TrendingUp,
@@ -27,8 +23,14 @@ import { Button } from "@/components/ui/button";
 import { DrawerClose } from "@/components/ui/drawer";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { formatValue } from "@/lib/helpers/format-value";
 import { getLatestMetricValue } from "@/lib/metrics/get-latest-value";
 import { getPlatformConfig } from "@/lib/platform-config";
@@ -72,8 +74,7 @@ interface DashboardMetricDrawerProps {
     cadence?: Cadence,
     prompt?: string,
   ) => void;
-  onRefresh: () => void;
-  onRegeneratePipeline: () => void;
+  onRefresh: (forceRebuild?: boolean) => void;
   onUpdateMetric: (name: string, description: string) => void;
   onDelete: () => void;
   onClose: () => void;
@@ -104,7 +105,6 @@ export function DashboardMetricDrawer({
   loadingPhase,
   onRegenerate,
   onRefresh,
-  onRegeneratePipeline,
   onUpdateMetric,
   onDelete,
   onClose: _onClose,
@@ -117,6 +117,7 @@ export function DashboardMetricDrawer({
     currentCadence ?? "WEEKLY",
   );
   const [prompt, setPrompt] = useState("");
+  const [forceRebuild, setForceRebuild] = useState(false);
 
   useEffect(() => {
     setName(metricName);
@@ -166,7 +167,7 @@ export function DashboardMetricDrawer({
 
   return (
     <div className="flex h-full flex-col">
-      <div className="flex items-center justify-between border-b px-6 py-4">
+      <div className="flex items-center justify-between border-b px-8 py-4">
         <div className="flex items-center gap-3">
           <h2 className="text-xl font-semibold">{metricName}</h2>
           {platformConfig && (
@@ -183,19 +184,47 @@ export function DashboardMetricDrawer({
             </Badge>
           )}
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-3">
           {isIntegrationMetric && (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={onRefresh}
-              disabled={isProcessing || isRegeneratingPipeline}
-            >
-              <RefreshCw
-                className={cn("mr-2 h-4 w-4", isProcessing && "animate-spin")}
-              />
-              Refresh
-            </Button>
+            <>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => onRefresh(forceRebuild)}
+                disabled={isProcessing || isRegeneratingPipeline}
+              >
+                <RefreshCw
+                  className={cn(
+                    "mr-2 h-4 w-4",
+                    (isProcessing || isRegeneratingPipeline) && "animate-spin",
+                  )}
+                />
+                {forceRebuild ? "Rebuild" : "Refresh"}
+              </Button>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div className="flex items-center gap-2">
+                    <Switch
+                      id="force-rebuild"
+                      checked={forceRebuild}
+                      onCheckedChange={setForceRebuild}
+                      disabled={isProcessing || isRegeneratingPipeline}
+                    />
+                    <Label
+                      htmlFor="force-rebuild"
+                      className="text-muted-foreground cursor-pointer text-xs"
+                    >
+                      Force
+                    </Label>
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent side="bottom">
+                  <p className="text-xs">
+                    When enabled, regenerates the entire data pipeline
+                  </p>
+                </TooltipContent>
+              </Tooltip>
+            </>
           )}
           <DrawerClose asChild>
             <Button variant="ghost" size="icon" className="h-8 w-8">
@@ -206,42 +235,63 @@ export function DashboardMetricDrawer({
       </div>
 
       <div className="flex-1 overflow-y-auto">
-        <div className="space-y-6 p-6">
+        <div className="space-y-6 px-8 py-6">
           {isIntegrationMetric && (
-            <div className="flex flex-wrap items-center gap-4">
-              <ToggleGroup
-                type="single"
-                value={selectedChartType}
-                onValueChange={(v) => v && setSelectedChartType(v)}
-                size="sm"
-              >
-                <ToggleGroupItem value="bar" aria-label="Bar Chart">
-                  <BarChart3 className="h-4 w-4" />
-                </ToggleGroupItem>
-                <ToggleGroupItem value="line" aria-label="Line Chart">
-                  <TrendingUp className="h-4 w-4" />
-                </ToggleGroupItem>
-              </ToggleGroup>
-              <ToggleGroup
-                type="single"
-                value={selectedCadence}
-                onValueChange={(v) => v && setSelectedCadence(v as Cadence)}
-                size="sm"
-              >
-                {CADENCE_OPTIONS.map((c) => (
-                  <ToggleGroupItem key={c} value={c} className="text-xs">
-                    {c.charAt(0) + c.slice(1).toLowerCase()}
+            <div className="bg-muted/30 space-y-4 rounded-lg border p-4">
+              <div className="flex flex-wrap items-center gap-4">
+                <ToggleGroup
+                  type="single"
+                  value={selectedChartType}
+                  onValueChange={(v) => v && setSelectedChartType(v)}
+                  size="sm"
+                >
+                  <ToggleGroupItem value="bar" aria-label="Bar Chart">
+                    <BarChart3 className="h-4 w-4" />
                   </ToggleGroupItem>
-                ))}
-              </ToggleGroup>
-              {lastFetchedAt && (
-                <span className="text-muted-foreground ml-auto flex items-center gap-1.5 text-xs">
-                  <Clock className="h-3 w-3" />
-                  {formatDistanceToNow(new Date(lastFetchedAt), {
-                    addSuffix: true,
-                  })}
-                </span>
-              )}
+                  <ToggleGroupItem value="line" aria-label="Line Chart">
+                    <TrendingUp className="h-4 w-4" />
+                  </ToggleGroupItem>
+                </ToggleGroup>
+                <ToggleGroup
+                  type="single"
+                  value={selectedCadence}
+                  onValueChange={(v) => v && setSelectedCadence(v as Cadence)}
+                  size="sm"
+                >
+                  {CADENCE_OPTIONS.map((c) => (
+                    <ToggleGroupItem key={c} value={c} className="text-xs">
+                      {c.charAt(0) + c.slice(1).toLowerCase()}
+                    </ToggleGroupItem>
+                  ))}
+                </ToggleGroup>
+                {lastFetchedAt && (
+                  <span className="text-muted-foreground ml-auto flex items-center gap-1.5 text-xs">
+                    <Clock className="h-3 w-3" />
+                    {formatDistanceToNow(new Date(lastFetchedAt), {
+                      addSuffix: true,
+                    })}
+                  </span>
+                )}
+              </div>
+              <Textarea
+                placeholder="AI Customization (optional) - e.g., 'Group by user', 'Show cumulative growth'..."
+                value={prompt}
+                onChange={(e) => setPrompt(e.target.value)}
+                className="min-h-[60px] resize-none"
+              />
+              <Button
+                size="sm"
+                onClick={handleApplyChanges}
+                disabled={isProcessing || !hasChartChanges}
+                className="w-full"
+              >
+                {isProcessing ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <Sparkles className="mr-2 h-4 w-4" />
+                )}
+                Apply Changes
+              </Button>
             </div>
           )}
 
@@ -295,7 +345,7 @@ export function DashboardMetricDrawer({
                 <div className="bg-muted mt-2 h-1.5 w-full overflow-hidden rounded-full">
                   <div
                     className={cn(
-                      "h-full transition-all",
+                      "h-full transition-[width] duration-300 ease-out",
                       goalProgress.progressPercent >= 100
                         ? "bg-green-500"
                         : goalProgress.progressPercent >= 70
@@ -333,33 +383,6 @@ export function DashboardMetricDrawer({
                     </Button>
                   </div>
                 </div>
-
-                {isIntegrationMetric && (
-                  <div className="space-y-2">
-                    <Label className="text-sm font-medium">
-                      AI Customization
-                    </Label>
-                    <Textarea
-                      placeholder="E.g., 'Group by user', 'Show cumulative growth'..."
-                      value={prompt}
-                      onChange={(e) => setPrompt(e.target.value)}
-                      className="min-h-[80px] resize-none"
-                    />
-                    <Button
-                      size="sm"
-                      onClick={handleApplyChanges}
-                      disabled={isProcessing || !hasChartChanges}
-                      className="w-full"
-                    >
-                      {isProcessing ? (
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      ) : (
-                        <Sparkles className="mr-2 h-4 w-4" />
-                      )}
-                      Apply Changes
-                    </Button>
-                  </div>
-                )}
 
                 {chartTransform?.dataKeys &&
                   chartTransform.dataKeys.length > 0 && (
@@ -409,43 +432,21 @@ export function DashboardMetricDrawer({
         </div>
       </div>
 
-      <div className="flex items-center justify-between border-t px-6 py-3">
-        <div className="flex items-center gap-2">
-          {isIntegrationMetric && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={onRegeneratePipeline}
-              disabled={isRegeneratingPipeline}
-            >
-              {isRegeneratingPipeline ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              ) : (
-                <RotateCcw className="mr-2 h-4 w-4" />
-              )}
-              Rebuild Pipeline
-            </Button>
+      <div className="border-t px-8 py-3">
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={handleDelete}
+          disabled={isDeleting}
+          className="text-destructive hover:text-destructive hover:bg-destructive/10"
+        >
+          {isDeleting ? (
+            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+          ) : (
+            <Trash2 className="mr-2 h-4 w-4" />
           )}
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={handleDelete}
-            disabled={isDeleting}
-            className="text-destructive hover:text-destructive hover:bg-destructive/10"
-          >
-            {isDeleting ? (
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            ) : (
-              <Trash2 className="mr-2 h-4 w-4" />
-            )}
-            Delete
-          </Button>
-        </div>
-        <DrawerClose asChild>
-          <Button variant="outline" size="sm">
-            Close
-          </Button>
-        </DrawerClose>
+          Delete Metric
+        </Button>
       </div>
     </div>
   );
