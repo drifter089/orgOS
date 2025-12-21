@@ -28,6 +28,7 @@ export {
   ingestMetricData,
   refreshMetricDataPoints,
   refreshMetricAndCharts,
+  updateManualMetricChart,
 } from "./data-pipeline";
 
 // Chart Generator - for chart configuration

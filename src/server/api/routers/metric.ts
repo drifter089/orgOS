@@ -634,9 +634,6 @@ export const metricRouter = createTRPCRouter({
           id: input.metricId,
           organizationId: ctx.workspace.organizationId,
         },
-        include: {
-          dashboardCharts: true,
-        },
       });
 
       if (!metric) {
@@ -676,39 +673,6 @@ export const metricRouter = createTRPCRouter({
         ),
       );
 
-      // Check if we should generate a chart transformer
-      // Generate when we have at least 3 data points and no transformer exists
-      const dataPointCount = await ctx.db.metricDataPoint.count({
-        where: { metricId: input.metricId },
-      });
-
-      const dashboardChart = metric.dashboardCharts[0];
-      if (dataPointCount >= 3 && dashboardChart) {
-        const existingTransformer = await ctx.db.chartTransformer.findUnique({
-          where: { dashboardChartId: dashboardChart.id },
-        });
-
-        if (!existingTransformer) {
-          try {
-            await createChartTransformer({
-              dashboardChartId: dashboardChart.id,
-              metricName: metric.name,
-              metricDescription: metric.description ?? "Manual metric",
-              chartType: "line",
-              cadence: "DAILY",
-            });
-            console.info(
-              `[metric.addDataPoints] Created chart transformer for manual metric ${metric.id}`,
-            );
-          } catch (error) {
-            console.error(
-              `[metric.addDataPoints] Failed to create chart transformer:`,
-              error,
-            );
-          }
-        }
-      }
-
       return {
         success: true,
         savedCount: results.length,
@@ -737,7 +701,11 @@ export const metricRouter = createTRPCRouter({
             include: {
               dataPoints: {
                 orderBy: { timestamp: "desc" },
-                take: 10, // Get recent data points for display
+                take: 10,
+              },
+              dashboardCharts: {
+                select: { id: true },
+                take: 1,
               },
             },
           },
@@ -820,6 +788,10 @@ export const metricRouter = createTRPCRouter({
                 select: { id: true, name: true },
               },
             },
+          },
+          dashboardCharts: {
+            select: { id: true },
+            take: 1,
           },
         },
       });

@@ -165,11 +165,41 @@ export function DashboardMetricCard({
   /**
    * Refresh metric data using existing transformer, or regenerate entire pipeline
    * when forceRebuild is true. Progress status is polled from the database.
+   * For manual metrics, regenerates the chart transformer.
    */
   const handleRefresh = useCallback(
     async (forceRebuild = false) => {
-      if (!isIntegrationMetric || !metric.templateId || !metric.integration)
+      // For manual metrics, regenerate the chart transformer
+      if (!isIntegrationMetric) {
+        setIsProcessing(true);
+        try {
+          const result = await regenerateChartMutation.mutateAsync({
+            dashboardChartId: dashboardMetric.id,
+          });
+
+          if (result.success) {
+            toast.success("Chart regenerated");
+            const teamId = metric.teamId;
+            await utils.dashboard.getDashboardCharts.refetch();
+            if (teamId) {
+              await utils.dashboard.getDashboardCharts.refetch({ teamId });
+            }
+          } else {
+            toast.error("Regeneration failed", { description: result.error });
+          }
+        } catch (error) {
+          toast.error("Regeneration failed", {
+            description:
+              error instanceof Error ? error.message : "Unknown error",
+          });
+        } finally {
+          setIsProcessing(false);
+        }
         return;
+      }
+
+      // For integration metrics
+      if (!metric.templateId || !metric.integration) return;
 
       if (forceRebuild) {
         setIsRegeneratingPipeline(true);
@@ -223,6 +253,8 @@ export function DashboardMetricCard({
     },
     [
       isIntegrationMetric,
+      dashboardMetric.id,
+      regenerateChartMutation,
       metric.templateId,
       metric.integration,
       metric.id,

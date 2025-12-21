@@ -11,6 +11,7 @@ import {
   createChartTransformer,
   refreshMetricAndCharts,
   regenerateChartTransformer,
+  updateManualMetricChart,
 } from "@/server/api/services/transformation";
 import { createTRPCRouter, workspaceProcedure } from "@/server/api/trpc";
 import {
@@ -111,5 +112,21 @@ export const transformerRouter = createTRPCRouter({
       );
 
       return regenerateChartTransformer(input);
+    }),
+
+  /**
+   * Update chart for manual metric check-ins.
+   * Reuses existing transformer (no AI) or creates one if needed (AI, once).
+   */
+  updateManualChart: workspaceProcedure
+    .input(z.object({ metricId: z.string() }))
+    .mutation(async ({ ctx, input }) => {
+      await getMetricAndVerifyAccess(
+        db,
+        input.metricId,
+        ctx.workspace.organizationId,
+      );
+
+      return updateManualMetricChart({ metricId: input.metricId });
     }),
 });
