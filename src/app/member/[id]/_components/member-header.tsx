@@ -1,9 +1,11 @@
 "use client";
 
-import { Briefcase, Users } from "lucide-react";
+import { Briefcase, ClipboardCheck, Users } from "lucide-react";
+import { Link } from "next-transition-router";
 
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { type RouterOutputs } from "@/trpc/react";
 
@@ -61,6 +63,13 @@ export function MemberHeader({
             </Badge>
           </div>
         </div>
+
+        <Link href={`/check-in/${member.id}`}>
+          <Button variant="default" className="gap-2">
+            <ClipboardCheck className="h-4 w-4" />
+            Check-in
+          </Button>
+        </Link>
       </CardContent>
     </Card>
   );

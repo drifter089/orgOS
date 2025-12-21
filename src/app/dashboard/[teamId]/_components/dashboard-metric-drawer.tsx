@@ -7,6 +7,7 @@ import { formatDistanceToNow } from "date-fns";
 import {
   BarChart3,
   Check,
+  ClipboardCheck,
   Clock,
   Loader2,
   RefreshCw,
@@ -15,6 +16,7 @@ import {
   TrendingUp,
   X,
 } from "lucide-react";
+import { Link } from "next-transition-router";
 
 import { GoalEditor } from "@/components/metric/goal-editor";
 import { RoleAssignment } from "@/components/metric/role-assignment";
@@ -185,7 +187,7 @@ export function DashboardMetricDrawer({
           )}
         </div>
         <div className="flex items-center gap-3">
-          {isIntegrationMetric && (
+          {isIntegrationMetric ? (
             <>
               <Button
                 variant="ghost"
@@ -225,6 +227,13 @@ export function DashboardMetricDrawer({
                 </TooltipContent>
               </Tooltip>
             </>
+          ) : (
+            <Button variant="default" size="sm" asChild>
+              <Link href={`/metric/check-in/${metricId}`}>
+                <ClipboardCheck className="mr-2 h-4 w-4" />
+                Check-in
+              </Link>
+            </Button>
           )}
           <DrawerClose asChild>
             <Button variant="ghost" size="icon" className="h-8 w-8">

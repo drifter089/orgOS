@@ -1,8 +1,7 @@
 "use client";
 
-import Link from "next/link";
-
 import { ChevronRight, FolderSync, LogIn, Mail, Users } from "lucide-react";
+import { Link } from "next-transition-router";
 
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";

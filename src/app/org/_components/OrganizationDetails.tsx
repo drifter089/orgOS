@@ -10,6 +10,9 @@ export async function OrganizationDetails() {
     api.organization.getMembers(),
   ]);
 
+  // Prefetch member stats for the sheet
+  void api.organization.getMemberStats.prefetch();
+
   if (!orgData) {
     return null;
   }

@@ -41,6 +41,7 @@ export default async function OrganizationPage() {
   // Prefetch data for existing org
   await Promise.all([
     api.organization.getMembers.prefetch(),
+    api.organization.getMemberStats.prefetch(),
     api.team.getAll.prefetch(),
   ]);
 
