@@ -2,16 +2,14 @@
 
 import { useEffect, useState } from "react";
 
-import Link from "next/link";
-
 import type { Cadence, MetricGoal, Role } from "@prisma/client";
 import { formatDistanceToNow } from "date-fns";
 import {
   BarChart3,
   Check,
+  ClipboardCheck,
   Clock,
   Loader2,
-  PenLine,
   RefreshCw,
   RotateCcw,
   Sparkles,
@@ -19,6 +17,7 @@ import {
   TrendingUp,
   X,
 } from "lucide-react";
+import { Link } from "next-transition-router";
 
 import { GoalEditor } from "@/components/metric/goal-editor";
 import { RoleAssignment } from "@/components/metric/role-assignment";
@@ -184,7 +183,7 @@ export function DashboardMetricDrawer({
           )}
         </div>
         <div className="flex items-center gap-2">
-          {isIntegrationMetric && (
+          {isIntegrationMetric ? (
             <Button
               variant="ghost"
               size="sm"
@@ -195,6 +194,13 @@ export function DashboardMetricDrawer({
                 className={cn("mr-2 h-4 w-4", isProcessing && "animate-spin")}
               />
               Refresh
+            </Button>
+          ) : (
+            <Button variant="default" size="sm" asChild>
+              <Link href={`/metric/check-in/${metricId}`}>
+                <ClipboardCheck className="mr-2 h-4 w-4" />
+                Check-in
+              </Link>
             </Button>
           )}
           <DrawerClose asChild>

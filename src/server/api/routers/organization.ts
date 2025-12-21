@@ -123,4 +123,70 @@ export const organizationRouter = createTRPCRouter({
 
     return Array.from(memberMap.values());
   }),
+
+  /**
+   * Get aggregated stats for all members (role count, effort points, goals).
+   * Returns a map of userId -> stats for efficient lookup.
+   */
+  getMemberStats: workspaceProcedure.query(async ({ ctx }) => {
+    const roles = await ctx.db.role.findMany({
+      where: {
+        team: { organizationId: ctx.workspace.organizationId },
+        assignedUserId: { not: null },
+      },
+      select: {
+        assignedUserId: true,
+        effortPoints: true,
+        metric: {
+          select: {
+            id: true,
+            goal: true,
+            dataPoints: {
+              orderBy: { timestamp: "desc" },
+              take: 1,
+              select: { value: true },
+            },
+          },
+        },
+      },
+    });
+
+    const statsMap: Record<
+      string,
+      {
+        roleCount: number;
+        totalEffort: number;
+        goalsOnTrack: number;
+        goalsTotal: number;
+      }
+    > = {};
+
+    for (const role of roles) {
+      const userId = role.assignedUserId!;
+      if (!statsMap[userId]) {
+        statsMap[userId] = {
+          roleCount: 0,
+          totalEffort: 0,
+          goalsOnTrack: 0,
+          goalsTotal: 0,
+        };
+      }
+
+      statsMap[userId].roleCount += 1;
+      statsMap[userId].totalEffort += role.effortPoints ?? 0;
+
+      if (role.metric?.goal) {
+        statsMap[userId].goalsTotal += 1;
+        const latestValue = role.metric.dataPoints[0]?.value;
+        if (
+          latestValue !== undefined &&
+          latestValue >= role.metric.goal.targetValue
+        ) {
+          statsMap[userId].goalsOnTrack += 1;
+        }
+      }
+    }
+
+    return statsMap;
+  }),
 });
