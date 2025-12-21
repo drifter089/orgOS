@@ -69,7 +69,8 @@ model Role {
     effortPoints   Int?     // Story points (1, 2, 3, 5, 8, 13, 20, 40)
 
     // Optional assignment
-    assignedUserId String?  // WorkOS user ID
+    assignedUserId   String?  // WorkOS user ID
+    assignedUserName String?  // Cached display name for public views
 
     // Visual properties (synced with React Flow node)
     nodeId         String   // React Flow node ID (for syncing)

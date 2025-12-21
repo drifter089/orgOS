@@ -116,6 +116,7 @@ export function useCreateRole({
         metricId: variables.metricId ?? null,
         nodeId: variables.nodeId,
         assignedUserId: variables.assignedUserId ?? null,
+        assignedUserName: null, // Will be populated by server
         effortPoints: variables.effortPoints ?? null,
         color: variables.color ?? "#3b82f6",
         createdAt: new Date(),
