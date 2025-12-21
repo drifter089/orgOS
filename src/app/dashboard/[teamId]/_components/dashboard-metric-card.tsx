@@ -7,7 +7,6 @@ import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
 import { Drawer, DrawerContent, DrawerTrigger } from "@/components/ui/drawer";
 import {
   Tooltip,
@@ -323,7 +322,7 @@ export function DashboardMetricCard({
 
   // Card content shared between readOnly and editable modes
   const cardContent = (
-    <Card className="relative h-[420px]">
+    <div className="relative">
       {/* Error indicator */}
       {hasError && (
         <Tooltip>
@@ -391,7 +390,7 @@ export function DashboardMetricCard({
         goalProgress={dashboardMetric.goalProgress}
         valueLabel={dashboardMetric.valueLabel}
       />
-    </Card>
+    </div>
   );
 
   // In readOnly mode, just render the card without the Drawer wrapper

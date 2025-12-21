@@ -585,6 +585,11 @@ export const metricRouter = createTRPCRouter({
         { timeout: 15000 },
       );
 
+      // Invalidate Prisma cache for dashboard queries
+      const cacheTags = [`dashboard_org_${ctx.workspace.organizationId}`];
+      cacheTags.push(`dashboard_team_${input.teamId}`);
+      await invalidateCacheByTags(ctx.db, cacheTags);
+
       return dashboardChart;
     }),
 

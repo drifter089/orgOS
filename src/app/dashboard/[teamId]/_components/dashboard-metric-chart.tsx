@@ -535,7 +535,7 @@ export function DashboardMetricChart({
 
   return (
     <Card
-      className={`flex h-full flex-col ${isPending ? "animate-pulse opacity-70" : ""}`}
+      className={`flex h-[420px] flex-col ${isPending ? "animate-pulse opacity-70" : ""}`}
     >
       <CardHeader className="flex-shrink-0 space-y-0.5 px-5 pt-3 pb-1">
         <div className="flex items-center justify-between gap-2">
