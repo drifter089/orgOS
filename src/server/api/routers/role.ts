@@ -7,6 +7,25 @@ import {
   validateUserAssignable,
 } from "@/server/api/utils/authorization";
 import { invalidateCacheByTags } from "@/server/api/utils/cache-strategy";
+import { workos } from "@/server/workos";
+
+/**
+ * Look up user's display name from WorkOS.
+ * Returns null if user not found or on error.
+ */
+async function getUserDisplayName(
+  userId: string | null | undefined,
+): Promise<string | null> {
+  if (!userId) return null;
+  try {
+    const user = await workos.userManagement.getUser(userId);
+    return (
+      [user.firstName, user.lastName].filter(Boolean).join(" ") || user.email
+    );
+  } catch {
+    return null;
+  }
+}
 
 const metricInclude = {
   include: {
@@ -76,6 +95,8 @@ export const roleRouter = createTRPCRouter({
         await validateUserAssignable(ctx.workspace, input.assignedUserId);
       }
 
+      const assignedUserName = await getUserDisplayName(input.assignedUserId);
+
       const role = await ctx.db.role.create({
         data: {
           title: input.title,
@@ -86,6 +107,7 @@ export const roleRouter = createTRPCRouter({
           nodeId: input.nodeId,
           color: input.color ?? "#3b82f6",
           assignedUserId: input.assignedUserId ?? null,
+          assignedUserName,
           effortPoints: input.effortPoints ?? null,
         },
         include: { metric: metricInclude },
@@ -131,6 +153,7 @@ export const roleRouter = createTRPCRouter({
         accountabilities?: string | null;
         metricId?: string | null;
         assignedUserId?: string | null;
+        assignedUserName?: string | null;
         effortPoints?: number | null;
         color?: string;
       } = {
@@ -142,6 +165,7 @@ export const roleRouter = createTRPCRouter({
 
       if (Object.prototype.hasOwnProperty.call(input, "assignedUserId")) {
         data.assignedUserId = input.assignedUserId;
+        data.assignedUserName = await getUserDisplayName(input.assignedUserId);
       }
 
       if (Object.prototype.hasOwnProperty.call(input, "metricId")) {

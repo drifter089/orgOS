@@ -38,6 +38,7 @@ function PublicRoleNodeComponent({
   const color = role?.color ?? "#3b82f6";
   const metricName = role?.metric?.name;
   const effortPoints = role?.effortPoints;
+  const assignedUserName = role?.assignedUserName;
 
   const dashboardCharts = role?.metric?.dashboardCharts;
   const chartConfig = dashboardCharts?.[0]?.chartConfig as
@@ -132,6 +133,13 @@ function PublicRoleNodeComponent({
                   {metricDate}
                 </p>
               )}
+            </div>
+          )}
+
+          {assignedUserName && (
+            <div className="flex items-center gap-2 text-xs">
+              <User className="text-muted-foreground h-3 w-3 shrink-0" />
+              <span className="truncate font-medium">{assignedUserName}</span>
             </div>
           )}
         </div>
