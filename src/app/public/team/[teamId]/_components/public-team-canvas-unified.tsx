@@ -16,20 +16,20 @@ import {
 import "@xyflow/react/dist/style.css";
 import { Eye } from "lucide-react";
 
+import {
+  type ChartNodeData,
+  ChartNodeMemo,
+} from "@/app/teams/[teamId]/_components/chart-node";
+import {
+  type RoleNodeData,
+  RoleNodeMemo,
+} from "@/app/teams/[teamId]/_components/role-node";
 import { ZoomSlider } from "@/components/react-flow";
 import { Badge } from "@/components/ui/badge";
 import type { StoredEdge, StoredNode } from "@/lib/canvas";
 import { cn } from "@/lib/utils";
 
 import { usePublicView } from "../../../_context/public-view-context";
-import {
-  type PublicChartNodeData,
-  PublicChartNodeMemo,
-} from "./public-chart-node-unified";
-import {
-  type PublicRoleNodeData,
-  PublicRoleNodeMemo,
-} from "./public-role-node-unified";
 import { PublicTeamEdge } from "./public-team-edge-unified";
 import {
   type PublicTextNodeData,
@@ -37,9 +37,9 @@ import {
 } from "./public-text-node-unified";
 
 const nodeTypes = {
-  "role-node": PublicRoleNodeMemo,
+  "role-node": RoleNodeMemo,
   "text-node": PublicTextNodeMemo,
-  "chart-node": PublicChartNodeMemo,
+  "chart-node": ChartNodeMemo,
 };
 
 const edgeTypes = {
@@ -49,12 +49,12 @@ const edgeTypes = {
 const proOptions: ProOptions = { hideAttribution: true };
 
 type PublicTeamNode =
-  | Node<PublicRoleNodeData, "role-node">
+  | Node<RoleNodeData, "role-node">
   | Node<PublicTextNodeData, "text-node">
-  | Node<PublicChartNodeData, "chart-node">;
+  | Node<ChartNodeData, "chart-node">;
 
 export function PublicTeamCanvasUnified() {
-  const { team } = usePublicView();
+  const { team, dashboard } = usePublicView();
 
   const nodes = useMemo<PublicTeamNode[]>(() => {
     if (!team) return [];
@@ -76,31 +76,61 @@ export function PublicTeamCanvasUnified() {
       }
 
       if (node.type === "chart-node") {
-        const dashboardMetricId = (node.data as { dashboardMetricId?: string })
-          ?.dashboardMetricId;
+        const dashboardMetricId =
+          (node.data as { dashboardMetricId?: string })?.dashboardMetricId ??
+          "";
+        // Find the dashboard metric to pass as override for public view
+        const dashboardMetric = dashboard?.dashboardCharts.find(
+          (chart) => chart.id === dashboardMetricId,
+        );
 
         return {
           id: node.id,
           type: "chart-node" as const,
           position: node.position,
           data: {
-            dashboardMetricId: dashboardMetricId ?? "",
+            dashboardMetricId,
+            readOnly: true,
+            dashboardMetricOverride: dashboardMetric,
           },
         };
       }
 
-      const roleId = (node.data as { roleId?: string })?.roleId;
+      const roleId = (node.data as { roleId?: string })?.roleId ?? "";
+      // Find the role data to pass as override for public view
+      const role = team?.roles.find((r) => r.id === roleId);
 
       return {
         id: node.id,
         type: "role-node" as const,
         position: node.position,
         data: {
-          roleId: roleId ?? "",
+          roleId,
+          readOnly: true,
+          // Pass pre-fetched role data to avoid hook calls in public view
+          roleDataOverride: role
+            ? {
+                id: role.id,
+                title: role.title,
+                purpose: role.purpose,
+                color: role.color,
+                effortPoints: role.effortPoints,
+                assignedUserId: role.assignedUserId,
+                assignedUserName: role.assignedUserName,
+                metric: role.metric
+                  ? {
+                      name: role.metric.name,
+                      dashboardCharts: role.metric.dashboardCharts,
+                    }
+                  : null,
+              }
+            : undefined,
+          // Pass pre-resolved user name for public view
+          userNameOverride: role?.assignedUserName,
         },
       };
     });
-  }, [team]);
+  }, [team, dashboard]);
 
   const edges = useMemo<Edge[]>(() => {
     if (!team) return [];

@@ -30,8 +30,29 @@ import { useRoleData, useUserName } from "../hooks/use-role-data";
 import { useTeamStore } from "../store/team-store";
 
 /**
+ * Role data structure for override props (compatible with both private and public data).
+ * This allows the component to work without hooks when data is pre-fetched.
+ */
+export type RoleDataOverride = {
+  id: string;
+  title: string;
+  purpose: string;
+  color: string;
+  effortPoints?: number | null;
+  assignedUserId?: string | null;
+  assignedUserName?: string | null;
+  metric?: {
+    name: string;
+    dashboardCharts?: Array<{
+      chartConfig: unknown;
+    }>;
+  } | null;
+};
+
+/**
  * Minimal data stored in node.data - just a reference to the role.
- * All display data comes from TanStack Query cache via useRoleData hook.
+ * All display data comes from TanStack Query cache via useRoleData hook,
+ * or from roleDataOverride when provided (for public views).
  */
 export type RoleNodeData = {
   roleId: string;
@@ -43,6 +64,10 @@ export type RoleNodeData = {
   pendingColor?: string;
   /** When true, hides edit/delete buttons and disables interactions (for public views) */
   readOnly?: boolean;
+  /** Pre-fetched role data (for public views that can't use hooks) */
+  roleDataOverride?: RoleDataOverride;
+  /** Pre-resolved user name (for public views that can't call WorkOS) */
+  userNameOverride?: string | null;
 };
 
 export type RoleNode = Node<RoleNodeData, "role-node">;
@@ -50,14 +75,21 @@ export type RoleNode = Node<RoleNodeData, "role-node">;
 function RoleNodeComponent({ data, selected, id }: NodeProps<RoleNode>) {
   const [isDeleting, setIsDeleting] = useState(false);
 
+  // These hooks are only used in non-readOnly mode (private view)
+  // In readOnly mode (public view), we use roleDataOverride and userNameOverride instead
   const teamId = useTeamStore((state) => state.teamId);
   const setEditingNodeId = useTeamStore((state) => state.setEditingNodeId);
   const { confirm } = useConfirmation();
   const deleteRoleMutation = useDeleteRole(teamId);
 
-  // Fetch role data from TanStack Query cache
-  const role = useRoleData(data.roleId);
-  const assignedUserName = useUserName(role?.assignedUserId);
+  // Fetch role data from TanStack Query cache (only used in private view)
+  const roleFromHook = useRoleData(data.roleId);
+  const userNameFromHook = useUserName(roleFromHook?.assignedUserId);
+
+  // Use override data if provided (public view), otherwise use hook data (private view)
+  const role = data.roleDataOverride ?? roleFromHook;
+  const assignedUserName =
+    data.userNameOverride ?? role?.assignedUserName ?? userNameFromHook;
 
   // Use pending data during optimistic create, otherwise use cache
   const isPending = data.isPending ?? false;
