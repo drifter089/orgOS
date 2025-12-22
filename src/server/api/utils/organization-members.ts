@@ -64,6 +64,8 @@ export async function fetchOrganizationMembers(
         if (dirUser.email) {
           const emailLower = dirUser.email.toLowerCase();
           const isOrgMember = orgMemberEmails.has(emailLower);
+          // Intentionally overwrite with directory user ID - this is the ID used for role assignment
+          // when directory sync is enabled (see validateUserAssignable in authorization.ts)
           memberMap.set(emailLower, {
             id: dirUser.id,
             email: dirUser.email,

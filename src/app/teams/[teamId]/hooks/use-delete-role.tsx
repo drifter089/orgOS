@@ -29,7 +29,13 @@ export function useDeleteRole(teamId: string) {
 
       const previousRoles = utils.role.getByTeamId.getData({ teamId });
 
-      // Store optimistic updates only work when TeamStoreProvider is present
+      // Optimistic cache update (works in both private and public views)
+      utils.role.getByTeamId.setData({ teamId }, (old) => {
+        if (!old) return [];
+        return old.filter((role) => role.id !== variables.id);
+      });
+
+      // Zustand store updates only work when TeamStoreProvider is present
       let previousNodes: TeamNode[] | undefined;
       let previousEdges: TeamEdge[] | undefined;
 
@@ -38,11 +44,6 @@ export function useDeleteRole(teamId: string) {
           storeApi.getState();
         previousNodes = [...currentNodes];
         previousEdges = [...currentEdges];
-
-        utils.role.getByTeamId.setData({ teamId }, (old) => {
-          if (!old) return [];
-          return old.filter((role) => role.id !== variables.id);
-        });
 
         const nodeToRemove = currentNodes.find(
           (node) =>
