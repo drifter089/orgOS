@@ -1,10 +1,7 @@
 import { useCallback } from "react";
 
 import { api } from "@/trpc/react";
-import type { RouterOutputs } from "@/trpc/react";
-
-type DashboardChartWithRelations =
-  RouterOutputs["dashboard"]["getDashboardCharts"][number];
+import type { DashboardChartWithRelations } from "@/types/dashboard";
 
 interface UseOptimisticMetricUpdateOptions {
   teamId?: string;

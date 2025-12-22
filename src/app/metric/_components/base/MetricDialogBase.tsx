@@ -3,11 +3,9 @@
 import { useState } from "react";
 
 import type { Prisma } from "@prisma/client";
-import { ArrowLeft, Check, Target } from "lucide-react";
 import { toast } from "sonner";
 
-import { GoalEditor } from "@/components/metric/goal-editor";
-import { RoleAssignment } from "@/components/metric/role-assignment";
+import { GoalSetupStep } from "@/components/metric/goal-setup-step";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -18,11 +16,10 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { Separator } from "@/components/ui/separator";
 import { useOptimisticMetricUpdate } from "@/hooks/use-optimistic-metric-update";
 import { cn } from "@/lib/utils";
-import type { RouterOutputs } from "@/trpc/react";
 import { api } from "@/trpc/react";
+import type { DashboardChartWithRelations } from "@/types/dashboard";
 
 export interface MetricCreateInput {
   templateId: string;
@@ -59,9 +56,6 @@ interface MetricDialogBaseProps {
   teamId?: string;
   children: (props: ContentProps) => React.ReactNode;
 }
-
-type DashboardChartWithRelations =
-  RouterOutputs["dashboard"]["getDashboardCharts"][number];
 
 type DialogStep = "form" | "goal";
 
@@ -263,64 +257,17 @@ export function MetricDialogBase({
             )}
           </>
         ) : (
-          <>
-            <DialogHeader>
-              <div className="flex items-center gap-2">
-                <Target className="text-primary h-5 w-5" />
-                <DialogTitle>Set a Goal (Optional)</DialogTitle>
-              </div>
-              <DialogDescription>
-                Add a goal to track progress for{" "}
-                <strong>{createdMetricName}</strong>. You can skip this and add
-                a goal later from the dashboard.
-              </DialogDescription>
-            </DialogHeader>
-
-            <div className="space-y-4 py-2">
-              {createdMetricId && (
-                <GoalEditor
-                  metricId={createdMetricId}
-                  initialGoal={null}
-                  startEditing={true}
-                  compact={true}
-                  onSave={handleFinish}
-                />
-              )}
-
-              {teamId && createdMetricId && (
-                <>
-                  <Separator />
-                  <RoleAssignment
-                    metricId={createdMetricId}
-                    metricName={createdMetricName}
-                    teamId={teamId}
-                    assignedRoleIds={[]}
-                  />
-                </>
-              )}
-            </div>
-
-            <div className="flex justify-between pt-2">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setStep("form")}
-                className="gap-1.5"
-              >
-                <ArrowLeft className="h-4 w-4" />
-                Back
-              </Button>
-              <div className="flex gap-2">
-                <Button variant="outline" size="sm" onClick={handleSkipGoal}>
-                  Skip
-                </Button>
-                <Button size="sm" onClick={handleFinish} className="gap-1.5">
-                  <Check className="h-4 w-4" />
-                  Done
-                </Button>
-              </div>
-            </div>
-          </>
+          createdMetricId && (
+            <GoalSetupStep
+              metricId={createdMetricId}
+              metricName={createdMetricName}
+              teamId={teamId}
+              onBack={() => setStep("form")}
+              onSkip={handleSkipGoal}
+              onFinish={handleFinish}
+              useDialogHeader={true}
+            />
+          )
         )}
       </DialogContent>
     </Dialog>
