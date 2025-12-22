@@ -19,6 +19,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Separator } from "@/components/ui/separator";
+import { useOptimisticMetricUpdate } from "@/hooks/use-optimistic-metric-update";
 import { cn } from "@/lib/utils";
 import type { RouterOutputs } from "@/trpc/react";
 import { api } from "@/trpc/react";
@@ -99,17 +100,16 @@ export function MetricDialogBase({
     }
   };
 
-  const utils = api.useUtils();
+  const { cancelQueries, addOptimisticChart, swapTempWithReal, rollback } =
+    useOptimisticMetricUpdate({ teamId });
 
   const integrationQuery = api.integration.listWithStats.useQuery();
-  // If connectionId is provided, find by connectionId; otherwise fall back to integrationId
   const connection = integrationQuery.data?.active.find((int) =>
     connectionIdProp
       ? int.connectionId === connectionIdProp
       : int.providerId === integrationId,
   );
 
-  // Single mutation - creates metric + dashboard metric in transaction
   const createMutation = api.metric.create.useMutation();
 
   /**
@@ -180,24 +180,8 @@ export function MetricDialogBase({
       dataDescription: null, // Will be populated after transformer is created
     };
 
-    // Optimistic update - add to dashboard cache immediately
-    utils.dashboard.getDashboardCharts.setData(undefined, (old) =>
-      old ? [...old, optimisticDashboardChart] : [optimisticDashboardChart],
-    );
-    if (teamId) {
-      utils.dashboard.getDashboardCharts.setData({ teamId }, (old) =>
-        old ? [...old, optimisticDashboardChart] : [optimisticDashboardChart],
-      );
-    }
-
-    // Optimistic update - add to metric tabs cache (metric.getByTeamId)
-    if (teamId) {
-      utils.metric.getByTeamId.setData({ teamId }, (old) =>
-        old
-          ? [...old, optimisticDashboardChart.metric]
-          : [optimisticDashboardChart.metric],
-      );
-    }
+    await cancelQueries();
+    addOptimisticChart(optimisticDashboardChart);
 
     try {
       // Create the metric (chart generation will be implemented in new architecture)
@@ -206,10 +190,7 @@ export function MetricDialogBase({
         teamId,
       });
 
-      // Add goalProgress and valueLabel to match the expected dashboard type
-      // Newly created metrics won't have goals set yet
-      // valueLabel and dataDescription will be null until the transformer is created and we refetch
-      const realDashboardChartWithGoal = {
+      const realDashboardChartWithGoal: DashboardChartWithRelations = {
         ...realDashboardChart,
         metric: { ...realDashboardChart.metric, goal: null },
         goalProgress: null,
@@ -217,45 +198,17 @@ export function MetricDialogBase({
         dataDescription: null,
       };
 
-      // Swap temp→real ID in dashboard cache
-      utils.dashboard.getDashboardCharts.setData(undefined, (old) =>
-        old?.map((dc) => (dc.id === tempId ? realDashboardChartWithGoal : dc)),
-      );
-      if (teamId) {
-        utils.dashboard.getDashboardCharts.setData({ teamId }, (old) =>
-          old?.map((dc) =>
-            dc.id === tempId ? realDashboardChartWithGoal : dc,
-          ),
-        );
-        // Swap temp→real ID in metric tabs cache
-        utils.metric.getByTeamId.setData({ teamId }, (old) =>
-          old?.map((m) =>
-            m.id === tempId ? realDashboardChartWithGoal.metric : m,
-          ),
-        );
-      }
+      swapTempWithReal(tempId, realDashboardChartWithGoal);
 
       toast.success("KPI created", {
         description: "You can now set a goal for this metric.",
       });
 
-      // Move to goal step instead of closing
       setCreatedMetricId(realDashboardChart.metric.id);
       setCreatedMetricName(data.name);
       setStep("goal");
     } catch {
-      // Metric creation failed - rollback all caches
-      utils.dashboard.getDashboardCharts.setData(undefined, (old) =>
-        old?.filter((dc) => dc.id !== tempId),
-      );
-      if (teamId) {
-        utils.dashboard.getDashboardCharts.setData({ teamId }, (old) =>
-          old?.filter((dc) => dc.id !== tempId),
-        );
-        utils.metric.getByTeamId.setData({ teamId }, (old) =>
-          old?.filter((m) => m.id !== tempId),
-        );
-      }
+      rollback(tempId);
       toast.error("Failed to create KPI");
     }
   };
@@ -327,6 +280,7 @@ export function MetricDialogBase({
               {createdMetricId && (
                 <GoalEditor
                   metricId={createdMetricId}
+                  initialGoal={null}
                   startEditing={true}
                   compact={true}
                   onSave={handleFinish}

@@ -2,15 +2,26 @@
 
 import { useState } from "react";
 
-import { ArrowLeft, Hash, Loader2, Percent } from "lucide-react";
+import type { Prisma } from "@prisma/client";
+import { ArrowLeft, Check, Hash, Loader2, Percent, Target } from "lucide-react";
+import { toast } from "sonner";
 
+import { GoalEditor } from "@/components/metric/goal-editor";
+import { RoleAssignment } from "@/components/metric/role-assignment";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Separator } from "@/components/ui/separator";
+import { useOptimisticMetricUpdate } from "@/hooks/use-optimistic-metric-update";
 import { cn } from "@/lib/utils";
+import type { RouterOutputs } from "@/trpc/react";
 import { api } from "@/trpc/react";
 
 type UnitType = "number" | "percentage";
 type Cadence = "daily" | "weekly" | "monthly";
+type DialogStep = "form" | "goal";
+
+type DashboardChartWithRelations =
+  RouterOutputs["dashboard"]["getDashboardCharts"][number];
 
 interface ManualMetricContentProps {
   teamId: string;
@@ -65,38 +76,98 @@ export function ManualMetricContent({
   onSuccess,
   onClose,
 }: ManualMetricContentProps) {
-  const [step, setStep] = useState<1 | 2 | 3>(1);
+  const [formStep, setFormStep] = useState<1 | 2 | 3>(1);
+  const [dialogStep, setDialogStep] = useState<DialogStep>("form");
   const [metricName, setMetricName] = useState("");
   const [unitType, setUnitType] = useState<UnitType | null>(null);
   const [cadence, setCadence] = useState<Cadence | null>(null);
+  const [createdMetricId, setCreatedMetricId] = useState<string | null>(null);
+  const [createdMetricName, setCreatedMetricName] = useState("");
 
-  const utils = api.useUtils();
+  const { cancelQueries, addOptimisticChart, swapTempWithReal, rollback } =
+    useOptimisticMetricUpdate({ teamId });
 
-  const createMutation = api.metric.createManual.useMutation({
-    onSuccess: async () => {
-      // Invalidate relevant queries
-      await utils.metric.getAll.invalidate();
-      await utils.metric.getByTeamId.invalidate({ teamId });
-      await utils.dashboard.getDashboardCharts.invalidate({ teamId });
+  const createMutation = api.metric.createManual.useMutation();
 
-      onSuccess?.();
-      onClose?.();
-    },
-  });
-
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!metricName.trim() || !unitType || !cadence) return;
 
-    createMutation.mutate({
-      name: metricName.trim(),
-      unitType,
-      cadence,
-      teamId,
-    });
+    const tempId = `temp-${Date.now()}`;
+
+    const optimisticDashboardChart: DashboardChartWithRelations = {
+      id: tempId,
+      organizationId: "",
+      metricId: tempId,
+      chartType: "bar",
+      chartConfig: {} as Prisma.JsonValue,
+      position: 9999,
+      size: "medium",
+      chartTransformerId: null,
+      chartTransformer: null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      metric: {
+        id: tempId,
+        name: metricName.trim(),
+        description: null,
+        organizationId: "",
+        integrationId: null,
+        templateId: "manual",
+        endpointConfig: { type: "manual", unitType, cadence },
+        teamId: teamId,
+        lastFetchedAt: null,
+        pollFrequency: "manual",
+        nextPollAt: null,
+        lastError: null,
+        refreshStatus: null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        integration: null,
+        roles: [],
+        goal: null,
+      },
+      goalProgress: null,
+      valueLabel: unitType === "percentage" ? "%" : null,
+      dataDescription: null,
+    };
+
+    await cancelQueries();
+    addOptimisticChart(optimisticDashboardChart);
+
+    try {
+      const realDashboardChart = await createMutation.mutateAsync({
+        name: metricName.trim(),
+        unitType,
+        cadence,
+        teamId,
+      });
+
+      const realDashboardChartWithGoal: DashboardChartWithRelations = {
+        ...realDashboardChart,
+        chartTransformer: null,
+        metric: { ...realDashboardChart.metric, goal: null },
+        goalProgress: null,
+        valueLabel: unitType === "percentage" ? "%" : null,
+        dataDescription: null,
+      };
+
+      swapTempWithReal(tempId, realDashboardChartWithGoal);
+
+      toast.success("KPI created", {
+        description: "You can now set a goal for this metric.",
+      });
+
+      setCreatedMetricId(realDashboardChart.metric.id);
+      setCreatedMetricName(metricName.trim());
+      setDialogStep("goal");
+    } catch {
+      rollback(tempId);
+      toast.error("Failed to create KPI");
+    }
   };
 
   const canProceed = () => {
-    switch (step) {
+    switch (formStep) {
       case 1:
         return metricName.trim().length > 0;
       case 2:
@@ -109,20 +180,93 @@ export function ManualMetricContent({
   };
 
   const handleNext = () => {
-    if (step === 1 && canProceed()) setStep(2);
-    else if (step === 2 && canProceed()) setStep(3);
-    else if (step === 3 && canProceed()) handleSubmit();
+    if (formStep === 1 && canProceed()) setFormStep(2);
+    else if (formStep === 2 && canProceed()) setFormStep(3);
+    else if (formStep === 3 && canProceed()) void handleSubmit();
   };
 
   const handleBack = () => {
-    if (step === 2) setStep(1);
-    else if (step === 3) setStep(2);
+    if (formStep === 2) setFormStep(1);
+    else if (formStep === 3) setFormStep(2);
   };
+
+  const handleFinish = () => {
+    onClose?.();
+    onSuccess?.();
+  };
+
+  const handleSkipGoal = () => {
+    onClose?.();
+    onSuccess?.();
+  };
+
+  if (dialogStep === "goal") {
+    return (
+      <div className="space-y-4">
+        <div className="space-y-1.5">
+          <div className="flex items-center gap-2">
+            <Target className="text-primary h-5 w-5" />
+            <h3 className="text-lg font-semibold">Set a Goal (Optional)</h3>
+          </div>
+          <p className="text-muted-foreground text-sm">
+            Add a goal to track progress for{" "}
+            <strong>{createdMetricName}</strong>. You can skip this and add a
+            goal later from the dashboard.
+          </p>
+        </div>
+
+        <div className="space-y-4 py-2">
+          {createdMetricId && (
+            <GoalEditor
+              metricId={createdMetricId}
+              initialGoal={null}
+              startEditing={true}
+              compact={true}
+              onSave={handleFinish}
+            />
+          )}
+
+          {createdMetricId && (
+            <>
+              <Separator />
+              <RoleAssignment
+                metricId={createdMetricId}
+                metricName={createdMetricName}
+                teamId={teamId}
+                assignedRoleIds={[]}
+              />
+            </>
+          )}
+        </div>
+
+        <div className="flex justify-between pt-2">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setDialogStep("form")}
+            className="gap-1.5"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            Back
+          </Button>
+          <div className="flex gap-2">
+            <Button variant="outline" size="sm" onClick={handleSkipGoal}>
+              Skip
+            </Button>
+            <Button size="sm" onClick={handleFinish} className="gap-1.5">
+              <Check className="h-4 w-4" />
+              Done
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
       {/* Step 1: Name */}
-      {step === 1 && (
+      {formStep === 1 && (
         <div className="space-y-6">
           <div className="text-center">
             <h3 className="text-xl font-semibold">name your metric</h3>
@@ -146,7 +290,7 @@ export function ManualMetricContent({
       )}
 
       {/* Step 2: Unit Type */}
-      {step === 2 && (
+      {formStep === 2 && (
         <div className="space-y-6">
           <div className="text-center">
             <h3 className="text-xl font-semibold">choose a unit</h3>
@@ -190,7 +334,7 @@ export function ManualMetricContent({
       )}
 
       {/* Step 3: Cadence */}
-      {step === 3 && (
+      {formStep === 3 && (
         <div className="space-y-6">
           <div className="text-center">
             <h3 className="text-xl font-semibold">select cadence</h3>
@@ -223,7 +367,7 @@ export function ManualMetricContent({
 
       {/* Navigation */}
       <div className="flex items-center justify-between pt-4">
-        {step > 1 ? (
+        {formStep > 1 ? (
           <button
             type="button"
             onClick={handleBack}
@@ -245,7 +389,7 @@ export function ManualMetricContent({
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
               Creating...
             </>
-          ) : step === 3 ? (
+          ) : formStep === 3 ? (
             "create metric"
           ) : (
             "continue"

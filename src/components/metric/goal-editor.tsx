@@ -66,8 +66,8 @@ export function GoalEditor({
       toast.success("Goal saved");
       setIsEditing(false);
       setTargetValue("");
-      await utils.metric.getGoal.refetch({ metricId });
-      await utils.dashboard.getDashboardCharts.refetch();
+      await utils.metric.getGoal.invalidate({ metricId });
+      await utils.dashboard.getDashboardCharts.invalidate();
       onSave?.();
     },
     onError: (err) => {
@@ -78,8 +78,8 @@ export function GoalEditor({
   const deleteGoalMutation = api.metric.deleteGoal.useMutation({
     onSuccess: async () => {
       toast.success("Goal deleted");
-      await utils.metric.getGoal.refetch({ metricId });
-      await utils.dashboard.getDashboardCharts.refetch();
+      await utils.metric.getGoal.invalidate({ metricId });
+      await utils.dashboard.getDashboardCharts.invalidate();
       onDelete?.();
     },
     onError: (err) => {
