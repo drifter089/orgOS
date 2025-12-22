@@ -65,9 +65,11 @@ export function KpiEdge({
 
   const isReadOnly = data?.readOnly ?? false;
 
+  const markerId = `${gradientId}-marker`;
+
   return (
     <>
-      {/* Animated gradient definition */}
+      {/* Animated gradient and arrow marker definitions */}
       <defs>
         <linearGradient
           id={gradientId}
@@ -102,6 +104,18 @@ export function KpiEdge({
             />
           </stop>
         </linearGradient>
+        {/* Arrow marker for KPI edge (Chart → Role direction) */}
+        <marker
+          id={markerId}
+          viewBox="0 0 10 10"
+          refX="10"
+          refY="5"
+          markerWidth="16"
+          markerHeight="16"
+          orient="auto-start-reverse"
+        >
+          <path d="M 0 0 L 10 5 L 0 10 z" fill="hsl(var(--primary))" />
+        </marker>
       </defs>
 
       {/* Glow effect layer (behind main edge) */}
@@ -117,10 +131,11 @@ export function KpiEdge({
         }}
       />
 
-      {/* Main edge with animated gradient */}
+      {/* Main edge with animated gradient and arrow */}
       <BaseEdge
         id={id}
         path={edgePath}
+        markerEnd={`url(#${markerId})`}
         style={{
           ...style,
           stroke: `url(#${gradientId})`,

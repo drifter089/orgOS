@@ -72,6 +72,7 @@ export default async function TeamPage({
     api.dashboard.getDashboardCharts({ teamId }).catch(() => []),
     api.role.getByTeamId({ teamId }).catch(() => []),
     api.organization.getMembers.prefetch(),
+    api.role.getByTeamId.prefetch({ teamId }), // Hydrate to client cache for useRoleData
   ]);
 
   const userNameMap = new Map<string, string>();
