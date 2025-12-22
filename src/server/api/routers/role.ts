@@ -7,25 +7,7 @@ import {
   validateUserAssignable,
 } from "@/server/api/utils/authorization";
 import { invalidateCacheByTags } from "@/server/api/utils/cache-strategy";
-import { workos } from "@/server/workos";
-
-/**
- * Look up user's display name from WorkOS.
- * Returns null if user not found or on error.
- */
-async function getUserDisplayName(
-  userId: string | null | undefined,
-): Promise<string | null> {
-  if (!userId) return null;
-  try {
-    const user = await workos.userManagement.getUser(userId);
-    return (
-      [user.firstName, user.lastName].filter(Boolean).join(" ") || user.email
-    );
-  } catch {
-    return null;
-  }
-}
+import { getUserDisplayName } from "@/server/api/utils/get-user-display-name";
 
 const metricInclude = {
   include: {

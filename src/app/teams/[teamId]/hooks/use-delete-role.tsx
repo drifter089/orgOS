@@ -4,17 +4,23 @@ import { toast } from "sonner";
 
 import { api } from "@/trpc/react";
 
-import { useTeamStore, useTeamStoreApi } from "../store/team-store";
+import {
+  type TeamEdge,
+  type TeamNode,
+  useTeamStoreApiOptional,
+  useTeamStoreOptional,
+} from "../store/team-store";
 
 /**
  * Shared hook for deleting roles with optimistic updates
  * Used by both RoleNode component and TeamSheetSidebar
+ * Safe to use in public views (returns no-op mutation when outside TeamStoreProvider)
  */
 export function useDeleteRole(teamId: string) {
-  const storeApi = useTeamStoreApi();
-  const setNodes = useTeamStore((state) => state.setNodes);
-  const setEdges = useTeamStore((state) => state.setEdges);
-  const markDirty = useTeamStore((state) => state.markDirty);
+  const storeApi = useTeamStoreApiOptional();
+  const setNodes = useTeamStoreOptional((state) => state.setNodes);
+  const setEdges = useTeamStoreOptional((state) => state.setEdges);
+  const markDirty = useTeamStoreOptional((state) => state.markDirty);
   const utils = api.useUtils();
 
   return api.role.delete.useMutation({
@@ -22,31 +28,41 @@ export function useDeleteRole(teamId: string) {
       await utils.role.getByTeamId.cancel({ teamId });
 
       const previousRoles = utils.role.getByTeamId.getData({ teamId });
-      const { nodes: currentNodes, edges: currentEdges } = storeApi.getState();
-      const previousNodes = [...currentNodes];
-      const previousEdges = [...currentEdges];
 
+      // Optimistic cache update (works in both private and public views)
       utils.role.getByTeamId.setData({ teamId }, (old) => {
         if (!old) return [];
         return old.filter((role) => role.id !== variables.id);
       });
 
-      const nodeToRemove = currentNodes.find(
-        (node) =>
-          node.type === "role-node" && node.data.roleId === variables.id,
-      );
+      // Zustand store updates only work when TeamStoreProvider is present
+      let previousNodes: TeamNode[] | undefined;
+      let previousEdges: TeamEdge[] | undefined;
 
-      if (nodeToRemove) {
-        const updatedNodes = currentNodes.filter(
-          (node) => node.id !== nodeToRemove.id,
+      if (storeApi) {
+        const { nodes: currentNodes, edges: currentEdges } =
+          storeApi.getState();
+        previousNodes = [...currentNodes];
+        previousEdges = [...currentEdges];
+
+        const nodeToRemove = currentNodes.find(
+          (node) =>
+            node.type === "role-node" && node.data.roleId === variables.id,
         );
-        const updatedEdges = currentEdges.filter(
-          (edge) =>
-            edge.source !== nodeToRemove.id && edge.target !== nodeToRemove.id,
-        );
-        setNodes(updatedNodes);
-        setEdges(updatedEdges);
-        markDirty();
+
+        if (nodeToRemove) {
+          const updatedNodes = currentNodes.filter(
+            (node) => node.id !== nodeToRemove.id,
+          );
+          const updatedEdges = currentEdges.filter(
+            (edge) =>
+              edge.source !== nodeToRemove.id &&
+              edge.target !== nodeToRemove.id,
+          );
+          setNodes?.(updatedNodes);
+          setEdges?.(updatedEdges);
+          markDirty?.();
+        }
       }
 
       return { previousRoles, previousNodes, previousEdges };
@@ -59,8 +75,8 @@ export function useDeleteRole(teamId: string) {
         utils.role.getByTeamId.setData({ teamId }, context.previousRoles);
       }
       if (context?.previousNodes && context?.previousEdges) {
-        setNodes(context.previousNodes);
-        setEdges(context.previousEdges);
+        setNodes?.(context.previousNodes);
+        setEdges?.(context.previousEdges);
       }
     },
     onSettled: () => {
