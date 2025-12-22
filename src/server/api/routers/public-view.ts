@@ -8,7 +8,11 @@ import {
   dashboardCache,
 } from "@/server/api/utils/cache-strategy";
 import { enrichChartsWithGoalProgress } from "@/server/api/utils/enrich-charts-with-goal-progress";
-import { resolveUserDisplayName } from "@/server/api/utils/get-user-display-name";
+import {
+  buildMemberNameMap,
+  fetchOrganizationMembers,
+  getOrganizationDirectoryId,
+} from "@/server/api/utils/organization-members";
 
 // Read-only procedures for publicly shared teams/dashboards (no auth required)
 export const publicViewRouter = createTRPCRouter({
@@ -49,21 +53,31 @@ export const publicViewRouter = createTRPCRouter({
         });
       }
 
-      // Enrich roles with missing assignedUserName (for roles created before caching was added)
-      // Uses robust resolution that handles both user management IDs and directory sync IDs
-      const enrichedRoles = await Promise.all(
-        team.roles.map(async (role) => {
-          // If role has assignedUserId but no cached assignedUserName, resolve it
-          if (role.assignedUserId && !role.assignedUserName) {
-            const userName = await resolveUserDisplayName(
-              role.assignedUserId,
-              team.organizationId,
-            );
-            return { ...role, assignedUserName: userName };
-          }
-          return role;
-        }),
+      // Enrich roles with missing assignedUserName using same logic as private view
+      const rolesNeedingEnrichment = team.roles.some(
+        (role) => role.assignedUserId && !role.assignedUserName,
       );
+
+      if (!rolesNeedingEnrichment) {
+        return team;
+      }
+
+      const directoryId = await getOrganizationDirectoryId(team.organizationId);
+      const members = await fetchOrganizationMembers(
+        team.organizationId,
+        directoryId,
+      );
+      const memberNameMap = buildMemberNameMap(members);
+
+      const enrichedRoles = team.roles.map((role) => {
+        if (role.assignedUserId && !role.assignedUserName) {
+          const userName =
+            memberNameMap.get(role.assignedUserId) ??
+            `User ${role.assignedUserId.substring(0, 8)}`;
+          return { ...role, assignedUserName: userName };
+        }
+        return role;
+      });
 
       return { ...team, roles: enrichedRoles };
     }),
