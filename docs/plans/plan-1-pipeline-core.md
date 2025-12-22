@@ -832,6 +832,199 @@ Metric C (gsheets-custom) → uses transformer with templateId="metricC" (INDEPE
 
 ---
 
+## Task 9: ChartTransformer Unified Metadata Output
+
+### Overview
+
+All display metadata now comes from ChartTransformer output:
+
+| Field         | Description                            | Example                             |
+| ------------- | -------------------------------------- | ----------------------------------- |
+| `title`       | Full chart title (can include context) | "Completed Issues for Backend Team" |
+| `description` | How data is aggregated                 | "Weekly sum of completed issues"    |
+| `valueLabel`  | Label for main value                   | "issues", "story points", "commits" |
+
+### Why This Change?
+
+1. **Consistency**: Goal calculation uses same data as display
+2. **Per-Metric**: Each metric has its own metadata (no sharing)
+3. **Context-Aware**: Title can include user name, team, project, etc.
+4. **Single Source**: No fallback chains - ChartTransformer is the truth
+
+### Update ChartTransformer AI Prompt
+
+**File**: `src/server/api/services/transformation/ai-code-generator.ts`
+
+Update `CHART_TRANSFORMER_SYSTEM_PROMPT` to require these fields:
+
+```typescript
+const CHART_TRANSFORMER_SYSTEM_PROMPT = `
+You are a chart configuration generator.
+
+OUTPUT REQUIREMENTS:
+Return ONLY a valid JSON object with these fields:
+
+{
+  "code": "...",        // JavaScript function as string
+  "reasoning": "...",   // Brief explanation
+
+  // REQUIRED METADATA (used for display and goal calculation):
+  "title": "...",       // Full descriptive title for the chart
+                        // Include relevant context: metric name, team, user, project
+                        // Examples: "Daily Commits", "Completed Issues for Backend Team",
+                        //           "Story Points - Sprint 23", "Video Views for Channel"
+                        // DO NOT include cadence if data already shows it
+
+  "description": "...", // SHORT description of how data is aggregated and displayed
+                        // Examples: "Sum of commits per day", "Running total of issues",
+                        //           "Average story points per sprint"
+
+  "valueLabel": "...",  // SHORT label for the primary value being tracked
+                        // This appears next to the main number: "1,234 commits"
+                        // Examples: "commits", "issues", "story points", "views"
+                        // Should be lowercase, plural form
+
+  // Chart configuration fields (existing):
+  "chartType": "...",
+  "xAxisLabel": "...",
+  "yAxisLabel": "...",
+  "dataKeys": [...],
+  "showLegend": true/false
+}
+
+METADATA GENERATION RULES:
+1. Title should be descriptive but not redundant with visible data
+2. Don't include cadence in title if x-axis already shows time periods
+3. valueLabel should match what the primary dataKey represents
+4. description should explain aggregation method (sum, average, count, etc.)
+`;
+```
+
+### Update ChartTransformer Output Type
+
+**File**: `src/lib/metrics/transformer-types.ts`
+
+```typescript
+export interface ChartTransformResult {
+  // Existing fields
+  chartType: ChartType;
+  chartConfig: Record<string, { label: string; color: string }>;
+  chartData: Record<string, unknown>[];
+  xAxisKey: string;
+  dataKeys: string[];
+
+  // REQUIRED metadata (from AI)
+  title: string;
+  description: string;
+  valueLabel: string; // NEW: Moved from DataIngestionTransformer
+
+  // Optional fields
+  xAxisLabel?: string;
+  yAxisLabel?: string;
+  showLegend?: boolean;
+  showTooltip?: boolean;
+  stacked?: boolean;
+}
+```
+
+### Update Chart Display to Use New Fields
+
+**File**: `src/app/dashboard/[teamId]/_components/dashboard-metric-chart.tsx`
+
+```typescript
+// Remove fallback chains - use ChartTransformer data directly
+const chartConfig = dashboardChart.chartConfig as ChartTransformResult;
+
+// Title - always from chartConfig
+const title = chartConfig.title;
+
+// Value label - always from chartConfig
+const valueLabel = chartConfig.valueLabel;
+
+// Description - always from chartConfig
+const description = chartConfig.description;
+
+// Display in card header:
+<CardTitle>{title}</CardTitle>
+
+// Display value with label:
+<span className="text-2xl font-bold">{formatValue(currentValue)}</span>
+<span className="text-xs text-muted-foreground">{valueLabel}</span>
+
+// Tooltip description:
+<TooltipContent>
+  <p>{description}</p>
+</TooltipContent>
+```
+
+### Deprecate DataIngestionTransformer.valueLabel
+
+The `valueLabel` field in `DataIngestionTransformer` is no longer used for display.
+ChartTransformer output is the single source of truth for all display metadata.
+
+### Regeneration Rules
+
+**When to regenerate ChartTransformer:**
+
+- Data points change significantly (new data structure)
+- Dimensions change (different fields available)
+- User explicitly requests regeneration
+- Chart type changes
+
+**When NOT to regenerate:**
+
+- User edits title/description/valueLabel manually (store override)
+- Soft refresh (just new data, same structure)
+- Label-only updates
+
+**User Override Storage:**
+
+Add optional override fields to chartConfig:
+
+```typescript
+// In DashboardChart.chartConfig:
+{
+  // AI-generated (from ChartTransformer)
+  title: "Completed Issues",
+  description: "Weekly sum of issues",
+  valueLabel: "issues",
+
+  // User overrides (optional, takes precedence)
+  titleOverride?: "My Custom Title",
+  descriptionOverride?: "My custom description",
+  valueLabelOverride?: "tasks"
+}
+```
+
+Display logic:
+
+```typescript
+const displayTitle = chartConfig.titleOverride ?? chartConfig.title;
+const displayDescription =
+  chartConfig.descriptionOverride ?? chartConfig.description;
+const displayValueLabel =
+  chartConfig.valueLabelOverride ?? chartConfig.valueLabel;
+```
+
+---
+
+## Files Summary (Updated)
+
+| Action | File                                                                |
+| ------ | ------------------------------------------------------------------- |
+| CREATE | `src/lib/pipeline/types.ts`                                         |
+| CREATE | `src/lib/pipeline/configs.ts`                                       |
+| CREATE | `src/lib/pipeline/runner.ts`                                        |
+| CREATE | `src/lib/pipeline/steps/delete-old-data.ts`                         |
+| CREATE | `src/lib/pipeline/index.ts`                                         |
+| MODIFY | `src/server/api/services/transformation/data-pipeline.ts`           |
+| MODIFY | `src/server/api/routers/metric.ts` (add getProgress)                |
+| MODIFY | `src/server/api/services/transformation/ai-code-generator.ts`       |
+| MODIFY | `src/lib/metrics/transformer-types.ts`                              |
+| MODIFY | `src/app/dashboard/[teamId]/_components/dashboard-metric-chart.tsx` |
+
+---
+
 ## Testing Checklist
 
 - [ ] Create new metric → transformer keyed by metricId
@@ -841,3 +1034,8 @@ Metric C (gsheets-custom) → uses transformer with templateId="metricC" (INDEPE
 - [ ] Frontend polls getProgress → sees real-time step names
 - [ ] Pipeline failure → error logged, refreshStatus cleared
 - [ ] Old metrics on prod → hard refetch regenerates without migration
+- [ ] ChartTransformer generates title, description, valueLabel
+- [ ] Display uses ChartTransformer metadata (no fallbacks)
+- [ ] Goal calculation uses same chartConfig data
+- [ ] User can override title/description/valueLabel
+- [ ] Overrides persist through soft refresh

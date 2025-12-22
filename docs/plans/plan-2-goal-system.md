@@ -11,6 +11,26 @@
 1. Split 467-line `goal-calculation.ts` into focused modules
 2. **Add goal target line on chart display**
 3. Improve goal progress calculation readability
+4. **Use ChartTransformer data as single source of truth**
+
+---
+
+## IMPORTANT: ChartTransformer as Source of Truth
+
+Goal calculation now uses **ChartTransformer output** exclusively:
+
+| Data Source              | Used For                       |
+| ------------------------ | ------------------------------ |
+| `chartConfig.chartData`  | Current value, baseline, trend |
+| `chartConfig.dataKeys`   | Which field to track           |
+| `chartConfig.valueLabel` | Display label for goal values  |
+| `chartConfig.title`      | Goal display context           |
+
+This ensures:
+
+- **Consistency**: Goal values match what user sees on chart
+- **No fallbacks**: Single source eliminates confusion
+- **Per-metric**: Each metric's goal uses its own chartConfig
 
 ---
 

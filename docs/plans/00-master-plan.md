@@ -90,6 +90,34 @@ Metric B (github-commits) → transformer keyed by "metricB" (INDEPENDENT)
 
 ---
 
+## IMPORTANT: Unified Metadata from ChartTransformer
+
+All display metadata now comes from ChartTransformer output:
+
+| Field         | Source (Before)            | Source (After)            |
+| ------------- | -------------------------- | ------------------------- |
+| `title`       | Fallback chain (4 sources) | `chartConfig.title`       |
+| `description` | ChartTransformer           | `chartConfig.description` |
+| `valueLabel`  | DataIngestionTransformer   | `chartConfig.valueLabel`  |
+
+### Benefits
+
+- **Single source of truth** for all display data
+- **Consistent** - goal calculation uses same data as display
+- **Context-aware titles** - can include user name, team, project
+- **No fallback chains** - eliminates confusion and bugs
+
+### Regeneration Rules
+
+| Trigger       | Regenerates Metadata? | Notes                        |
+| ------------- | --------------------- | ---------------------------- |
+| Hard refresh  | Yes                   | All metadata regenerated     |
+| Soft refresh  | No                    | Metadata preserved           |
+| User override | No                    | Override stored separately   |
+| Data change   | Only on structure     | New dimensions trigger regen |
+
+---
+
 ## Key Features by Plan
 
 ### Plan 1: Pipeline Core
@@ -100,12 +128,14 @@ Metric B (github-commits) → transformer keyed by "metricB" (INDEPENDENT)
 - **DELETE old datapoints + transformer on force refetch**
 - Real-time status via metric.refreshStatus
 - Backward compatible - old metrics regenerate on hard refresh
+- **ChartTransformer generates unified metadata (title, description, valueLabel)**
 
 ### Plan 2: Goal System
 
 - Split 467-line file into 5 modules (~60 lines each)
 - **Goal reference line on charts** (line/area/bar)
 - Cleaner progress calculation
+- **Uses ChartTransformer data as single source of truth**
 
 ### Plan 3: Chart Animations
 
@@ -142,6 +172,7 @@ Metric B (github-commits) → transformer keyed by "metricB" (INDEPENDENT)
 - **Regenerate chart transformer only** (keep data transformer + data points)
 - UI buttons for granular control
 - Transformer info display
+- **Metadata regeneration rules** (when to preserve user overrides)
 
 ### Plan 8: Drawer Redesign
 
@@ -185,14 +216,17 @@ Start new Claude Code sessions for each plan, or use worktrees.
 
 ## Summary of New Features
 
-| Feature                           | Plan   | Status          |
-| --------------------------------- | ------ | --------------- |
-| Independent metrics (no caching)  | Plan 1 | Detailed        |
-| Delete old data on force refetch  | Plan 1 | Detailed        |
-| Goal line on chart                | Plan 2 | Detailed        |
-| Chart animations                  | Plan 3 | Detailed        |
-| Granular transformer regeneration | Plan 7 | Detailed        |
-| Drawer redesign                   | Plan 8 | Awaiting design |
+| Feature                              | Plan   | Status          |
+| ------------------------------------ | ------ | --------------- |
+| Independent metrics (no caching)     | Plan 1 | Detailed        |
+| Delete old data on force refetch     | Plan 1 | Detailed        |
+| Unified metadata (title, valueLabel) | Plan 1 | Detailed        |
+| Goal line on chart                   | Plan 2 | Detailed        |
+| ChartTransformer as source of truth  | Plan 2 | Detailed        |
+| Chart animations                     | Plan 3 | Detailed        |
+| Granular transformer regeneration    | Plan 7 | Detailed        |
+| Metadata regeneration rules          | Plan 7 | Detailed        |
+| Drawer redesign                      | Plan 8 | Awaiting design |
 
 ---
 

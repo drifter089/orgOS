@@ -422,6 +422,66 @@ const { data: transformerInfo } = api.transformer.getTransformerInfo.useQuery(
 
 ---
 
+## Task 4: Metadata Regeneration Rules
+
+### When ChartTransformer Regenerates (Auto)
+
+| Trigger                          | Regenerates | Preserves                   |
+| -------------------------------- | ----------- | --------------------------- |
+| Hard refresh                     | Yes         | Nothing                     |
+| Dimension change                 | Yes         | User overrides (if flagged) |
+| Chart type change                | Yes         | User overrides              |
+| User requests "Regenerate Chart" | Yes         | Nothing                     |
+
+### When ChartTransformer Does NOT Regenerate
+
+| Trigger                | Regenerates | Preserves                            |
+| ---------------------- | ----------- | ------------------------------------ |
+| Soft refresh           | No          | Everything (title, description, etc) |
+| User edits title       | No          | All metadata                         |
+| User edits description | No          | All metadata                         |
+| Label-only updates     | No          | All metadata                         |
+
+### User Override Handling
+
+```typescript
+// When user edits metadata, store as override:
+await db.dashboardChart.update({
+  where: { id: chartId },
+  data: {
+    chartConfig: {
+      ...existingConfig,
+      titleOverride: "User's Custom Title",
+      descriptionOverride: "User's description",
+      valueLabelOverride: "custom label",
+    },
+  },
+});
+
+// Display always prefers override:
+const displayTitle = chartConfig.titleOverride ?? chartConfig.title;
+```
+
+### Regeneration Preserves Overrides (Optional)
+
+If user has overrides, regeneration can optionally preserve them:
+
+```typescript
+// In regenerateChartTransformer:
+const existingConfig = dashboardChart.chartConfig;
+const newConfig = await generateNewChartConfig(...);
+
+// Preserve user overrides if they exist
+const finalConfig = {
+  ...newConfig,
+  titleOverride: existingConfig.titleOverride,
+  descriptionOverride: existingConfig.descriptionOverride,
+  valueLabelOverride: existingConfig.valueLabelOverride,
+};
+```
+
+---
+
 ## Testing Checklist
 
 - [ ] Regenerate ingestion transformer only → chart stays, data re-fetched
@@ -430,16 +490,22 @@ const { data: transformerInfo } = api.transformer.getTransformerInfo.useQuery(
 - [ ] Transformer info shows correct dates
 - [ ] Progress shows during regeneration
 - [ ] Error handling works
+- [ ] Soft refresh does NOT regenerate chart metadata
+- [ ] User override persists through soft refresh
+- [ ] Hard refresh regenerates title/description/valueLabel
+- [ ] User override optionally preserved through hard refresh
 
 ---
 
-## Summary: Independent Metrics Simplification
+## Summary: Independent Metrics + Unified Metadata
 
-With Plan 1's change to independent metrics:
+With Plan 1's changes:
 
-| Before (Shared)             | After (Independent)        |
-| --------------------------- | -------------------------- |
-| Complex cache key logic     | Simple: always `metricId`  |
-| GSheets special case        | All metrics same           |
-| Regenerate one affects many | Regenerate one affects one |
-| Complex cleanup needed      | Easy orphan detection      |
+| Before                                 | After                                 |
+| -------------------------------------- | ------------------------------------- |
+| Complex cache key logic                | Simple: always `metricId`             |
+| GSheets special case                   | All metrics same                      |
+| Regenerate one affects many            | Regenerate one affects one            |
+| valueLabel in DataIngestionTransformer | valueLabel in ChartTransformer output |
+| Multiple fallbacks for title           | Single source: chartConfig.title      |
+| Separate sources for display vs goals  | Same chartConfig for both             |
