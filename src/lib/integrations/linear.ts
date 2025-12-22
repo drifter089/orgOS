@@ -52,8 +52,7 @@ export const templates: MetricTemplate[] = [
   {
     templateId: "linear-user-issues",
     label: "User Issues",
-    description:
-      "Track issues for a team member across all teams and projects. Includes completed, created, and open issues.",
+    description: "Track issues for a team member across all teams and projects",
     integrationId: "linear",
     metricType: "number",
     defaultUnit: "issues",
@@ -152,8 +151,7 @@ AGGREGATION: SUM (count completed issues per day)
   {
     templateId: "linear-project-issues",
     label: "Project Issues",
-    description:
-      "Track all issues in a specific project. Includes completed, created, and open issues across teams.",
+    description: "Track all issues in a specific project across teams",
     integrationId: "linear",
     metricType: "number",
     defaultUnit: "issues",
@@ -252,8 +250,7 @@ AGGREGATION: SUM (count completed issues per day)
   {
     templateId: "linear-team-issues",
     label: "Team Issues",
-    description:
-      "Track all issues for a specific team. Includes completed, created, and open issues.",
+    description: "Track all issues for a specific team",
     integrationId: "linear",
     metricType: "number",
     defaultUnit: "issues",

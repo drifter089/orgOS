@@ -24,135 +24,11 @@ export const baseUrl = "https://api.github.com";
 // =============================================================================
 
 export const templates: MetricTemplate[] = [
-  // ===== User-Level Metrics (No params) =====
-  {
-    templateId: "github-followers-count",
-    label: "Followers",
-    description: "Total number of GitHub followers",
-    integrationId: "github",
-    metricType: "number",
-    defaultUnit: "followers",
-    metricEndpoint: "/user",
-    requiredParams: [],
-  },
-  {
-    templateId: "github-repos-count",
-    label: "Public Repositories",
-    description: "Total count of public repositories",
-    integrationId: "github",
-    metricType: "number",
-    defaultUnit: "repos",
-    metricEndpoint: "/user",
-    requiredParams: [],
-  },
-
-  // ===== Repository Metrics (With dynamic dropdowns) =====
-  {
-    templateId: "github-repo-stars",
-    label: "Repository Stars",
-    description: "Star count for a specific repository",
-    integrationId: "github",
-    metricType: "number",
-    defaultUnit: "stars",
-
-    metricEndpoint: "/repos/{OWNER}/{REPO}",
-
-    requiredParams: [
-      {
-        name: "OWNER",
-        label: "Repository Owner",
-        description: "GitHub username or organization",
-        type: "text",
-        required: true,
-        placeholder: "facebook",
-      },
-      {
-        name: "REPO",
-        label: "Repository Name",
-        description: "Repository name",
-        type: "dynamic-select",
-        required: true,
-        placeholder: "Select a repository",
-        dynamicConfig: {
-          endpoint: "/user/repos?per_page=100&sort=updated",
-          method: "GET",
-        },
-      },
-    ],
-  },
-  {
-    templateId: "github-repo-forks",
-    label: "Repository Forks",
-    description: "Fork count for a specific repository",
-    integrationId: "github",
-    metricType: "number",
-    defaultUnit: "forks",
-
-    metricEndpoint: "/repos/{OWNER}/{REPO}",
-
-    requiredParams: [
-      {
-        name: "OWNER",
-        label: "Repository Owner",
-        description: "GitHub username or organization",
-        type: "text",
-        required: true,
-        placeholder: "facebook",
-      },
-      {
-        name: "REPO",
-        label: "Repository Name",
-        description: "Repository name",
-        type: "dynamic-select",
-        required: true,
-        placeholder: "Select a repository",
-        dynamicConfig: {
-          endpoint: "/user/repos?per_page=100&sort=updated",
-          method: "GET",
-        },
-      },
-    ],
-  },
-  {
-    templateId: "github-repo-open-issues",
-    label: "Open Issues Count",
-    description: "Number of open issues in a repository",
-    integrationId: "github",
-    metricType: "number",
-    defaultUnit: "issues",
-
-    metricEndpoint: "/repos/{OWNER}/{REPO}",
-
-    requiredParams: [
-      {
-        name: "OWNER",
-        label: "Repository Owner",
-        description: "GitHub username or organization",
-        type: "text",
-        required: true,
-        placeholder: "facebook",
-      },
-      {
-        name: "REPO",
-        label: "Repository Name",
-        description: "Repository name",
-        type: "dynamic-select",
-        required: true,
-        placeholder: "Select a repository",
-        dynamicConfig: {
-          endpoint: "/user/repos?per_page=100&sort=updated",
-          method: "GET",
-        },
-      },
-    ],
-  },
-
-  // ===== Time Series Metrics =====
+  // ===== Time Series Metrics (Used by UI dialogs) =====
   {
     templateId: "github-code-frequency",
-    label: "Code Frequency (Additions/Deletions)",
-    description:
-      "Weekly code additions and deletions for the repository lifetime",
+    label: "Code Additions/Deletions",
+    description: "Weekly code additions and deletions for the repository",
     integrationId: "github",
     metricType: "number",
     defaultUnit: "lines",
@@ -185,7 +61,7 @@ export const templates: MetricTemplate[] = [
   },
   {
     templateId: "github-commit-activity",
-    label: "Commit Activity (Last Year)",
+    label: "Commit Activity",
     description: "Weekly commit counts for the last 52 weeks",
     integrationId: "github",
     metricType: "number",
@@ -219,7 +95,7 @@ export const templates: MetricTemplate[] = [
   },
   {
     templateId: "github-pull-requests",
-    label: "Pull Requests (Time Series)",
+    label: "Pull Requests",
     description: "Pull requests created in the last 90 days",
     integrationId: "github",
     metricType: "number",

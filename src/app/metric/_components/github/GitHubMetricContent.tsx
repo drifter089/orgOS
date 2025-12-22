@@ -15,11 +15,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { getMetricOptionsForUI } from "@/lib/integrations";
 import { api } from "@/trpc/react";
 
 import type { ContentProps } from "../base/MetricDialogBase";
-
-type MetricType = "code-frequency" | "commit-activity" | "pull-requests";
 
 interface RepoOption {
   label: string;
@@ -28,28 +27,7 @@ interface RepoOption {
   name: string;
 }
 
-// Template IDs: github-code-frequency, github-commit-activity, github-pull-requests
-const METRIC_OPTIONS: Array<{
-  value: MetricType;
-  label: string;
-  description: string;
-}> = [
-  {
-    value: "code-frequency",
-    label: "Code Additions/Deletions",
-    description: "Weekly code additions and deletions for the repository",
-  },
-  {
-    value: "commit-activity",
-    label: "Commit Activity",
-    description: "Weekly commit counts for the last 52 weeks",
-  },
-  {
-    value: "pull-requests",
-    label: "Pull Requests",
-    description: "Pull requests created in the last 90 days",
-  },
-];
+const METRIC_OPTIONS = getMetricOptionsForUI("github");
 
 function transformRepos(data: unknown): RepoOption[] {
   if (!Array.isArray(data)) return [];
@@ -68,11 +46,11 @@ function transformRepos(data: unknown): RepoOption[] {
   );
 }
 
-function getTemplateId(metricType: MetricType): string {
+function getTemplateId(metricType: string): string {
   return `github-${metricType}`;
 }
 
-function getMetricDescription(metricType: MetricType): string {
+function getMetricDescription(metricType: string): string {
   return METRIC_OPTIONS.find((m) => m.value === metricType)?.description ?? "";
 }
 
@@ -87,8 +65,8 @@ export function GitHubMetricContent({
   onSubmit,
   isCreating,
 }: ContentProps) {
-  const [metricType, setMetricType] = useState<MetricType | "">("");
-  const [selectedRepo, setSelectedRepo] = useState<string>("");
+  const [metricType, setMetricType] = useState("");
+  const [selectedRepo, setSelectedRepo] = useState("");
   const [metricName, setMetricName] = useState("");
 
   // Fetch repos for dropdown
@@ -149,7 +127,7 @@ export function GitHubMetricContent({
       templateId,
       connectionId: connection.connectionId,
       name: metricName,
-      description: getMetricDescription(metricType as MetricType),
+      description: getMetricDescription(metricType),
       endpointParams,
     });
   };
@@ -161,10 +139,7 @@ export function GitHubMetricContent({
       <div className="space-y-4 py-4">
         <div className="space-y-2">
           <Label htmlFor="metric-type">Metric Type</Label>
-          <Select
-            value={metricType}
-            onValueChange={(value) => setMetricType(value as MetricType)}
-          >
+          <Select value={metricType} onValueChange={setMetricType}>
             <SelectTrigger id="metric-type">
               <SelectValue placeholder="Select metric type" />
             </SelectTrigger>

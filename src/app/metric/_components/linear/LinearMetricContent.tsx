@@ -15,94 +15,17 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { getMetricOptionsForUI, getTemplate } from "@/lib/integrations";
 import { api } from "@/trpc/react";
 
 import type { ContentProps } from "../base/MetricDialogBase";
-
-type MetricType = "user-issues" | "project-issues" | "team-issues";
 
 interface SelectOption {
   label: string;
   value: string;
 }
 
-const METRIC_OPTIONS: Array<{
-  value: MetricType;
-  label: string;
-  description: string;
-  paramName: string;
-  paramLabel: string;
-}> = [
-  {
-    value: "user-issues",
-    label: "User Issues",
-    description: "Track issues for a team member across all teams and projects",
-    paramName: "USER_ID",
-    paramLabel: "Team Member",
-  },
-  {
-    value: "project-issues",
-    label: "Project Issues",
-    description: "Track all issues in a specific project across teams",
-    paramName: "PROJECT_ID",
-    paramLabel: "Project",
-  },
-  {
-    value: "team-issues",
-    label: "Team Issues",
-    description: "Track all issues for a specific team",
-    paramName: "TEAM_ID",
-    paramLabel: "Team",
-  },
-];
-
-function graphqlBody(
-  query: string,
-  variables?: Record<string, unknown>,
-): string {
-  return JSON.stringify({
-    query,
-    variables: variables ?? {},
-  });
-}
-
-// GraphQL queries for each dropdown
-const USERS_QUERY = graphqlBody(`
-  query Users {
-    users(first: 100) {
-      nodes {
-        id
-        name
-        email
-        active
-      }
-    }
-  }
-`);
-
-const PROJECTS_QUERY = graphqlBody(`
-  query Projects {
-    projects(first: 100) {
-      nodes {
-        id
-        name
-        state
-      }
-    }
-  }
-`);
-
-const TEAMS_QUERY = graphqlBody(`
-  query Teams {
-    teams(first: 100) {
-      nodes {
-        id
-        name
-        key
-      }
-    }
-  }
-`);
+const METRIC_OPTIONS = getMetricOptionsForUI("linear");
 
 interface LinearUser {
   id: string;
@@ -163,11 +86,11 @@ function transformTeams(data: unknown): SelectOption[] {
   }));
 }
 
-function getTemplateId(metricType: MetricType): string {
+function getTemplateId(metricType: string): string {
   return `linear-${metricType}`;
 }
 
-function getMetricDescription(metricType: MetricType): string {
+function getMetricDescription(metricType: string): string {
   return METRIC_OPTIONS.find((m) => m.value === metricType)?.description ?? "";
 }
 
@@ -176,28 +99,23 @@ export function LinearMetricContent({
   onSubmit,
   isCreating,
 }: ContentProps) {
-  const [metricType, setMetricType] = useState<MetricType | "">("");
-  const [selectedValue, setSelectedValue] = useState<string>("");
+  const [metricType, setMetricType] = useState("");
+  const [selectedValue, setSelectedValue] = useState("");
   const [metricName, setMetricName] = useState("");
 
-  const selectedMetricOption = useMemo(
-    () => METRIC_OPTIONS.find((m) => m.value === metricType),
+  const template = useMemo(
+    () => (metricType ? getTemplate(`linear-${metricType}`) : null),
     [metricType],
   );
 
-  // Determine which query to use based on metric type
+  const paramInfo = template?.requiredParams[0];
+  const paramName = paramInfo?.name ?? "";
+  const paramLabel = paramInfo?.label ?? "";
+
   const dropdownQuery = useMemo(() => {
-    switch (metricType) {
-      case "user-issues":
-        return USERS_QUERY;
-      case "project-issues":
-        return PROJECTS_QUERY;
-      case "team-issues":
-        return TEAMS_QUERY;
-      default:
-        return null;
-    }
-  }, [metricType]);
+    const body = paramInfo?.dynamicConfig?.body;
+    return typeof body === "string" ? body : null;
+  }, [paramInfo]);
 
   // Fetch dropdown options
   const { data: dropdownData, isLoading: isLoadingOptions } =
@@ -256,8 +174,7 @@ export function LinearMetricContent({
   }, [metricType, selectedOption]);
 
   const handleSave = () => {
-    if (!metricName || !metricType || !selectedValue || !selectedMetricOption)
-      return;
+    if (!metricName || !metricType || !selectedValue || !paramName) return;
 
     const templateId = getTemplateId(metricType);
 
@@ -267,7 +184,7 @@ export function LinearMetricContent({
       name: metricName,
       description: getMetricDescription(metricType),
       endpointParams: {
-        [selectedMetricOption.paramName]: selectedValue,
+        [paramName]: selectedValue,
       },
     });
   };
@@ -279,10 +196,7 @@ export function LinearMetricContent({
       <div className="space-y-4 py-4">
         <div className="space-y-2">
           <Label htmlFor="metric-type">Metric Type</Label>
-          <Select
-            value={metricType}
-            onValueChange={(value) => setMetricType(value as MetricType)}
-          >
+          <Select value={metricType} onValueChange={setMetricType}>
             <SelectTrigger id="metric-type">
               <SelectValue placeholder="Select what to track" />
             </SelectTrigger>
@@ -301,9 +215,9 @@ export function LinearMetricContent({
           )}
         </div>
 
-        {metricType && selectedMetricOption && (
+        {metricType && paramLabel && (
           <div className="space-y-2">
-            <Label htmlFor="selection">{selectedMetricOption.paramLabel}</Label>
+            <Label htmlFor="selection">{paramLabel}</Label>
             <Select
               value={selectedValue}
               onValueChange={setSelectedValue}
@@ -314,7 +228,7 @@ export function LinearMetricContent({
                   placeholder={
                     isLoadingOptions
                       ? "Loading..."
-                      : `Select ${selectedMetricOption.paramLabel.toLowerCase()}`
+                      : `Select ${paramLabel.toLowerCase()}`
                   }
                 />
               </SelectTrigger>
