@@ -15,12 +15,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { getTemplate } from "@/lib/integrations";
 import { api } from "@/trpc/react";
 
 import type { ContentProps } from "../base/MetricDialogBase";
-
-type ScopeType = "channel" | "video";
-type MetricType = "views" | "likes" | "subscribers";
 
 function transformVideos(
   data: unknown,
@@ -42,54 +40,19 @@ function transformVideos(
   );
 }
 
-function getMetricLabel(metricType: MetricType, scopeType: ScopeType): string {
-  if (scopeType === "channel") {
-    switch (metricType) {
-      case "views":
-        return "Channel Views (Time Series)";
-      case "likes":
-        return "Channel Likes (Time Series)";
-      case "subscribers":
-        return "Subscribers Gained (Time Series)";
-    }
-  } else {
-    switch (metricType) {
-      case "views":
-        return "Video Views (Time Series)";
-      case "likes":
-        return "Video Likes (Time Series)";
-      default:
-        return "";
-    }
-  }
+function getTemplateData(
+  scopeType: string,
+  metricType: string,
+): { label: string; description: string } {
+  const templateId = `youtube-${scopeType}-${metricType}-timeseries`;
+  const template = getTemplate(templateId);
+  return {
+    label: template?.label ?? "",
+    description: template?.description ?? "",
+  };
 }
 
-function getMetricDescription(
-  metricType: MetricType,
-  scopeType: ScopeType,
-): string {
-  if (scopeType === "channel") {
-    switch (metricType) {
-      case "views":
-        return "Daily view counts for your entire channel";
-      case "likes":
-        return "Daily likes across all your videos";
-      case "subscribers":
-        return "Daily subscriber growth for your channel";
-    }
-  } else {
-    switch (metricType) {
-      case "views":
-        return "Daily view counts for this specific video";
-      case "likes":
-        return "Daily likes for this specific video";
-      default:
-        return "";
-    }
-  }
-}
-
-function getTemplateId(scopeType: ScopeType, metricType: MetricType): string {
+function getTemplateId(scopeType: string, metricType: string): string {
   return `youtube-${scopeType}-${metricType}-timeseries`;
 }
 
@@ -98,9 +61,9 @@ export function YouTubeMetricContent({
   onSubmit,
   isCreating,
 }: ContentProps) {
-  const [scopeType, setScopeType] = useState<ScopeType | "">("");
+  const [scopeType, setScopeType] = useState("");
   const [selectedVideoId, setSelectedVideoId] = useState("");
-  const [metricType, setMetricType] = useState<MetricType | "">("");
+  const [metricType, setMetricType] = useState("");
   const [metricName, setMetricName] = useState("");
 
   // Fetch videos for dropdown
@@ -134,7 +97,7 @@ export function YouTubeMetricContent({
     return {};
   }, [scopeType, selectedVideoId]);
 
-  const handleScopeChange = (value: ScopeType) => {
+  const handleScopeChange = (value: string) => {
     setScopeType(value);
     setSelectedVideoId("");
     setMetricType("");
@@ -149,8 +112,8 @@ export function YouTubeMetricContent({
           ? videoOptions.find((v) => v.value === selectedVideoId)?.label
           : "";
 
-      const baseName = getMetricLabel(metricType, scopeType);
-      const name = videoName ? `${videoName} - ${metricType}` : baseName;
+      const { label } = getTemplateData(scopeType, metricType);
+      const name = videoName ? `${videoName} - ${metricType}` : label;
       setMetricName(name);
     }
   }, [metricType, scopeType, selectedVideoId, videoOptions]);
@@ -159,16 +122,18 @@ export function YouTubeMetricContent({
     if (!scopeType || !metricType || !metricName || !templateId) return;
     if (scopeType === "video" && !selectedVideoId) return;
 
+    const { description } = getTemplateData(scopeType, metricType);
+
     void onSubmit({
       templateId,
       connectionId: connection.connectionId,
       name: metricName,
-      description: getMetricDescription(metricType, scopeType),
+      description,
       endpointParams,
     });
   };
 
-  const availableMetrics: MetricType[] =
+  const availableMetrics =
     scopeType === "channel"
       ? ["views", "likes", "subscribers"]
       : scopeType === "video"
@@ -186,10 +151,7 @@ export function YouTubeMetricContent({
       <div className="space-y-4 py-4">
         <div className="space-y-2">
           <Label htmlFor="scope">Scope</Label>
-          <Select
-            value={scopeType}
-            onValueChange={(value) => handleScopeChange(value as ScopeType)}
-          >
+          <Select value={scopeType} onValueChange={handleScopeChange}>
             <SelectTrigger id="scope">
               <SelectValue placeholder="Select channel or specific video" />
             </SelectTrigger>
@@ -229,10 +191,7 @@ export function YouTubeMetricContent({
         {scopeType && (
           <div className="space-y-2">
             <Label htmlFor="metric">Metric Type</Label>
-            <Select
-              value={metricType}
-              onValueChange={(value) => setMetricType(value as MetricType)}
-            >
+            <Select value={metricType} onValueChange={setMetricType}>
               <SelectTrigger id="metric">
                 <SelectValue placeholder="Select metric type" />
               </SelectTrigger>
@@ -244,9 +203,9 @@ export function YouTubeMetricContent({
                 ))}
               </SelectContent>
             </Select>
-            {metricType && (
+            {metricType && scopeType && (
               <p className="text-muted-foreground text-sm">
-                {getMetricDescription(metricType, scopeType)}
+                {getTemplateData(scopeType, metricType).description}
               </p>
             )}
           </div>

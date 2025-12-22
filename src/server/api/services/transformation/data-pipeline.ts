@@ -46,6 +46,63 @@ function dimensionsToJson(
   return dimensions as Prisma.InputJsonValue;
 }
 
+/** Fetches API data and logs the result. Shared by ingestMetricData and refreshMetricDataPoints. */
+async function fetchApiDataWithLogging(input: {
+  metricId: string;
+  integrationId: string;
+  connectionId: string;
+  endpoint: string;
+  method?: "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
+  endpointConfig: Record<string, string>;
+  requestBody?: unknown;
+}): Promise<
+  { success: true; data: unknown } | { success: false; error: string }
+> {
+  try {
+    const response = await fetchData(
+      input.integrationId,
+      input.connectionId,
+      input.endpoint,
+      {
+        method: input.method ?? "GET",
+        params: input.endpointConfig,
+        body: input.requestBody,
+      },
+    );
+
+    await db.metricApiLog
+      .create({
+        data: {
+          metricId: input.metricId,
+          rawResponse: response.data as Prisma.InputJsonValue,
+          endpoint: input.endpoint,
+          endpointConfig: input.endpointConfig as Prisma.InputJsonValue,
+          success: true,
+        },
+      })
+      .catch(() => undefined);
+
+    return { success: true, data: response.data };
+  } catch (error) {
+    const errorMsg = error instanceof Error ? error.message : "Unknown error";
+
+    await db.metricApiLog
+      .create({
+        data: {
+          metricId: input.metricId,
+          rawResponse: Prisma.JsonNull,
+          endpoint: input.endpoint,
+          endpointConfig: input.endpointConfig as Prisma.InputJsonValue,
+          success: false,
+          error: errorMsg,
+        },
+      })
+      .catch(() => undefined);
+
+    return { success: false, error: errorMsg };
+  }
+}
+
 /**
  * Main entry point for metric data ingestion.
  * Fetches data once, gets/creates transformer, executes it, and saves results.
@@ -63,56 +120,27 @@ export async function ingestMetricData(
     return { success: false, error: `Template not found: ${input.templateId}` };
   }
 
-  let apiData: unknown;
-  try {
-    const response = await fetchData(
-      input.integrationId,
-      input.connectionId,
-      template.metricEndpoint,
-      {
-        method: template.method ?? "GET",
-        params: input.endpointConfig,
-        body: template.requestBody,
-      },
+  const fetchResult = await fetchApiDataWithLogging({
+    metricId: input.metricId,
+    integrationId: input.integrationId,
+    connectionId: input.connectionId,
+    endpoint: template.metricEndpoint,
+    method: template.method,
+    endpointConfig: input.endpointConfig,
+    requestBody: template.requestBody,
+  });
+
+  if (!fetchResult.success) {
+    console.error(
+      `[Transform] ERROR: Failed to fetch data: ${fetchResult.error}`,
     );
-    apiData = response.data;
-
-    // Save raw API response for debugging (dev tool)
-    await db.metricApiLog
-      .create({
-        data: {
-          metricId: input.metricId,
-          rawResponse: apiData as Prisma.InputJsonValue,
-          endpoint: template.metricEndpoint,
-          endpointConfig: input.endpointConfig as Prisma.InputJsonValue,
-          success: true,
-        },
-      })
-      .catch(() => {
-        // Don't fail the main operation if logging fails
-      });
-  } catch (error) {
-    const errorMsg = error instanceof Error ? error.message : "Unknown error";
-    console.error(`[Transform] ERROR: Failed to fetch data: ${errorMsg}`);
-
-    // Log failed API call
-    await db.metricApiLog
-      .create({
-        data: {
-          metricId: input.metricId,
-          rawResponse: Prisma.JsonNull,
-          endpoint: template.metricEndpoint,
-          endpointConfig: input.endpointConfig as Prisma.InputJsonValue,
-          success: false,
-          error: errorMsg,
-        },
-      })
-      .catch(() => {
-        // Ignore logging errors
-      });
-
-    return { success: false, error: `Failed to fetch data: ${errorMsg}` };
+    return {
+      success: false,
+      error: `Failed to fetch data: ${fetchResult.error}`,
+    };
   }
+
+  const apiData = fetchResult.data;
 
   // GSheets needs per-metric transformers since each user has different spreadsheet structure
   const cacheKey = input.templateId.startsWith("gsheets-")
@@ -341,59 +369,26 @@ export async function refreshMetricDataPoints(input: {
     };
   }
 
-  let apiData: unknown;
-  try {
-    const response = await fetchData(
-      input.integrationId,
-      input.connectionId,
-      template.metricEndpoint,
-      {
-        method: template.method ?? "GET",
-        params: input.endpointConfig,
-        body: template.requestBody,
-      },
-    );
-    apiData = response.data;
+  const fetchResult = await fetchApiDataWithLogging({
+    metricId: input.metricId,
+    integrationId: input.integrationId,
+    connectionId: input.connectionId,
+    endpoint: template.metricEndpoint,
+    method: template.method,
+    endpointConfig: input.endpointConfig,
+    requestBody: template.requestBody,
+  });
 
-    // Save raw API response for debugging (dev tool)
-    await db.metricApiLog
-      .create({
-        data: {
-          metricId: input.metricId,
-          rawResponse: apiData as Prisma.InputJsonValue,
-          endpoint: template.metricEndpoint,
-          endpointConfig: input.endpointConfig as Prisma.InputJsonValue,
-          success: true,
-        },
-      })
-      .catch(() => {
-        // Don't fail the main operation if logging fails
-      });
-  } catch (error) {
-    const errorMsg = error instanceof Error ? error.message : "Unknown error";
-
-    // Log failed API call
-    await db.metricApiLog
-      .create({
-        data: {
-          metricId: input.metricId,
-          rawResponse: Prisma.JsonNull,
-          endpoint: template.metricEndpoint,
-          endpointConfig: input.endpointConfig as Prisma.InputJsonValue,
-          success: false,
-          error: errorMsg,
-        },
-      })
-      .catch(() => {
-        // Ignore logging errors
-      });
-
-    return { success: false, error: `Failed to fetch data: ${errorMsg}` };
+  if (!fetchResult.success) {
+    return {
+      success: false,
+      error: `Failed to fetch data: ${fetchResult.error}`,
+    };
   }
 
   const result = await executeDataIngestionTransformer(
     transformer.transformerCode,
-    apiData,
+    fetchResult.data,
     input.endpointConfig,
   );
   if (!result.success || !result.data) {

@@ -81,7 +81,7 @@ export const templates: MetricTemplate[] = [
   {
     templateId: "youtube-video-views-timeseries",
     label: "Video Views (Time Series)",
-    description: "Daily view counts for a specific video",
+    description: "Daily view counts for this specific video",
     integrationId: "youtube",
     metricType: "number",
     defaultUnit: "views",
@@ -113,7 +113,7 @@ export const templates: MetricTemplate[] = [
   {
     templateId: "youtube-video-likes-timeseries",
     label: "Video Likes (Time Series)",
-    description: "Daily likes for a specific video",
+    description: "Daily likes for this specific video",
     integrationId: "youtube",
     metricType: "number",
     defaultUnit: "likes",

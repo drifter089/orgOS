@@ -48,3 +48,16 @@ export function getTemplatesByIntegration(
 ): MetricTemplate[] {
   return getAllTemplates().filter((t) => t.integrationId === integrationId);
 }
+
+/** Get metric options formatted for UI dropdowns from templates (single source of truth). */
+export function getMetricOptionsForUI(integrationId: string): {
+  value: string;
+  label: string;
+  description: string;
+}[] {
+  return getTemplatesByIntegration(integrationId).map((t) => ({
+    value: t.templateId.replace(`${integrationId}-`, ""),
+    label: t.label,
+    description: t.description,
+  }));
+}
