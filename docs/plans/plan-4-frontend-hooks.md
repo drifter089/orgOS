@@ -2,9 +2,12 @@
 
 ## Overview
 
-- **Can Start**: After Plan 1 (needs getProgress endpoint)
-- **Depends On**: Plan 1
+- **Can Start**: After Plan 5 (needs api.pipeline.\* endpoints)
+- **Depends On**: Plan 5 (NOT Plan 1!)
 - **Enables**: Plan 6
+
+**IMPORTANT**: This plan uses `api.pipeline.*` and `api.goal.*` paths created in Plan 5.
+Do NOT run this plan before Plan 5 is complete.
 
 ## Goals
 
@@ -250,8 +253,9 @@ export function useMetricMutations({ teamId }: UseMetricMutationsOptions = {}) {
 
   /**
    * Refresh metric (no optimistic update needed)
+   * NOTE: Uses api.pipeline.* from Plan 5
    */
-  const refresh = api.metric.refresh.useMutation({
+  const refresh = api.pipeline.refresh.useMutation({
     onSuccess: () => {
       void utils.dashboard.getDashboardCharts.invalidate();
     },
@@ -259,8 +263,9 @@ export function useMetricMutations({ teamId }: UseMetricMutationsOptions = {}) {
 
   /**
    * Regenerate metric (hard refresh)
+   * NOTE: Uses api.pipeline.* from Plan 5
    */
-  const regenerate = api.metric.regenerate.useMutation({
+  const regenerate = api.pipeline.regenerate.useMutation({
     onSuccess: () => {
       void utils.dashboard.getDashboardCharts.invalidate();
     },
@@ -321,7 +326,8 @@ export function usePipelineProgress({
   enabled = true,
   pollInterval = 500,
 }: UsePipelineProgressOptions): PipelineProgressState {
-  const { data } = api.metric.getProgress.useQuery(
+  // NOTE: Uses api.pipeline.getProgress from Plan 5
+  const { data } = api.pipeline.getProgress.useQuery(
     { metricId },
     {
       enabled,
@@ -552,24 +558,24 @@ const handleRefresh = () => {
 
 ---
 
-## Task 7: Deprecate Old Hook
+## Task 7: DELETE Old Hook
 
 **File**: `src/hooks/use-optimistic-metric-update.ts`
 
-Add deprecation notice:
+After all consumers are migrated to `useMetricMutations`:
 
-```typescript
-/**
- * @deprecated Use useMetricMutations from '@/hooks/use-metric-mutations' instead.
- * This hook will be removed in a future version.
- */
-export function useOptimisticMetricUpdate({ teamId }: { teamId?: string }) {
-  console.warn(
-    "useOptimisticMetricUpdate is deprecated. Use useMetricMutations instead.",
-  );
-  // ... existing implementation for backward compatibility
-}
 ```
+DELETE: src/hooks/use-optimistic-metric-update.ts
+```
+
+The new `useMetricMutations` hook provides the same functionality with cleaner API.
+
+**Consumers to migrate:**
+
+- `src/app/metric/_components/base/MetricDialogBase.tsx`
+- Any other files using `useOptimisticMetricUpdate`
+
+**DO NOT just deprecate** - delete the file after migration.
 
 ---
 
@@ -583,7 +589,7 @@ export function useOptimisticMetricUpdate({ teamId }: { teamId?: string }) {
 | CREATE | `src/components/pipeline-progress.tsx`                             |
 | MODIFY | `src/app/metric/_components/base/MetricDialogBase.tsx`             |
 | MODIFY | `src/app/dashboard/[teamId]/_components/dashboard-metric-card.tsx` |
-| MODIFY | `src/hooks/use-optimistic-metric-update.ts` (deprecate)            |
+| DELETE | `src/hooks/use-optimistic-metric-update.ts`                        |
 
 ---
 

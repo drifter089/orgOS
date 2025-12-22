@@ -2,7 +2,7 @@
 
 ## Execution Order Summary
 
-### PARALLEL GROUP 1 (Start Immediately - No Dependencies)
+### PHASE 1: Foundation (Parallel - No Dependencies)
 
 | #   | Plan             | File                         | Focus                                                                              |
 | --- | ---------------- | ---------------------------- | ---------------------------------------------------------------------------------- |
@@ -10,19 +10,29 @@
 | 2   | Goal System      | `plan-2-goal-system.md`      | Split goal-calculation.ts + goal line on charts                                    |
 | 3   | Chart Animations | `plan-3-chart-animations.md` | Smooth entry animations on every load                                              |
 
-### SEQUENTIAL GROUP 2 (After Plan 1)
+### PHASE 2: Router Reorganization (After Plan 1)
 
-| #   | Plan              | File                       | Focus                                          |
-| --- | ----------------- | -------------------------- | ---------------------------------------------- |
-| 4   | Frontend Hooks    | `plan-4-frontend-hooks.md` | Reusable mutations, progress UI                |
-| 5   | Router Split      | `plan-5-router-split.md`   | Split metric.ts into focused routers           |
-| 7   | Transformer Regen | `plan-7-template-cache.md` | Independent transformer regeneration (uses P1) |
+| #   | Plan         | File                     | Focus                                                      |
+| --- | ------------ | ------------------------ | ---------------------------------------------------------- |
+| 5   | Router Split | `plan-5-router-split.md` | Split metric.ts, DELETE transformer.ts, create pipeline.ts |
 
-### SEQUENTIAL GROUP 3 (After Plan 4)
+### PHASE 3: Frontend Hooks (After Plan 5)
+
+| #   | Plan           | File                       | Focus                           |
+| --- | -------------- | -------------------------- | ------------------------------- |
+| 4   | Frontend Hooks | `plan-4-frontend-hooks.md` | Reusable mutations, progress UI |
+
+### PHASE 4: Cleanup (After Plan 4)
 
 | #   | Plan           | File                       | Focus                               |
 | --- | -------------- | -------------------------- | ----------------------------------- |
 | 6   | Dialog Cleanup | `plan-6-dialog-cleanup.md` | Registry pattern, remove duplicates |
+
+### PHASE 5: Enhancements (After Plan 5)
+
+| #   | Plan              | File                       | Focus                                        |
+| --- | ----------------- | -------------------------- | -------------------------------------------- |
+| 7   | Transformer Regen | `plan-7-template-cache.md` | Granular regeneration (added to pipeline.ts) |
 
 ### INDEPENDENT (Run Anytime)
 
@@ -45,13 +55,20 @@ START
 │Pipe │   │Goal │   │Anim │                   │Drawr│
 └──┬──┘   └─────┘   └─────┘                   └─────┘
    │                                          (anytime)
-   ├──────────────┬───────────┐
-   │              │           │
-   ▼              ▼           ▼
-┌─────┐       ┌─────┐     ┌─────┐
-│ P4  │       │ P5  │     │ P7  │
-│Hooks│       │Route│     │Regen│
-└──┬──┘       └─────┘     └─────┘
+   │
+   ▼
+┌─────┐
+│ P5  │  ← Creates api.pipeline.*, api.goal.*, api.manualMetric.*
+│Route│    DELETES transformer.ts permanently
+└──┬──┘
+   │
+   ├──────────┐
+   │          │
+   ▼          ▼
+┌─────┐   ┌─────┐
+│ P4  │   │ P7  │  ← P7 ADDS procedures to pipeline.ts
+│Hooks│   │Regen│
+└──┬──┘   └─────┘
    │
    ▼
 ┌─────┐
@@ -61,12 +78,12 @@ START
 
 Legend:
 - P1: Pipeline Core (metricId keying, logging, delete on refresh)
-- P2: Goal System (split files, goal line on chart)
+- P2: Goal System (split files, goal line on chart, DELETE old file)
 - P3: Chart Animations
-- P4: Frontend Hooks (useOptimisticMutation, usePipelineProgress)
+- P4: Frontend Hooks (useMetricMutations, usePipelineProgress)
 - P5: Router Split (goal.ts, pipeline.ts, manual-metric.ts)
-- P6: Dialog Cleanup (registry pattern)
-- P7: Transformer Regen (regenerate data/chart independently)
+- P6: Dialog Cleanup (registry pattern, manual metrics separate)
+- P7: Transformer Regen (adds regenerateIngestionOnly, regenerateChartOnly to pipeline.ts)
 - P8: Drawer Redesign (awaiting design)
 ```
 
@@ -146,6 +163,7 @@ All display metadata now comes from ChartTransformer output:
 - **Goal reference line on charts** (line/area/bar)
 - Cleaner progress calculation
 - **Uses ChartTransformer data as single source of truth**
+- **DELETE old goal-calculation.ts** (not just re-export)
 
 ### Plan 3: Chart Animations
 
@@ -161,6 +179,8 @@ All display metadata now comes from ChartTransformer output:
 - `useMetricMutations` - metric-specific
 - `usePipelineProgress` - real-time polling
 - `<PipelineProgress>` - step-by-step UI
+- Uses `api.pipeline.*` paths (requires Plan 5)
+- **DELETE deprecated use-optimistic-metric-update.ts**
 
 ### Plan 5: Router Split
 
@@ -168,6 +188,7 @@ All display metadata now comes from ChartTransformer output:
 - `manual-metric.ts` - manual metrics
 - `pipeline.ts` - refresh/regenerate/progress
 - `metric.ts` - CRUD only (200 lines vs 821)
+- **DELETE transformer.ts permanently** (no recreation)
 
 ### Plan 6: Dialog Cleanup
 
@@ -175,11 +196,13 @@ All display metadata now comes from ChartTransformer output:
 - Single `<MetricDialog>` component
 - Remove 5 duplicate wrapper files
 - Keep unique Content components
+- **Manual metrics intentionally excluded** (separate flow)
 
-### Plan 7: Independent Transformer Regeneration
+### Plan 7: Transformer Regeneration (Added to pipeline.ts)
 
-- **Regenerate data transformer only** (keep chart + data points)
-- **Regenerate chart transformer only** (keep data transformer + data points)
+- **ADD to pipeline.ts**: `regenerateIngestionOnly` procedure
+- **ADD to pipeline.ts**: `regenerateChartOnly` procedure
+- **ADD to pipeline.ts**: `getTransformerInfo` procedure
 - UI buttons for granular control
 - Transformer info display
 - **Metadata regeneration rules** (when to preserve user overrides)
@@ -189,6 +212,26 @@ All display metadata now comes from ChartTransformer output:
 - Complete UI overhaul
 - Awaiting design images
 - Placeholder plan
+
+---
+
+## Router Structure After All Plans
+
+```
+src/server/api/routers/
+├── metric.ts          # CRUD only (~200 lines)
+├── goal.ts            # Goal operations (Plan 5)
+├── manual-metric.ts   # Manual metric operations (Plan 5)
+├── pipeline.ts        # ALL pipeline operations (Plan 5 + Plan 7)
+│   ├── refresh                  # Soft refresh (Plan 5)
+│   ├── regenerate               # Hard refresh (Plan 5)
+│   ├── getProgress              # Progress polling (Plan 5)
+│   ├── regenerateIngestionOnly  # Data transformer only (Plan 7)
+│   ├── regenerateChartOnly      # Chart transformer only (Plan 7)
+│   └── getTransformerInfo       # Transformer metadata (Plan 7)
+├── dashboard.ts       # Dashboard queries (unchanged)
+└── (NO transformer.ts - permanently deleted)
+```
 
 ---
 
@@ -221,6 +264,13 @@ Read docs/plans/plan-1-pipeline-core.md and implement all tasks
 ### To run multiple plans in parallel:
 
 Start new Claude Code sessions for each plan, or use worktrees.
+
+**IMPORTANT**: Only Plans 1, 2, 3 can run in parallel. All others have dependencies:
+
+- Plan 5 requires Plan 1
+- Plan 4 requires Plan 5
+- Plan 6 requires Plan 4
+- Plan 7 requires Plan 5
 
 ---
 
@@ -263,6 +313,8 @@ These decisions apply across ALL plans:
 | Logging                | Log everything to MetricApiLog     | Better debugging, existing table         |
 | User override UX       | Auto-save as override (no warning) | Simpler UX, less friction                |
 | Metadata source        | ChartTransformer output only       | Single source of truth, no fallbacks     |
+| Manual metrics         | Separate dialog flow               | Different UX requirements                |
+| transformer.ts         | DELETE permanently                 | All procedures move to pipeline.ts       |
 
 ---
 
@@ -276,6 +328,7 @@ These decisions apply across ALL plans:
 6. **DO NOT create fallback chains** - Single source: `chartConfig.*`
 7. **DO NOT use `db` directly in routers** - Always `ctx.db`
 8. **DO NOT regenerate metadata on soft refresh** - Only on hard refresh
+9. **DO NOT recreate transformer.ts** - Plan 7 adds to pipeline.ts instead
 
 ---
 
@@ -303,16 +356,18 @@ await getIntegrationAndVerifyAccess(
 
 ---
 
-## Router Transition (Plans 5 + 7)
+## Router Transition (Plan 5)
 
-The existing `transformer.ts` router is **DELETED** in Plan 5 and **RECREATED** in Plan 7 with different procedures:
+The existing `transformer.ts` router is **DELETED permanently** in Plan 5:
 
-| Old Procedure (Deleted in P5)            | New Location                                      |
-| ---------------------------------------- | ------------------------------------------------- |
-| `transformer.refreshMetric`              | `pipeline.refresh` / `pipeline.regenerate` (P5)   |
-| `transformer.createChartTransformer`     | Internal only (called by pipeline)                |
-| `transformer.regenerateChartTransformer` | `transformer.regenerateChartTransformerOnly` (P7) |
-| `transformer.updateManualChart`          | `manualMetric.updateChart` (P5)                   |
+| Old Procedure (Deleted in P5)            | New Location                               |
+| ---------------------------------------- | ------------------------------------------ |
+| `transformer.refreshMetric`              | `pipeline.refresh` / `pipeline.regenerate` |
+| `transformer.createChartTransformer`     | Internal only (called by pipeline)         |
+| `transformer.regenerateChartTransformer` | `pipeline.regenerateChartOnly` (Plan 7)    |
+| `transformer.updateManualChart`          | `manualMetric.updateChart`                 |
+
+**Plan 7 does NOT recreate transformer.ts** - it adds procedures to `pipeline.ts`.
 
 ---
 

@@ -621,20 +621,22 @@ function GoalReferenceLine({ targetValue, label }: GoalLineProps) {
 
 ---
 
-## Task 8: Update Imports in Existing Files
+## Task 8: Update All Imports and DELETE Old File
 
-**File**: `src/server/api/utils/goal-calculation.ts`
+### Step 1: Find all imports of old file
 
-Replace entire file with re-export:
-
-```typescript
-// Backward compatibility - re-export from new location
-export * from "@/lib/goals";
+```bash
+grep -r "from.*goal-calculation" src/
 ```
 
-**File**: `src/server/api/utils/enrich-charts-with-goal-progress.ts`
+Expected files to update:
 
-Update import:
+- `src/server/api/utils/enrich-charts-with-goal-progress.ts`
+- Any other files importing from goal-calculation.ts
+
+### Step 2: Update imports in each file
+
+**File**: `src/server/api/utils/enrich-charts-with-goal-progress.ts`
 
 ```typescript
 // Before:
@@ -643,6 +645,18 @@ import { calculateGoalProgress } from "./goal-calculation";
 // After:
 import { calculateGoalProgress } from "@/lib/goals";
 ```
+
+Update ALL other files that import from `goal-calculation.ts` to use the new path.
+
+### Step 3: DELETE old file
+
+After all imports are updated, delete the old 467-line file:
+
+```
+DELETE: src/server/api/utils/goal-calculation.ts
+```
+
+**DO NOT keep as re-export** - update imports and delete immediately.
 
 ---
 
@@ -656,7 +670,7 @@ import { calculateGoalProgress } from "@/lib/goals";
 | CREATE | `src/lib/goals/trend-analyzer.ts`                                                   |
 | CREATE | `src/lib/goals/value-extractor.ts`                                                  |
 | CREATE | `src/lib/goals/index.ts`                                                            |
-| MODIFY | `src/server/api/utils/goal-calculation.ts` (replace with re-export)                 |
+| DELETE | `src/server/api/utils/goal-calculation.ts`                                          |
 | MODIFY | `src/server/api/utils/enrich-charts-with-goal-progress.ts` (update import)          |
 | MODIFY | `src/app/dashboard/[teamId]/_components/dashboard-metric-chart.tsx` (add goal line) |
 

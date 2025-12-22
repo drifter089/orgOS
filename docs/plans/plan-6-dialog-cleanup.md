@@ -72,6 +72,10 @@ const GoogleSheetsMetricContent = dynamic(() =>
 );
 
 // Registry
+// NOTE: Manual metrics are INTENTIONALLY excluded from this registry.
+// They have a separate flow via ManualMetricContent and don't go through
+// the integration dialog system. This is by design - manual metrics have
+// different UX requirements (no integration connection, different form fields).
 export const DIALOG_REGISTRY: Record<string, DialogConfig> = {
   github: {
     integrationId: "github",
@@ -103,6 +107,7 @@ export const DIALOG_REGISTRY: Record<string, DialogConfig> = {
     description: "Import custom metrics from spreadsheets",
     Content: GoogleSheetsMetricContent,
   },
+  // Manual metrics NOT included - separate flow via ManualMetricContent
 };
 
 // Helper functions

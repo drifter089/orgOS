@@ -469,25 +469,29 @@ export const pipelineRouter = createTRPCRouter({
 
 ---
 
-## Task 4: Update Root Router
+## Task 4: Update Root Router and DELETE transformer.ts PERMANENTLY
 
 **File**: `src/server/api/root.ts`
 
-**IMPORTANT**: This task REMOVES the existing `transformer` router. Plan 7 will create a NEW `transformer.ts` with different procedures. The old `transformer.ts` procedures are migrated as follows:
+**IMPORTANT**: This task REMOVES the `transformer` router **permanently**. Plan 7 will NOT recreate it - instead, Plan 7 adds procedures to `pipeline.ts`.
 
-| Old Procedure                            | New Location                                          |
-| ---------------------------------------- | ----------------------------------------------------- |
-| `transformer.refreshMetric`              | `pipeline.refresh/regenerate`                         |
-| `transformer.createChartTransformer`     | Removed (called internally)                           |
-| `transformer.regenerateChartTransformer` | `transformer.regenerateChartTransformerOnly` (Plan 7) |
-| `transformer.updateManualChart`          | `manualMetric.updateChart`                            |
+### Procedure Migration
+
+| Old Procedure (transformer.ts)           | New Location                               |
+| ---------------------------------------- | ------------------------------------------ |
+| `transformer.refreshMetric`              | `pipeline.refresh` / `pipeline.regenerate` |
+| `transformer.createChartTransformer`     | Internal only (called by pipeline)         |
+| `transformer.regenerateChartTransformer` | `pipeline.regenerateChartOnly` (Plan 7)    |
+| `transformer.updateManualChart`          | `manualMetric.updateChart`                 |
+
+### Update root.ts
 
 ```typescript
 import { goalRouter } from "./routers/goal";
 import { manualMetricRouter } from "./routers/manual-metric";
 import { pipelineRouter } from "./routers/pipeline";
 
-// REMOVE: import { transformerRouter } from "./routers/transformer";
+// DELETE: import { transformerRouter } from "./routers/transformer";
 
 // ... other imports
 
@@ -495,18 +499,25 @@ export const appRouter = createTRPCRouter({
   // Existing routers
   metric: metricRouter,
   dashboard: dashboardRouter,
-  // REMOVE: transformer: transformerRouter,
   // ... etc
 
-  // New routers
+  // New routers (Plan 5)
   goal: goalRouter,
   manualMetric: manualMetricRouter,
   pipeline: pipelineRouter,
-  // transformer will be re-added in Plan 7 with new procedures
+
+  // NO transformer router - permanently removed
+  // Plan 7 adds regeneration procedures to pipeline.ts instead
 });
 ```
 
-**DELETE FILE**: `src/server/api/routers/transformer.ts` (will be recreated in Plan 7)
+### DELETE transformer.ts
+
+```
+DELETE: src/server/api/routers/transformer.ts
+```
+
+**DO NOT recreate this file in Plan 7** - all transformer-related procedures live in `pipeline.ts`.
 
 ---
 
@@ -598,18 +609,20 @@ api.pipeline.getProgress.useQuery();
 
 ## Files Summary
 
-| Action | File                                                               |
-| ------ | ------------------------------------------------------------------ |
-| CREATE | `src/server/api/routers/goal.ts`                                   |
-| CREATE | `src/server/api/routers/manual-metric.ts`                          |
-| CREATE | `src/server/api/routers/pipeline.ts`                               |
-| DELETE | `src/server/api/routers/transformer.ts` (recreated in Plan 7)      |
-| MODIFY | `src/server/api/root.ts`                                           |
-| MODIFY | `src/server/api/routers/metric.ts` (remove extracted code)         |
-| MODIFY | `src/components/metric/goal-editor.tsx`                            |
-| MODIFY | `src/app/metric/_components/manual/ManualMetricContent.tsx`        |
-| MODIFY | `src/app/metric/_components/base-metric-check-in-form.tsx`         |
-| MODIFY | `src/app/dashboard/[teamId]/_components/dashboard-metric-card.tsx` |
+| Action | File                                                                    |
+| ------ | ----------------------------------------------------------------------- |
+| CREATE | `src/server/api/routers/goal.ts`                                        |
+| CREATE | `src/server/api/routers/manual-metric.ts`                               |
+| CREATE | `src/server/api/routers/pipeline.ts`                                    |
+| DELETE | `src/server/api/routers/transformer.ts` **(permanent - NOT recreated)** |
+| MODIFY | `src/server/api/root.ts`                                                |
+| MODIFY | `src/server/api/routers/metric.ts` (remove extracted code)              |
+| MODIFY | `src/components/metric/goal-editor.tsx`                                 |
+| MODIFY | `src/app/metric/_components/manual/ManualMetricContent.tsx`             |
+| MODIFY | `src/app/metric/_components/base-metric-check-in-form.tsx`              |
+| MODIFY | `src/app/dashboard/[teamId]/_components/dashboard-metric-card.tsx`      |
+
+**Note**: Plan 7 adds `regenerateIngestionOnly`, `regenerateChartOnly`, and `getTransformerInfo` to `pipeline.ts` - it does NOT create a new transformer.ts file.
 
 ---
 

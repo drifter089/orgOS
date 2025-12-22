@@ -2,10 +2,13 @@
 
 ## Overview
 
-- **Can Start**: After Plan 1 (uses metricId keying architecture)
-- **Depends On**: Plan 1 (independent metrics architecture)
-- **Parallel With**: Plan 2, Plan 3
+- **Can Start**: After Plan 5 (adds procedures to pipeline.ts)
+- **Depends On**: Plan 5 (creates pipeline.ts router)
+- **Parallel With**: Plan 4
 - **Enables**: Nothing (independent)
+
+**IMPORTANT**: This plan ADDS procedures to `pipeline.ts` created in Plan 5.
+It does NOT create a new transformer.ts file.
 
 ## Goals
 
@@ -36,25 +39,24 @@ Each metric is fully independent:
 
 ---
 
-## Task 1: Create Transformer Router with Regeneration Procedures
+## Task 1: Add Regeneration Procedures to Pipeline Router
 
-**File**: `src/server/api/routers/transformer.ts` (CREATE)
+**File**: `src/server/api/routers/pipeline.ts` (MODIFY - add to existing router from Plan 5)
+
+Add these procedures to the `pipelineRouter` created in Plan 5:
 
 ```typescript
-import { TRPCError } from "@trpc/server";
-import { z } from "zod";
-
-import { createTRPCRouter, workspaceProcedure } from "@/server/api/trpc";
-import { getMetricAndVerifyAccess } from "@/server/api/utils/authorization";
+// Add these imports to pipeline.ts
 import { ingestMetricData } from "@/server/api/services/transformation/data-pipeline";
 import { createChartTransformer } from "@/server/api/services/transformation/chart-transformer";
 
-export const transformerRouter = createTRPCRouter({
+// Add these procedures to the existing pipelineRouter from Plan 5:
+
   /**
    * Regenerate ONLY the ingestion transformer for a metric
    * Keeps existing data points and chart transformer
    */
-  regenerateIngestionTransformer: workspaceProcedure
+  regenerateIngestionOnly: workspaceProcedure
     .input(z.object({ metricId: z.string() }))
     .mutation(async ({ ctx, input }) => {
       const metric = await getMetricAndVerifyAccess(
@@ -184,7 +186,7 @@ export const transformerRouter = createTRPCRouter({
    * Regenerate ONLY the chart transformer for a metric
    * Keeps existing data points and ingestion transformer
    */
-  regenerateChartTransformerOnly: workspaceProcedure
+  regenerateChartOnly: workspaceProcedure
     .input(z.object({ metricId: z.string() }))
     .mutation(async ({ ctx, input }) => {
       const metric = await getMetricAndVerifyAccess(
@@ -315,7 +317,8 @@ Add buttons in the settings drawer:
 import { BarChart3, Database, Loader2, RefreshCw } from "lucide-react";
 
 // In the drawer component:
-const regenerateIngestion = api.transformer.regenerateIngestionTransformer.useMutation({
+// NOTE: Uses api.pipeline.* - procedures added to pipeline.ts
+const regenerateIngestion = api.pipeline.regenerateIngestionOnly.useMutation({
   onSuccess: () => {
     toast.success("Data transformer regenerated");
     void utils.dashboard.getDashboardCharts.invalidate();
@@ -325,7 +328,7 @@ const regenerateIngestion = api.transformer.regenerateIngestionTransformer.useMu
   },
 });
 
-const regenerateChart = api.transformer.regenerateChartTransformerOnly.useMutation({
+const regenerateChart = api.pipeline.regenerateChartOnly.useMutation({
   onSuccess: () => {
     toast.success("Chart regenerated");
     void utils.dashboard.getDashboardCharts.invalidate();
@@ -391,7 +394,7 @@ const isRegenerating = regenerateIngestion.isPending || regenerateChart.isPendin
 
 Show which transformers exist and when they were created:
 
-**File**: `src/server/api/routers/transformer.ts` (add to router created in Task 1)
+**File**: `src/server/api/routers/pipeline.ts` (add to router modified in Task 1)
 
 ```typescript
   /**
@@ -454,13 +457,14 @@ Show which transformers exist and when they were created:
         },
       };
     }),
-}); // Close transformerRouter
+// These procedures are added to the existing pipelineRouter from Plan 5
 ```
 
 **In drawer component:**
 
 ```typescript
-const { data: transformerInfo } = api.transformer.getTransformerInfo.useQuery(
+// NOTE: Uses api.pipeline.* - procedure added to pipeline.ts
+const { data: transformerInfo } = api.pipeline.getTransformerInfo.useQuery(
   { metricId },
   { enabled: !!metricId },
 );
@@ -494,28 +498,20 @@ const { data: transformerInfo } = api.transformer.getTransformerInfo.useQuery(
 
 ---
 
-## Task 3.5: Register Transformer Router
-
-**File**: `src/server/api/root.ts`
-
-```typescript
-import { transformerRouter } from "./routers/transformer";
-
-export const appRouter = createTRPCRouter({
-  // ... existing routers
-  transformer: transformerRouter,
-});
-```
-
----
-
 ## Files Summary
 
 | Action | File                                                                 |
 | ------ | -------------------------------------------------------------------- |
-| CREATE | `src/server/api/routers/transformer.ts`                              |
-| MODIFY | `src/server/api/root.ts` (add transformer router)                    |
+| MODIFY | `src/server/api/routers/pipeline.ts` (add 3 procedures)              |
 | MODIFY | `src/app/dashboard/[teamId]/_components/dashboard-metric-drawer.tsx` |
+
+**New procedures added to pipeline.ts:**
+
+- `regenerateIngestionOnly` - regenerate data transformer only
+- `regenerateChartOnly` - regenerate chart transformer only
+- `getTransformerInfo` - show transformer metadata
+
+**NO new files created** - all changes are additions to existing `pipeline.ts` from Plan 5.
 
 ---
 
