@@ -142,10 +142,8 @@ export async function ingestMetricData(
 
   const apiData = fetchResult.data;
 
-  // GSheets needs per-metric transformers since each user has different spreadsheet structure
-  const cacheKey = input.templateId.startsWith("gsheets-")
-    ? `${input.templateId}:${input.metricId}`
-    : input.templateId;
+  // All metrics use metricId as cache key (independent metrics)
+  const cacheKey = input.metricId;
 
   const { transformer, isNew } = await getOrCreateDataIngestionTransformer(
     cacheKey,
@@ -354,19 +352,22 @@ export async function refreshMetricDataPoints(input: {
     return { success: false, error: `Template not found: ${input.templateId}` };
   }
 
-  // GSheets needs per-metric transformers
-  const cacheKey = input.templateId.startsWith("gsheets-")
-    ? `${input.templateId}:${input.metricId}`
-    : input.templateId;
+  // All metrics use metricId as cache key (independent metrics)
+  const cacheKey = input.metricId;
 
   const transformer = await db.dataIngestionTransformer.findUnique({
     where: { templateId: cacheKey },
   });
   if (!transformer) {
-    return {
-      success: false,
-      error: `No transformer for template: ${cacheKey}`,
-    };
+    // No transformer for this metric - need to create one
+    // This handles backward compatibility for old metrics
+    console.info(
+      `[RefreshMetric] No transformer found for metric ${input.metricId}, creating new one`,
+    );
+    return ingestMetricData({
+      ...input,
+      isTimeSeries: input.isTimeSeries,
+    });
   }
 
   const fetchResult = await fetchApiDataWithLogging({
@@ -450,7 +451,7 @@ export async function refreshMetricAndCharts(
 
   try {
     // Step 1: Fetching API data
-    await setRefreshStatus(input.metricId, "fetching-api");
+    await setRefreshStatus(input.metricId, "fetching-api-data");
 
     const template = getTemplate(metric.templateId);
     const isTimeSeries = template?.isTimeSeries !== false;
@@ -458,11 +459,18 @@ export async function refreshMetricAndCharts(
     let transformResult: TransformResult;
 
     if (input.forceRegenerate) {
-      // Delete existing transformer to force regeneration
-      const cacheKey = metric.templateId.startsWith("gsheets-")
-        ? `${metric.templateId}:${metric.id}`
-        : metric.templateId;
+      // HARD REFRESH: Delete everything and regenerate from scratch
+      // All metrics use metricId as cache key (independent metrics)
+      const cacheKey = metric.id;
 
+      // Step 2: Delete old data points
+      await setRefreshStatus(input.metricId, "deleting-old-data");
+      await db.metricDataPoint.deleteMany({
+        where: { metricId: metric.id },
+      });
+
+      // Step 3: Delete old transformer
+      await setRefreshStatus(input.metricId, "deleting-old-transformer");
       await db.dataIngestionTransformer
         .delete({ where: { templateId: cacheKey } })
         .catch(() => {
@@ -470,11 +478,14 @@ export async function refreshMetricAndCharts(
         });
 
       console.info(
-        `[RefreshMetric] Force regenerating transformer for: ${cacheKey}`,
+        `[RefreshMetric] Hard refresh - deleted old data for metric: ${metric.id}`,
       );
 
-      // Step 2: AI regenerating transformer
-      await setRefreshStatus(input.metricId, "ai-regenerating");
+      // Step 4: AI regenerating transformer
+      await setRefreshStatus(
+        input.metricId,
+        "generating-ingestion-transformer",
+      );
 
       // Use ingestMetricData which will create new transformer
       transformResult = await ingestMetricData({
@@ -486,8 +497,9 @@ export async function refreshMetricAndCharts(
         isTimeSeries,
       });
     } else {
+      // SOFT REFRESH: Reuse existing transformer
       // Step 2: Running existing transformer
-      await setRefreshStatus(input.metricId, "running-transformer");
+      await setRefreshStatus(input.metricId, "executing-ingestion-transformer");
 
       // Normal refresh using existing transformer
       transformResult = await refreshMetricDataPoints({
@@ -509,7 +521,7 @@ export async function refreshMetricAndCharts(
     }
 
     // Step 3: Saving data points (already done in ingestMetricData/refreshMetricDataPoints)
-    await setRefreshStatus(input.metricId, "saving-data");
+    await setRefreshStatus(input.metricId, "saving-timeseries-data");
 
     await db.metric.update({
       where: { id: input.metricId },
@@ -517,7 +529,7 @@ export async function refreshMetricAndCharts(
     });
 
     // Step 4: Updating charts
-    await setRefreshStatus(input.metricId, "updating-chart");
+    await setRefreshStatus(input.metricId, "executing-chart-transformer");
 
     // Fetch dataPoints once for all chart transformers (avoids N+1 queries)
     const chartsWithTransformers = metric.dashboardCharts.filter(

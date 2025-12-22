@@ -146,13 +146,24 @@ Output ChartConfig (shadcn/ui chart format):
   chartConfig: { [dataKey]: { label: string, color: string } },
   xAxisKey: string,
   dataKeys: string[],
-  title: string,
-  description: string,  // SHORT description of how data is aggregated, e.g. "Summed by week"
+  title: string,           // REQUIRED: Full descriptive title for the chart
+  description: string,     // REQUIRED: SHORT description of how data is aggregated
+  valueLabel: string,      // REQUIRED: Short label for the primary value (e.g., "commits", "issues")
   showLegend?: boolean,
   showTooltip?: boolean,
   stacked?: boolean,
   centerLabel?: { value: string, label: string }
 }
+
+REQUIRED METADATA FIELDS:
+- title: Full descriptive title for the chart. Include relevant context like metric name, team, or project.
+  Examples: "Daily Commits", "Completed Issues for Backend Team", "Video Views for Channel"
+  DO NOT include cadence if the x-axis already shows time periods.
+- description: SHORT description of how data is aggregated and displayed.
+  Examples: "Sum of commits per day", "Running total of issues", "Average story points per sprint"
+- valueLabel: Short label for the primary value being tracked. This appears next to the main number.
+  Examples: "commits", "issues", "story points", "views", "subscribers"
+  Should be lowercase, plural form.
 
 CADENCE determines how to aggregate data:
 - DAILY: Group by day, one data point per day
@@ -180,6 +191,7 @@ EXAMPLE OUTPUT for line chart:
   dataKeys: ["commits"],
   title: "Daily Commits",
   description: "Total commits per day",
+  valueLabel: "commits",
   showLegend: false,
   showTooltip: true
 }
@@ -199,6 +211,7 @@ EXAMPLE with dimensions (multi-series):
   dataKeys: ["additions", "deletions"],
   title: "Code Changes",
   description: "Lines added and deleted, summed weekly",
+  valueLabel: "lines",
   showLegend: true,
   stacked: true
 }
@@ -210,6 +223,7 @@ RULES:
 4. Format dates as readable strings: "Jan 15" or "Week of Jan 15" or "Jan 2024"
 5. If dimensions exist, extract them as separate data keys
 6. Sort chronologically (oldest first) for time series
+7. ALWAYS include title, description, and valueLabel in the output
 
 OUTPUT FORMAT:
 Return a JSON object with this structure:

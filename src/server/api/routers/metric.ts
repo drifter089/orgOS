@@ -1,8 +1,12 @@
+import type { PrismaClient } from "@prisma/client";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 
 import { getTemplate } from "@/lib/integrations";
-import type { ChartConfig } from "@/lib/metrics/transformer-types";
+import type {
+  ChartConfig,
+  ChartTransformResult,
+} from "@/lib/metrics/transformer-types";
 import { fetchData } from "@/server/api/services/data-fetching";
 import {
   createChartTransformer,
@@ -16,6 +20,117 @@ import {
 } from "@/server/api/utils/authorization";
 import { invalidateCacheByTags } from "@/server/api/utils/cache-strategy";
 import { calculateGoalProgress } from "@/server/api/utils/goal-calculation";
+
+/**
+ * Run the metric pipeline in the background (fire-and-forget).
+ * Updates refreshStatus at each step and stores errors in lastError.
+ */
+async function runPipelineInBackground(
+  db: PrismaClient,
+  params: {
+    metricId: string;
+    dashboardChartId: string;
+    templateId: string;
+    integrationProviderId: string;
+    connectionId: string;
+    endpointParams: Record<string, string>;
+    isTimeSeries: boolean;
+    metricName: string;
+    metricDescription: string;
+    organizationId: string;
+    teamId?: string;
+  },
+): Promise<void> {
+  try {
+    // Step 1: Set initial status
+    await db.metric.update({
+      where: { id: params.metricId },
+      data: { refreshStatus: "fetching-api-data" },
+    });
+
+    // Step 2: Transform and save data (single fetch, batch save)
+    const transformResult = await ingestMetricData({
+      templateId: params.templateId,
+      integrationId: params.integrationProviderId,
+      connectionId: params.connectionId,
+      metricId: params.metricId,
+      endpointConfig: params.endpointParams,
+      isTimeSeries: params.isTimeSeries,
+    });
+
+    if (!transformResult.success) {
+      await db.metric.update({
+        where: { id: params.metricId },
+        data: {
+          refreshStatus: null,
+          lastError: `Data ingestion failed: ${transformResult.error}`,
+        },
+      });
+      return;
+    }
+
+    console.info(
+      `[metric.create] Saved ${transformResult.dataPoints?.length ?? 0} data points`,
+    );
+
+    // Step 3: Update status and create ChartTransformer
+    await db.metric.update({
+      where: { id: params.metricId },
+      data: { refreshStatus: "generating-chart-transformer" },
+    });
+
+    try {
+      await createChartTransformer({
+        dashboardChartId: params.dashboardChartId,
+        metricName: params.metricName,
+        metricDescription: params.metricDescription,
+        chartType: "line",
+        cadence: "DAILY",
+      });
+    } catch (error) {
+      const errorMsg =
+        error instanceof Error ? error.message : "Chart generation failed";
+      console.error(`[metric.create] ChartTransformer failed:`, errorMsg);
+      await db.metric.update({
+        where: { id: params.metricId },
+        data: {
+          refreshStatus: null,
+          lastError: `Chart generation failed: ${errorMsg}`,
+          lastFetchedAt: new Date(),
+        },
+      });
+      return;
+    }
+
+    // Step 4: Complete - clear status and update timestamp
+    await db.metric.update({
+      where: { id: params.metricId },
+      data: {
+        refreshStatus: null,
+        lastError: null,
+        lastFetchedAt: new Date(),
+      },
+    });
+
+    // Invalidate cache
+    const cacheTags = [`dashboard_org_${params.organizationId}`];
+    if (params.teamId) {
+      cacheTags.push(`dashboard_team_${params.teamId}`);
+    }
+    await invalidateCacheByTags(db, cacheTags);
+  } catch (error) {
+    // Handle unexpected errors
+    const errorMsg = error instanceof Error ? error.message : "Unknown error";
+    console.error(`[metric.create] Pipeline error:`, errorMsg);
+    await db.metric.update({
+      where: { id: params.metricId },
+      data: {
+        refreshStatus: null,
+        lastError: errorMsg,
+      },
+    });
+  }
+}
 
 export const metricRouter = createTRPCRouter({
   // ===========================================================================
@@ -134,6 +249,8 @@ export const metricRouter = createTRPCRouter({
               teamId: input.teamId,
               pollFrequency: template.defaultPollFrequency ?? "daily",
               nextPollAt: new Date(),
+              // Set initial refresh status so frontend knows pipeline is starting
+              refreshStatus: "fetching-api-data",
             },
           });
 
@@ -167,97 +284,24 @@ export const metricRouter = createTRPCRouter({
         { timeout: 15000 },
       );
 
-      // Step 2: Transform and save data (single fetch, batch save)
-      const transformResult = await ingestMetricData({
-        templateId: input.templateId,
-        integrationId: integration.providerId,
-        connectionId: input.connectionId,
+      // Step 2: Fire-and-forget pipeline execution
+      // Pipeline runs in background - user sees card immediately with spinner
+      void runPipelineInBackground(ctx.db, {
         metricId: dashboardChart.metricId,
-        endpointConfig: input.endpointParams,
+        dashboardChartId: dashboardChart.id,
+        templateId: input.templateId,
+        integrationProviderId: integration.providerId,
+        connectionId: input.connectionId,
+        endpointParams: input.endpointParams,
         isTimeSeries: template.isTimeSeries !== false,
+        metricName: input.name,
+        metricDescription: input.description ?? template.description,
+        organizationId: ctx.workspace.organizationId,
+        teamId: input.teamId,
       });
 
-      // Track errors for user visibility
-      let chartError: string | null = null;
-
-      if (transformResult.success) {
-        console.info(
-          `[metric.create] Saved ${transformResult.dataPoints?.length ?? 0} data points`,
-        );
-
-        // Step 3: Create ChartTransformer
-        try {
-          await createChartTransformer({
-            dashboardChartId: dashboardChart.id,
-            metricName: input.name,
-            metricDescription: input.description ?? template.description,
-            chartType: "line",
-            cadence: "DAILY",
-          });
-        } catch (error) {
-          const errorMsg =
-            error instanceof Error ? error.message : "Chart generation failed";
-          console.error(`[metric.create] ChartTransformer failed:`, errorMsg);
-          chartError = `Chart generation failed: ${errorMsg}`;
-        }
-      } else {
-        console.error(
-          `[metric.create] Transform failed:`,
-          transformResult.error,
-        );
-        chartError = `Data ingestion failed: ${transformResult.error}`;
-      }
-
-      // Store any errors for user visibility
-      if (chartError) {
-        await ctx.db.metric.update({
-          where: { id: dashboardChart.metricId },
-          data: { lastError: chartError },
-        });
-      }
-
-      // Update lastFetchedAt
-      await ctx.db.metric.update({
-        where: { id: dashboardChart.metricId },
-        data: { lastFetchedAt: new Date() },
-      });
-
-      // Return fresh data
-      const result = await ctx.db.dashboardChart.findUnique({
-        where: { id: dashboardChart.id },
-        include: {
-          metric: {
-            include: {
-              integration: true,
-              roles: true,
-            },
-          },
-          chartTransformer: {
-            select: {
-              chartType: true,
-              cadence: true,
-              userPrompt: true,
-              updatedAt: true,
-            },
-          },
-        },
-      });
-
-      if (!result) {
-        throw new TRPCError({
-          code: "INTERNAL_SERVER_ERROR",
-          message: "Failed to fetch created dashboard chart",
-        });
-      }
-
-      // Invalidate Prisma cache for dashboard queries
-      const cacheTags = [`dashboard_org_${ctx.workspace.organizationId}`];
-      if (input.teamId) {
-        cacheTags.push(`dashboard_team_${input.teamId}`);
-      }
-      await invalidateCacheByTags(ctx.db, cacheTags);
-
-      return result;
+      // Return immediately - frontend will poll refreshStatus
+      return dashboardChart;
     }),
 
   update: workspaceProcedure
@@ -373,15 +417,22 @@ export const metricRouter = createTRPCRouter({
         ? manualCadence
         : (dashboardChart?.chartTransformer?.cadence ?? null);
 
-      // Get valueLabel from DataIngestionTransformer
+      // Parse chartConfig for unified metadata access
+      const chartConfig = dashboardChart?.chartConfig as unknown as ChartConfig;
+      const chartConfigResult =
+        dashboardChart?.chartConfig as unknown as ChartTransformResult;
+
+      // Get valueLabel from chartConfig (ChartTransformer output) as primary source
+      // Fall back to DataIngestionTransformer for backward compatibility
       let valueLabel: string | null = null;
-      if (metric.templateId) {
-        let cacheKey = metric.templateId;
-        if (metric.templateId.startsWith("gsheets-")) {
-          cacheKey = `${metric.templateId}:${metric.id}`;
-        }
+      if (chartConfigResult?.valueLabelOverride) {
+        valueLabel = chartConfigResult.valueLabelOverride;
+      } else if (chartConfigResult?.valueLabel) {
+        valueLabel = chartConfigResult.valueLabel;
+      } else {
+        // Fallback: try DataIngestionTransformer (keyed by metricId for independent metrics)
         const transformer = await ctx.db.dataIngestionTransformer.findUnique({
-          where: { templateId: cacheKey },
+          where: { templateId: metric.id },
           select: { valueLabel: true },
         });
         valueLabel = transformer?.valueLabel ?? null;
@@ -390,7 +441,6 @@ export const metricRouter = createTRPCRouter({
       // Extract current value from chartConfig
       let currentValue: number | null = null;
       let currentValueLabel: string | null = null;
-      const chartConfig = dashboardChart?.chartConfig as unknown as ChartConfig;
       if (chartConfig?.chartData && chartConfig.chartData.length > 0) {
         const latestData =
           chartConfig.chartData[chartConfig.chartData.length - 1];
