@@ -11,9 +11,19 @@ import type { RouterOutputs } from "@/trpc/react";
 type DashboardMetrics = RouterOutputs["dashboard"]["getDashboardCharts"];
 type DashboardMetricWithRelations = DashboardMetrics[number];
 
+// Public view uses a different but compatible type from publicView router
+type PublicDashboardMetrics =
+  RouterOutputs["publicView"]["getDashboardByShareToken"]["dashboardCharts"];
+type PublicDashboardMetric = PublicDashboardMetrics[number];
+
 export type ChartNodeData = {
   dashboardMetricId: string;
-  dashboardMetric: DashboardMetricWithRelations;
+  /** Dashboard metric data - required for private view, optional if using override */
+  dashboardMetric?: DashboardMetricWithRelations;
+  /** Pre-fetched metric data for public views */
+  dashboardMetricOverride?: PublicDashboardMetric;
+  /** When true, hides edit controls (for public views) */
+  readOnly?: boolean;
 };
 
 export type ChartNode = Node<ChartNodeData, "chart-node">;
@@ -24,6 +34,49 @@ const handleClassName = cn(
 );
 
 function ChartNodeComponent({ data, selected }: NodeProps<ChartNode>) {
+  // Use override data if provided (public view), otherwise use direct data (private view)
+  const dashboardMetric = data.dashboardMetricOverride ?? data.dashboardMetric;
+
+  // Fallback UI when metric not found
+  if (!dashboardMetric) {
+    return (
+      <div
+        className={cn(
+          "bg-card w-[750px] rounded-xl border-2 p-6 shadow-md",
+          selected && "ring-primary ring-2 ring-offset-2",
+        )}
+      >
+        <Handle
+          type="target"
+          position={Position.Top}
+          id="top"
+          className={handleClassName}
+        />
+        <Handle
+          type="source"
+          position={Position.Right}
+          id="right"
+          className={handleClassName}
+        />
+        <Handle
+          type="source"
+          position={Position.Bottom}
+          id="bottom"
+          className={handleClassName}
+        />
+        <Handle
+          type="target"
+          position={Position.Left}
+          id="left"
+          className={handleClassName}
+        />
+        <p className="text-muted-foreground text-center text-sm">
+          Chart not available
+        </p>
+      </div>
+    );
+  }
+
   return (
     <div
       className={cn(
@@ -58,7 +111,10 @@ function ChartNodeComponent({ data, selected }: NodeProps<ChartNode>) {
       />
 
       <div className="overflow-hidden rounded-lg">
-        <DashboardMetricCard dashboardMetric={data.dashboardMetric} />
+        <DashboardMetricCard
+          dashboardMetric={dashboardMetric}
+          readOnly={data.readOnly}
+        />
       </div>
     </div>
   );
