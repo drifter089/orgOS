@@ -4,15 +4,70 @@
 
 - **Can Start**: After Plan 1 (needs pipeline concepts)
 - **Depends On**: Plan 1
-- **Enables**: Nothing (independent)
+- **Enables**: Plan 4, Plan 7
 
 ## Goals
 
-1. Split 821-line `metric.ts` into focused routers
+1. Split 867-line `metric.ts` into focused routers
 2. Extract goal operations to `goal.ts`
 3. Extract manual metric operations to `manual-metric.ts`
 4. Extract pipeline operations to `pipeline.ts`
 5. Keep `metric.ts` for CRUD only
+6. **Implement fire-and-forget pattern for pipeline operations**
+
+---
+
+## IMPORTANT: Fire-and-Forget Pipeline Pattern
+
+Pipeline operations (`refresh`, `regenerate`) should NOT block the user. The pattern:
+
+1. Set `metric.refreshStatus` = starting step
+2. Return immediately to frontend
+3. Run pipeline in background (NOT awaited)
+4. Frontend polls `pipeline.getProgress` to show progress
+
+```typescript
+// In pipeline.refresh / pipeline.regenerate:
+await ctx.db.metric.update({
+  where: { id: metricId },
+  data: { refreshStatus: "fetching-api-data" },
+});
+
+// Fire-and-forget: DO NOT await
+void runPipelineInBackground(ctx.db, metricId, config);
+
+// Return immediately
+return { success: true, started: true };
+```
+
+---
+
+## IMPORTANT: Always Use ctx.db in Routers
+
+**Current Issue**: `transformer.ts` incorrectly imports and uses `db` directly:
+
+```typescript
+// WRONG (transformer.ts line 21):
+import { db } from "@/server/db";
+await getMetricAndVerifyAccess(db, metricId, ...);
+
+// CORRECT:
+await getMetricAndVerifyAccess(ctx.db, metricId, ...);
+```
+
+**Rule**: Router procedures must ALWAYS use `ctx.db`, never import `db` directly.
+
+Helper functions that need DB access should accept `db: PrismaClient` as a parameter:
+
+```typescript
+// Helper function pattern:
+async function myHelper(db: PrismaClient, metricId: string) {
+  return db.metric.findUnique({ where: { id: metricId } });
+}
+
+// Called from router with ctx.db:
+const result = await myHelper(ctx.db, input.metricId);
+```
 
 ---
 
@@ -350,9 +405,43 @@ import { refreshMetricAndCharts } from "@/server/api/services/transformation/dat
 import { createTRPCRouter, workspaceProcedure } from "@/server/api/trpc";
 import { getMetricAndVerifyAccess } from "@/server/api/utils/authorization";
 
+/**
+ * Fire-and-forget wrapper for pipeline operations.
+ * Runs the pipeline in background, updates metric.refreshStatus on completion/error.
+ */
+async function runPipelineInBackground(
+  db: PrismaClient,
+  metricId: string,
+  forceRegenerate: boolean,
+) {
+  try {
+    const result = await refreshMetricAndCharts({
+      metricId,
+      forceRegenerate,
+    });
+
+    if (!result.success) {
+      await db.metric.update({
+        where: { id: metricId },
+        data: { refreshStatus: null, lastError: result.error },
+      });
+    }
+    // Success: refreshStatus is cleared by refreshMetricAndCharts
+  } catch (error) {
+    await db.metric.update({
+      where: { id: metricId },
+      data: {
+        refreshStatus: null,
+        lastError: error instanceof Error ? error.message : "Unknown error",
+      },
+    });
+  }
+}
+
 export const pipelineRouter = createTRPCRouter({
   /**
    * Refresh metric (soft refresh - reuse transformers)
+   * FIRE-AND-FORGET: Returns immediately, frontend polls getProgress
    */
   refresh: workspaceProcedure
     .input(z.object({ metricId: z.string() }))
@@ -363,26 +452,22 @@ export const pipelineRouter = createTRPCRouter({
         ctx.workspace.organizationId,
       );
 
-      // Use refreshMetricAndCharts from Plan 1 with forceRegenerate: false
-      const result = await refreshMetricAndCharts({
-        metricId: input.metricId,
-        forceRegenerate: false, // Soft refresh - reuse existing transformers
+      // Set initial status
+      await ctx.db.metric.update({
+        where: { id: input.metricId },
+        data: { refreshStatus: "fetching-api-data", lastError: null },
       });
 
-      if (!result.success) {
-        // Don't throw - return error info so frontend can show "Regenerate" button
-        return {
-          success: false,
-          error: result.error,
-          suggestHardRefresh: result.error?.includes("Transformer not found"),
-        };
-      }
+      // Fire-and-forget: DO NOT await
+      void runPipelineInBackground(ctx.db, input.metricId, false);
 
-      return { success: true };
+      // Return immediately - frontend polls getProgress
+      return { success: true, started: true };
     }),
 
   /**
    * Regenerate metric (hard refresh - delete old data + regenerate transformers)
+   * FIRE-AND-FORGET: Returns immediately, frontend polls getProgress
    */
   regenerate: workspaceProcedure
     .input(z.object({ metricId: z.string() }))
@@ -393,20 +478,17 @@ export const pipelineRouter = createTRPCRouter({
         ctx.workspace.organizationId,
       );
 
-      // Use refreshMetricAndCharts from Plan 1 with forceRegenerate: true
-      const result = await refreshMetricAndCharts({
-        metricId: input.metricId,
-        forceRegenerate: true, // Hard refresh - delete all and regenerate
+      // Set initial status
+      await ctx.db.metric.update({
+        where: { id: input.metricId },
+        data: { refreshStatus: "deleting-old-data", lastError: null },
       });
 
-      if (!result.success) {
-        return {
-          success: false,
-          error: result.error,
-        };
-      }
+      // Fire-and-forget: DO NOT await
+      void runPipelineInBackground(ctx.db, input.metricId, true);
 
-      return { success: true };
+      // Return immediately - frontend polls getProgress
+      return { success: true, started: true };
     }),
 
   /**
@@ -588,9 +670,11 @@ api.manualMetric.create.useMutation();
 ```typescript
 // Before:
 api.metric.addDataPoints.useMutation();
+api.transformer.updateManualChart.useMutation();
 
 // After:
 api.manualMetric.addDataPoints.useMutation();
+api.manualMetric.updateChart.useMutation();
 ```
 
 **`src/app/dashboard/[teamId]/_components/dashboard-metric-card.tsx`**:

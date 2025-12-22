@@ -558,24 +558,48 @@ const handleRefresh = () => {
 
 ---
 
-## Task 7: DELETE Old Hook
+## Task 7: Migrate ManualMetricContent.tsx
+
+**File**: `src/app/metric/_components/manual/ManualMetricContent.tsx`
+
+This file also uses `useOptimisticMetricUpdate`. Update it:
+
+```typescript
+// Before:
+import { useOptimisticMetricUpdate } from "@/hooks/use-optimistic-metric-update";
+
+const { addOptimisticChart, ... } = useOptimisticMetricUpdate({ teamId });
+
+// After:
+import { useMetricMutations } from "@/hooks/use-metric-mutations";
+
+const { create } = useMetricMutations({ teamId });
+
+// Update form submission to use the new hook
+```
+
+---
+
+## Task 8: DELETE Old Hook
 
 **File**: `src/hooks/use-optimistic-metric-update.ts`
 
-After all consumers are migrated to `useMetricMutations`:
+After ALL consumers are migrated to `useMetricMutations`:
 
 ```
-DELETE: src/hooks/use-optimistic-metric-update.ts
+DELETE: src/hooks/use-optimistic-metric-update.ts (85 lines)
 ```
 
 The new `useMetricMutations` hook provides the same functionality with cleaner API.
 
-**Consumers to migrate:**
+**All consumers to migrate (2 files):**
 
-- `src/app/metric/_components/base/MetricDialogBase.tsx`
-- Any other files using `useOptimisticMetricUpdate`
+| File                                                        | Status |
+| ----------------------------------------------------------- | ------ |
+| `src/app/metric/_components/base/MetricDialogBase.tsx`      | Task 5 |
+| `src/app/metric/_components/manual/ManualMetricContent.tsx` | Task 7 |
 
-**DO NOT just deprecate** - delete the file after migration.
+**DO NOT just deprecate** - delete the file after ALL migrations complete.
 
 ---
 
@@ -588,8 +612,9 @@ The new `useMetricMutations` hook provides the same functionality with cleaner A
 | CREATE | `src/hooks/use-pipeline-progress.ts`                               |
 | CREATE | `src/components/pipeline-progress.tsx`                             |
 | MODIFY | `src/app/metric/_components/base/MetricDialogBase.tsx`             |
+| MODIFY | `src/app/metric/_components/manual/ManualMetricContent.tsx`        |
 | MODIFY | `src/app/dashboard/[teamId]/_components/dashboard-metric-card.tsx` |
-| DELETE | `src/hooks/use-optimistic-metric-update.ts`                        |
+| DELETE | `src/hooks/use-optimistic-metric-update.ts` (85 lines)             |
 
 ---
 

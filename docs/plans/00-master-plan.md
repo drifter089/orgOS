@@ -34,12 +34,6 @@
 | --- | ----------------- | -------------------------- | -------------------------------------------- |
 | 7   | Transformer Regen | `plan-7-template-cache.md` | Granular regeneration (added to pipeline.ts) |
 
-### INDEPENDENT (Run Anytime)
-
-| #   | Plan            | File                              | Focus                                |
-| --- | --------------- | --------------------------------- | ------------------------------------ |
-| 8   | Drawer Redesign | `plan-8-chart-drawer-redesign.md` | Settings drawer UI (awaiting design) |
-
 ---
 
 ## Visual Execution Order
@@ -50,11 +44,10 @@ START
   ├───────────┬───────────┐
   │           │           │
   ▼           ▼           ▼
-┌─────┐   ┌─────┐   ┌─────┐                   ┌─────┐
-│ P1  │   │ P2  │   │ P3  │                   │ P8  │
-│Pipe │   │Goal │   │Anim │                   │Drawr│
-└──┬──┘   └─────┘   └─────┘                   └─────┘
-   │                                          (anytime)
+┌─────┐   ┌─────┐   ┌─────┐
+│ P1  │   │ P2  │   │ P3  │
+│Pipe │   │Goal │   │Anim │
+└──┬──┘   └─────┘   └─────┘
    │
    ▼
 ┌─────┐
@@ -77,15 +70,64 @@ START
 └─────┘
 
 Legend:
-- P1: Pipeline Core (metricId keying, logging, delete on refresh)
+- P1: Pipeline Core (metricId keying, logging, delete on refresh, fire-and-forget)
 - P2: Goal System (split files, goal line on chart, DELETE old file)
 - P3: Chart Animations
 - P4: Frontend Hooks (useMetricMutations, usePipelineProgress)
-- P5: Router Split (goal.ts, pipeline.ts, manual-metric.ts)
+- P5: Router Split (goal.ts, pipeline.ts, manual-metric.ts, FIRE-AND-FORGET)
 - P6: Dialog Cleanup (registry pattern, manual metrics separate)
 - P7: Transformer Regen (adds regenerateIngestionOnly, regenerateChartOnly to pipeline.ts)
-- P8: Drawer Redesign (awaiting design)
 ```
+
+---
+
+## IMPORTANT: Fire-and-Forget Pipeline Architecture
+
+The pipeline runs **without awaiting** so users get immediate response. Navigation doesn't cancel the pipeline.
+
+```
+metric.create / pipeline.refresh / pipeline.regenerate
+    │
+    ├─► 1. Create/validate records (awaited)
+    ├─► 2. Set refreshStatus = "fetching-api-data"
+    ├─► 3. Return to frontend immediately  ← User sees card with spinner
+    │
+    └─► void runPipeline()  ← Fire-and-forget (NOT awaited)
+            │
+            ├─► Fetch API data
+            ├─► Generate transformers (AI)
+            ├─► Save data points
+            ├─► Update refreshStatus at each step
+            └─► Clear refreshStatus when done (or set lastError on failure)
+```
+
+### Key Pattern
+
+```typescript
+// In metric.create mutation:
+void runPipelineInBackground(metricId, config);  // Fire-and-forget
+return { metric, dashboardChart };  // Return immediately
+```
+
+### Error Handling
+
+- Errors stored in `metric.lastError`
+- Frontend polls `pipeline.getProgress` and shows error toast
+- User retries with "Refresh" or "Hard Refresh" button
+
+---
+
+## IMPORTANT: Merge Note for dashboard-metric-chart.tsx
+
+Plans 1 and 2 both modify `dashboard-metric-chart.tsx`:
+
+| Plan   | Changes                                               |
+| ------ | ----------------------------------------------------- |
+| Plan 1 | Uses unified metadata (chartConfig.title, valueLabel) |
+| Plan 2 | Adds goal reference line (ReferenceLine component)    |
+
+**These changes are in different parts of the file** and can be merged cleanly.
+Recommended order: Run Plan 1 first (metadata), then Plan 2 (goal line).
 
 ---
 
@@ -207,12 +249,6 @@ All display metadata now comes from ChartTransformer output:
 - Transformer info display
 - **Metadata regeneration rules** (when to preserve user overrides)
 
-### Plan 8: Drawer Redesign
-
-- Complete UI overhaul
-- Awaiting design images
-- Placeholder plan
-
 ---
 
 ## Router Structure After All Plans
@@ -248,7 +284,6 @@ plan-4-frontend-hooks.md        (detailed)
 plan-5-router-split.md          (detailed)
 plan-6-dialog-cleanup.md        (detailed)
 plan-7-template-cache.md        (detailed)
-plan-8-chart-drawer-redesign.md (placeholder)
 ```
 
 ---
@@ -276,17 +311,17 @@ Start new Claude Code sessions for each plan, or use worktrees.
 
 ## Summary of New Features
 
-| Feature                              | Plan   | Status          |
-| ------------------------------------ | ------ | --------------- |
-| Independent metrics (no caching)     | Plan 1 | Detailed        |
-| Delete old data on force refetch     | Plan 1 | Detailed        |
-| Unified metadata (title, valueLabel) | Plan 1 | Detailed        |
-| Goal line on chart                   | Plan 2 | Detailed        |
-| ChartTransformer as source of truth  | Plan 2 | Detailed        |
-| Chart animations                     | Plan 3 | Detailed        |
-| Granular transformer regeneration    | Plan 7 | Detailed        |
-| Metadata regeneration rules          | Plan 7 | Detailed        |
-| Drawer redesign                      | Plan 8 | Awaiting design |
+| Feature                              | Plan   | Status   |
+| ------------------------------------ | ------ | -------- |
+| Independent metrics (no caching)     | Plan 1 | Detailed |
+| Delete old data on force refetch     | Plan 1 | Detailed |
+| Unified metadata (title, valueLabel) | Plan 1 | Detailed |
+| Fire-and-forget pipeline             | Plan 5 | Detailed |
+| Goal line on chart                   | Plan 2 | Detailed |
+| ChartTransformer as source of truth  | Plan 2 | Detailed |
+| Chart animations                     | Plan 3 | Detailed |
+| Granular transformer regeneration    | Plan 7 | Detailed |
+| Metadata regeneration rules          | Plan 7 | Detailed |
 
 ---
 
@@ -385,3 +420,81 @@ Creating a metric runs the **same pipeline steps** as a hard refresh:
 8. Save chart config
 
 The PipelineRunner class can be reused for both `metric.create` and `pipeline.regenerate`.
+
+---
+
+## Line Count Summary
+
+### Files DELETED (Permanent)
+
+| File                                        | Lines    | Plan   |
+| ------------------------------------------- | -------- | ------ |
+| `src/server/api/routers/transformer.ts`     | 132      | Plan 5 |
+| `src/server/api/utils/goal-calculation.ts`  | 494      | Plan 2 |
+| `src/hooks/use-optimistic-metric-update.ts` | 85       | Plan 4 |
+| 5 dialog wrappers (GitHub, Linear, etc.)    | ~195     | Plan 6 |
+| **Total deleted**                           | **~906** |        |
+
+### Files REDUCED
+
+| File                               | Before | After | Reduction |
+| ---------------------------------- | ------ | ----- | --------- |
+| `src/server/api/routers/metric.ts` | 867    | ~200  | 667 lines |
+
+### Net Impact
+
+With new files created for better organization, the net is approximately:
+
+- **Deletions**: ~1573 lines (906 deleted + 667 reduced)
+- **Additions**: ~1500 lines (new organized modules)
+- **Net change**: ~-73 lines (slight reduction)
+
+The real gain is **organization and reusability**, not raw line count.
+
+---
+
+## Future Optimization Opportunities
+
+These are NOT part of the current plans but noted for future work:
+
+### 1. Reduce DB Calls in goal.get
+
+Current `metric.getGoal` makes 4 separate DB calls:
+
+1. `getMetricAndVerifyAccess()`
+2. `metricGoal.findUnique()`
+3. `dashboardChart.findFirst()`
+4. `dataIngestionTransformer.findUnique()`
+
+Could be optimized to 1 call with includes:
+
+```typescript
+const metric = await ctx.db.metric.findUnique({
+  where: { id: metricId },
+  include: {
+    goal: true,
+    dashboardCharts: {
+      include: { chartTransformer: true },
+    },
+  },
+});
+```
+
+### 2. Orphaned Transformer Cleanup
+
+After deploying independent metrics (Plan 1), old shared transformers keyed by `templateId` become orphaned. Cleanup script (run once, manually):
+
+```sql
+-- Find orphaned DataIngestionTransformers
+SELECT * FROM "DataIngestionTransformer"
+WHERE "templateId" NOT LIKE 'metric_%'
+  AND "templateId" NOT IN (SELECT id FROM "Metric");
+```
+
+### 3. MetricApiLog Pruning
+
+MetricApiLog grows continuously. Consider:
+
+- TTL index (auto-delete after 30 days)
+- Archive to cold storage
+- Aggregate old logs

@@ -3,7 +3,7 @@
 ## Overview
 
 - **Can Start**: Immediately (no dependencies)
-- **Parallel With**: Plan 1, Plan 3, Plan 7
+- **Parallel With**: Plan 1, Plan 3
 - **Enables**: Nothing (independent)
 
 ## Goals
@@ -623,34 +623,90 @@ function GoalReferenceLine({ targetValue, label }: GoalLineProps) {
 
 ## Task 8: Update All Imports and DELETE Old File
 
-### Step 1: Find all imports of old file
+### Step 1: All files that import from goal-calculation.ts
 
-```bash
-grep -r "from.*goal-calculation" src/
-```
+**6 files total** need import updates:
 
-Expected files to update:
+| File                                                                 | What It Imports                            |
+| -------------------------------------------------------------------- | ------------------------------------------ |
+| `src/server/api/utils/enrich-charts-with-goal-progress.ts`           | `GoalProgress`, `calculateGoalProgress`    |
+| `src/server/api/routers/metric.ts`                                   | `calculateGoalProgress`                    |
+| `src/app/dashboard/[teamId]/_components/dashboard-metric-chart.tsx`  | `GoalProgress`, `calculateGoalTargetValue` |
+| `src/app/dashboard/[teamId]/_components/dashboard-metric-drawer.tsx` | `GoalProgress` (type only)                 |
+| `src/app/member/[id]/_components/member-goals-chart.tsx`             | `GoalProgress` (type only)                 |
+| `src/components/metric/goal-progress-display.tsx`                    | `GoalProgress`, `calculateGoalTargetValue` |
 
-- `src/server/api/utils/enrich-charts-with-goal-progress.ts`
-- Any other files importing from goal-calculation.ts
+### Step 2: Update imports in EACH file
 
-### Step 2: Update imports in each file
-
-**File**: `src/server/api/utils/enrich-charts-with-goal-progress.ts`
+**File 1**: `src/server/api/utils/enrich-charts-with-goal-progress.ts`
 
 ```typescript
 // Before:
-import { calculateGoalProgress } from "./goal-calculation";
+import { type GoalProgress, calculateGoalProgress } from "./goal-calculation";
+
+// After:
+import { type GoalProgress, calculateGoalProgress } from "@/lib/goals";
+```
+
+**File 2**: `src/server/api/routers/metric.ts`
+
+```typescript
+// Before:
+import { calculateGoalProgress } from "@/server/api/utils/goal-calculation";
 
 // After:
 import { calculateGoalProgress } from "@/lib/goals";
 ```
 
-Update ALL other files that import from `goal-calculation.ts` to use the new path.
+**File 3**: `src/app/dashboard/[teamId]/_components/dashboard-metric-chart.tsx`
+
+```typescript
+// Before:
+import type { GoalProgress } from "@/server/api/utils/goal-calculation";
+import { calculateGoalTargetValue } from "@/server/api/utils/goal-calculation";
+
+// After:
+import type { GoalProgress } from "@/lib/goals";
+import { calculateTargetDisplayValue } from "@/lib/goals";
+// NOTE: Function renamed from calculateGoalTargetValue to calculateTargetDisplayValue
+```
+
+**File 4**: `src/app/dashboard/[teamId]/_components/dashboard-metric-drawer.tsx`
+
+```typescript
+// Before:
+import type { GoalProgress } from "@/server/api/utils/goal-calculation";
+
+// After:
+import type { GoalProgress } from "@/lib/goals";
+```
+
+**File 5**: `src/app/member/[id]/_components/member-goals-chart.tsx`
+
+```typescript
+// Before:
+import type { GoalProgress } from "@/server/api/utils/goal-calculation";
+
+// After:
+import type { GoalProgress } from "@/lib/goals";
+```
+
+**File 6**: `src/components/metric/goal-progress-display.tsx`
+
+```typescript
+// Before:
+import type { GoalProgress } from "@/server/api/utils/goal-calculation";
+import { calculateGoalTargetValue } from "@/server/api/utils/goal-calculation";
+
+// After:
+import type { GoalProgress } from "@/lib/goals";
+import { calculateTargetDisplayValue } from "@/lib/goals";
+// NOTE: Function renamed from calculateGoalTargetValue to calculateTargetDisplayValue
+```
 
 ### Step 3: DELETE old file
 
-After all imports are updated, delete the old 467-line file:
+After ALL 6 imports are updated, delete the old 494-line file:
 
 ```
 DELETE: src/server/api/utils/goal-calculation.ts
@@ -662,17 +718,21 @@ DELETE: src/server/api/utils/goal-calculation.ts
 
 ## Files Summary
 
-| Action | File                                                                                |
-| ------ | ----------------------------------------------------------------------------------- |
-| CREATE | `src/lib/goals/types.ts`                                                            |
-| CREATE | `src/lib/goals/period-bounds.ts`                                                    |
-| CREATE | `src/lib/goals/progress-calculator.ts`                                              |
-| CREATE | `src/lib/goals/trend-analyzer.ts`                                                   |
-| CREATE | `src/lib/goals/value-extractor.ts`                                                  |
-| CREATE | `src/lib/goals/index.ts`                                                            |
-| DELETE | `src/server/api/utils/goal-calculation.ts`                                          |
-| MODIFY | `src/server/api/utils/enrich-charts-with-goal-progress.ts` (update import)          |
-| MODIFY | `src/app/dashboard/[teamId]/_components/dashboard-metric-chart.tsx` (add goal line) |
+| Action | File                                                                                     |
+| ------ | ---------------------------------------------------------------------------------------- |
+| CREATE | `src/lib/goals/types.ts`                                                                 |
+| CREATE | `src/lib/goals/period-bounds.ts`                                                         |
+| CREATE | `src/lib/goals/progress-calculator.ts`                                                   |
+| CREATE | `src/lib/goals/trend-analyzer.ts`                                                        |
+| CREATE | `src/lib/goals/value-extractor.ts`                                                       |
+| CREATE | `src/lib/goals/index.ts`                                                                 |
+| DELETE | `src/server/api/utils/goal-calculation.ts` (494 lines)                                   |
+| MODIFY | `src/server/api/utils/enrich-charts-with-goal-progress.ts` (update import)               |
+| MODIFY | `src/server/api/routers/metric.ts` (update import)                                       |
+| MODIFY | `src/app/dashboard/[teamId]/_components/dashboard-metric-chart.tsx` (import + goal line) |
+| MODIFY | `src/app/dashboard/[teamId]/_components/dashboard-metric-drawer.tsx` (update import)     |
+| MODIFY | `src/app/member/[id]/_components/member-goals-chart.tsx` (update import)                 |
+| MODIFY | `src/components/metric/goal-progress-display.tsx` (update import)                        |
 
 ---
 

@@ -3,8 +3,8 @@
 ## Overview
 
 - **Can Start**: Immediately (no dependencies)
-- **Parallel With**: Plan 2, Plan 3, Plan 7
-- **Enables**: Plan 4, Plan 5
+- **Parallel With**: Plan 2, Plan 3
+- **Enables**: Plan 5 (which enables Plan 4, Plan 7)
 
 ## Goals
 
@@ -14,6 +14,64 @@
 4. **DELETE all old metric datapoints on force refetch**
 5. Support different pipeline types (create, soft refresh, hard refresh)
 6. **Make ALL metrics independent (no shared transformers)**
+7. **Fire-and-forget execution** - return immediately, pipeline runs in background
+
+---
+
+## IMPORTANT: Fire-and-Forget Architecture
+
+The pipeline runs **without awaiting** so users get immediate response. If user navigates away, pipeline continues.
+
+### Flow
+
+```
+User clicks "Create Metric"
+    │
+    ▼
+┌─────────────────────────────────────┐
+│ 1. Create Metric + DashboardChart   │  ← Synchronous (awaited)
+│ 2. Set refreshStatus = "starting"   │
+│ 3. Return metric to frontend        │  ← User sees card immediately
+└─────────────────────────────────────┘
+    │
+    │  void runPipeline()  ← Fire-and-forget (NOT awaited)
+    ▼
+┌─────────────────────────────────────┐
+│ Pipeline runs in background:        │
+│ - Fetch API data                    │
+│ - Generate transformers (AI)        │
+│ - Save data points                  │
+│ - Update refreshStatus each step    │
+│ - Clear refreshStatus when done     │
+└─────────────────────────────────────┘
+    │
+    │  Frontend polls pipeline.getProgress
+    ▼
+┌─────────────────────────────────────┐
+│ User sees real-time progress        │
+│ Can navigate away - pipeline        │
+│ continues on server                 │
+└─────────────────────────────────────┘
+```
+
+### Key Pattern: `void` Keyword
+
+```typescript
+// In metric.create mutation:
+// DO NOT await the pipeline - fire and forget
+void runPipelineInBackground(metricId, pipelineConfig);
+
+// Return immediately with the created metric
+return { metric, dashboardChart };
+```
+
+### Error Handling
+
+Since pipeline is fire-and-forget:
+
+- Errors are stored in `metric.lastError`
+- Frontend polls and shows error toast when `lastError` is set
+- User can retry with "Refresh" or "Hard Refresh" button
 
 ---
 
@@ -992,10 +1050,13 @@ const displayValueLabel =
 | CREATE | `src/lib/pipeline/steps/delete-old-data.ts`                         |
 | CREATE | `src/lib/pipeline/index.ts`                                         |
 | MODIFY | `src/server/api/services/transformation/data-pipeline.ts`           |
-| MODIFY | `src/server/api/routers/metric.ts` (add getProgress)                |
+| MODIFY | `src/server/api/routers/metric.ts` (fire-and-forget pattern)        |
 | MODIFY | `src/server/api/services/transformation/ai-code-generator.ts`       |
 | MODIFY | `src/lib/metrics/transformer-types.ts`                              |
 | MODIFY | `src/app/dashboard/[teamId]/_components/dashboard-metric-chart.tsx` |
+
+> **NOTE**: `pipeline.getProgress` endpoint is created in **Plan 5** (pipeline.ts router), not here.
+> Plan 1 only sets `metric.refreshStatus` - the endpoint to query it is in Plan 5.
 
 ---
 

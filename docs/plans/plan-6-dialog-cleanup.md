@@ -204,27 +204,39 @@ export { GoalSetupStep } from "./base/GoalSetupStep";
 
 ## Task 4: Update Consumers
 
-Find all places using individual dialogs and update:
+**All consumers using dialog wrappers (2 files):**
+
+| File                                                           | Current Usage                                                              |
+| -------------------------------------------------------------- | -------------------------------------------------------------------------- |
+| `src/app/integration/page.tsx`                                 | Imports 5 dialogs, passes to `MetricDialogs` prop                          |
+| `src/app/dashboard/[teamId]/_components/dashboard-sidebar.tsx` | Imports 6 dialogs (5 + ManualMetricDialog), passes to `MetricDialogs` prop |
+
+---
+
+### Consumer 1: `src/app/integration/page.tsx`
 
 **Before**:
 
 ```tsx
 import {
   GitHubMetricDialog,
+  GoogleSheetsMetricDialog,
   LinearMetricDialog,
   PostHogMetricDialog,
+  YouTubeMetricDialog,
 } from "@/app/metric/_components";
 
-// Usage:
-{
-  integration === "github" && <GitHubMetricDialog {...props} />;
-}
-{
-  integration === "linear" && <LinearMetricDialog {...props} />;
-}
-{
-  integration === "posthog" && <PostHogMetricDialog {...props} />;
-}
+// Usage with MetricDialogs prop pattern:
+<SomeComponent
+  showMetricDialogs={true}
+  MetricDialogs={{
+    github: GitHubMetricDialog,
+    posthog: PostHogMetricDialog,
+    youtube: YouTubeMetricDialog,
+    "google-sheet": GoogleSheetsMetricDialog,
+    linear: LinearMetricDialog,
+  }}
+/>;
 ```
 
 **After**:
@@ -232,15 +244,82 @@ import {
 ```tsx
 import { MetricDialog } from "@/app/metric/_components";
 
-// Usage:
-<MetricDialog integrationId={integration} {...props} />;
+// Usage - MetricDialog handles routing by integrationId:
+<SomeComponent
+  showMetricDialogs={true}
+  MetricDialog={MetricDialog}
+  // Or render directly:
+  // <MetricDialog integrationId={selectedIntegration} {...props} />
+/>;
 ```
 
-### Files to update:
+---
 
-- `src/app/dashboard/[teamId]/_components/add-metric-button.tsx` (if exists)
-- `src/app/teams/[teamId]/_components/add-metric-menu.tsx` (if exists)
-- Any other components that render metric dialogs
+### Consumer 2: `src/app/dashboard/[teamId]/_components/dashboard-sidebar.tsx`
+
+**Before**:
+
+```tsx
+import {
+  GitHubMetricDialog,
+  GoogleSheetsMetricDialog,
+  LinearMetricDialog,
+  ManualMetricDialog,
+  PostHogMetricDialog,
+  YouTubeMetricDialog,
+} from "@/app/metric/_components";
+
+// MetricDialogs object pattern:
+MetricDialogs={{
+  github: GitHubMetricDialog,
+  posthog: PostHogMetricDialog,
+  youtube: YouTubeMetricDialog,
+  "google-sheet": GoogleSheetsMetricDialog,
+  linear: LinearMetricDialog,
+}}
+
+// ManualMetricDialog used separately (kept as-is)
+<ManualMetricDialog ... />
+```
+
+**After**:
+
+```tsx
+import { MetricDialog, ManualMetricDialog } from "@/app/metric/_components";
+
+// Unified approach - MetricDialog handles all integration types:
+<MetricDialog integrationId={selectedIntegration} {...props} />
+
+// ManualMetricDialog unchanged (separate flow)
+<ManualMetricDialog ... />
+```
+
+---
+
+### Note: Component Pattern Change
+
+The current pattern uses a `MetricDialogs` object mapping integration IDs to components.
+
+After refactor, two approaches:
+
+**Option A**: Keep object pattern, use unified component
+
+```tsx
+const MetricDialogs = {
+  github: (props) => <MetricDialog integrationId="github" {...props} />,
+  linear: (props) => <MetricDialog integrationId="linear" {...props} />,
+  // etc
+};
+```
+
+**Option B (Recommended)**: Simplify to single component
+
+```tsx
+// Just pass integrationId directly
+<MetricDialog integrationId={integration} {...props} />
+```
+
+Choose based on how deeply the `MetricDialogs` object pattern is embedded in the component hierarchy.
 
 ---
 
@@ -265,7 +344,19 @@ src/app/metric/_components/posthog/PostHogMetricContent.tsx
 src/app/metric/_components/youtube/YouTubeMetricContent.tsx
 src/app/metric/_components/google-sheets/GoogleSheetsMetricContent.tsx
 src/app/metric/_components/manual/ManualMetricContent.tsx
+src/app/metric/_components/manual/ManualMetricDialog.tsx  ← ALSO KEEP
 ```
+
+### Note on Manual Metrics
+
+`ManualMetricDialog.tsx` is **intentionally kept** (not deleted) because manual metrics:
+
+- Don't use integrations (no connectionId)
+- Don't go through the standard pipeline
+- Have different form fields (unitType, cadence instead of templateId)
+- Are excluded from the DIALOG_REGISTRY by design
+
+Manual metrics have their own separate creation flow and should NOT be unified with integration-based metrics.
 
 ---
 
@@ -304,17 +395,20 @@ Update the process for adding new integrations:
 
 ## Files Summary
 
-| Action | File                                                                    |
-| ------ | ----------------------------------------------------------------------- |
-| CREATE | `src/app/metric/_components/dialog-registry.ts`                         |
-| CREATE | `src/app/metric/_components/metric-dialog.tsx`                          |
-| MODIFY | `src/app/metric/_components/index.ts`                                   |
-| MODIFY | Consumer components (update imports)                                    |
-| DELETE | `src/app/metric/_components/github/GitHubMetricDialog.tsx`              |
-| DELETE | `src/app/metric/_components/linear/LinearMetricDialog.tsx`              |
-| DELETE | `src/app/metric/_components/posthog/PostHogMetricDialog.tsx`            |
-| DELETE | `src/app/metric/_components/youtube/YouTubeMetricDialog.tsx`            |
-| DELETE | `src/app/metric/_components/google-sheets/GoogleSheetsMetricDialog.tsx` |
+| Action | File                                                                                |
+| ------ | ----------------------------------------------------------------------------------- |
+| CREATE | `src/app/metric/_components/dialog-registry.ts`                                     |
+| CREATE | `src/app/metric/_components/metric-dialog.tsx`                                      |
+| MODIFY | `src/app/metric/_components/index.ts`                                               |
+| MODIFY | `src/app/integration/page.tsx` (update imports)                                     |
+| MODIFY | `src/app/dashboard/[teamId]/_components/dashboard-sidebar.tsx` (update imports)     |
+| DELETE | `src/app/metric/_components/github/GitHubMetricDialog.tsx` (~39 lines)              |
+| DELETE | `src/app/metric/_components/linear/LinearMetricDialog.tsx` (~39 lines)              |
+| DELETE | `src/app/metric/_components/posthog/PostHogMetricDialog.tsx` (~39 lines)            |
+| DELETE | `src/app/metric/_components/youtube/YouTubeMetricDialog.tsx` (~39 lines)            |
+| DELETE | `src/app/metric/_components/google-sheets/GoogleSheetsMetricDialog.tsx` (~39 lines) |
+
+**Total deletions**: ~195 lines (5 wrapper files)
 
 ---
 
