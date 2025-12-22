@@ -341,6 +341,20 @@ export function useTeamStore<T>(selector: (state: TeamStore) => T): T {
 }
 
 /**
+ * Safe version of useTeamStore for components that may render outside TeamStoreProvider.
+ * Returns undefined when not in provider (e.g., public views).
+ */
+export function useTeamStoreOptional<T>(
+  selector: (state: TeamStore) => T,
+): T | undefined {
+  const store = useContext(TeamStoreContext);
+  // Return undefined if no store (public view)
+  if (!store) return undefined;
+  // eslint-disable-next-line react-hooks/rules-of-hooks
+  return useStore(store, selector);
+}
+
+/**
  * Hook to get direct access to the store API for imperative state access
  * Use this when you need to get current state in callbacks (avoids stale closures)
  */

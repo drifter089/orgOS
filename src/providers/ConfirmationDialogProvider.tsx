@@ -46,6 +46,19 @@ export function useConfirmation() {
   return context;
 }
 
+/**
+ * Safe version of useConfirmation for components that may render outside ConfirmationDialogProvider.
+ * Returns a no-op confirm function when not in provider (e.g., public views).
+ */
+export function useConfirmationOptional() {
+  const context = useContext(ConfirmationContext);
+  // Return a no-op confirm that always returns false when not in provider
+  if (!context) {
+    return { confirm: async () => false };
+  }
+  return context;
+}
+
 interface ConfirmationDialogProviderProps {
   children: ReactNode;
 }
