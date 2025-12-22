@@ -39,6 +39,19 @@ interface TransformResult {
   error?: string;
 }
 
+/**
+ * Controls whether raw metric API responses are persisted to the database.
+ *
+ * - Enabled by default in non-production environments for debugging.
+ * - In production, only enabled when METRIC_API_LOGGING === "true".
+ *
+ * This keeps functional behavior identical while reducing write load in
+ * production by disabling debug logging unless explicitly opted in.
+ */
+const METRIC_LOGGING_ENABLED =
+  process.env.NODE_ENV !== "production" ||
+  process.env.METRIC_API_LOGGING === "true";
+
 function dimensionsToJson(
   dimensions: Record<string, unknown> | null,
 ): Prisma.NullableJsonNullValueInput | Prisma.InputJsonValue {
@@ -78,38 +91,42 @@ export async function ingestMetricData(
     apiData = response.data;
 
     // Save raw API response for debugging (dev tool)
-    await db.metricApiLog
-      .create({
-        data: {
-          metricId: input.metricId,
-          rawResponse: apiData as Prisma.InputJsonValue,
-          endpoint: template.metricEndpoint,
-          endpointConfig: input.endpointConfig as Prisma.InputJsonValue,
-          success: true,
-        },
-      })
-      .catch(() => {
-        // Don't fail the main operation if logging fails
-      });
+    if (METRIC_LOGGING_ENABLED) {
+      await db.metricApiLog
+        .create({
+          data: {
+            metricId: input.metricId,
+            rawResponse: apiData as Prisma.InputJsonValue,
+            endpoint: template.metricEndpoint,
+            endpointConfig: input.endpointConfig as Prisma.InputJsonValue,
+            success: true,
+          },
+        })
+        .catch(() => {
+          // Don't fail the main operation if logging fails
+        });
+    }
   } catch (error) {
     const errorMsg = error instanceof Error ? error.message : "Unknown error";
     console.error(`[Transform] ERROR: Failed to fetch data: ${errorMsg}`);
 
     // Log failed API call
-    await db.metricApiLog
-      .create({
-        data: {
-          metricId: input.metricId,
-          rawResponse: Prisma.JsonNull,
-          endpoint: template.metricEndpoint,
-          endpointConfig: input.endpointConfig as Prisma.InputJsonValue,
-          success: false,
-          error: errorMsg,
-        },
-      })
-      .catch(() => {
-        // Ignore logging errors
-      });
+    if (METRIC_LOGGING_ENABLED) {
+      await db.metricApiLog
+        .create({
+          data: {
+            metricId: input.metricId,
+            rawResponse: Prisma.JsonNull,
+            endpoint: template.metricEndpoint,
+            endpointConfig: input.endpointConfig as Prisma.InputJsonValue,
+            success: false,
+            error: errorMsg,
+          },
+        })
+        .catch(() => {
+          // Ignore logging errors
+        });
+    }
 
     return { success: false, error: `Failed to fetch data: ${errorMsg}` };
   }
@@ -356,37 +373,41 @@ export async function refreshMetricDataPoints(input: {
     apiData = response.data;
 
     // Save raw API response for debugging (dev tool)
-    await db.metricApiLog
-      .create({
-        data: {
-          metricId: input.metricId,
-          rawResponse: apiData as Prisma.InputJsonValue,
-          endpoint: template.metricEndpoint,
-          endpointConfig: input.endpointConfig as Prisma.InputJsonValue,
-          success: true,
-        },
-      })
-      .catch(() => {
-        // Don't fail the main operation if logging fails
-      });
+    if (METRIC_LOGGING_ENABLED) {
+      await db.metricApiLog
+        .create({
+          data: {
+            metricId: input.metricId,
+            rawResponse: apiData as Prisma.InputJsonValue,
+            endpoint: template.metricEndpoint,
+            endpointConfig: input.endpointConfig as Prisma.InputJsonValue,
+            success: true,
+          },
+        })
+        .catch(() => {
+          // Don't fail the main operation if logging fails
+        });
+    }
   } catch (error) {
     const errorMsg = error instanceof Error ? error.message : "Unknown error";
 
     // Log failed API call
-    await db.metricApiLog
-      .create({
-        data: {
-          metricId: input.metricId,
-          rawResponse: Prisma.JsonNull,
-          endpoint: template.metricEndpoint,
-          endpointConfig: input.endpointConfig as Prisma.InputJsonValue,
-          success: false,
-          error: errorMsg,
-        },
-      })
-      .catch(() => {
-        // Ignore logging errors
-      });
+    if (METRIC_LOGGING_ENABLED) {
+      await db.metricApiLog
+        .create({
+          data: {
+            metricId: input.metricId,
+            rawResponse: Prisma.JsonNull,
+            endpoint: template.metricEndpoint,
+            endpointConfig: input.endpointConfig as Prisma.InputJsonValue,
+            success: false,
+            error: errorMsg,
+          },
+        })
+        .catch(() => {
+          // Ignore logging errors
+        });
+    }
 
     return { success: false, error: `Failed to fetch data: ${errorMsg}` };
   }
