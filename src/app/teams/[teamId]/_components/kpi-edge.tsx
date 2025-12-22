@@ -49,10 +49,16 @@ export function KpiEdge({
     return null;
   }
 
-  // Calculate floating edge path
+  // Determine direction: arrow should always point from role-node TO chart-node
+  // Swap nodes if source is chart-node so arrow points correctly
+  const sourceIsChart = sourceNode.type === "chart-node";
+  const fromNode = sourceIsChart ? targetNode : sourceNode;
+  const toNode = sourceIsChart ? sourceNode : targetNode;
+
+  // Calculate floating edge path (from role to chart)
   const { sx, sy, tx, ty, sourcePos, targetPos } = getFloatingEdgeParams(
-    sourceNode,
-    targetNode,
+    fromNode,
+    toNode,
   );
   const [edgePath, labelX, labelY] = getBezierPath({
     sourceX: sx,
@@ -104,14 +110,14 @@ export function KpiEdge({
             />
           </stop>
         </linearGradient>
-        {/* Arrow marker for KPI edge (Chart → Role direction) */}
+        {/* Arrow marker for KPI edge (Role → Chart direction) */}
         <marker
           id={markerId}
           viewBox="0 0 10 10"
           refX="10"
           refY="5"
-          markerWidth="16"
-          markerHeight="16"
+          markerWidth="6"
+          markerHeight="6"
           orient="auto-start-reverse"
         >
           <path d="M 0 0 L 10 5 L 0 10 z" fill="hsl(var(--primary))" />
