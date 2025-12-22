@@ -1,6 +1,11 @@
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 
+import {
+  type ChartDataForGoal,
+  type GoalInput,
+  calculateGoalProgress,
+} from "@/lib/goals";
 import { getTemplate } from "@/lib/integrations";
 import type { ChartConfig } from "@/lib/metrics/transformer-types";
 import { fetchData } from "@/server/api/services/data-fetching";
@@ -15,7 +20,6 @@ import {
   getTeamAndVerifyAccess,
 } from "@/server/api/utils/authorization";
 import { invalidateCacheByTags } from "@/server/api/utils/cache-strategy";
-import { calculateGoalProgress } from "@/server/api/utils/goal-calculation";
 
 export const metricRouter = createTRPCRouter({
   // ===========================================================================
@@ -432,7 +436,27 @@ export const metricRouter = createTRPCRouter({
         };
       }
 
-      const progress = calculateGoalProgress(goal, cadence, chartConfig);
+      // Convert MetricGoal to GoalInput
+      const goalInput: GoalInput = {
+        goalType: goal.goalType,
+        targetValue: goal.targetValue,
+        baselineValue: goal.baselineValue,
+        baselineTimestamp: goal.baselineTimestamp,
+        onTrackThreshold: goal.onTrackThreshold,
+      };
+
+      // Convert ChartConfig to ChartDataForGoal
+      const chartDataForGoal: ChartDataForGoal = {
+        chartData: chartConfig?.chartData ?? [],
+        xAxisKey: chartConfig?.xAxisKey ?? "date",
+        dataKeys: chartConfig?.dataKeys ?? [],
+      };
+
+      const progress = calculateGoalProgress(
+        goalInput,
+        cadence,
+        chartDataForGoal,
+      );
       return {
         goal,
         progress,

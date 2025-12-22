@@ -14,12 +14,11 @@ import {
 
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { type GoalProgress, calculateTargetDisplayValue } from "@/lib/goals";
 import { formatCadence } from "@/lib/helpers/format-cadence";
 import { formatValue } from "@/lib/helpers/format-value";
 import type { LatestMetricValue } from "@/lib/metrics/get-latest-value";
 import { cn } from "@/lib/utils";
-import type { GoalProgress } from "@/server/api/utils/goal-calculation";
-import { calculateGoalTargetValue } from "@/server/api/utils/goal-calculation";
 
 interface GoalProgressDisplayProps {
   currentValue: LatestMetricValue | null;
@@ -123,7 +122,13 @@ export function GoalProgressDisplay({
   const hasGoal = !!goal;
   const hasData = currentValue !== null;
   const goalTargetValue =
-    goal && goalProgress ? calculateGoalTargetValue(goal, goalProgress) : null;
+    goal && goalProgress
+      ? calculateTargetDisplayValue(
+          goal.goalType,
+          goal.targetValue,
+          goal.baselineValue ?? goalProgress.baselineValue,
+        )
+      : null;
 
   return (
     <div className="space-y-4 rounded-lg border p-4">

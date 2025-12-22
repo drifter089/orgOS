@@ -34,10 +34,10 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import type { GoalProgress } from "@/lib/goals";
 import { getLatestMetricValue } from "@/lib/metrics/get-latest-value";
 import { getPlatformConfig } from "@/lib/platform-config";
 import { cn } from "@/lib/utils";
-import type { GoalProgress } from "@/server/api/utils/goal-calculation";
 
 import type { ChartTransformResult } from "./dashboard-metric-card";
 import {

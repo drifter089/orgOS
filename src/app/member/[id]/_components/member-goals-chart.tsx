@@ -8,7 +8,7 @@ import {
   ChartTooltip,
   ChartTooltipContent,
 } from "@/components/ui/chart";
-import type { GoalProgress } from "@/server/api/utils/goal-calculation";
+import type { GoalProgress } from "@/lib/goals";
 
 interface GoalData {
   goalName: string;
