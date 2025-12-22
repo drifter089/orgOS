@@ -704,58 +704,10 @@ export async function refreshMetricAndCharts(
 
 ---
 
-## Task 7: Add getProgress Endpoint
+## Task 7: ~~Add getProgress Endpoint~~ → See Plan 5
 
-**File**: `src/server/api/routers/metric.ts` (add to existing)
-
-```typescript
-getProgress: protectedProcedure
-  .input(z.object({ metricId: z.string() }))
-  .query(async ({ ctx, input }) => {
-    // Get current refresh status
-    const metric = await ctx.db.metric.findUnique({
-      where: { id: input.metricId },
-      select: { refreshStatus: true, lastError: true },
-    });
-
-    if (!metric?.refreshStatus) {
-      return {
-        isProcessing: false,
-        currentStep: null,
-        completedSteps: [],
-        error: metric?.lastError,
-      };
-    }
-
-    // Get recent pipeline logs (last 5 minutes)
-    const recentLogs = await ctx.db.metricApiLog.findMany({
-      where: {
-        metricId: input.metricId,
-        endpoint: { startsWith: "pipeline:" },
-        createdAt: { gte: new Date(Date.now() - 5 * 60 * 1000) },
-      },
-      orderBy: { createdAt: "asc" },
-    });
-
-    const completedSteps = recentLogs.map((log) => {
-      const response = log.rawResponse as Record<string, unknown>;
-      return {
-        step:
-          (response?.step as string) ?? log.endpoint.replace("pipeline:", ""),
-        displayName: (response?.displayName as string) ?? "",
-        status: log.success ? ("completed" as const) : ("failed" as const),
-        durationMs: response?.durationMs as number | undefined,
-      };
-    });
-
-    return {
-      isProcessing: true,
-      currentStep: metric.refreshStatus,
-      completedSteps,
-      error: null,
-    };
-  }),
-```
+> **NOTE**: The `getProgress` endpoint is defined in **Plan 5 (Router Split)** as part of `pipeline.ts` router.
+> Plan 1 only sets `metric.refreshStatus` - the endpoint to query it is in Plan 5.
 
 ---
 
@@ -801,7 +753,8 @@ console.log(`Found ${orphanedTransformers.length} orphaned transformers`);
 | CREATE | `src/lib/pipeline/steps/delete-old-data.ts`               |
 | CREATE | `src/lib/pipeline/index.ts`                               |
 | MODIFY | `src/server/api/services/transformation/data-pipeline.ts` |
-| MODIFY | `src/server/api/routers/metric.ts` (add getProgress)      |
+
+> **NOTE**: `getProgress` endpoint is added in Plan 5 (`pipeline.ts` router), not here.
 
 ---
 
@@ -1039,3 +992,60 @@ const displayValueLabel =
 - [ ] Goal calculation uses same chartConfig data
 - [ ] User can override title/description/valueLabel
 - [ ] Overrides persist through soft refresh
+
+---
+
+## WHAT NOT TO DO
+
+### DO NOT:
+
+1. **DO NOT use `templateId` as transformer cache key**
+   - BEFORE: `const cacheKey = input.templateId` (SHARED)
+   - AFTER: `const cacheKey = input.metricId` (INDEPENDENT)
+   - This is THE CORE CHANGE of this plan
+
+2. **DO NOT auto-retry transformer generation on failure**
+   - Show error with prominent "Regenerate" button
+   - Let user decide when to retry
+   - Error message should suggest: "Try 'Hard Refresh' to regenerate transformer"
+
+3. **DO NOT auto-migrate old metrics on soft refresh**
+   - Soft refresh for old metrics (no transformer found) → Show error
+   - Error message: "Transformer not found. Use 'Hard Refresh' to regenerate."
+   - Only hard refresh creates new independent transformer
+
+4. **DO NOT skip logging to MetricApiLog**
+   - Log ALL pipeline events: start, step completion, errors
+   - Use consistent format: `pipeline:{step-name}`
+   - Include timestamp and duration in rawResponse
+
+5. **DO NOT delete metric config on failure**
+   - Only clear `refreshStatus` and set `lastError`
+   - Never delete the Metric or DashboardChart records
+   - Data points CAN be deleted on hard refresh (intentional)
+
+6. **DO NOT regenerate ChartTransformer metadata on soft refresh**
+   - Soft refresh: re-fetch data, re-run existing transformers
+   - Metadata (title, description, valueLabel) is preserved
+   - Only hard refresh regenerates metadata
+
+7. **DO NOT show warnings when user edits metadata**
+   - User edits title/description → auto-save as override
+   - No confirmation dialog, no warning toast
+   - Simpler UX
+
+8. **DO NOT create fallback chains for title/description**
+   - Single source: `chartConfig.title`, `chartConfig.description`, `chartConfig.valueLabel`
+   - User overrides: `chartConfig.titleOverride` etc.
+   - Display: `titleOverride ?? title`
+
+---
+
+## Key Decisions Made
+
+| Decision           | Choice                                          | Rationale                  |
+| ------------------ | ----------------------------------------------- | -------------------------- |
+| Error handling     | Show error + suggest action                     | User controls retry timing |
+| Migration strategy | Soft refresh shows error, hard refresh migrates | Minimal disruption         |
+| Logging level      | Log everything to MetricApiLog                  | Better debugging           |
+| User override UX   | Auto-save as override (no warning)              | Simpler UX                 |

@@ -4,19 +4,19 @@
 
 ### PARALLEL GROUP 1 (Start Immediately - No Dependencies)
 
-| #   | Plan              | File                         | Focus                                                                              |
-| --- | ----------------- | ---------------------------- | ---------------------------------------------------------------------------------- |
-| 1   | Pipeline Core     | `plan-1-pipeline-core.md`    | Pipeline abstraction, logging, **independent metrics**, delete old data on refresh |
-| 2   | Goal System       | `plan-2-goal-system.md`      | Split goal-calculation.ts + goal line on charts                                    |
-| 3   | Chart Animations  | `plan-3-chart-animations.md` | Smooth entry animations on every load                                              |
-| 7   | Transformer Regen | `plan-7-template-cache.md`   | Independent transformer regeneration (data vs chart)                               |
+| #   | Plan             | File                         | Focus                                                                              |
+| --- | ---------------- | ---------------------------- | ---------------------------------------------------------------------------------- |
+| 1   | Pipeline Core    | `plan-1-pipeline-core.md`    | Pipeline abstraction, logging, **independent metrics**, delete old data on refresh |
+| 2   | Goal System      | `plan-2-goal-system.md`      | Split goal-calculation.ts + goal line on charts                                    |
+| 3   | Chart Animations | `plan-3-chart-animations.md` | Smooth entry animations on every load                                              |
 
 ### SEQUENTIAL GROUP 2 (After Plan 1)
 
-| #   | Plan           | File                       | Focus                                |
-| --- | -------------- | -------------------------- | ------------------------------------ |
-| 4   | Frontend Hooks | `plan-4-frontend-hooks.md` | Reusable mutations, progress UI      |
-| 5   | Router Split   | `plan-5-router-split.md`   | Split metric.ts into focused routers |
+| #   | Plan              | File                       | Focus                                          |
+| --- | ----------------- | -------------------------- | ---------------------------------------------- |
+| 4   | Frontend Hooks    | `plan-4-frontend-hooks.md` | Reusable mutations, progress UI                |
+| 5   | Router Split      | `plan-5-router-split.md`   | Split metric.ts into focused routers           |
+| 7   | Transformer Regen | `plan-7-template-cache.md` | Independent transformer regeneration (uses P1) |
 
 ### SEQUENTIAL GROUP 3 (After Plan 4)
 
@@ -37,27 +37,37 @@
 ```
 START
   │
-  ├───────────┬───────────┬───────────┬───────────┐
-  │           │           │           │           │
-  ▼           ▼           ▼           ▼           │
-┌─────┐   ┌─────┐   ┌─────┐   ┌─────┐           │
-│ P1  │   │ P2  │   │ P3  │   │ P7  │           │
-│Pipe │   │Goal │   │Anim │   │Regen│           │
-└──┬──┘   └─────┘   └─────┘   └─────┘           │
-   │                                             │
-   ├──────────────┐                              │
-   │              │                              │
-   ▼              ▼                              ▼
-┌─────┐       ┌─────┐                        ┌─────┐
-│ P4  │       │ P5  │                        │ P8  │
-│Hooks│       │Route│                        │Drawr│
-└──┬──┘       └─────┘                        └─────┘
+  ├───────────┬───────────┐
+  │           │           │
+  ▼           ▼           ▼
+┌─────┐   ┌─────┐   ┌─────┐                   ┌─────┐
+│ P1  │   │ P2  │   │ P3  │                   │ P8  │
+│Pipe │   │Goal │   │Anim │                   │Drawr│
+└──┬──┘   └─────┘   └─────┘                   └─────┘
+   │                                          (anytime)
+   ├──────────────┬───────────┐
+   │              │           │
+   ▼              ▼           ▼
+┌─────┐       ┌─────┐     ┌─────┐
+│ P4  │       │ P5  │     │ P7  │
+│Hooks│       │Route│     │Regen│
+└──┬──┘       └─────┘     └─────┘
    │
    ▼
 ┌─────┐
 │ P6  │
 │Dialg│
 └─────┘
+
+Legend:
+- P1: Pipeline Core (metricId keying, logging, delete on refresh)
+- P2: Goal System (split files, goal line on chart)
+- P3: Chart Animations
+- P4: Frontend Hooks (useOptimisticMutation, usePipelineProgress)
+- P5: Router Split (goal.ts, pipeline.ts, manual-metric.ts)
+- P6: Dialog Cleanup (registry pattern)
+- P7: Transformer Regen (regenerate data/chart independently)
+- P8: Drawer Redesign (awaiting design)
 ```
 
 ---
@@ -238,3 +248,31 @@ Old metrics on production will continue to work. When you do a **hard refresh** 
 2. Creates new independent transformer for that metric
 3. Old shared transformer becomes orphaned (can cleanup later)
 4. **No migration needed**
+
+---
+
+## Key Architecture Decisions
+
+These decisions apply across ALL plans:
+
+| Decision               | Choice                             | Rationale                                |
+| ---------------------- | ---------------------------------- | ---------------------------------------- |
+| Transformer cache key  | `metricId` (not `templateId`)      | Each metric independent, no shared state |
+| Error handling         | Show error + suggest action        | User controls retry, no auto-retry       |
+| Soft refresh migration | Show error, suggest hard refresh   | Minimal disruption to existing users     |
+| Logging                | Log everything to MetricApiLog     | Better debugging, existing table         |
+| User override UX       | Auto-save as override (no warning) | Simpler UX, less friction                |
+| Metadata source        | ChartTransformer output only       | Single source of truth, no fallbacks     |
+
+---
+
+## WHAT NOT TO DO (Global Rules)
+
+1. **DO NOT use `templateId` as transformer cache key** - Always `metricId`
+2. **DO NOT auto-retry on transformer failure** - Show error, let user decide
+3. **DO NOT auto-migrate old metrics on soft refresh** - Require hard refresh
+4. **DO NOT skip MetricApiLog logging** - Log all pipeline events
+5. **DO NOT show warnings when user edits metadata** - Auto-save as override
+6. **DO NOT create fallback chains** - Single source: `chartConfig.*`
+7. **DO NOT use `db` directly in routers** - Always `ctx.db`
+8. **DO NOT regenerate metadata on soft refresh** - Only on hard refresh

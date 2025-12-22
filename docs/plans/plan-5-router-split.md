@@ -351,6 +351,7 @@ export const manualMetricRouter = createTRPCRouter({
 ```typescript
 import { z } from "zod";
 
+import { refreshMetricAndCharts } from "@/server/api/services/transformation/data-pipeline";
 import { createTRPCRouter, protectedProcedure } from "@/server/api/trpc";
 import { getMetricAndVerifyAccess } from "@/server/api/utils/authorization";
 
@@ -361,36 +362,56 @@ export const pipelineRouter = createTRPCRouter({
   refresh: protectedProcedure
     .input(z.object({ metricId: z.string() }))
     .mutation(async ({ ctx, input }) => {
-      await getMetricAndVerifyAccess(
+      const metric = await getMetricAndVerifyAccess(
         ctx.db,
         input.metricId,
         ctx.user.id,
         ctx.workspace,
       );
 
-      // Import and use pipeline from Plan 1
-      // const runner = new PipelineRunner(ctx, "soft-refresh");
-      // await runner.run();
+      // Use refreshMetricAndCharts from Plan 1 with forceRegenerate: false
+      const result = await refreshMetricAndCharts({
+        metricId: input.metricId,
+        forceRegenerate: false, // Soft refresh - reuse existing transformers
+      });
+
+      if (!result.success) {
+        // Don't throw - return error info so frontend can show "Regenerate" button
+        return {
+          success: false,
+          error: result.error,
+          suggestHardRefresh: result.error?.includes("Transformer not found"),
+        };
+      }
 
       return { success: true };
     }),
 
   /**
-   * Regenerate metric (hard refresh - delete old data)
+   * Regenerate metric (hard refresh - delete old data + regenerate transformers)
    */
   regenerate: protectedProcedure
     .input(z.object({ metricId: z.string() }))
     .mutation(async ({ ctx, input }) => {
-      await getMetricAndVerifyAccess(
+      const metric = await getMetricAndVerifyAccess(
         ctx.db,
         input.metricId,
         ctx.user.id,
         ctx.workspace,
       );
 
-      // Import and use pipeline from Plan 1
-      // const runner = new PipelineRunner(ctx, "hard-refresh");
-      // await runner.run();
+      // Use refreshMetricAndCharts from Plan 1 with forceRegenerate: true
+      const result = await refreshMetricAndCharts({
+        metricId: input.metricId,
+        forceRegenerate: true, // Hard refresh - delete all and regenerate
+      });
+
+      if (!result.success) {
+        return {
+          success: false,
+          error: result.error,
+        };
+      }
 
       return { success: true };
     }),
