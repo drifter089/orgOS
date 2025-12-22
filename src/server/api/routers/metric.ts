@@ -357,8 +357,21 @@ export const metricRouter = createTRPCRouter({
         select: {
           chartConfig: true,
           chartTransformer: { select: { cadence: true } },
+          metric: { select: { integrationId: true, endpointConfig: true } },
         },
       });
+
+      // Manual metrics store cadence in endpointConfig (lowercase), convert to uppercase Prisma Cadence
+      const isManualMetric = dashboardChart?.metric?.integrationId === null;
+      const rawManualCadence = (
+        dashboardChart?.metric?.endpointConfig as { cadence?: string } | null
+      )?.cadence;
+      const manualCadence = rawManualCadence
+        ? (rawManualCadence.toUpperCase() as "DAILY" | "WEEKLY" | "MONTHLY")
+        : null;
+      const cadence = isManualMetric
+        ? manualCadence
+        : (dashboardChart?.chartTransformer?.cadence ?? null);
 
       // Get valueLabel from DataIngestionTransformer
       let valueLabel: string | null = null;
@@ -400,7 +413,7 @@ export const metricRouter = createTRPCRouter({
         return {
           goal: null,
           progress: null,
-          cadence: dashboardChart?.chartTransformer?.cadence ?? null,
+          cadence,
           currentValue,
           currentValueLabel,
           valueLabel,
@@ -408,7 +421,7 @@ export const metricRouter = createTRPCRouter({
       }
 
       // If no chart or no cadence, return goal without progress
-      if (!dashboardChart?.chartTransformer?.cadence) {
+      if (!cadence) {
         return {
           goal,
           progress: null,
@@ -419,15 +432,11 @@ export const metricRouter = createTRPCRouter({
         };
       }
 
-      const progress = calculateGoalProgress(
-        goal,
-        dashboardChart.chartTransformer.cadence,
-        chartConfig,
-      );
+      const progress = calculateGoalProgress(goal, cadence, chartConfig);
       return {
         goal,
         progress,
-        cadence: dashboardChart.chartTransformer.cadence,
+        cadence,
         currentValue,
         currentValueLabel,
         valueLabel,
@@ -672,6 +681,11 @@ export const metricRouter = createTRPCRouter({
           }),
         ),
       );
+
+      await ctx.db.metric.update({
+        where: { id: input.metricId },
+        data: { lastFetchedAt: new Date() },
+      });
 
       return {
         success: true,

@@ -28,6 +28,7 @@ interface RepoOption {
   name: string;
 }
 
+// Template IDs: github-code-frequency, github-commit-activity, github-pull-requests
 const METRIC_OPTIONS: Array<{
   value: MetricType;
   label: string;
