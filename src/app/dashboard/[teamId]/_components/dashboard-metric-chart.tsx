@@ -1,5 +1,7 @@
 "use client";
 
+import { useMemo } from "react";
+
 import type { MetricGoal, Role } from "@prisma/client";
 import { AlertTriangle, Info, Loader2, Target, User } from "lucide-react";
 import {
@@ -154,6 +156,15 @@ export function DashboardMetricChart({
 
   const currentValue = getLatestMetricValue(chartTransform);
 
+  // Generate a key that changes when chart data changes to trigger animation replay
+  const chartKey = useMemo(() => {
+    const chartData = chartTransform?.chartData;
+    if (!chartData || chartData.length === 0) return "empty";
+    const first = JSON.stringify(chartData[0]);
+    const last = JSON.stringify(chartData[chartData.length - 1]);
+    return `${first}-${last}-${chartData.length}`;
+  }, [chartTransform?.chartData]);
+
   const renderChart = () => {
     if (!chartTransform) return null;
 
@@ -284,7 +295,7 @@ export function DashboardMetricChart({
                 }
               />
             )}
-            {dataKeys.map((key) => (
+            {dataKeys.map((key, index) => (
               <Area
                 key={key}
                 dataKey={key}
@@ -292,6 +303,10 @@ export function DashboardMetricChart({
                 fill={`url(#fill${key})`}
                 stroke={`var(--color-${key})`}
                 stackId={stacked ? "a" : undefined}
+                isAnimationActive={true}
+                animationDuration={800}
+                animationEasing="ease-out"
+                animationBegin={index * 100}
               />
             ))}
             {showLegend && <ChartLegend content={<ChartLegendContent />} />}
@@ -361,13 +376,17 @@ export function DashboardMetricChart({
                 content={<ChartTooltipContent indicator="dashed" />}
               />
             )}
-            {dataKeys.map((key) => (
+            {dataKeys.map((key, index) => (
               <Bar
                 key={key}
                 dataKey={key}
                 fill={`var(--color-${key})`}
                 radius={4}
                 stackId={stacked ? "a" : undefined}
+                isAnimationActive={true}
+                animationDuration={600}
+                animationEasing="ease-out"
+                animationBegin={index * 80}
               />
             ))}
             {showLegend && <ChartLegend content={<ChartLegendContent />} />}
@@ -398,6 +417,9 @@ export function DashboardMetricChart({
               innerRadius={60}
               outerRadius={100}
               strokeWidth={2}
+              isAnimationActive={true}
+              animationDuration={800}
+              animationEasing="ease-out"
             >
               {chartData.map((entry, index) => (
                 <Cell
@@ -462,7 +484,7 @@ export function DashboardMetricChart({
             )}
             <PolarAngleAxis dataKey={xAxisKey} />
             <PolarGrid />
-            {dataKeys.map((key) => (
+            {dataKeys.map((key, index) => (
               <Radar
                 key={key}
                 dataKey={key}
@@ -472,6 +494,10 @@ export function DashboardMetricChart({
                   r: 4,
                   fillOpacity: 1,
                 }}
+                isAnimationActive={true}
+                animationDuration={800}
+                animationEasing="ease-out"
+                animationBegin={index * 100}
               />
             ))}
             {showLegend && <ChartLegend content={<ChartLegendContent />} />}
@@ -496,7 +522,12 @@ export function DashboardMetricChart({
               />
             )}
             <PolarGrid gridType="circle" />
-            <RadialBar dataKey={dataKey}>
+            <RadialBar
+              dataKey={dataKey}
+              isAnimationActive={true}
+              animationDuration={1000}
+              animationEasing="ease-out"
+            >
               {centerLabel && (
                 <Label
                   content={({ viewBox }) => {
@@ -570,12 +601,16 @@ export function DashboardMetricChart({
               content={<ChartTooltipContent indicator="dashed" />}
             />
           )}
-          {dataKeys.map((key) => (
+          {dataKeys.map((key, index) => (
             <Bar
               key={key}
               dataKey={key}
               fill={`var(--color-${key})`}
               radius={4}
+              isAnimationActive={true}
+              animationDuration={600}
+              animationEasing="ease-out"
+              animationBegin={index * 80}
             />
           ))}
           {showLegend && <ChartLegend content={<ChartLegendContent />} />}
@@ -586,7 +621,7 @@ export function DashboardMetricChart({
 
   return (
     <Card
-      className={`flex h-[420px] flex-col ${isPending ? "animate-pulse opacity-70" : ""}`}
+      className={`animate-in fade-in flex h-[420px] flex-col duration-300 ${isPending ? "animate-pulse opacity-70" : ""}`}
     >
       <CardHeader className="flex-shrink-0 space-y-0.5 px-5 pt-3 pb-1">
         <div className="flex items-center justify-between gap-2">
@@ -729,7 +764,11 @@ export function DashboardMetricChart({
       </CardHeader>
 
       <CardContent className="relative flex flex-1 flex-col overflow-hidden px-4 pt-0 pb-4">
-        {hasChartData && renderChart()}
+        {hasChartData && (
+          <div key={chartKey} className="h-full w-full">
+            {renderChart()}
+          </div>
+        )}
 
         {!hasChartData && !isProcessing && !loadingPhase && (
           <div className="text-muted-foreground flex flex-1 items-center justify-center rounded-md border border-dashed p-4 text-center text-sm">
