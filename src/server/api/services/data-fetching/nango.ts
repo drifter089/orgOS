@@ -42,13 +42,16 @@ export async function fetchData(
 
   // Replace params in body if it's a string template
   let finalBody = options?.body;
-  if (typeof finalBody === "string" && options?.params) {
-    Object.entries(options.params).forEach(([key, value]) => {
-      finalBody = (finalBody as string).replace(
-        new RegExp(`\\{${key}\\}`, "g"),
-        value,
-      );
-    });
+  if (typeof finalBody === "string") {
+    if (options?.params) {
+      Object.entries(options.params).forEach(([key, value]) => {
+        finalBody = (finalBody as string).replace(
+          new RegExp(`\\{${key}\\}`, "g"),
+          value,
+        );
+      });
+    }
+    // Parse JSON bodies even without params (needed for GraphQL dropdown queries)
     try {
       finalBody = JSON.parse(finalBody);
     } catch {
