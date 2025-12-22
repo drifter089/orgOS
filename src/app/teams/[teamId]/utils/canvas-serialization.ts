@@ -164,3 +164,68 @@ export function enrichNodesWithRoleData(
     })
     .filter((node): node is TeamNode => node !== null);
 }
+
+/**
+ * Clean up orphaned role nodes whose roleId no longer exists in the database.
+ * This is a background cleanup utility that can be triggered manually.
+ *
+ * @param storedNodes - The raw nodes from database
+ * @param validRoleIds - Set of role IDs that actually exist in the database
+ * @returns Object with cleaned nodes, removed count, and list of removed node IDs
+ */
+export function cleanupOrphanedRoleNodes(
+  storedNodes: StoredNode[],
+  validRoleIds: Set<string>,
+): {
+  cleanedNodes: StoredNode[];
+  removedCount: number;
+  removedNodeIds: string[];
+} {
+  const removedNodeIds: string[] = [];
+
+  const cleanedNodes = storedNodes.filter((node) => {
+    // Keep non-role nodes
+    if (node.type !== "role-node") return true;
+
+    const roleId = node.data?.roleId;
+    // Remove if roleId is missing or doesn't exist in the valid set
+    if (!roleId || !validRoleIds.has(roleId)) {
+      removedNodeIds.push(node.id);
+      return false;
+    }
+    return true;
+  });
+
+  return {
+    cleanedNodes,
+    removedCount: removedNodeIds.length,
+    removedNodeIds,
+  };
+}
+
+/**
+ * Clean up edges connected to removed nodes.
+ *
+ * @param storedEdges - The raw edges from database
+ * @param removedNodeIds - List of node IDs that were removed
+ * @returns Object with cleaned edges and removed count
+ */
+export function cleanupOrphanedEdges(
+  storedEdges: StoredEdge[],
+  removedNodeIds: string[],
+): {
+  cleanedEdges: StoredEdge[];
+  removedCount: number;
+} {
+  const removedNodeIdSet = new Set(removedNodeIds);
+
+  const cleanedEdges = storedEdges.filter(
+    (edge) =>
+      !removedNodeIdSet.has(edge.source) && !removedNodeIdSet.has(edge.target),
+  );
+
+  return {
+    cleanedEdges,
+    removedCount: storedEdges.length - cleanedEdges.length,
+  };
+}
