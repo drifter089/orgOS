@@ -60,8 +60,7 @@ export const transformerRouter = createTRPCRouter({
       const metric = await getMetricAndVerifyAccess(
         ctx.db,
         input.metricId,
-        ctx.user.id,
-        ctx.workspace,
+        ctx.workspace.organizationId,
       );
 
       if (!metric.templateId) {
@@ -191,8 +190,7 @@ export const transformerRouter = createTRPCRouter({
       const metric = await getMetricAndVerifyAccess(
         ctx.db,
         input.metricId,
-        ctx.user.id,
-        ctx.workspace,
+        ctx.workspace.organizationId,
       );
 
       const dashboardChart = await ctx.db.dashboardChart.findFirst({
@@ -405,8 +403,7 @@ Show which transformers exist and when they were created:
       await getMetricAndVerifyAccess(
         ctx.db,
         input.metricId,
-        ctx.user.id,
-        ctx.workspace,
+        ctx.workspace.organizationId,
       );
 
       // Get ingestion transformer (keyed by metricId)

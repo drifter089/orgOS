@@ -17,6 +17,27 @@
 
 ---
 
+## IMPORTANT: metric.create = Hard Refresh Pipeline
+
+When a user creates a new metric, it's essentially running the **full pipeline** (equivalent to `hard-refresh`):
+
+1. Fetch data from API
+2. Generate ingestion transformer (AI)
+3. Execute ingestion transformer
+4. Save data points
+5. Generate chart transformer (AI)
+6. Execute chart transformer
+7. Save chart config
+
+The only difference between `metric.create` and `hard-refresh` is:
+
+- `create`: Also creates the Metric and DashboardChart records
+- `hard-refresh`: Deletes old data/transformers first, then runs the same pipeline
+
+**Reuse Recommendation**: Both can share the same pipeline execution logic - just wrap with different pre/post steps.
+
+---
+
 ## IMPORTANT: Independent Metrics (No Caching)
 
 ### Current State (Shared Transformers)
@@ -1010,8 +1031,10 @@ const displayValueLabel =
    - Error message should suggest: "Try 'Hard Refresh' to regenerate transformer"
 
 3. **DO NOT auto-migrate old metrics on soft refresh**
-   - Soft refresh for old metrics (no transformer found) → Show error
+   - Soft refresh for old metrics (no transformer found) → Show error toast
    - Error message: "Transformer not found. Use 'Hard Refresh' to regenerate."
+   - Return `{ success: false, error: "...", suggestHardRefresh: true }` from API
+   - Frontend shows toast: "Refresh failed: Transformer not found. Try Hard Refresh."
    - Only hard refresh creates new independent transformer
 
 4. **DO NOT skip logging to MetricApiLog**

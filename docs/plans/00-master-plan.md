@@ -276,3 +276,57 @@ These decisions apply across ALL plans:
 6. **DO NOT create fallback chains** - Single source: `chartConfig.*`
 7. **DO NOT use `db` directly in routers** - Always `ctx.db`
 8. **DO NOT regenerate metadata on soft refresh** - Only on hard refresh
+
+---
+
+## Authorization Helper Reference
+
+All router procedures should use `workspaceProcedure` and the following helper signature:
+
+```typescript
+// CORRECT signature for getMetricAndVerifyAccess:
+await getMetricAndVerifyAccess(ctx.db, metricId, ctx.workspace.organizationId);
+
+// CORRECT signature for getTeamAndVerifyAccess:
+await getTeamAndVerifyAccess(ctx.db, teamId, ctx.user.id, ctx.workspace);
+
+// CORRECT signature for getIntegrationAndVerifyAccess:
+await getIntegrationAndVerifyAccess(
+  ctx.db,
+  connectionId,
+  ctx.user.id,
+  ctx.workspace,
+);
+```
+
+**NOTE**: `getMetricAndVerifyAccess` only takes 3 params (db, metricId, organizationId), NOT userId/workspace.
+
+---
+
+## Router Transition (Plans 5 + 7)
+
+The existing `transformer.ts` router is **DELETED** in Plan 5 and **RECREATED** in Plan 7 with different procedures:
+
+| Old Procedure (Deleted in P5)            | New Location                                      |
+| ---------------------------------------- | ------------------------------------------------- |
+| `transformer.refreshMetric`              | `pipeline.refresh` / `pipeline.regenerate` (P5)   |
+| `transformer.createChartTransformer`     | Internal only (called by pipeline)                |
+| `transformer.regenerateChartTransformer` | `transformer.regenerateChartTransformerOnly` (P7) |
+| `transformer.updateManualChart`          | `manualMetric.updateChart` (P5)                   |
+
+---
+
+## metric.create = Full Pipeline Run
+
+Creating a metric runs the **same pipeline steps** as a hard refresh:
+
+1. Create Metric + DashboardChart records
+2. Fetch data from API
+3. Generate ingestion transformer (AI)
+4. Execute ingestion transformer
+5. Save data points
+6. Generate chart transformer (AI)
+7. Execute chart transformer
+8. Save chart config
+
+The PipelineRunner class can be reused for both `metric.create` and `pipeline.regenerate`.

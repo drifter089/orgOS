@@ -28,21 +28,20 @@ import {
   calculateTargetDisplayValue,
 } from "@/lib/goals";
 import type { ChartDataForGoal } from "@/lib/goals";
-import { createTRPCRouter, protectedProcedure } from "@/server/api/trpc";
+import { createTRPCRouter, workspaceProcedure } from "@/server/api/trpc";
 import { getMetricAndVerifyAccess } from "@/server/api/utils/authorization";
 
 export const goalRouter = createTRPCRouter({
   /**
    * Get goal for a metric with progress calculation
    */
-  get: protectedProcedure
+  get: workspaceProcedure
     .input(z.object({ metricId: z.string() }))
     .query(async ({ ctx, input }) => {
       const metric = await getMetricAndVerifyAccess(
         ctx.db,
         input.metricId,
-        ctx.user.id,
-        ctx.workspace,
+        ctx.workspace.organizationId,
       );
 
       const dashboardChart = await ctx.db.dashboardChart.findFirst({
@@ -92,7 +91,7 @@ export const goalRouter = createTRPCRouter({
   /**
    * Create or update goal
    */
-  upsert: protectedProcedure
+  upsert: workspaceProcedure
     .input(
       z.object({
         metricId: z.string(),
@@ -105,8 +104,7 @@ export const goalRouter = createTRPCRouter({
       await getMetricAndVerifyAccess(
         ctx.db,
         input.metricId,
-        ctx.user.id,
-        ctx.workspace,
+        ctx.workspace.organizationId,
       );
 
       // Check if goal exists
@@ -164,14 +162,13 @@ export const goalRouter = createTRPCRouter({
   /**
    * Delete goal
    */
-  delete: protectedProcedure
+  delete: workspaceProcedure
     .input(z.object({ metricId: z.string() }))
     .mutation(async ({ ctx, input }) => {
       await getMetricAndVerifyAccess(
         ctx.db,
         input.metricId,
-        ctx.user.id,
-        ctx.workspace,
+        ctx.workspace.organizationId,
       );
 
       return ctx.db.metricGoal.delete({
@@ -258,7 +255,7 @@ export const manualMetricRouter = createTRPCRouter({
   /**
    * Add data points to manual metric
    */
-  addDataPoints: protectedProcedure
+  addDataPoints: workspaceProcedure
     .input(
       z.object({
         metricId: z.string(),
@@ -274,8 +271,7 @@ export const manualMetricRouter = createTRPCRouter({
       const metric = await getMetricAndVerifyAccess(
         ctx.db,
         input.metricId,
-        ctx.user.id,
-        ctx.workspace,
+        ctx.workspace.organizationId,
       );
 
       if (metric.integrationId !== null) {
@@ -314,14 +310,13 @@ export const manualMetricRouter = createTRPCRouter({
   /**
    * Update chart for manual metric
    */
-  updateChart: protectedProcedure
+  updateChart: workspaceProcedure
     .input(z.object({ metricId: z.string() }))
     .mutation(async ({ ctx, input }) => {
       await getMetricAndVerifyAccess(
         ctx.db,
         input.metricId,
-        ctx.user.id,
-        ctx.workspace,
+        ctx.workspace.organizationId,
       );
 
       // Get data points
@@ -352,21 +347,20 @@ export const manualMetricRouter = createTRPCRouter({
 import { z } from "zod";
 
 import { refreshMetricAndCharts } from "@/server/api/services/transformation/data-pipeline";
-import { createTRPCRouter, protectedProcedure } from "@/server/api/trpc";
+import { createTRPCRouter, workspaceProcedure } from "@/server/api/trpc";
 import { getMetricAndVerifyAccess } from "@/server/api/utils/authorization";
 
 export const pipelineRouter = createTRPCRouter({
   /**
    * Refresh metric (soft refresh - reuse transformers)
    */
-  refresh: protectedProcedure
+  refresh: workspaceProcedure
     .input(z.object({ metricId: z.string() }))
     .mutation(async ({ ctx, input }) => {
-      const metric = await getMetricAndVerifyAccess(
+      await getMetricAndVerifyAccess(
         ctx.db,
         input.metricId,
-        ctx.user.id,
-        ctx.workspace,
+        ctx.workspace.organizationId,
       );
 
       // Use refreshMetricAndCharts from Plan 1 with forceRegenerate: false
@@ -390,14 +384,13 @@ export const pipelineRouter = createTRPCRouter({
   /**
    * Regenerate metric (hard refresh - delete old data + regenerate transformers)
    */
-  regenerate: protectedProcedure
+  regenerate: workspaceProcedure
     .input(z.object({ metricId: z.string() }))
     .mutation(async ({ ctx, input }) => {
-      const metric = await getMetricAndVerifyAccess(
+      await getMetricAndVerifyAccess(
         ctx.db,
         input.metricId,
-        ctx.user.id,
-        ctx.workspace,
+        ctx.workspace.organizationId,
       );
 
       // Use refreshMetricAndCharts from Plan 1 with forceRegenerate: true
@@ -419,9 +412,16 @@ export const pipelineRouter = createTRPCRouter({
   /**
    * Get pipeline progress for frontend polling
    */
-  getProgress: protectedProcedure
+  getProgress: workspaceProcedure
     .input(z.object({ metricId: z.string() }))
     .query(async ({ ctx, input }) => {
+      // Verify access first
+      await getMetricAndVerifyAccess(
+        ctx.db,
+        input.metricId,
+        ctx.workspace.organizationId,
+      );
+
       const metric = await ctx.db.metric.findUnique({
         where: { id: input.metricId },
         select: { refreshStatus: true, lastError: true },
@@ -473,10 +473,21 @@ export const pipelineRouter = createTRPCRouter({
 
 **File**: `src/server/api/root.ts`
 
+**IMPORTANT**: This task REMOVES the existing `transformer` router. Plan 7 will create a NEW `transformer.ts` with different procedures. The old `transformer.ts` procedures are migrated as follows:
+
+| Old Procedure                            | New Location                                          |
+| ---------------------------------------- | ----------------------------------------------------- |
+| `transformer.refreshMetric`              | `pipeline.refresh/regenerate`                         |
+| `transformer.createChartTransformer`     | Removed (called internally)                           |
+| `transformer.regenerateChartTransformer` | `transformer.regenerateChartTransformerOnly` (Plan 7) |
+| `transformer.updateManualChart`          | `manualMetric.updateChart`                            |
+
 ```typescript
 import { goalRouter } from "./routers/goal";
 import { manualMetricRouter } from "./routers/manual-metric";
 import { pipelineRouter } from "./routers/pipeline";
+
+// REMOVE: import { transformerRouter } from "./routers/transformer";
 
 // ... other imports
 
@@ -484,14 +495,18 @@ export const appRouter = createTRPCRouter({
   // Existing routers
   metric: metricRouter,
   dashboard: dashboardRouter,
+  // REMOVE: transformer: transformerRouter,
   // ... etc
 
   // New routers
   goal: goalRouter,
   manualMetric: manualMetricRouter,
   pipeline: pipelineRouter,
+  // transformer will be re-added in Plan 7 with new procedures
 });
 ```
+
+**DELETE FILE**: `src/server/api/routers/transformer.ts` (will be recreated in Plan 7)
 
 ---
 
@@ -588,6 +603,7 @@ api.pipeline.getProgress.useQuery();
 | CREATE | `src/server/api/routers/goal.ts`                                   |
 | CREATE | `src/server/api/routers/manual-metric.ts`                          |
 | CREATE | `src/server/api/routers/pipeline.ts`                               |
+| DELETE | `src/server/api/routers/transformer.ts` (recreated in Plan 7)      |
 | MODIFY | `src/server/api/root.ts`                                           |
 | MODIFY | `src/server/api/routers/metric.ts` (remove extracted code)         |
 | MODIFY | `src/components/metric/goal-editor.tsx`                            |
