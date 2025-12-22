@@ -9,7 +9,6 @@ import {
   ExternalLink,
   Loader2,
   Mail,
-  Sparkles,
   Trash2,
 } from "lucide-react";
 import { Link } from "next-transition-router";
@@ -19,12 +18,6 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Sheet } from "@/components/ui/sheet";
 import { Skeleton } from "@/components/ui/skeleton";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
 import { stripHtml } from "@/lib/html-utils";
 import { cn } from "@/lib/utils";
 import { useConfirmation } from "@/providers/ConfirmationDialogProvider";
@@ -282,35 +275,8 @@ export function TeamSheetSidebar({
   const [selectedRoleId, setSelectedRoleId] = useState<string | null>(null);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
 
-  const { confirm } = useConfirmation();
-  const utils = api.useUtils();
-
   const { data: members, isLoading: membersLoading } =
     api.organization.getMembers.useQuery();
-
-  const cleanupMutation = api.team.cleanupOrphanedNodes.useMutation({
-    onSuccess: (result) => {
-      if (result.removedNodes > 0) {
-        // Invalidate team data to refresh canvas
-        void utils.team.getById.invalidate({ id: teamId });
-        void utils.role.getByTeamId.invalidate({ teamId });
-      }
-    },
-  });
-
-  const handleCleanup = async () => {
-    const confirmed = await confirm({
-      title: "Clean up orphaned nodes",
-      description:
-        "This will remove role nodes from the canvas that reference deleted roles. This action cannot be undone.",
-      confirmText: "Clean up",
-      variant: "destructive",
-    });
-
-    if (confirmed) {
-      cleanupMutation.mutate({ teamId });
-    }
-  };
 
   const { data: teamRoles } = api.role.getByTeamId.useQuery({ teamId });
   const nodes = useTeamStore((state) => state.nodes);
@@ -366,34 +332,9 @@ export function TeamSheetSidebar({
             <div className="[&::-webkit-scrollbar-thumb]:bg-border/40 hover:[&::-webkit-scrollbar-thumb]:bg-border/60 flex-1 space-y-6 overflow-y-auto px-6 py-4 [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-track]:bg-transparent">
               {/* Team Info */}
               <div>
-                <div className="mb-2 flex items-center justify-between">
-                  <h3 className="text-muted-foreground text-xs font-semibold tracking-wider uppercase">
-                    Team Info
-                  </h3>
-                  <TooltipProvider>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-6 w-6"
-                          onClick={() => void handleCleanup()}
-                          disabled={cleanupMutation.isPending}
-                          aria-label="Clean up orphaned nodes"
-                        >
-                          {cleanupMutation.isPending ? (
-                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                          ) : (
-                            <Sparkles className="h-3.5 w-3.5" />
-                          )}
-                        </Button>
-                      </TooltipTrigger>
-                      <TooltipContent side="left">
-                        <p>Clean up orphaned role nodes</p>
-                      </TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
-                </div>
+                <h3 className="text-muted-foreground mb-2 text-xs font-semibold tracking-wider uppercase">
+                  Team Info
+                </h3>
                 <div className="bg-card flex items-center justify-between rounded-lg border px-3 py-2">
                   <span className="text-muted-foreground text-sm font-medium">
                     Total Roles

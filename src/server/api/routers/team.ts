@@ -3,14 +3,6 @@ import { z } from "zod";
 
 import { teamStoredNodeSchema } from "@/app/teams/[teamId]/schemas/canvas";
 import {
-  type StoredEdge,
-  type StoredNode,
-} from "@/app/teams/[teamId]/types/canvas";
-import {
-  cleanupOrphanedEdges,
-  cleanupOrphanedRoleNodes,
-} from "@/app/teams/[teamId]/utils/canvas-serialization";
-import {
   storedEdgeSchema,
   viewportSchema,
 } from "@/lib/canvas/schemas/stored-data";
@@ -226,71 +218,5 @@ export const teamRouter = createTRPCRouter({
       await invalidateCacheByTags(ctx.db, [`team_${input.teamId}`]);
 
       return result;
-    }),
-
-  /**
-   * Clean up orphaned role nodes whose roleId no longer exists in the database.
-   * This removes role nodes that reference deleted roles and their connected edges.
-   * Can be triggered manually for maintenance purposes.
-   */
-  cleanupOrphanedNodes: workspaceProcedure
-    .input(z.object({ teamId: z.string() }))
-    .mutation(async ({ ctx, input }) => {
-      const team = await getTeamAndVerifyAccess(
-        ctx.db,
-        input.teamId,
-        ctx.user.id,
-        ctx.workspace,
-      );
-
-      // Get all valid role IDs for this team
-      const roles = await ctx.db.role.findMany({
-        where: { teamId: input.teamId },
-        select: { id: true },
-      });
-      const validRoleIds = new Set(roles.map((r) => r.id));
-
-      // Parse stored nodes and edges from database
-      const storedNodes = Array.isArray(team.reactFlowNodes)
-        ? (team.reactFlowNodes as StoredNode[])
-        : [];
-      const storedEdges = Array.isArray(team.reactFlowEdges)
-        ? (team.reactFlowEdges as StoredEdge[])
-        : [];
-
-      // Clean up orphaned role nodes
-      const { cleanedNodes, removedCount, removedNodeIds } =
-        cleanupOrphanedRoleNodes(storedNodes, validRoleIds);
-
-      // If nodes were removed, also clean up connected edges
-      if (removedCount > 0) {
-        const { cleanedEdges, removedCount: removedEdgeCount } =
-          cleanupOrphanedEdges(storedEdges, removedNodeIds);
-
-        await ctx.db.team.update({
-          where: { id: input.teamId },
-          data: {
-            reactFlowNodes: cleanedNodes,
-            reactFlowEdges: cleanedEdges,
-          },
-        });
-
-        // Invalidate cache after cleanup
-        await invalidateCacheByTags(ctx.db, [`team_${input.teamId}`]);
-
-        return {
-          success: true,
-          removedNodes: removedCount,
-          removedEdges: removedEdgeCount,
-          removedNodeIds,
-        };
-      }
-
-      return {
-        success: true,
-        removedNodes: 0,
-        removedEdges: 0,
-        removedNodeIds: [],
-      };
     }),
 });
