@@ -37,13 +37,12 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { type GoalProgress, calculateTargetDisplayValue } from "@/lib/goals";
 import { formatValue } from "@/lib/helpers/format-value";
 import { getUserName } from "@/lib/helpers/get-user-name";
 import { getLatestMetricValue } from "@/lib/metrics/get-latest-value";
 import { getPlatformConfig } from "@/lib/platform-config";
 import { cn } from "@/lib/utils";
-import type { GoalProgress } from "@/server/api/utils/goal-calculation";
-import { calculateGoalTargetValue } from "@/server/api/utils/goal-calculation";
 import { api } from "@/trpc/react";
 
 import type { ChartTransformResult } from "./dashboard-metric-card";
@@ -145,7 +144,13 @@ export function DashboardMetricChart({
 
   // Calculate goal target value using the shared utility
   const goalTargetValue =
-    goal && goalProgress ? calculateGoalTargetValue(goal, goalProgress) : null;
+    goal && goalProgress
+      ? calculateTargetDisplayValue(
+          goal.goalType,
+          goal.targetValue,
+          goal.baselineValue ?? goalProgress.baselineValue,
+        )
+      : null;
 
   const currentValue = getLatestMetricValue(chartTransform);
 
@@ -245,13 +250,14 @@ export function DashboardMetricChart({
               <ReferenceLine
                 y={goalTargetValue}
                 stroke="hsl(var(--destructive))"
-                strokeDasharray="4 4"
-                strokeWidth={2}
+                strokeDasharray="8 4"
+                strokeWidth={2.5}
                 label={{
-                  value: `Goal: ${formatValue(goalTargetValue)}`,
-                  position: "right",
+                  value: `Target: ${formatValue(goalTargetValue)}`,
+                  position: "insideTopRight",
                   fill: "hsl(var(--destructive))",
-                  fontSize: 10,
+                  fontSize: 11,
+                  fontWeight: 600,
                 }}
               />
             )}
@@ -338,13 +344,14 @@ export function DashboardMetricChart({
               <ReferenceLine
                 y={goalTargetValue}
                 stroke="hsl(var(--destructive))"
-                strokeDasharray="4 4"
-                strokeWidth={2}
+                strokeDasharray="8 4"
+                strokeWidth={2.5}
                 label={{
-                  value: `Goal: ${formatValue(goalTargetValue)}`,
-                  position: "right",
+                  value: `Target: ${formatValue(goalTargetValue)}`,
+                  position: "insideTopRight",
                   fill: "hsl(var(--destructive))",
-                  fontSize: 10,
+                  fontSize: 11,
+                  fontWeight: 600,
                 }}
               />
             )}
@@ -546,13 +553,14 @@ export function DashboardMetricChart({
             <ReferenceLine
               y={goalTargetValue}
               stroke="hsl(var(--destructive))"
-              strokeDasharray="4 4"
-              strokeWidth={2}
+              strokeDasharray="8 4"
+              strokeWidth={2.5}
               label={{
-                value: `Goal: ${formatValue(goalTargetValue)}`,
-                position: "right",
+                value: `Target: ${formatValue(goalTargetValue)}`,
+                position: "insideTopRight",
                 fill: "hsl(var(--destructive))",
-                fontSize: 10,
+                fontSize: 11,
+                fontWeight: 600,
               }}
             />
           )}

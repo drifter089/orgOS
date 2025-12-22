@@ -1,8 +1,12 @@
 import type { Cadence, MetricGoal, Prisma, PrismaClient } from "@prisma/client";
 
+import {
+  type ChartDataForGoal,
+  type GoalInput,
+  type GoalProgress,
+  calculateGoalProgress,
+} from "@/lib/goals";
 import type { ChartTransformResult } from "@/lib/metrics/transformer-types";
-
-import { type GoalProgress, calculateGoalProgress } from "./goal-calculation";
 
 /**
  * Dashboard chart with metric and chartTransformer included
@@ -102,11 +106,27 @@ export async function enrichChartsWithGoalProgress<
       };
     }
 
+    // Convert MetricGoal to GoalInput
+    const goalInput: GoalInput = {
+      goalType: chart.metric.goal.goalType,
+      targetValue: chart.metric.goal.targetValue,
+      baselineValue: chart.metric.goal.baselineValue,
+      baselineTimestamp: chart.metric.goal.baselineTimestamp,
+      onTrackThreshold: chart.metric.goal.onTrackThreshold,
+    };
+
+    // Convert ChartConfig to ChartDataForGoal
+    const chartData: ChartDataForGoal = {
+      chartData: chartConfig?.chartData ?? [],
+      xAxisKey: chartConfig?.xAxisKey ?? "date",
+      dataKeys: chartConfig?.dataKeys ?? [],
+    };
+
     // Calculate goal progress
     const progress = calculateGoalProgress(
-      chart.metric.goal,
+      goalInput,
       chart.chartTransformer.cadence,
-      chartConfig,
+      chartData,
     );
 
     return {
