@@ -4,7 +4,7 @@ import { useMemo } from "react";
 
 import { api } from "@/trpc/react";
 
-import { useTeamStore } from "../store/team-store";
+import { useTeamStoreOptional } from "../store/team-store";
 
 /**
  * Hook to get role data from the TanStack Query cache.
@@ -15,9 +15,9 @@ import { useTeamStore } from "../store/team-store";
  * @returns The role data from cache, or undefined if not found/loading
  */
 export function useRoleData(roleId: string) {
-  const teamId = useTeamStore((state) => state.teamId);
+  const teamId = useTeamStoreOptional((state) => state.teamId);
   const { data: roles } = api.role.getByTeamId.useQuery(
-    { teamId },
+    { teamId: teamId ?? "" },
     { enabled: !!teamId },
   );
 
@@ -35,13 +35,13 @@ export function useRoleData(roleId: string) {
  * @returns Object with data, isLoading, and isError states
  */
 export function useRoleDataWithStatus(roleId: string) {
-  const teamId = useTeamStore((state) => state.teamId);
+  const teamId = useTeamStoreOptional((state) => state.teamId);
   const {
     data: roles,
     isLoading,
     isError,
   } = api.role.getByTeamId.useQuery(
-    { teamId },
+    { teamId: teamId ?? "" },
     { enabled: !!teamId && !!roleId },
   );
 

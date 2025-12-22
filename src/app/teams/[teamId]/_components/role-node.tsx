@@ -23,11 +23,12 @@ import { stripHtml } from "@/lib/html-utils";
 import { getLatestMetricValue } from "@/lib/metrics/get-latest-value";
 import type { ChartTransformResult } from "@/lib/metrics/transformer-types";
 import { cn } from "@/lib/utils";
-import { useConfirmation } from "@/providers/ConfirmationDialogProvider";
+// These hooks use optional providers so they work in both private and public views
+import { useConfirmationOptional } from "@/providers/ConfirmationDialogProvider";
 
 import { useDeleteRole } from "../hooks/use-delete-role";
 import { useRoleData, useUserName } from "../hooks/use-role-data";
-import { useTeamStore } from "../store/team-store";
+import { useTeamStoreOptional } from "../store/team-store";
 
 /**
  * Role data structure for override props (compatible with both private and public data).
@@ -75,12 +76,13 @@ export type RoleNode = Node<RoleNodeData, "role-node">;
 function RoleNodeComponent({ data, selected, id }: NodeProps<RoleNode>) {
   const [isDeleting, setIsDeleting] = useState(false);
 
-  // These hooks are only used in non-readOnly mode (private view)
-  // In readOnly mode (public view), we use roleDataOverride and userNameOverride instead
-  const teamId = useTeamStore((state) => state.teamId);
-  const setEditingNodeId = useTeamStore((state) => state.setEditingNodeId);
-  const { confirm } = useConfirmation();
-  const deleteRoleMutation = useDeleteRole(teamId);
+  // These hooks use optional providers - they return safe defaults in public view
+  const teamId = useTeamStoreOptional((state) => state.teamId);
+  const setEditingNodeId = useTeamStoreOptional(
+    (state) => state.setEditingNodeId,
+  );
+  const { confirm } = useConfirmationOptional();
+  const deleteRoleMutation = useDeleteRole(teamId ?? "");
 
   // Fetch role data from TanStack Query cache (only used in private view)
   const roleFromHook = useRoleData(data.roleId);
@@ -125,7 +127,7 @@ function RoleNodeComponent({ data, selected, id }: NodeProps<RoleNode>) {
   }, [data.roleId, title, deleteRoleMutation, confirm]);
 
   const handleEdit = useCallback(() => {
-    setEditingNodeId(id);
+    setEditingNodeId?.(id);
   }, [setEditingNodeId, id]);
 
   // Strip HTML and truncate for display
@@ -138,7 +140,7 @@ function RoleNodeComponent({ data, selected, id }: NodeProps<RoleNode>) {
   // Double-click to edit (only if not pending and not readOnly)
   const handleDoubleClick = useCallback(() => {
     if (!isPending && !data.readOnly) {
-      setEditingNodeId(id);
+      setEditingNodeId?.(id);
     }
   }, [isPending, data.readOnly, setEditingNodeId, id]);
 
