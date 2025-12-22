@@ -367,3 +367,11 @@ export function useTeamStoreApi() {
 
   return store;
 }
+
+/**
+ * Safe version of useTeamStoreApi for components that may render outside TeamStoreProvider.
+ * Returns null when not in provider (e.g., public views).
+ */
+export function useTeamStoreApiOptional() {
+  return useContext(TeamStoreContext);
+}

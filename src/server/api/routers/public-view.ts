@@ -8,6 +8,7 @@ import {
   dashboardCache,
 } from "@/server/api/utils/cache-strategy";
 import { enrichChartsWithGoalProgress } from "@/server/api/utils/enrich-charts-with-goal-progress";
+import { resolveUserDisplayName } from "@/server/api/utils/get-user-display-name";
 
 // Read-only procedures for publicly shared teams/dashboards (no auth required)
 export const publicViewRouter = createTRPCRouter({
@@ -48,7 +49,23 @@ export const publicViewRouter = createTRPCRouter({
         });
       }
 
-      return team;
+      // Enrich roles with missing assignedUserName (for roles created before caching was added)
+      // Uses robust resolution that handles both user management IDs and directory sync IDs
+      const enrichedRoles = await Promise.all(
+        team.roles.map(async (role) => {
+          // If role has assignedUserId but no cached assignedUserName, resolve it
+          if (role.assignedUserId && !role.assignedUserName) {
+            const userName = await resolveUserDisplayName(
+              role.assignedUserId,
+              team.organizationId,
+            );
+            return { ...role, assignedUserName: userName };
+          }
+          return role;
+        }),
+      );
+
+      return { ...team, roles: enrichedRoles };
     }),
 
   getDashboardByShareToken: publicProcedure
