@@ -57,13 +57,51 @@ export const roleRouter = createTRPCRouter({
         ctx.workspace,
       );
 
-      return ctx.db.role.findMany({
+      const roles = await ctx.db.role.findMany({
         where: { teamId: input.teamId },
         include: {
           metric: metricInclude,
         },
         orderBy: { createdAt: "asc" },
       });
+
+      // Backfill: Update roles that have assignedUserId but missing assignedUserName
+      const rolesToBackfill = roles.filter(
+        (role) => role.assignedUserId && !role.assignedUserName,
+      );
+
+      if (rolesToBackfill.length > 0) {
+        // Fetch and update names for roles that need backfill
+        const updates = await Promise.all(
+          rolesToBackfill.map(async (role) => {
+            const name = await getUserDisplayName(role.assignedUserId);
+            if (name) {
+              await ctx.db.role.update({
+                where: { id: role.id },
+                data: { assignedUserName: name },
+              });
+              return { id: role.id, assignedUserName: name };
+            }
+            return null;
+          }),
+        );
+
+        // Apply updates to the returned roles
+        const updateMap = new Map(
+          updates.filter(Boolean).map((u) => [u!.id, u!.assignedUserName]),
+        );
+        for (const role of roles) {
+          const updatedName = updateMap.get(role.id);
+          if (updatedName) {
+            role.assignedUserName = updatedName;
+          }
+        }
+
+        // Invalidate cache so public view gets the updated names
+        await invalidateCacheByTags(ctx.db, [`team_${input.teamId}`]);
+      }
+
+      return roles;
     }),
 
   create: workspaceProcedure

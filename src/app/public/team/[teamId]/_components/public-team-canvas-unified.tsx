@@ -16,6 +16,10 @@ import {
 import "@xyflow/react/dist/style.css";
 import { Eye } from "lucide-react";
 
+import {
+  type RoleNodeData,
+  RoleNodeMemo,
+} from "@/app/teams/[teamId]/_components/role-node";
 import { ZoomSlider } from "@/components/react-flow";
 import { Badge } from "@/components/ui/badge";
 import type { StoredEdge, StoredNode } from "@/lib/canvas";
@@ -26,10 +30,6 @@ import {
   type PublicChartNodeData,
   PublicChartNodeMemo,
 } from "./public-chart-node-unified";
-import {
-  type PublicRoleNodeData,
-  PublicRoleNodeMemo,
-} from "./public-role-node-unified";
 import { PublicTeamEdge } from "./public-team-edge-unified";
 import {
   type PublicTextNodeData,
@@ -37,7 +37,7 @@ import {
 } from "./public-text-node-unified";
 
 const nodeTypes = {
-  "role-node": PublicRoleNodeMemo,
+  "role-node": RoleNodeMemo,
   "text-node": PublicTextNodeMemo,
   "chart-node": PublicChartNodeMemo,
 };
@@ -49,7 +49,7 @@ const edgeTypes = {
 const proOptions: ProOptions = { hideAttribution: true };
 
 type PublicTeamNode =
-  | Node<PublicRoleNodeData, "role-node">
+  | Node<RoleNodeData, "role-node">
   | Node<PublicTextNodeData, "text-node">
   | Node<PublicChartNodeData, "chart-node">;
 
@@ -89,14 +89,37 @@ export function PublicTeamCanvasUnified() {
         };
       }
 
-      const roleId = (node.data as { roleId?: string })?.roleId;
+      const roleId = (node.data as { roleId?: string })?.roleId ?? "";
+      // Find the role data to pass as override for public view
+      const role = team?.roles.find((r) => r.id === roleId);
 
       return {
         id: node.id,
         type: "role-node" as const,
         position: node.position,
         data: {
-          roleId: roleId ?? "",
+          roleId,
+          readOnly: true,
+          // Pass pre-fetched role data to avoid hook calls in public view
+          roleDataOverride: role
+            ? {
+                id: role.id,
+                title: role.title,
+                purpose: role.purpose,
+                color: role.color,
+                effortPoints: role.effortPoints,
+                assignedUserId: role.assignedUserId,
+                assignedUserName: role.assignedUserName,
+                metric: role.metric
+                  ? {
+                      name: role.metric.name,
+                      dashboardCharts: role.metric.dashboardCharts,
+                    }
+                  : null,
+              }
+            : undefined,
+          // Pass pre-resolved user name for public view
+          userNameOverride: role?.assignedUserName,
         },
       };
     });
