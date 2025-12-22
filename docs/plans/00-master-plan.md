@@ -4,12 +4,12 @@
 
 ### PARALLEL GROUP 1 (Start Immediately - No Dependencies)
 
-| #   | Plan             | File                         | Focus                                                           |
-| --- | ---------------- | ---------------------------- | --------------------------------------------------------------- |
-| 1   | Pipeline Core    | `plan-1-pipeline-core.md`    | Pipeline abstraction, logging, delete old data on force refetch |
-| 2   | Goal System      | `plan-2-goal-system.md`      | Split goal-calculation.ts + goal line on charts                 |
-| 3   | Chart Animations | `plan-3-chart-animations.md` | Smooth entry animations on every load                           |
-| 7   | Template Cache   | `plan-7-template-cache.md`   | Independent transformer regeneration                            |
+| #   | Plan              | File                         | Focus                                                                              |
+| --- | ----------------- | ---------------------------- | ---------------------------------------------------------------------------------- |
+| 1   | Pipeline Core     | `plan-1-pipeline-core.md`    | Pipeline abstraction, logging, **independent metrics**, delete old data on refresh |
+| 2   | Goal System       | `plan-2-goal-system.md`      | Split goal-calculation.ts + goal line on charts                                    |
+| 3   | Chart Animations  | `plan-3-chart-animations.md` | Smooth entry animations on every load                                              |
+| 7   | Transformer Regen | `plan-7-template-cache.md`   | Independent transformer regeneration (data vs chart)                               |
 
 ### SEQUENTIAL GROUP 2 (After Plan 1)
 
@@ -42,7 +42,7 @@ START
   ▼           ▼           ▼           ▼           │
 ┌─────┐   ┌─────┐   ┌─────┐   ┌─────┐           │
 │ P1  │   │ P2  │   │ P3  │   │ P7  │           │
-│Pipe │   │Goal │   │Anim │   │Cache│           │
+│Pipe │   │Goal │   │Anim │   │Regen│           │
 └──┬──┘   └─────┘   └─────┘   └─────┘           │
    │                                             │
    ├──────────────┐                              │
@@ -62,14 +62,44 @@ START
 
 ---
 
+## IMPORTANT: Independent Metrics Architecture
+
+**Key Change**: All metrics are now fully independent. No shared transformer caching.
+
+### Before (Shared Transformers)
+
+```
+Metric A (github-commits) → transformer keyed by "github-commits" (SHARED)
+Metric B (github-commits) → same transformer (SHARED)
+```
+
+### After (Independent Metrics)
+
+```
+Metric A (github-commits) → transformer keyed by "metricA" (INDEPENDENT)
+Metric B (github-commits) → transformer keyed by "metricB" (INDEPENDENT)
+```
+
+### Benefits
+
+- Simpler mental model
+- Problems with one metric don't affect others
+- Regenerating one metric can't break others
+- No complex cache key logic
+- **No DB migration needed** - just deploy and hard refresh old metrics
+
+---
+
 ## Key Features by Plan
 
 ### Plan 1: Pipeline Core
 
 - Step-by-step pipeline execution
 - Logs to MetricApiLog (no new tables)
-- **DELETE old datapoints on force refetch**
+- **All metrics independent (metricId as transformer key)**
+- **DELETE old datapoints + transformer on force refetch**
 - Real-time status via metric.refreshStatus
+- Backward compatible - old metrics regenerate on hard refresh
 
 ### Plan 2: Goal System
 
@@ -106,12 +136,12 @@ START
 - Remove 5 duplicate wrapper files
 - Keep unique Content components
 
-### Plan 7: Template Cache
+### Plan 7: Independent Transformer Regeneration
 
-- Regenerate ingestion transformer independently
-- Regenerate chart transformer independently
-- Shared vs per-metric cache strategy
-- Fix bad transformers without data loss
+- **Regenerate data transformer only** (keep chart + data points)
+- **Regenerate chart transformer only** (keep data transformer + data points)
+- UI buttons for granular control
+- Transformer info display
 
 ### Plan 8: Drawer Redesign
 
@@ -123,10 +153,10 @@ START
 
 ## Files Created
 
-All plan files are in `/home/akshat/.claude/plans/`:
+All plan files are in `docs/plans/`:
 
 ```
-graceful-launching-torvalds.md  (this file - master)
+00-master-plan.md               (this file)
 plan-1-pipeline-core.md         (detailed)
 plan-2-goal-system.md           (detailed)
 plan-3-chart-animations.md      (detailed)
@@ -144,7 +174,7 @@ plan-8-chart-drawer-redesign.md (placeholder)
 ### To run Plan 1:
 
 ```
-Read /home/akshat/.claude/plans/plan-1-pipeline-core.md and implement all tasks
+Read docs/plans/plan-1-pipeline-core.md and implement all tasks
 ```
 
 ### To run multiple plans in parallel:
@@ -155,10 +185,22 @@ Start new Claude Code sessions for each plan, or use worktrees.
 
 ## Summary of New Features
 
-| Feature                          | Plan   | Status          |
-| -------------------------------- | ------ | --------------- |
-| Delete old data on force refetch | Plan 1 | Detailed        |
-| Goal line on chart               | Plan 2 | Detailed        |
-| Chart animations                 | Plan 3 | Detailed        |
-| Template-level cache             | Plan 7 | Detailed        |
-| Drawer redesign                  | Plan 8 | Awaiting design |
+| Feature                           | Plan   | Status          |
+| --------------------------------- | ------ | --------------- |
+| Independent metrics (no caching)  | Plan 1 | Detailed        |
+| Delete old data on force refetch  | Plan 1 | Detailed        |
+| Goal line on chart                | Plan 2 | Detailed        |
+| Chart animations                  | Plan 3 | Detailed        |
+| Granular transformer regeneration | Plan 7 | Detailed        |
+| Drawer redesign                   | Plan 8 | Awaiting design |
+
+---
+
+## Backward Compatibility
+
+Old metrics on production will continue to work. When you do a **hard refresh** on an old metric:
+
+1. New code looks for transformer with `metricId` key → Not found
+2. Creates new independent transformer for that metric
+3. Old shared transformer becomes orphaned (can cleanup later)
+4. **No migration needed**

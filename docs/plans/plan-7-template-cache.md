@@ -1,4 +1,4 @@
-# Plan 7: Template-Level Transformer Cache
+# Plan 7: Independent Transformer Regeneration
 
 ## Overview
 
@@ -10,94 +10,119 @@
 
 1. Allow regenerating ingestion transformer independently of chart transformer
 2. Allow regenerating chart transformer independently
-3. Cache transformers at template level (shared) vs metric level (unique)
+3. ~~Cache transformers at template level~~ **UPDATED: All metrics are now independent (no caching)**
 4. Make it easy to fix bad transformers without full pipeline re-run
 
 ---
 
-## Current State
+## IMPORTANT: This Plan Updated for Independent Metrics
 
-Currently, transformers are cached:
+**Plan 1** introduces independent metrics where each metric has its own transformer keyed by `metricId`. This plan now focuses on:
 
-- **DataIngestionTransformer**: Cached by `templateId` (shared across all metrics using same template)
-  - Exception: GSheets uses `templateId:metricId` (per-metric)
-- **ChartTransformer**: Cached by `dashboardChartId` (per-chart, unique)
+- **Regenerate ingestion transformer only** (keep chart transformer and data points)
+- **Regenerate chart transformer only** (keep ingestion transformer and data points)
+- UI buttons for granular control
 
-Problem: No way to regenerate just one transformer. Full refresh regenerates both.
+---
+
+## Current State (After Plan 1)
+
+Each metric is fully independent:
+
+- **DataIngestionTransformer**: Keyed by `metricId` (one per metric)
+- **ChartTransformer**: Keyed by `dashboardChartId` (one per chart/metric)
+- **MetricDataPoints**: Belong to specific metric
 
 ---
 
 ## Task 1: Add Router Procedures for Individual Regeneration
 
-**File**: `src/server/api/routers/pipeline.ts` (or `transformer.ts`)
+**File**: `src/server/api/routers/transformer.ts`
 
 ```typescript
 /**
  * Regenerate ONLY the ingestion transformer for a metric
- * Does NOT touch chart transformer or data points
+ * Keeps existing data points and chart transformer
  */
-regenerateIngestionTransformer: protectedProcedure
+regenerateIngestionTransformer: workspaceProcedure
   .input(z.object({ metricId: z.string() }))
   .mutation(async ({ ctx, input }) => {
     const metric = await getMetricAndVerifyAccess(
-      ctx.db,
+      db,
       input.metricId,
-      ctx.user.id,
-      ctx.workspace
+      ctx.workspace.organizationId,
     );
 
     if (!metric.templateId) {
-      throw new Error("Manual metrics don't have ingestion transformers");
+      throw new TRPCError({
+        code: "BAD_REQUEST",
+        message: "Manual metrics don't have ingestion transformers",
+      });
     }
 
-    // Determine cache key
-    const cacheKey = metric.templateId.startsWith("gsheets-")
-      ? `${metric.templateId}:${metric.id}`  // Per-metric for GSheets
-      : metric.templateId;                    // Shared for others
-
-    // Delete existing transformer
-    await ctx.db.dataIngestionTransformer.deleteMany({
-      where: { templateId: cacheKey },
+    const integration = await db.integration.findUnique({
+      where: { id: metric.integrationId! },
     });
 
+    if (!integration) {
+      throw new TRPCError({
+        code: "NOT_FOUND",
+        message: "Integration not found",
+      });
+    }
+
     // Update status
-    await ctx.db.metric.update({
+    await db.metric.update({
       where: { id: input.metricId },
-      data: { refreshStatus: "generating-ingestion-transformer" },
+      data: { refreshStatus: "deleting-old-transformer" },
     });
 
     try {
-      // Fetch fresh API data
-      const apiData = await fetchDataFromIntegration(metric);
+      // Delete existing transformer (keyed by metricId)
+      await db.dataIngestionTransformer
+        .delete({
+          where: { templateId: input.metricId },
+        })
+        .catch(() => null); // Ignore if doesn't exist
 
-      // Generate new transformer
-      const transformer = await generateIngestionTransformer({
-        templateId: metric.templateId,
-        apiResponse: apiData,
-        endpointConfig: metric.endpointConfig,
+      // Update status
+      await db.metric.update({
+        where: { id: input.metricId },
+        data: { refreshStatus: "generating-ingestion-transformer" },
       });
 
-      // Save transformer
-      await ctx.db.dataIngestionTransformer.create({
+      // Re-run ingestion (will create new transformer)
+      const result = await ingestMetricData({
+        templateId: metric.templateId,
+        integrationId: integration.providerId,
+        connectionId: integration.connectionId,
+        metricId: metric.id,
+        endpointConfig: (metric.endpointConfig as Record<string, string>) ?? {},
+      });
+
+      if (!result.success) {
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: result.error ?? "Failed to regenerate transformer",
+        });
+      }
+
+      // Clear status
+      await db.metric.update({
+        where: { id: input.metricId },
         data: {
-          templateId: cacheKey,
-          transformerCode: transformer.code,
-          valueLabel: transformer.valueLabel,
-          dataDescription: transformer.dataDescription,
-          extractionPromptUsed: transformer.extractionPromptUsed,
+          refreshStatus: null,
+          lastFetchedAt: new Date(),
+          lastError: null,
         },
       });
 
-      // Clear status
-      await ctx.db.metric.update({
-        where: { id: input.metricId },
-        data: { refreshStatus: null },
-      });
-
-      return { success: true, transformerId: cacheKey };
-
+      return {
+        success: true,
+        dataPointCount: result.dataPoints?.length ?? 0,
+      };
     } catch (error) {
-      await ctx.db.metric.update({
+      await db.metric.update({
         where: { id: input.metricId },
         data: {
           refreshStatus: null,
@@ -110,94 +135,83 @@ regenerateIngestionTransformer: protectedProcedure
 
 /**
  * Regenerate ONLY the chart transformer for a metric
- * Does NOT touch ingestion transformer or raw data points
+ * Keeps existing data points and ingestion transformer
  */
-regenerateChartTransformer: protectedProcedure
+regenerateChartTransformerOnly: workspaceProcedure
   .input(z.object({ metricId: z.string() }))
   .mutation(async ({ ctx, input }) => {
-    await getMetricAndVerifyAccess(
-      ctx.db,
+    const metric = await getMetricAndVerifyAccess(
+      db,
       input.metricId,
-      ctx.user.id,
-      ctx.workspace
+      ctx.workspace.organizationId,
     );
 
-    const dashboardChart = await ctx.db.dashboardChart.findFirst({
+    const dashboardChart = await db.dashboardChart.findFirst({
       where: { metricId: input.metricId },
     });
 
     if (!dashboardChart) {
-      throw new Error("Dashboard chart not found");
+      throw new TRPCError({
+        code: "NOT_FOUND",
+        message: "Dashboard chart not found",
+      });
     }
 
-    // Delete existing chart transformer
-    await ctx.db.chartTransformer.deleteMany({
-      where: { dashboardChartId: dashboardChart.id },
-    });
-
     // Update status
-    await ctx.db.metric.update({
+    await db.metric.update({
       where: { id: input.metricId },
-      data: { refreshStatus: "generating-chart-transformer" },
+      data: { refreshStatus: "deleting-old-transformer" },
     });
 
     try {
+      // Delete existing chart transformer
+      await db.chartTransformer
+        .delete({
+          where: { dashboardChartId: dashboardChart.id },
+        })
+        .catch(() => null); // Ignore if doesn't exist
+
+      // Update status
+      await db.metric.update({
+        where: { id: input.metricId },
+        data: { refreshStatus: "generating-chart-transformer" },
+      });
+
       // Get existing data points
-      const dataPoints = await ctx.db.metricDataPoint.findMany({
+      const dataPoints = await db.metricDataPoint.findMany({
         where: { metricId: input.metricId },
-        orderBy: { timestamp: "asc" },
+        orderBy: { timestamp: "desc" },
         take: 1000,
       });
 
       if (dataPoints.length === 0) {
-        throw new Error("No data points to chart");
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "No data points to chart",
+        });
       }
 
-      // Get metric info for AI context
-      const metric = await ctx.db.metric.findUnique({
-        where: { id: input.metricId },
-      });
-
       // Generate new chart transformer
-      const chartTransformer = await generateChartTransformer({
-        metricName: metric?.name ?? "Metric",
-        metricDescription: metric?.description ?? "",
-        dataPoints,
-      });
-
-      // Save transformer
-      await ctx.db.chartTransformer.create({
-        data: {
-          dashboardChartId: dashboardChart.id,
-          transformerCode: chartTransformer.code,
-          chartType: chartTransformer.chartType,
-          cadence: chartTransformer.cadence,
-          userPrompt: null,
-        },
-      });
-
-      // Execute and save chart config
-      const chartConfig = await executeChartTransformer(
-        chartTransformer.code,
-        dataPoints,
-        { chartType: chartTransformer.chartType, cadence: chartTransformer.cadence }
-      );
-
-      await ctx.db.dashboardChart.update({
-        where: { id: dashboardChart.id },
-        data: { chartConfig },
+      await createChartTransformer({
+        dashboardChartId: dashboardChart.id,
+        metricName: metric.name,
+        metricDescription: metric.description ?? "",
+        chartType: dashboardChart.chartType ?? "line",
+        cadence: "DAILY", // Default, will be adjusted by AI
       });
 
       // Clear status
-      await ctx.db.metric.update({
+      await db.metric.update({
         where: { id: input.metricId },
-        data: { refreshStatus: null },
+        data: {
+          refreshStatus: null,
+          lastError: null,
+        },
       });
 
       return { success: true };
-
     } catch (error) {
-      await ctx.db.metric.update({
+      await db.metric.update({
         where: { id: input.metricId },
         data: {
           refreshStatus: null,
@@ -218,151 +232,183 @@ regenerateChartTransformer: protectedProcedure
 Add buttons in the settings drawer:
 
 ```typescript
-// In the drawer content, add:
-<div className="space-y-2">
+import { BarChart3, Database, Loader2, RefreshCw } from "lucide-react";
+
+// In the drawer component:
+const regenerateIngestion = api.transformer.regenerateIngestionTransformer.useMutation({
+  onSuccess: () => {
+    toast.success("Data transformer regenerated");
+    void utils.dashboard.getDashboardCharts.invalidate();
+  },
+  onError: (error) => {
+    toast.error(`Failed: ${error.message}`);
+  },
+});
+
+const regenerateChart = api.transformer.regenerateChartTransformerOnly.useMutation({
+  onSuccess: () => {
+    toast.success("Chart regenerated");
+    void utils.dashboard.getDashboardCharts.invalidate();
+  },
+  onError: (error) => {
+    toast.error(`Failed: ${error.message}`);
+  },
+});
+
+const isManualMetric = !dashboardChart.metric.templateId;
+const isRegenerating = regenerateIngestion.isPending || regenerateChart.isPending;
+
+// In JSX:
+<div className="space-y-3">
   <h4 className="text-sm font-medium">Transformer Actions</h4>
-
-  <Button
-    variant="outline"
-    size="sm"
-    onClick={() => regenerateIngestion.mutate({ metricId })}
-    disabled={regenerateIngestion.isPending || isManualMetric}
-  >
-    {regenerateIngestion.isPending ? (
-      <Loader2 className="h-4 w-4 animate-spin mr-2" />
-    ) : (
-      <RefreshCw className="h-4 w-4 mr-2" />
-    )}
-    Regenerate Data Transformer
-  </Button>
-
-  <Button
-    variant="outline"
-    size="sm"
-    onClick={() => regenerateChart.mutate({ metricId })}
-    disabled={regenerateChart.isPending}
-  >
-    {regenerateChart.isPending ? (
-      <Loader2 className="h-4 w-4 animate-spin mr-2" />
-    ) : (
-      <BarChart3 className="h-4 w-4 mr-2" />
-    )}
-    Regenerate Chart
-  </Button>
-
   <p className="text-xs text-muted-foreground">
-    Use these to fix bad AI-generated transformers without deleting data.
+    Regenerate individual transformers without losing all data.
   </p>
+
+  <div className="flex gap-2">
+    <Button
+      variant="outline"
+      size="sm"
+      onClick={() => regenerateIngestion.mutate({ metricId })}
+      disabled={isRegenerating || isManualMetric}
+      className="flex-1"
+    >
+      {regenerateIngestion.isPending ? (
+        <Loader2 className="h-4 w-4 animate-spin mr-2" />
+      ) : (
+        <Database className="h-4 w-4 mr-2" />
+      )}
+      Regenerate Data
+    </Button>
+
+    <Button
+      variant="outline"
+      size="sm"
+      onClick={() => regenerateChart.mutate({ metricId })}
+      disabled={isRegenerating}
+      className="flex-1"
+    >
+      {regenerateChart.isPending ? (
+        <Loader2 className="h-4 w-4 animate-spin mr-2" />
+      ) : (
+        <BarChart3 className="h-4 w-4 mr-2" />
+      )}
+      Regenerate Chart
+    </Button>
+  </div>
+
+  {isManualMetric && (
+    <p className="text-xs text-muted-foreground">
+      Manual metrics don't have data transformers.
+    </p>
+  )}
 </div>
 ```
 
 ---
 
-## Task 3: Template Cache Documentation
+## Task 3: Add Transformer Info Display
 
-Add helper to check if template uses shared or per-metric cache:
+Show which transformers exist and when they were created:
 
-**File**: `src/lib/integrations/cache-strategy.ts`
+**File**: `src/server/api/routers/transformer.ts`
 
 ```typescript
 /**
- * Determine cache strategy for a template
- * - "shared": One transformer shared across all metrics (most integrations)
- * - "per-metric": Each metric has its own transformer (GSheets)
+ * Get transformer info for a metric
  */
-export function getTransformerCacheStrategy(
-  templateId: string,
-): "shared" | "per-metric" {
-  // GSheets uses per-metric because each spreadsheet has different structure
-  if (templateId.startsWith("gsheets-")) {
-    return "per-metric";
-  }
+getTransformerInfo: workspaceProcedure
+  .input(z.object({ metricId: z.string() }))
+  .query(async ({ ctx, input }) => {
+    await getMetricAndVerifyAccess(
+      db,
+      input.metricId,
+      ctx.workspace.organizationId,
+    );
 
-  // All other integrations share transformers
-  return "shared";
-}
+    // Get ingestion transformer (keyed by metricId)
+    const ingestionTransformer = await db.dataIngestionTransformer.findUnique({
+      where: { templateId: input.metricId },
+      select: { id: true, createdAt: true, updatedAt: true },
+    });
 
-/**
- * Get the cache key for a transformer
- */
-export function getTransformerCacheKey(
-  templateId: string,
-  metricId: string,
-): string {
-  const strategy = getTransformerCacheStrategy(templateId);
+    // Get chart transformer
+    const dashboardChart = await db.dashboardChart.findFirst({
+      where: { metricId: input.metricId },
+      include: {
+        chartTransformer: {
+          select: { id: true, createdAt: true, updatedAt: true, chartType: true, cadence: true },
+        },
+      },
+    });
 
-  if (strategy === "per-metric") {
-    return `${templateId}:${metricId}`;
-  }
+    // Get data point count and date range
+    const dataPointStats = await db.metricDataPoint.aggregate({
+      where: { metricId: input.metricId },
+      _count: true,
+      _min: { timestamp: true },
+      _max: { timestamp: true },
+    });
 
-  return templateId;
-}
+    return {
+      ingestionTransformer: ingestionTransformer
+        ? {
+            exists: true,
+            createdAt: ingestionTransformer.createdAt,
+            updatedAt: ingestionTransformer.updatedAt,
+          }
+        : { exists: false },
+      chartTransformer: dashboardChart?.chartTransformer
+        ? {
+            exists: true,
+            createdAt: dashboardChart.chartTransformer.createdAt,
+            updatedAt: dashboardChart.chartTransformer.updatedAt,
+            chartType: dashboardChart.chartTransformer.chartType,
+            cadence: dashboardChart.chartTransformer.cadence,
+          }
+        : { exists: false },
+      dataPoints: {
+        count: dataPointStats._count,
+        firstDate: dataPointStats._min.timestamp,
+        lastDate: dataPointStats._max.timestamp,
+      },
+    };
+  }),
 ```
 
----
-
-## Task 4: Update Pipeline to Use Cache Strategy
-
-**File**: `src/server/api/services/transformation/data-pipeline.ts`
+**In drawer component:**
 
 ```typescript
-import {
-  getTransformerCacheKey,
-  getTransformerCacheStrategy,
-} from "@/lib/integrations/cache-strategy";
-
-async function getOrCreateIngestionTransformer(
-  templateId: string,
-  metricId: string,
-  apiData: unknown,
-) {
-  const cacheKey = getTransformerCacheKey(templateId, metricId);
-
-  // Check cache
-  const existing = await db.dataIngestionTransformer.findUnique({
-    where: { templateId: cacheKey },
-  });
-
-  if (existing) {
-    return existing;
-  }
-
-  // Generate new
-  const transformer = await generateIngestionTransformer({
-    templateId,
-    apiData,
-  });
-
-  // Save to cache
-  return db.dataIngestionTransformer.create({
-    data: {
-      templateId: cacheKey,
-      transformerCode: transformer.code,
-      valueLabel: transformer.valueLabel,
-      dataDescription: transformer.dataDescription,
-    },
-  });
-}
-```
-
----
-
-## Task 5: Add Transformer Info to Dashboard
-
-Show which transformer version is being used:
-
-**File**: `src/app/dashboard/[teamId]/_components/dashboard-metric-drawer.tsx`
-
-```typescript
-// Fetch transformer info
-const { data: transformerInfo } = api.metric.getTransformerInfo.useQuery({ metricId });
+const { data: transformerInfo } = api.transformer.getTransformerInfo.useQuery(
+  { metricId },
+  { enabled: !!metricId },
+);
 
 // Display in drawer:
-<div className="text-xs text-muted-foreground space-y-1">
-  <p>Cache: {transformerInfo?.cacheStrategy}</p>
-  <p>Ingestion updated: {transformerInfo?.ingestionUpdatedAt?.toLocaleDateString()}</p>
-  <p>Chart updated: {transformerInfo?.chartUpdatedAt?.toLocaleDateString()}</p>
-</div>
+{transformerInfo && (
+  <div className="text-xs text-muted-foreground space-y-1 pt-2 border-t">
+    <p>
+      Data transformer:{" "}
+      {transformerInfo.ingestionTransformer.exists
+        ? `Created ${formatDistanceToNow(transformerInfo.ingestionTransformer.createdAt)} ago`
+        : "Not created"}
+    </p>
+    <p>
+      Chart transformer:{" "}
+      {transformerInfo.chartTransformer.exists
+        ? `${transformerInfo.chartTransformer.chartType} (${transformerInfo.chartTransformer.cadence})`
+        : "Not created"}
+    </p>
+    <p>
+      Data points: {transformerInfo.dataPoints.count}
+      {transformerInfo.dataPoints.firstDate && transformerInfo.dataPoints.lastDate && (
+        <span className="ml-1">
+          ({format(transformerInfo.dataPoints.firstDate, "MMM d")} - {format(transformerInfo.dataPoints.lastDate, "MMM d")})
+        </span>
+      )}
+    </p>
+  </div>
+)}
 ```
 
 ---
@@ -371,31 +417,29 @@ const { data: transformerInfo } = api.metric.getTransformerInfo.useQuery({ metri
 
 | Action | File                                                                 |
 | ------ | -------------------------------------------------------------------- |
-| CREATE | `src/lib/integrations/cache-strategy.ts`                             |
-| MODIFY | `src/server/api/routers/pipeline.ts` (add regenerate procedures)     |
-| MODIFY | `src/server/api/services/transformation/data-pipeline.ts`            |
+| MODIFY | `src/server/api/routers/transformer.ts` (add regenerate procedures)  |
 | MODIFY | `src/app/dashboard/[teamId]/_components/dashboard-metric-drawer.tsx` |
-
----
-
-## Cache Strategy Summary
-
-| Template Type | Cache Strategy | Cache Key                  |
-| ------------- | -------------- | -------------------------- |
-| GitHub        | Shared         | `github-commits`           |
-| Linear        | Shared         | `linear-issues`            |
-| YouTube       | Shared         | `youtube-views`            |
-| PostHog       | Shared         | `posthog-events`           |
-| Google Sheets | Per-Metric     | `gsheets-custom:metric123` |
 
 ---
 
 ## Testing Checklist
 
-- [ ] Regenerate ingestion transformer only → data points preserved
-- [ ] Regenerate chart transformer only → data points preserved
-- [ ] GSheets regenerate → only affects that metric
-- [ ] GitHub regenerate → affects all metrics using same template
-- [ ] UI buttons work correctly
+- [ ] Regenerate ingestion transformer only → chart stays, data re-fetched
+- [ ] Regenerate chart transformer only → data points preserved, new chart generated
+- [ ] Manual metrics → "Regenerate Data" button disabled
+- [ ] Transformer info shows correct dates
 - [ ] Progress shows during regeneration
 - [ ] Error handling works
+
+---
+
+## Summary: Independent Metrics Simplification
+
+With Plan 1's change to independent metrics:
+
+| Before (Shared)             | After (Independent)        |
+| --------------------------- | -------------------------- |
+| Complex cache key logic     | Simple: always `metricId`  |
+| GSheets special case        | All metrics same           |
+| Regenerate one affects many | Regenerate one affects one |
+| Complex cleanup needed      | Easy orphan detection      |
