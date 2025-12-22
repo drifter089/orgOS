@@ -48,7 +48,18 @@ import { api } from "@/trpc/react";
 
 import type { ChartTransformResult } from "./dashboard-metric-card";
 
+// Pipeline step names from src/lib/pipeline/types.ts
 export type LoadingPhase =
+  | "fetching-api-data"
+  | "deleting-old-data"
+  | "deleting-old-transformer"
+  | "generating-ingestion-transformer"
+  | "executing-ingestion-transformer"
+  | "saving-timeseries-data"
+  | "generating-chart-transformer"
+  | "executing-chart-transformer"
+  | "saving-chart-config"
+  // Legacy phase names for backward compatibility
   | "fetching-api"
   | "running-transformer"
   | "ai-regenerating"
@@ -58,16 +69,30 @@ export type LoadingPhase =
 
 function getLoadingMessage(phase: LoadingPhase | undefined): string {
   switch (phase) {
+    // New pipeline step names
+    case "fetching-api-data":
     case "fetching-api":
       return "Fetching data from API...";
+    case "deleting-old-data":
+      return "Clearing old data...";
+    case "deleting-old-transformer":
+      return "Clearing old transformer...";
+    case "generating-ingestion-transformer":
+    case "ai-regenerating":
+      return "AI is generating transformer...";
+    case "executing-ingestion-transformer":
     case "running-transformer":
       return "Processing data...";
-    case "ai-regenerating":
-      return "AI is regenerating...";
+    case "saving-timeseries-data":
     case "saving-data":
       return "Saving data points...";
+    case "generating-chart-transformer":
+      return "Generating chart...";
+    case "executing-chart-transformer":
     case "updating-chart":
       return "Updating chart...";
+    case "saving-chart-config":
+      return "Finalizing...";
     default:
       return "Processing...";
   }
@@ -86,7 +111,8 @@ interface DashboardMetricChartProps {
   // Goal data from parent - eliminates N+1 query
   goal?: MetricGoal | null;
   goalProgress?: GoalProgress | null;
-  // Value label from DataIngestionTransformer (e.g., "commits", "stars", "issues")
+  // Legacy prop - value label from DataIngestionTransformer
+  // Prefer chartTransform.valueLabel (unified metadata from ChartTransformer)
   valueLabel?: string | null;
 }
 
@@ -621,11 +647,12 @@ export function DashboardMetricChart({
             <span className="text-2xl font-bold tracking-tight">
               {formatValue(currentValue.value)}
             </span>
-            {/* Show valueLabel from transformer, fallback to chart data key */}
+            {/* Show valueLabel from ChartTransformer (unified metadata) with override support */}
             <span className="text-muted-foreground text-xs">
-              {valueLabel ??
+              {chartTransform?.valueLabelOverride ??
+                chartTransform?.valueLabel ??
+                valueLabel ??
                 chartTransform?.dataKeys?.[0] ??
-                chartTransform?.title?.split(" ")[0] ??
                 ""}
             </span>
             {goalTargetValue !== null && goalProgress && (
@@ -633,8 +660,14 @@ export function DashboardMetricChart({
                 <Target className="text-destructive h-3 w-3" />
                 <span className="text-destructive">
                   {formatValue(goalTargetValue)}
-                  {valueLabel && (
-                    <span className="ml-0.5 text-[10px]">{valueLabel}</span>
+                  {(chartTransform?.valueLabelOverride ??
+                    chartTransform?.valueLabel ??
+                    valueLabel) && (
+                    <span className="ml-0.5 text-[10px]">
+                      {chartTransform?.valueLabelOverride ??
+                        chartTransform?.valueLabel ??
+                        valueLabel}
+                    </span>
                   )}
                 </span>
                 <span className="text-muted-foreground">
