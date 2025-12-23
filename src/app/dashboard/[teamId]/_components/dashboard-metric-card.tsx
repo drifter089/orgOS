@@ -61,7 +61,7 @@ export function DashboardMetricCard({
   const { confirm } = useConfirmation();
 
   // Poll for refresh status when processing
-  const { data: refreshStatus } = api.metric.getRefreshStatus.useQuery(
+  const { data: pipelineProgress } = api.pipeline.getProgress.useQuery(
     { metricId: dashboardMetric.metric.id },
     {
       enabled: isProcessing || isRegeneratingPipeline,
@@ -72,7 +72,7 @@ export function DashboardMetricCard({
   // Derive loadingPhase from polled status
   const loadingPhase: LoadingPhase =
     isProcessing || isRegeneratingPipeline
-      ? ((refreshStatus as LoadingPhase) ?? "fetching-api")
+      ? ((pipelineProgress?.currentStep as LoadingPhase) ?? "fetching-api")
       : null;
 
   const isPending = dashboardMetric.id.startsWith("temp-");
@@ -135,10 +135,9 @@ export function DashboardMetricCard({
     },
   });
 
-  // Mutations for transformer operations
-  const refreshMetricMutation = api.transformer.refreshMetric.useMutation();
-  const regenerateChartMutation =
-    api.transformer.regenerateChartTransformer.useMutation();
+  // Mutations for pipeline operations
+  const refreshMetricMutation = api.pipeline.refresh.useMutation();
+  const regeneratePipelineMutation = api.pipeline.regenerate.useMutation();
 
   const updateMetricMutation = api.metric.update.useMutation({
     onSuccess: (updatedMetric) => {
@@ -165,27 +164,24 @@ export function DashboardMetricCard({
   /**
    * Refresh metric data using existing transformer, or regenerate entire pipeline
    * when forceRebuild is true. Progress status is polled from the database.
-   * For manual metrics, regenerates the chart transformer.
+   * For manual metrics, regenerates via full pipeline.
    */
   const handleRefresh = useCallback(
     async (forceRebuild = false) => {
-      // For manual metrics, regenerate the chart transformer
+      // For manual metrics, regenerate via full pipeline
       if (!isIntegrationMetric) {
         setIsProcessing(true);
         try {
-          const result = await regenerateChartMutation.mutateAsync({
-            dashboardChartId: dashboardMetric.id,
+          await regeneratePipelineMutation.mutateAsync({
+            metricId: metric.id,
           });
-
-          if (result.success) {
-            toast.success("Chart regenerated");
-            const teamId = metric.teamId;
-            await utils.dashboard.getDashboardCharts.refetch();
-            if (teamId) {
-              await utils.dashboard.getDashboardCharts.refetch({ teamId });
-            }
-          } else {
-            toast.error("Regeneration failed", { description: result.error });
+          // Fire-and-forget: will poll for progress via pipelineProgress query
+          toast.success("Chart regeneration started");
+          // Poll will detect completion and refetch
+          const teamId = metric.teamId;
+          await utils.dashboard.getDashboardCharts.refetch();
+          if (teamId) {
+            await utils.dashboard.getDashboardCharts.refetch({ teamId });
           }
         } catch (error) {
           toast.error("Regeneration failed", {
@@ -208,32 +204,18 @@ export function DashboardMetricCard({
       }
 
       try {
-        const result = await refreshMetricMutation.mutateAsync({
-          metricId: metric.id,
-          forceRegenerate: forceRebuild,
-        });
-
-        if (result.success) {
-          toast.success(
-            forceRebuild ? "Pipeline regenerated" : "Data refreshed",
-            {
-              description: forceRebuild
-                ? `Transformers recreated with ${result.dataPointCount} data points`
-                : `${result.dataPointCount} data points updated`,
-            },
-          );
-          const teamId = metric.teamId;
-          await utils.dashboard.getDashboardCharts.refetch();
-          if (teamId) {
-            await utils.dashboard.getDashboardCharts.refetch({ teamId });
-          }
+        if (forceRebuild) {
+          await regeneratePipelineMutation.mutateAsync({ metricId: metric.id });
+          toast.success("Pipeline regeneration started");
         } else {
-          toast.error(
-            forceRebuild ? "Pipeline regeneration failed" : "Refresh failed",
-            {
-              description: result.error,
-            },
-          );
+          await refreshMetricMutation.mutateAsync({ metricId: metric.id });
+          toast.success("Data refresh started");
+        }
+        // Fire-and-forget: will poll for progress
+        const teamId = metric.teamId;
+        await utils.dashboard.getDashboardCharts.refetch();
+        if (teamId) {
+          await utils.dashboard.getDashboardCharts.refetch({ teamId });
         }
       } catch (error) {
         toast.error(
@@ -253,44 +235,37 @@ export function DashboardMetricCard({
     },
     [
       isIntegrationMetric,
-      dashboardMetric.id,
-      regenerateChartMutation,
+      metric.id,
       metric.templateId,
       metric.integration,
-      metric.id,
       metric.teamId,
+      regeneratePipelineMutation,
       refreshMetricMutation,
       utils.dashboard.getDashboardCharts,
     ],
   );
 
   /**
-   * Regenerate chart with AI using optional prompt, chartType, and cadence
+   * Regenerate chart via full pipeline regeneration
+   * Note: chartType, cadence, and userPrompt are ignored in current implementation
    */
   const handleRegenerate = useCallback(
     async (
-      chartType?: string,
-      cadence?: "DAILY" | "WEEKLY" | "MONTHLY",
-      userPrompt?: string,
+      _chartType?: string,
+      _cadence?: "DAILY" | "WEEKLY" | "MONTHLY",
+      _userPrompt?: string,
     ) => {
       setIsProcessing(true);
       try {
-        const result = await regenerateChartMutation.mutateAsync({
-          dashboardChartId: dashboardMetric.id,
-          chartType,
-          cadence,
-          userPrompt,
+        await regeneratePipelineMutation.mutateAsync({
+          metricId: metric.id,
         });
-
-        if (result.success) {
-          toast.success("Chart regenerated");
-          const teamId = metric.teamId;
-          await utils.dashboard.getDashboardCharts.refetch();
-          if (teamId) {
-            await utils.dashboard.getDashboardCharts.refetch({ teamId });
-          }
-        } else {
-          toast.error("Regeneration failed", { description: result.error });
+        // Fire-and-forget: will poll for progress
+        toast.success("Chart regeneration started");
+        const teamId = metric.teamId;
+        await utils.dashboard.getDashboardCharts.refetch();
+        if (teamId) {
+          await utils.dashboard.getDashboardCharts.refetch({ teamId });
         }
       } catch (error) {
         toast.error("Regeneration failed", {
@@ -301,10 +276,10 @@ export function DashboardMetricCard({
       }
     },
     [
-      dashboardMetric.id,
-      regenerateChartMutation,
-      utils.dashboard.getDashboardCharts,
+      metric.id,
       metric.teamId,
+      regeneratePipelineMutation,
+      utils.dashboard.getDashboardCharts,
     ],
   );
 

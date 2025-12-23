@@ -13,7 +13,7 @@ export function MetricCheckInClient({ metricId }: MetricCheckInClientProps) {
     data: metric,
     isLoading,
     error,
-  } = api.metric.getManualMetricById.useQuery({ metricId });
+  } = api.manualMetric.getById.useQuery({ metricId });
 
   const utils = api.useUtils();
 
@@ -58,7 +58,7 @@ export function MetricCheckInClient({ metricId }: MetricCheckInClientProps) {
   const role = metric.roles[0] ?? null;
 
   const handleSuccess = async () => {
-    await utils.metric.getManualMetricById.invalidate();
+    await utils.manualMetric.getById.invalidate();
   };
 
   return (

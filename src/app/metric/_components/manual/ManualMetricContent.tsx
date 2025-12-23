@@ -82,7 +82,7 @@ export function ManualMetricContent({
   const { cancelQueries, addOptimisticChart, swapTempWithReal, rollback } =
     useOptimisticMetricUpdate({ teamId });
 
-  const createMutation = api.metric.createManual.useMutation();
+  const createMutation = api.manualMetric.create.useMutation();
 
   const handleSubmit = async () => {
     if (!metricName.trim() || !unitType || !cadence) return;

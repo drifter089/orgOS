@@ -10,7 +10,7 @@ export default async function CheckInPage({ params }: CheckInPageProps) {
   const { userId } = await params;
 
   // Prefetch the user's manual metrics
-  await api.metric.getManualMetricsForUser.prefetch({ userId });
+  await api.manualMetric.getForUser.prefetch({ userId });
 
   return (
     <HydrateClient>

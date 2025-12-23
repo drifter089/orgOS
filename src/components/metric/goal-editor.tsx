@@ -46,8 +46,10 @@ export function GoalEditor({
 
   // Only fetch if we don't have initial data
   const shouldFetch = initialGoal === undefined;
-  const { data: goalData, isLoading: isGoalLoading } =
-    api.metric.getGoal.useQuery({ metricId }, { enabled: shouldFetch });
+  const { data: goalData, isLoading: isGoalLoading } = api.goal.get.useQuery(
+    { metricId },
+    { enabled: shouldFetch },
+  );
 
   // Use initial data if provided, otherwise use fetched data
   const goal = initialGoal !== undefined ? initialGoal : goalData?.goal;
@@ -61,12 +63,12 @@ export function GoalEditor({
     }
   }, [startEditing, goal]);
 
-  const upsertGoalMutation = api.metric.upsertGoal.useMutation({
+  const upsertGoalMutation = api.goal.upsert.useMutation({
     onSuccess: async () => {
       toast.success("Goal saved");
       setIsEditing(false);
       setTargetValue("");
-      await utils.metric.getGoal.invalidate({ metricId });
+      await utils.goal.get.invalidate({ metricId });
       await utils.dashboard.getDashboardCharts.invalidate();
       onSave?.();
     },
@@ -75,10 +77,10 @@ export function GoalEditor({
     },
   });
 
-  const deleteGoalMutation = api.metric.deleteGoal.useMutation({
+  const deleteGoalMutation = api.goal.delete.useMutation({
     onSuccess: async () => {
       toast.success("Goal deleted");
-      await utils.metric.getGoal.invalidate({ metricId });
+      await utils.goal.get.invalidate({ metricId });
       await utils.dashboard.getDashboardCharts.invalidate();
       onDelete?.();
     },
