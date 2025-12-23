@@ -1,28 +1,27 @@
 import type { PrismaClient } from "@prisma/client";
 
-export type PipelineStepName =
-  | "fetching-api-data"
-  | "deleting-old-data"
-  | "deleting-old-transformer"
-  | "generating-ingestion-transformer"
-  | "executing-ingestion-transformer"
-  | "saving-timeseries-data"
-  | "generating-chart-transformer"
-  | "executing-chart-transformer"
-  | "saving-chart-config";
+// Re-export step types from steps.ts (single source of truth)
+export type {
+  PipelineStepName,
+  PipelineOperation,
+  PipelineType,
+} from "./steps";
 
-export type PipelineType =
-  | "create" // New metric: all steps
-  | "soft-refresh" // Reuse transformers, just fetch new data
-  | "hard-refresh"; // Delete ALL old data + regenerate everything
-
-export interface StepConfig {
-  step: PipelineStepName;
-  displayName: string;
+/**
+ * Context passed to pipeline runner
+ */
+export interface PipelineContext {
+  metricId: string;
+  dashboardChartId?: string;
+  organizationId: string;
+  db: PrismaClient;
 }
 
+/**
+ * Result of a completed pipeline step
+ */
 export interface StepResult<T = unknown> {
-  step: PipelineStepName;
+  step: string;
   displayName: string;
   status: "completed" | "failed" | "skipped";
   startedAt: Date;
@@ -30,11 +29,4 @@ export interface StepResult<T = unknown> {
   durationMs: number;
   data?: T;
   error?: string;
-}
-
-export interface PipelineContext {
-  metricId: string;
-  dashboardChartId?: string;
-  organizationId: string;
-  db: PrismaClient;
 }

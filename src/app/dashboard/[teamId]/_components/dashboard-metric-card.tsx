@@ -17,8 +17,7 @@ import {
 import { useMetricMutations } from "@/hooks/use-metric-mutations";
 import { isDevMode } from "@/lib/dev-mode";
 import type { ChartTransformResult } from "@/lib/metrics/transformer-types";
-import { PIPELINE_CONFIGS } from "@/lib/pipeline/configs";
-import type { PipelineStepName } from "@/lib/pipeline/types";
+import type { PipelineStepName } from "@/lib/pipeline";
 import { useConfirmation } from "@/providers/ConfirmationDialogProvider";
 import type { RouterOutputs } from "@/trpc/react";
 import { api } from "@/trpc/react";
@@ -40,7 +39,7 @@ export type {
 
 // Initial steps set by backend for each mutation type (matches pipeline.ts)
 const INITIAL_STEPS = {
-  softRefresh: PIPELINE_CONFIGS["soft-refresh"][0]!.step,
+  softRefresh: "fetching-api-data" as PipelineStepName,
   hardRefresh: "deleting-old-data" as PipelineStepName,
   regenerateIngestion: "deleting-old-transformer" as PipelineStepName,
   regenerateChart: "deleting-old-transformer" as PipelineStepName,

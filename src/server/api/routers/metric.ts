@@ -1,13 +1,9 @@
-import type { PrismaClient } from "@prisma/client";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 
 import { getTemplate } from "@/lib/integrations";
 import { fetchData } from "@/server/api/services/data-fetching";
-import {
-  createChartTransformer,
-  ingestMetricData,
-} from "@/server/api/services/transformation";
+import { refreshMetricAndCharts } from "@/server/api/services/transformation";
 import { createTRPCRouter, workspaceProcedure } from "@/server/api/trpc";
 import {
   getIntegrationAndVerifyAccess,
@@ -15,117 +11,6 @@ import {
   getTeamAndVerifyAccess,
 } from "@/server/api/utils/authorization";
 import { invalidateCacheByTags } from "@/server/api/utils/cache-strategy";
-
-/**
- * Run the metric pipeline in the background (fire-and-forget).
- * Updates refreshStatus at each step and stores errors in lastError.
- */
-async function runPipelineInBackground(
-  db: PrismaClient,
-  params: {
-    metricId: string;
-    dashboardChartId: string;
-    templateId: string;
-    integrationProviderId: string;
-    connectionId: string;
-    endpointParams: Record<string, string>;
-    isTimeSeries: boolean;
-    metricName: string;
-    metricDescription: string;
-    organizationId: string;
-    teamId?: string;
-  },
-): Promise<void> {
-  try {
-    // Step 1: Set initial status
-    await db.metric.update({
-      where: { id: params.metricId },
-      data: { refreshStatus: "fetching-api-data" },
-    });
-
-    // Step 2: Transform and save data (single fetch, batch save)
-    const transformResult = await ingestMetricData({
-      templateId: params.templateId,
-      integrationId: params.integrationProviderId,
-      connectionId: params.connectionId,
-      metricId: params.metricId,
-      endpointConfig: params.endpointParams,
-      isTimeSeries: params.isTimeSeries,
-    });
-
-    if (!transformResult.success) {
-      await db.metric.update({
-        where: { id: params.metricId },
-        data: {
-          refreshStatus: null,
-          lastError: `Data ingestion failed: ${transformResult.error}`,
-        },
-      });
-      return;
-    }
-
-    console.info(
-      `[metric.create] Saved ${transformResult.dataPoints?.length ?? 0} data points`,
-    );
-
-    // Step 3: Update status and create ChartTransformer
-    await db.metric.update({
-      where: { id: params.metricId },
-      data: { refreshStatus: "generating-chart-transformer" },
-    });
-
-    try {
-      await createChartTransformer({
-        dashboardChartId: params.dashboardChartId,
-        metricName: params.metricName,
-        metricDescription: params.metricDescription,
-        chartType: "line",
-        cadence: "DAILY",
-      });
-    } catch (error) {
-      const errorMsg =
-        error instanceof Error ? error.message : "Chart generation failed";
-      console.error(`[metric.create] ChartTransformer failed:`, errorMsg);
-      await db.metric.update({
-        where: { id: params.metricId },
-        data: {
-          refreshStatus: null,
-          lastError: `Chart generation failed: ${errorMsg}`,
-          lastFetchedAt: new Date(),
-        },
-      });
-      return;
-    }
-
-    // Step 4: Complete - clear status and update timestamp
-    await db.metric.update({
-      where: { id: params.metricId },
-      data: {
-        refreshStatus: null,
-        lastError: null,
-        lastFetchedAt: new Date(),
-      },
-    });
-
-    // Invalidate cache
-    const cacheTags = [`dashboard_org_${params.organizationId}`];
-    if (params.teamId) {
-      cacheTags.push(`dashboard_team_${params.teamId}`);
-    }
-    await invalidateCacheByTags(db, cacheTags);
-  } catch (error) {
-    // Handle unexpected errors
-    const errorMsg = error instanceof Error ? error.message : "Unknown error";
-    console.error(`[metric.create] Pipeline error:`, errorMsg);
-    await db.metric.update({
-      where: { id: params.metricId },
-      data: {
-        refreshStatus: null,
-        lastError: errorMsg,
-      },
-    });
-  }
-}
 
 export const metricRouter = createTRPCRouter({
   // ===========================================================================
@@ -193,8 +78,12 @@ export const metricRouter = createTRPCRouter({
     }),
 
   /**
-   * Create a metric with initial data using the unified transformer flow.
-   * Single API fetch, transaction-locked transformer creation, batch data saves.
+   * Create a metric with initial data.
+   * Uses the unified pipeline (hard-refresh) which handles:
+   * - API fetch
+   * - Transformer generation
+   * - Data point saving
+   * - Chart transformer generation
    */
   create: workspaceProcedure
     .input(
@@ -209,7 +98,7 @@ export const metricRouter = createTRPCRouter({
     )
     .mutation(async ({ ctx, input }) => {
       // Verify user has access to this connection
-      const integration = await getIntegrationAndVerifyAccess(
+      await getIntegrationAndVerifyAccess(
         ctx.db,
         input.connectionId,
         ctx.user.id,
@@ -280,20 +169,20 @@ export const metricRouter = createTRPCRouter({
         { timeout: 15000 },
       );
 
-      // Step 2: Fire-and-forget pipeline execution
-      // Pipeline runs in background - user sees card immediately with spinner
-      void runPipelineInBackground(ctx.db, {
+      // Step 2: Fire-and-forget pipeline execution using unified pipeline
+      // Uses hard-refresh which handles everything (delete is no-op for new metric)
+      void refreshMetricAndCharts({
         metricId: dashboardChart.metricId,
-        dashboardChartId: dashboardChart.id,
-        templateId: input.templateId,
-        integrationProviderId: integration.providerId,
-        connectionId: input.connectionId,
-        endpointParams: input.endpointParams,
-        isTimeSeries: template.isTimeSeries !== false,
-        metricName: input.name,
-        metricDescription: input.description ?? template.description,
-        organizationId: ctx.workspace.organizationId,
-        teamId: input.teamId,
+        forceRegenerate: true, // Hard refresh = create new transformers
+      }).then(async (result) => {
+        if (result.success) {
+          // Invalidate cache after successful pipeline
+          const cacheTags = [`dashboard_org_${ctx.workspace.organizationId}`];
+          if (input.teamId) {
+            cacheTags.push(`dashboard_team_${input.teamId}`);
+          }
+          await invalidateCacheByTags(ctx.db, cacheTags);
+        }
       });
 
       // Return immediately - frontend will poll refreshStatus

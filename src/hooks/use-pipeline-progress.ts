@@ -1,4 +1,8 @@
-import { PIPELINE_CONFIGS } from "@/lib/pipeline/configs";
+import {
+  detectPipelineType,
+  getPipelineStepCount,
+  getStepShortName,
+} from "@/lib/pipeline";
 import { api } from "@/trpc/react";
 
 interface UsePipelineProgressOptions {
@@ -23,24 +27,6 @@ export interface PipelineProgressState {
   progressPercent: number;
   error: string | null;
 }
-
-// Map step names to display names (frontend version)
-const STEP_DISPLAY_NAMES: Record<string, string> = {
-  "fetching-api-data": "Fetching data...",
-  "deleting-old-data": "Clearing old data...",
-  "deleting-old-transformer": "Removing old transformer...",
-  "generating-ingestion-transformer": "Generating transformer...",
-  "executing-ingestion-transformer": "Processing data...",
-  "saving-timeseries-data": "Saving data...",
-  "generating-chart-transformer": "Generating chart...",
-  "executing-chart-transformer": "Creating visualization...",
-  "saving-chart-config": "Finalizing...",
-};
-
-// Step counts from pipeline configs (single source of truth)
-const SOFT_REFRESH_STEPS = PIPELINE_CONFIGS["soft-refresh"].length;
-const HARD_REFRESH_STEPS = PIPELINE_CONFIGS["hard-refresh"].length;
-const CREATE_STEPS = PIPELINE_CONFIGS.create.length;
 
 export function usePipelineProgress({
   metricId,
@@ -70,19 +56,13 @@ export function usePipelineProgress({
   const completedSteps = data.completedSteps ?? [];
   const currentStep = data.currentStep;
 
-  // Detect pipeline type: hard-refresh has delete steps, create has generate, soft-refresh has neither
+  // Detect pipeline type from completed steps
   const allSteps = [...completedSteps.map((s) => s.step), currentStep].filter(
     Boolean,
-  );
-  const hasDeleteStep =
-    allSteps.includes("deleting-old-data") ||
-    allSteps.includes("deleting-old-transformer");
-  const hasGenerateStep = allSteps.includes("generating-ingestion-transformer");
-  const totalSteps = hasDeleteStep
-    ? HARD_REFRESH_STEPS
-    : hasGenerateStep
-      ? CREATE_STEPS
-      : SOFT_REFRESH_STEPS;
+  ) as string[];
+  const pipelineType = detectPipelineType(allSteps);
+  const totalSteps = getPipelineStepCount(pipelineType);
+
   const completedCount = completedSteps.length;
   const progressPercent = Math.min(
     Math.round((completedCount / totalSteps) * 100),
@@ -92,13 +72,10 @@ export function usePipelineProgress({
   return {
     isProcessing: true,
     currentStep,
-    currentStepDisplayName: currentStep
-      ? (STEP_DISPLAY_NAMES[currentStep] ?? currentStep)
-      : null,
+    currentStepDisplayName: currentStep ? getStepShortName(currentStep) : null,
     completedSteps: completedSteps.map((step) => ({
       ...step,
-      displayName:
-        STEP_DISPLAY_NAMES[step.step] ?? step.displayName ?? step.step,
+      displayName: getStepShortName(step.step),
     })),
     totalSteps,
     progressPercent,

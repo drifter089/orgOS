@@ -1,7 +1,11 @@
 /**
  * Data Pipeline Service
  *
- * Handles the complete metric data ingestion workflow:
+ * Handles the complete metric data pipeline:
+ * - Soft refresh: Fetch new data, use existing transformers
+ * - Hard refresh: Delete everything, regenerate transformers from scratch
+ *
+ * Key design:
  * - Single API fetch (eliminates double fetch)
  * - Transaction-locked transformer creation (prevents race condition)
  * - Batch data point saves (faster than sequential upserts)
@@ -11,7 +15,7 @@ import { TRPCError } from "@trpc/server";
 
 import { getTemplate } from "@/lib/integrations";
 import type { DataPoint } from "@/lib/metrics/transformer-types";
-import { createPipelineRunner } from "@/lib/pipeline";
+import { type PipelineType, createPipelineRunner } from "@/lib/pipeline";
 import { db } from "@/server/db";
 
 import { fetchData } from "../data-fetching/nango";
@@ -24,14 +28,9 @@ import {
   testDataIngestionTransformer,
 } from "./executor";
 
-interface TransformAndSaveInput {
-  templateId: string;
-  integrationId: string;
-  connectionId: string;
-  metricId: string;
-  endpointConfig: Record<string, string>;
-  isTimeSeries?: boolean;
-}
+// ============================================================================
+// Types
+// ============================================================================
 
 interface TransformResult {
   success: boolean;
@@ -40,6 +39,22 @@ interface TransformResult {
   error?: string;
 }
 
+interface RefreshMetricInput {
+  metricId: string;
+  /** When true, deletes existing transformer and regenerates from scratch */
+  forceRegenerate?: boolean;
+}
+
+interface RefreshMetricResult {
+  success: boolean;
+  dataPointCount?: number;
+  error?: string;
+}
+
+// ============================================================================
+// Helpers
+// ============================================================================
+
 function dimensionsToJson(
   dimensions: Record<string, unknown> | null,
 ): Prisma.NullableJsonNullValueInput | Prisma.InputJsonValue {
@@ -47,7 +62,7 @@ function dimensionsToJson(
   return dimensions as Prisma.InputJsonValue;
 }
 
-/** Fetches API data and logs the result. Shared by ingestMetricData and refreshMetricDataPoints. */
+/** Fetches API data and logs the result */
 async function fetchApiDataWithLogging(input: {
   metricId: string;
   integrationId: string;
@@ -105,87 +120,52 @@ async function fetchApiDataWithLogging(input: {
 }
 
 /**
- * Main entry point for metric data ingestion.
- * Fetches data once, gets/creates transformer, executes it, and saves results.
+ * Save data points to database.
+ * Delete-then-insert pattern handles the unique constraint on (metricId, timestamp).
  */
-export async function ingestMetricData(
-  input: TransformAndSaveInput,
-): Promise<TransformResult> {
-  console.info(
-    `[Transform] Starting: ${input.templateId} for metric ${input.metricId}`,
-  );
+async function saveDataPointsBatch(
+  metricId: string,
+  dataPoints: DataPoint[],
+  isTimeSeries: boolean,
+): Promise<void> {
+  if (dataPoints.length === 0) return;
 
-  const template = getTemplate(input.templateId);
-  if (!template) {
-    console.error(`[Transform] ERROR: Template not found: ${input.templateId}`);
-    return { success: false, error: `Template not found: ${input.templateId}` };
+  if (!isTimeSeries) {
+    // Snapshot mode: replace all data
+    const baseTimestamp = dataPoints[0]?.timestamp ?? new Date();
+    await db.$transaction([
+      db.metricDataPoint.deleteMany({ where: { metricId } }),
+      db.metricDataPoint.createMany({
+        data: dataPoints.map((dp, index) => ({
+          metricId,
+          timestamp: new Date(baseTimestamp.getTime() + index),
+          value: dp.value,
+          dimensions: dimensionsToJson(dp.dimensions),
+        })),
+      }),
+    ]);
+  } else {
+    // Time-series mode: upsert by timestamp
+    const timestamps = dataPoints.map((dp) => dp.timestamp);
+    await db.$transaction([
+      db.metricDataPoint.deleteMany({
+        where: { metricId, timestamp: { in: timestamps } },
+      }),
+      db.metricDataPoint.createMany({
+        data: dataPoints.map((dp) => ({
+          metricId,
+          timestamp: dp.timestamp,
+          value: dp.value,
+          dimensions: dimensionsToJson(dp.dimensions),
+        })),
+      }),
+    ]);
   }
-
-  const fetchResult = await fetchApiDataWithLogging({
-    metricId: input.metricId,
-    integrationId: input.integrationId,
-    connectionId: input.connectionId,
-    endpoint: template.metricEndpoint,
-    method: template.method,
-    endpointConfig: input.endpointConfig,
-    requestBody: template.requestBody,
-  });
-
-  if (!fetchResult.success) {
-    console.error(
-      `[Transform] ERROR: Failed to fetch data: ${fetchResult.error}`,
-    );
-    return {
-      success: false,
-      error: `Failed to fetch data: ${fetchResult.error}`,
-    };
-  }
-
-  const apiData = fetchResult.data;
-
-  // All metrics use metricId as cache key (independent metrics)
-  const cacheKey = input.metricId;
-
-  const { transformer, isNew } = await getOrCreateDataIngestionTransformer(
-    cacheKey,
-    input.integrationId,
-    template,
-    apiData,
-    input.endpointConfig,
-  );
-
-  if (!transformer) {
-    return { success: false, error: "Failed to get or create transformer" };
-  }
-
-  if (isNew) {
-    console.info(`[Transform] Created new transformer: ${transformer.id}`);
-  }
-
-  const result = await executeDataIngestionTransformer(
-    transformer.transformerCode,
-    apiData,
-    input.endpointConfig,
-  );
-
-  if (!result.success || !result.data) {
-    console.error(`[Transform] Transform failed: ${result.error}`);
-    return { success: false, error: result.error };
-  }
-
-  const isTimeSeries = input.isTimeSeries !== false;
-  await saveDataPointsBatch(input.metricId, result.data, isTimeSeries);
-
-  console.info(
-    `[Transform] Completed: ${result.data.length} data points saved`,
-  );
-
-  return {
-    success: true,
-    dataPoints: result.data,
-    transformerCreated: isNew,
-  };
 }
+
+// ============================================================================
+// Transformer Management
+// ============================================================================
 
 /**
  * Get or create transformer with optimistic concurrency.
@@ -273,7 +253,7 @@ async function getOrCreateDataIngestionTransformer(
     finalDataDescription = regenerated.dataDescription;
   }
 
-  // Upsert handles race condition - if another request created it, we just use that
+  // Upsert handles race condition
   const transformer = await db.dataIngestionTransformer.upsert({
     where: { templateId },
     create: {
@@ -287,90 +267,30 @@ async function getOrCreateDataIngestionTransformer(
   });
 
   const isNew = transformer.createdAt.getTime() > Date.now() - 5000;
-
   return { transformer, isNew };
 }
 
+// ============================================================================
+// Pipeline Operations (Core Logic)
+// ============================================================================
+
 /**
- * Save data points to database.
- * AI transformer is responsible for aggregation - we just upsert by timestamp.
- * Delete-then-insert pattern handles the unique constraint on (metricId, timestamp).
+ * Fetch data from API and transform using existing transformer
  */
-async function saveDataPointsBatch(
-  metricId: string,
-  dataPoints: DataPoint[],
-  isTimeSeries: boolean,
-): Promise<void> {
-  if (dataPoints.length === 0) {
-    return;
-  }
-
-  if (!isTimeSeries) {
-    // Snapshot mode: replace all data
-    const baseTimestamp = dataPoints[0]?.timestamp ?? new Date();
-    await db.$transaction([
-      db.metricDataPoint.deleteMany({ where: { metricId } }),
-      db.metricDataPoint.createMany({
-        data: dataPoints.map((dp, index) => ({
-          metricId,
-          timestamp: new Date(baseTimestamp.getTime() + index),
-          value: dp.value,
-          dimensions: dimensionsToJson(dp.dimensions),
-        })),
-      }),
-    ]);
-  } else {
-    // Time-series mode: upsert by timestamp (delete existing, insert new)
-    const timestamps = dataPoints.map((dp) => dp.timestamp);
-
-    await db.$transaction([
-      db.metricDataPoint.deleteMany({
-        where: { metricId, timestamp: { in: timestamps } },
-      }),
-      db.metricDataPoint.createMany({
-        data: dataPoints.map((dp) => ({
-          metricId,
-          timestamp: dp.timestamp,
-          value: dp.value,
-          dimensions: dimensionsToJson(dp.dimensions),
-        })),
-      }),
-    ]);
-  }
-}
-
-/** Used by background jobs to refresh metric data. */
-export async function refreshMetricDataPoints(input: {
+async function fetchAndTransformData(input: {
+  metricId: string;
   templateId: string;
   integrationId: string;
   connectionId: string;
-  metricId: string;
   endpointConfig: Record<string, string>;
-  isTimeSeries?: boolean;
+  isTimeSeries: boolean;
 }): Promise<TransformResult> {
   const template = getTemplate(input.templateId);
   if (!template) {
     return { success: false, error: `Template not found: ${input.templateId}` };
   }
 
-  // All metrics use metricId as cache key (independent metrics)
-  const cacheKey = input.metricId;
-
-  const transformer = await db.dataIngestionTransformer.findUnique({
-    where: { templateId: cacheKey },
-  });
-  if (!transformer) {
-    // No transformer for this metric - need to create one
-    // This handles backward compatibility for old metrics
-    console.info(
-      `[RefreshMetric] No transformer found for metric ${input.metricId}, creating new one`,
-    );
-    return ingestMetricData({
-      ...input,
-      isTimeSeries: input.isTimeSeries,
-    });
-  }
-
+  // Fetch API data
   const fetchResult = await fetchApiDataWithLogging({
     metricId: input.metricId,
     integrationId: input.integrationId,
@@ -388,42 +308,107 @@ export async function refreshMetricDataPoints(input: {
     };
   }
 
+  // Get existing transformer
+  const transformer = await db.dataIngestionTransformer.findUnique({
+    where: { templateId: input.metricId },
+  });
+
+  if (!transformer) {
+    return { success: false, error: "No transformer found for this metric" };
+  }
+
+  // Execute transformer
   const result = await executeDataIngestionTransformer(
     transformer.transformerCode,
     fetchResult.data,
     input.endpointConfig,
   );
+
   if (!result.success || !result.data) {
     return { success: false, error: result.error };
   }
 
-  const isTimeSeries = input.isTimeSeries !== false;
-  await saveDataPointsBatch(input.metricId, result.data, isTimeSeries);
+  // Save data points
+  await saveDataPointsBatch(input.metricId, result.data, input.isTimeSeries);
 
   return { success: true, dataPoints: result.data };
 }
 
-export async function getDataIngestionTransformerByTemplateId(
-  templateId: string,
-) {
-  return db.dataIngestionTransformer.findUnique({
-    where: { templateId },
-  });
-}
-
-interface RefreshMetricInput {
+/**
+ * Fetch data, generate new transformer, and save data points
+ */
+async function fetchGenerateAndSaveData(input: {
   metricId: string;
-  /** When true, deletes existing transformer and regenerates from scratch */
-  forceRegenerate?: boolean;
+  templateId: string;
+  integrationId: string;
+  connectionId: string;
+  endpointConfig: Record<string, string>;
+  isTimeSeries: boolean;
+}): Promise<TransformResult> {
+  const template = getTemplate(input.templateId);
+  if (!template) {
+    return { success: false, error: `Template not found: ${input.templateId}` };
+  }
+
+  // Fetch API data
+  const fetchResult = await fetchApiDataWithLogging({
+    metricId: input.metricId,
+    integrationId: input.integrationId,
+    connectionId: input.connectionId,
+    endpoint: template.metricEndpoint,
+    method: template.method,
+    endpointConfig: input.endpointConfig,
+    requestBody: template.requestBody,
+  });
+
+  if (!fetchResult.success) {
+    return {
+      success: false,
+      error: `Failed to fetch data: ${fetchResult.error}`,
+    };
+  }
+
+  // Create new transformer (uses metricId as cache key)
+  const { transformer, isNew } = await getOrCreateDataIngestionTransformer(
+    input.metricId,
+    input.integrationId,
+    template,
+    fetchResult.data,
+    input.endpointConfig,
+  );
+
+  if (!transformer) {
+    return { success: false, error: "Failed to get or create transformer" };
+  }
+
+  // Execute transformer
+  const result = await executeDataIngestionTransformer(
+    transformer.transformerCode,
+    fetchResult.data,
+    input.endpointConfig,
+  );
+
+  if (!result.success || !result.data) {
+    return { success: false, error: result.error };
+  }
+
+  // Save data points
+  await saveDataPointsBatch(input.metricId, result.data, input.isTimeSeries);
+
+  return { success: true, dataPoints: result.data, transformerCreated: isNew };
 }
 
-interface RefreshMetricResult {
-  success: boolean;
-  dataPointCount?: number;
-  error?: string;
-}
+// ============================================================================
+// Main Pipeline Entry Point
+// ============================================================================
 
-/** Refresh metric data and update all associated charts. Uses PipelineRunner for progress tracking. */
+/**
+ * Refresh metric data and update all associated charts.
+ *
+ * Pipeline types:
+ * - soft-refresh: Reuse existing transformers, just fetch new data
+ * - hard-refresh: Delete everything, regenerate from scratch (also used for create)
+ */
 export async function refreshMetricAndCharts(
   input: RefreshMetricInput,
 ): Promise<RefreshMetricResult> {
@@ -439,8 +424,10 @@ export async function refreshMetricAndCharts(
     return { success: false, error: "Metric not found or not configured" };
   }
 
-  // Create pipeline runner for progress tracking
-  const pipelineType = input.forceRegenerate ? "hard-refresh" : "soft-refresh";
+  const pipelineType: PipelineType = input.forceRegenerate
+    ? "hard-refresh"
+    : "soft-refresh";
+
   const runner = createPipelineRunner(
     db,
     input.metricId,
@@ -448,61 +435,55 @@ export async function refreshMetricAndCharts(
     pipelineType,
   );
 
+  const template = getTemplate(metric.templateId);
+  const isTimeSeries = template?.isTimeSeries !== false;
+  const endpointConfig =
+    (metric.endpointConfig as Record<string, string>) ?? {};
+
   try {
-    // Step 1: Fetching API data
-    await runner.setStatus("fetching-api-data");
-
-    const template = getTemplate(metric.templateId);
-    const isTimeSeries = template?.isTimeSeries !== false;
-
     let transformResult: TransformResult;
 
     if (input.forceRegenerate) {
-      // HARD REFRESH: Delete everything and regenerate from scratch
-      const cacheKey = metric.id;
+      // HARD REFRESH: Delete old data and transformers, regenerate
 
-      // Step 2: Delete old data points
-      await runner.setStatus("deleting-old-data");
-      await db.metricDataPoint.deleteMany({
-        where: { metricId: metric.id },
+      // Delete old data points
+      await runner.run("delete-data", async () => {
+        await db.metricDataPoint.deleteMany({ where: { metricId: metric.id } });
       });
 
-      // Step 3: Delete old transformer
-      await runner.setStatus("deleting-old-transformer");
-      await db.dataIngestionTransformer
-        .delete({ where: { templateId: cacheKey } })
-        .catch(() => {
-          // Ignore if doesn't exist
-        });
+      // Delete old ingestion transformer
+      await runner.run("delete-ingestion-transformer", async () => {
+        await db.dataIngestionTransformer
+          .delete({ where: { templateId: metric.id } })
+          .catch(() => null);
+      });
 
-      console.info(
-        `[RefreshMetric] Hard refresh - deleted old data for metric: ${metric.id}`,
+      // Fetch data and generate new transformer
+      await runner.setStatus("fetching-api-data");
+      transformResult = await runner.run(
+        "generate-ingestion-transformer",
+        async () => {
+          return fetchGenerateAndSaveData({
+            metricId: metric.id,
+            templateId: metric.templateId!,
+            integrationId: metric.integration!.providerId,
+            connectionId: metric.integration!.connectionId,
+            endpointConfig,
+            isTimeSeries,
+          });
+        },
       );
-
-      // Step 4: AI regenerating transformer
-      await runner.setStatus("generating-ingestion-transformer");
-
-      // Use ingestMetricData which will create new transformer
-      transformResult = await ingestMetricData({
-        templateId: metric.templateId,
-        integrationId: metric.integration.providerId,
-        connectionId: metric.integration.connectionId,
-        metricId: metric.id,
-        endpointConfig: (metric.endpointConfig as Record<string, string>) ?? {},
-        isTimeSeries,
-      });
     } else {
-      // SOFT REFRESH: Reuse existing transformer
-      await runner.setStatus("executing-ingestion-transformer");
-
-      // Normal refresh using existing transformer
-      transformResult = await refreshMetricDataPoints({
-        templateId: metric.templateId,
-        integrationId: metric.integration.providerId,
-        connectionId: metric.integration.connectionId,
-        metricId: metric.id,
-        endpointConfig: (metric.endpointConfig as Record<string, string>) ?? {},
-        isTimeSeries,
+      // SOFT REFRESH: Reuse existing transformers
+      transformResult = await runner.run("fetch-data", async () => {
+        return fetchAndTransformData({
+          metricId: metric.id,
+          templateId: metric.templateId!,
+          integrationId: metric.integration!.providerId,
+          connectionId: metric.integration!.connectionId,
+          endpointConfig,
+          isTimeSeries,
+        });
       });
     }
 
@@ -511,61 +492,49 @@ export async function refreshMetricAndCharts(
       return { success: false, error: transformResult.error };
     }
 
-    // Step: Saving data points (already done in ingestMetricData/refreshMetricDataPoints)
-    await runner.setStatus("saving-timeseries-data");
-
-    await db.metric.update({
-      where: { id: input.metricId },
-      data: { lastFetchedAt: new Date(), lastError: null },
-    });
-
-    // Step: Updating charts
-    await runner.setStatus("executing-chart-transformer");
-
-    // Fetch dataPoints once for all chart transformers (avoids N+1 queries)
+    // Update charts with new data
     const chartsWithTransformers = metric.dashboardCharts.filter(
       (dc) => dc.chartTransformer,
     );
 
     if (chartsWithTransformers.length > 0) {
-      const freshDataPoints = await db.metricDataPoint.findMany({
-        where: { metricId: metric.id },
-        orderBy: { timestamp: "desc" },
-        take: 1000,
-      });
+      await runner.run("execute-chart-transformer", async () => {
+        const freshDataPoints = await db.metricDataPoint.findMany({
+          where: { metricId: metric.id },
+          orderBy: { timestamp: "desc" },
+          take: 1000,
+        });
 
-      const dataPointsForChart: DataPoint[] = freshDataPoints.map((dp) => ({
-        timestamp: dp.timestamp,
-        value: dp.value,
-        dimensions: dp.dimensions as Record<string, unknown> | null,
-      }));
+        const dataPointsForChart: DataPoint[] = freshDataPoints.map((dp) => ({
+          timestamp: dp.timestamp,
+          value: dp.value,
+          dimensions: dp.dimensions as Record<string, unknown> | null,
+        }));
 
-      // Dynamic import to avoid circular dependency
-      const { executeChartTransformerWithData } = await import(
-        "./chart-generator"
-      );
+        const { executeChartTransformerWithData } = await import(
+          "./chart-generator"
+        );
 
-      for (const dc of chartsWithTransformers) {
-        const transformer = dc.chartTransformer!;
-        try {
-          await executeChartTransformerWithData({
-            dashboardChartId: dc.id,
-            transformerCode: transformer.transformerCode,
-            chartType: transformer.chartType,
-            cadence: transformer.cadence,
-            dataPoints: dataPointsForChart,
-          });
-        } catch (chartError) {
-          console.error(
-            `[RefreshMetric] Chart transformer error for ${dc.id}:`,
-            chartError,
-          );
-          // Continue with other charts even if one fails
+        for (const dc of chartsWithTransformers) {
+          const transformer = dc.chartTransformer!;
+          try {
+            await executeChartTransformerWithData({
+              dashboardChartId: dc.id,
+              transformerCode: transformer.transformerCode,
+              chartType: transformer.chartType,
+              cadence: transformer.cadence,
+              dataPoints: dataPointsForChart,
+            });
+          } catch (chartError) {
+            console.error(
+              `[Pipeline] Chart transformer error for ${dc.id}:`,
+              chartError,
+            );
+          }
         }
-      }
+      });
     }
 
-    // Clear status on success
     await runner.complete();
 
     return {
@@ -573,15 +542,27 @@ export async function refreshMetricAndCharts(
       dataPointCount: transformResult.dataPoints?.length ?? 0,
     };
   } catch (error) {
-    // Mark pipeline as failed
     await runner.fail(error instanceof Error ? error.message : "Unknown error");
     throw error;
   }
 }
 
+// ============================================================================
+// Exports for other modules
+// ============================================================================
+
+export { getOrCreateDataIngestionTransformer };
+
+export async function getDataIngestionTransformerByTemplateId(
+  templateId: string,
+) {
+  return db.dataIngestionTransformer.findUnique({
+    where: { templateId },
+  });
+}
+
 /**
- * Update chart for manual metric. Reuses existing transformer code if available.
- * Only calls AI to generate new code if no transformer exists.
+ * Update chart for manual metric (no API fetch, uses existing data)
  */
 export async function updateManualMetricChart(input: {
   metricId: string;
@@ -602,7 +583,6 @@ export async function updateManualMetricChart(input: {
     return { success: false, error: "No dashboard chart found" };
   }
 
-  // Get fresh data points
   const freshDataPoints = await db.metricDataPoint.findMany({
     where: { metricId: metric.id },
     orderBy: { timestamp: "desc" },
@@ -622,7 +602,6 @@ export async function updateManualMetricChart(input: {
   const transformer = dashboardChart.chartTransformer;
 
   if (transformer) {
-    // Transformer exists - just execute existing code (no AI)
     const { executeChartTransformerWithData } = await import(
       "./chart-generator"
     );
@@ -637,7 +616,6 @@ export async function updateManualMetricChart(input: {
 
     return { success: result.success, error: result.error };
   } else {
-    // No transformer - create one (AI call, happens once)
     const { createChartTransformer } = await import("./chart-generator");
 
     const endpointConfig = metric.endpointConfig as {
@@ -653,7 +631,28 @@ export async function updateManualMetricChart(input: {
       cadence: cadence as "DAILY" | "WEEKLY" | "MONTHLY",
     });
 
-    // createChartTransformer throws on failure, so if we get here it succeeded
     return { success: true };
   }
+}
+
+/**
+ * Create new metric data: fetch from API, generate transformer, save data points.
+ * Used for initial metric creation before chart transformer exists.
+ */
+export async function ingestMetricData(input: {
+  templateId: string;
+  integrationId: string;
+  connectionId: string;
+  metricId: string;
+  endpointConfig: Record<string, string>;
+  isTimeSeries?: boolean;
+}): Promise<TransformResult> {
+  return fetchGenerateAndSaveData({
+    metricId: input.metricId,
+    templateId: input.templateId,
+    integrationId: input.integrationId,
+    connectionId: input.connectionId,
+    endpointConfig: input.endpointConfig,
+    isTimeSeries: input.isTimeSeries !== false,
+  });
 }

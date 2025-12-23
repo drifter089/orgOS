@@ -1,52 +1,64 @@
 import type { PrismaClient } from "@prisma/client";
 
-import { PIPELINE_CONFIGS } from "./configs";
-import type {
-  PipelineContext,
-  PipelineStepName,
-  PipelineType,
-  StepConfig,
-  StepResult,
-} from "./types";
+import {
+  OPERATION_TO_STEP,
+  PIPELINE_OPERATIONS,
+  type PipelineOperation,
+  type PipelineStepName,
+  type PipelineType,
+  getStepDisplayName,
+} from "./steps";
+import type { PipelineContext, StepResult } from "./types";
 
+/**
+ * Pipeline Runner
+ *
+ * Orchestrates pipeline operations with:
+ * - Progress tracking via metric.refreshStatus
+ * - Step logging to MetricApiLog
+ * - Error handling with lastError updates
+ *
+ * Usage:
+ *   const runner = new PipelineRunner(ctx, "soft-refresh");
+ *   await runner.run("fetch-data", () => fetchData());
+ *   await runner.run("execute-ingestion-transformer", () => executeTransformer());
+ *   await runner.complete();
+ */
 export class PipelineRunner {
-  private steps: StepConfig[];
   private completedSteps: StepResult[] = [];
-  private currentStepIndex = 0;
   private pipelineType: PipelineType;
   private ctx: PipelineContext;
+  private operations: readonly PipelineOperation[];
 
   constructor(ctx: PipelineContext, pipelineType: PipelineType) {
     this.ctx = ctx;
     this.pipelineType = pipelineType;
-    this.steps = PIPELINE_CONFIGS[pipelineType];
+    this.operations = PIPELINE_OPERATIONS[pipelineType];
   }
 
   /**
-   * Execute a step and log it
+   * Run an operation and track its progress
    */
-  async runStep<TInput, TOutput>(
-    stepFn: (input: TInput) => Promise<TOutput>,
-    input: TInput,
-  ): Promise<TOutput> {
-    const stepConfig = this.steps[this.currentStepIndex];
-    if (!stepConfig) throw new Error("No more steps in pipeline");
+  async run<T>(operation: PipelineOperation, fn: () => Promise<T>): Promise<T> {
+    const stepName = OPERATION_TO_STEP[operation];
+    const displayName = getStepDisplayName(stepName);
 
     // Update metric.refreshStatus for frontend polling
-    await this.updateRefreshStatus(stepConfig.step);
+    await this.updateRefreshStatus(stepName);
 
     const startedAt = new Date();
 
     try {
-      const result = await stepFn(input);
+      const result = await fn();
       const completedAt = new Date();
       const durationMs = completedAt.getTime() - startedAt.getTime();
 
       // Log to MetricApiLog
-      await this.logStep(stepConfig, "completed", durationMs);
+      await this.logStep(stepName, displayName, "completed", durationMs);
 
       this.completedSteps.push({
-        ...stepConfig,
+        step: stepName,
+        displayName,
         status: "completed",
         startedAt,
         completedAt,
@@ -54,17 +66,17 @@ export class PipelineRunner {
         data: result,
       });
 
-      this.currentStepIndex++;
       return result;
     } catch (error) {
       const completedAt = new Date();
       const durationMs = completedAt.getTime() - startedAt.getTime();
       const errorMsg = error instanceof Error ? error.message : "Unknown error";
 
-      await this.logStep(stepConfig, "failed", durationMs, errorMsg);
+      await this.logStep(stepName, displayName, "failed", durationMs, errorMsg);
 
       this.completedSteps.push({
-        ...stepConfig,
+        step: stepName,
+        displayName,
         status: "failed",
         startedAt,
         completedAt,
@@ -77,22 +89,8 @@ export class PipelineRunner {
   }
 
   /**
-   * Skip current step (when not needed)
-   */
-  skipStep(): void {
-    this.currentStepIndex++;
-  }
-
-  /**
-   * Get current step info for manual status updates
-   */
-  getCurrentStep(): StepConfig | undefined {
-    return this.steps[this.currentStepIndex];
-  }
-
-  /**
-   * Manually update refresh status without running a step.
-   * Also logs to MetricApiLog for progress tracking.
+   * Manually update status without running an operation
+   * Useful when a step is handled by called functions
    */
   async setStatus(step: PipelineStepName): Promise<void> {
     await this.updateRefreshStatus(step);
@@ -142,6 +140,20 @@ export class PipelineRunner {
   }
 
   /**
+   * Get pipeline type (for logging/debugging)
+   */
+  getPipelineType(): PipelineType {
+    return this.pipelineType;
+  }
+
+  /**
+   * Get expected operations for this pipeline
+   */
+  getOperations(): readonly PipelineOperation[] {
+    return this.operations;
+  }
+
+  /**
    * Get completed steps for debugging
    */
   getCompletedSteps(): StepResult[] {
@@ -156,7 +168,8 @@ export class PipelineRunner {
   }
 
   private async logStep(
-    stepConfig: StepConfig,
+    step: string,
+    displayName: string,
     status: "completed" | "failed",
     durationMs: number,
     error?: string,
@@ -164,12 +177,12 @@ export class PipelineRunner {
     await this.ctx.db.metricApiLog.create({
       data: {
         metricId: this.ctx.metricId,
-        endpoint: `pipeline-step:${stepConfig.step}`,
+        endpoint: `pipeline-step:${step}`,
         success: status === "completed",
         rawResponse: {
           pipelineType: this.pipelineType,
-          step: stepConfig.step,
-          displayName: stepConfig.displayName,
+          step,
+          displayName,
           status,
           durationMs,
           error,
