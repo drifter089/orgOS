@@ -56,12 +56,18 @@ export interface ChartConfig {
 export interface ChartTransformResult extends ChartConfig {
   title: string;
   description: string;
+  valueLabel: string; // Label for the primary value (e.g., "commits", "issues")
   xAxisLabel: string;
   yAxisLabel: string;
   showLegend: boolean;
   showTooltip: boolean;
   centerLabel?: { value: string; label: string };
   reasoning: string;
+
+  // User overrides (optional, takes precedence when set)
+  titleOverride?: string;
+  descriptionOverride?: string;
+  valueLabelOverride?: string;
 }
 
 // =============================================================================

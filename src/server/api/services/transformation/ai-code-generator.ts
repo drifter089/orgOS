@@ -55,6 +55,7 @@ interface GenerateChartTransformerInput {
   userPrompt?: string;
   dataStats?: DataStats;
   templateId?: string; // Used to route to Google Sheets specific generator
+  selectedDimension?: string; // User can select a dimension to track (e.g., "estimate" for effort points)
 }
 
 interface GeneratedCode {
@@ -146,13 +147,25 @@ Output ChartConfig (shadcn/ui chart format):
   chartConfig: { [dataKey]: { label: string, color: string } },
   xAxisKey: string,
   dataKeys: string[],
-  title: string,
-  description: string,  // SHORT description of how data is aggregated, e.g. "Summed by week"
+  title: string,           // REQUIRED: Full descriptive title for the chart
+  description: string,     // REQUIRED: SHORT description of how data is aggregated
+  valueLabel: string,      // REQUIRED: Short label for the primary value (e.g., "commits", "issues")
   showLegend?: boolean,
   showTooltip?: boolean,
   stacked?: boolean,
   centerLabel?: { value: string, label: string }
 }
+
+REQUIRED METADATA FIELDS:
+- title: Full descriptive title for the chart. Include relevant context like metric name, team, or project.
+  Examples: "Daily Commits", "Completed Issues for Backend Team", "Video Views for Channel"
+  DO NOT include cadence if the x-axis already shows time periods.
+- description: SHORT description of how data is aggregated and displayed.
+  Examples: "Sum of commits per day", "Running total of issues", "Average story points per sprint"
+- valueLabel: Short label for the primary value being tracked. This appears next to the main number.
+  Examples: "commits", "issues", "story points", "views", "subscribers"
+  Should be lowercase, plural form.
+  NOTE: valueLabel can be the default metric label OR a dimension key label if user selects a dimension.
 
 CADENCE determines how to aggregate data:
 - DAILY: Group by day, one data point per day
@@ -180,6 +193,7 @@ EXAMPLE OUTPUT for line chart:
   dataKeys: ["commits"],
   title: "Daily Commits",
   description: "Total commits per day",
+  valueLabel: "commits",
   showLegend: false,
   showTooltip: true
 }
@@ -199,6 +213,7 @@ EXAMPLE with dimensions (multi-series):
   dataKeys: ["additions", "deletions"],
   title: "Code Changes",
   description: "Lines added and deleted, summed weekly",
+  valueLabel: "lines",
   showLegend: true,
   stacked: true
 }
@@ -210,6 +225,7 @@ RULES:
 4. Format dates as readable strings: "Jan 15" or "Week of Jan 15" or "Jan 2024"
 5. If dimensions exist, extract them as separate data keys
 6. Sort chronologically (oldest first) for time series
+7. ALWAYS include title, description, and valueLabel in the output
 
 OUTPUT FORMAT:
 Return a JSON object with this structure:
@@ -476,6 +492,17 @@ Preferences:
 
 Metric name: ${input.metricName}
 Metric description: ${input.metricDescription}`;
+
+  // Add selected dimension preference if specified
+  if (input.selectedDimension && input.selectedDimension !== "value") {
+    userPrompt += `
+
+USER DIMENSION PREFERENCE:
+Instead of tracking the default "value" field, track the "${input.selectedDimension}" dimension.
+- Aggregate this dimension when grouping by period (SUM the dimension values, not counts)
+- Set valueLabel to something appropriate for this dimension (e.g., "points" for "estimate")
+- The chartData should show the aggregated dimension values, not issue counts`;
+  }
 
   if (input.userPrompt) {
     userPrompt += `\n\nUser request: "${input.userPrompt}"`;

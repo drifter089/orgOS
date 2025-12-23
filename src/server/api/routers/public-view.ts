@@ -130,6 +130,7 @@ export const publicViewRouter = createTRPCRouter({
               cadence: true,
               userPrompt: true,
               updatedAt: true,
+              selectedDimension: true,
             },
           },
         },

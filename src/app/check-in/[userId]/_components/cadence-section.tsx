@@ -5,7 +5,7 @@ import type { RouterOutputs } from "@/trpc/react";
 
 import { MetricCheckInCard } from "./metric-check-in-card";
 
-type ManualMetricsForUser = RouterOutputs["metric"]["getManualMetricsForUser"];
+type ManualMetricsForUser = RouterOutputs["manualMetric"]["getForUser"];
 type MetricWithRole = ManualMetricsForUser["weekly"][number];
 
 interface CadenceSectionProps {

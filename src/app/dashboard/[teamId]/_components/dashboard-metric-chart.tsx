@@ -1,5 +1,7 @@
 "use client";
 
+import { useMemo } from "react";
+
 import type { MetricGoal, Role } from "@prisma/client";
 import { AlertTriangle, Info, Loader2, Target, User } from "lucide-react";
 import {
@@ -37,18 +39,28 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { type GoalProgress, calculateTargetDisplayValue } from "@/lib/goals";
 import { formatValue } from "@/lib/helpers/format-value";
 import { getUserName } from "@/lib/helpers/get-user-name";
 import { getLatestMetricValue } from "@/lib/metrics/get-latest-value";
 import { getPlatformConfig } from "@/lib/platform-config";
 import { cn } from "@/lib/utils";
-import type { GoalProgress } from "@/server/api/utils/goal-calculation";
-import { calculateGoalTargetValue } from "@/server/api/utils/goal-calculation";
 import { api } from "@/trpc/react";
 
 import type { ChartTransformResult } from "./dashboard-metric-card";
 
+// Pipeline step names from src/lib/pipeline/types.ts
 export type LoadingPhase =
+  | "fetching-api-data"
+  | "deleting-old-data"
+  | "deleting-old-transformer"
+  | "generating-ingestion-transformer"
+  | "executing-ingestion-transformer"
+  | "saving-timeseries-data"
+  | "generating-chart-transformer"
+  | "executing-chart-transformer"
+  | "saving-chart-config"
+  // Legacy phase names for backward compatibility
   | "fetching-api"
   | "running-transformer"
   | "ai-regenerating"
@@ -58,16 +70,30 @@ export type LoadingPhase =
 
 function getLoadingMessage(phase: LoadingPhase | undefined): string {
   switch (phase) {
+    // New pipeline step names
+    case "fetching-api-data":
     case "fetching-api":
       return "Fetching data from API...";
+    case "deleting-old-data":
+      return "Clearing old data...";
+    case "deleting-old-transformer":
+      return "Clearing old transformer...";
+    case "generating-ingestion-transformer":
+    case "ai-regenerating":
+      return "AI is generating transformer...";
+    case "executing-ingestion-transformer":
     case "running-transformer":
       return "Processing data...";
-    case "ai-regenerating":
-      return "AI is regenerating...";
+    case "saving-timeseries-data":
     case "saving-data":
       return "Saving data points...";
+    case "generating-chart-transformer":
+      return "Generating chart...";
+    case "executing-chart-transformer":
     case "updating-chart":
       return "Updating chart...";
+    case "saving-chart-config":
+      return "Finalizing...";
     default:
       return "Processing...";
   }
@@ -86,7 +112,8 @@ interface DashboardMetricChartProps {
   // Goal data from parent - eliminates N+1 query
   goal?: MetricGoal | null;
   goalProgress?: GoalProgress | null;
-  // Value label from DataIngestionTransformer (e.g., "commits", "stars", "issues")
+  // Legacy prop - value label from DataIngestionTransformer
+  // Prefer chartTransform.valueLabel (unified metadata from ChartTransformer)
   valueLabel?: string | null;
 }
 
@@ -119,9 +146,24 @@ export function DashboardMetricChart({
 
   // Calculate goal target value using the shared utility
   const goalTargetValue =
-    goal && goalProgress ? calculateGoalTargetValue(goal, goalProgress) : null;
+    goal && goalProgress
+      ? calculateTargetDisplayValue(
+          goal.goalType,
+          goal.targetValue,
+          goal.baselineValue ?? goalProgress.baselineValue,
+        )
+      : null;
 
   const currentValue = getLatestMetricValue(chartTransform);
+
+  // Generate a key that changes when chart data changes to trigger animation replay
+  const chartKey = useMemo(() => {
+    const chartData = chartTransform?.chartData;
+    if (!chartData || chartData.length === 0) return "empty";
+    const first = JSON.stringify(chartData[0]);
+    const last = JSON.stringify(chartData[chartData.length - 1]);
+    return `${first}-${last}-${chartData.length}`;
+  }, [chartTransform?.chartData]);
 
   const renderChart = () => {
     if (!chartTransform) return null;
@@ -219,13 +261,14 @@ export function DashboardMetricChart({
               <ReferenceLine
                 y={goalTargetValue}
                 stroke="hsl(var(--destructive))"
-                strokeDasharray="4 4"
-                strokeWidth={2}
+                strokeDasharray="8 4"
+                strokeWidth={2.5}
                 label={{
-                  value: `Goal: ${formatValue(goalTargetValue)}`,
-                  position: "right",
+                  value: `Target: ${formatValue(goalTargetValue)}`,
+                  position: "insideTopRight",
                   fill: "hsl(var(--destructive))",
-                  fontSize: 10,
+                  fontSize: 11,
+                  fontWeight: 600,
                 }}
               />
             )}
@@ -252,7 +295,7 @@ export function DashboardMetricChart({
                 }
               />
             )}
-            {dataKeys.map((key) => (
+            {dataKeys.map((key, index) => (
               <Area
                 key={key}
                 dataKey={key}
@@ -260,6 +303,10 @@ export function DashboardMetricChart({
                 fill={`url(#fill${key})`}
                 stroke={`var(--color-${key})`}
                 stackId={stacked ? "a" : undefined}
+                isAnimationActive={true}
+                animationDuration={800}
+                animationEasing="ease-out"
+                animationBegin={index * 100}
               />
             ))}
             {showLegend && <ChartLegend content={<ChartLegendContent />} />}
@@ -312,13 +359,14 @@ export function DashboardMetricChart({
               <ReferenceLine
                 y={goalTargetValue}
                 stroke="hsl(var(--destructive))"
-                strokeDasharray="4 4"
-                strokeWidth={2}
+                strokeDasharray="8 4"
+                strokeWidth={2.5}
                 label={{
-                  value: `Goal: ${formatValue(goalTargetValue)}`,
-                  position: "right",
+                  value: `Target: ${formatValue(goalTargetValue)}`,
+                  position: "insideTopRight",
                   fill: "hsl(var(--destructive))",
-                  fontSize: 10,
+                  fontSize: 11,
+                  fontWeight: 600,
                 }}
               />
             )}
@@ -328,13 +376,17 @@ export function DashboardMetricChart({
                 content={<ChartTooltipContent indicator="dashed" />}
               />
             )}
-            {dataKeys.map((key) => (
+            {dataKeys.map((key, index) => (
               <Bar
                 key={key}
                 dataKey={key}
                 fill={`var(--color-${key})`}
                 radius={4}
                 stackId={stacked ? "a" : undefined}
+                isAnimationActive={true}
+                animationDuration={600}
+                animationEasing="ease-out"
+                animationBegin={index * 80}
               />
             ))}
             {showLegend && <ChartLegend content={<ChartLegendContent />} />}
@@ -365,6 +417,9 @@ export function DashboardMetricChart({
               innerRadius={60}
               outerRadius={100}
               strokeWidth={2}
+              isAnimationActive={true}
+              animationDuration={800}
+              animationEasing="ease-out"
             >
               {chartData.map((entry, index) => (
                 <Cell
@@ -429,7 +484,7 @@ export function DashboardMetricChart({
             )}
             <PolarAngleAxis dataKey={xAxisKey} />
             <PolarGrid />
-            {dataKeys.map((key) => (
+            {dataKeys.map((key, index) => (
               <Radar
                 key={key}
                 dataKey={key}
@@ -439,6 +494,10 @@ export function DashboardMetricChart({
                   r: 4,
                   fillOpacity: 1,
                 }}
+                isAnimationActive={true}
+                animationDuration={800}
+                animationEasing="ease-out"
+                animationBegin={index * 100}
               />
             ))}
             {showLegend && <ChartLegend content={<ChartLegendContent />} />}
@@ -463,7 +522,12 @@ export function DashboardMetricChart({
               />
             )}
             <PolarGrid gridType="circle" />
-            <RadialBar dataKey={dataKey}>
+            <RadialBar
+              dataKey={dataKey}
+              isAnimationActive={true}
+              animationDuration={1000}
+              animationEasing="ease-out"
+            >
               {centerLabel && (
                 <Label
                   content={({ viewBox }) => {
@@ -520,13 +584,14 @@ export function DashboardMetricChart({
             <ReferenceLine
               y={goalTargetValue}
               stroke="hsl(var(--destructive))"
-              strokeDasharray="4 4"
-              strokeWidth={2}
+              strokeDasharray="8 4"
+              strokeWidth={2.5}
               label={{
-                value: `Goal: ${formatValue(goalTargetValue)}`,
-                position: "right",
+                value: `Target: ${formatValue(goalTargetValue)}`,
+                position: "insideTopRight",
                 fill: "hsl(var(--destructive))",
-                fontSize: 10,
+                fontSize: 11,
+                fontWeight: 600,
               }}
             />
           )}
@@ -536,12 +601,16 @@ export function DashboardMetricChart({
               content={<ChartTooltipContent indicator="dashed" />}
             />
           )}
-          {dataKeys.map((key) => (
+          {dataKeys.map((key, index) => (
             <Bar
               key={key}
               dataKey={key}
               fill={`var(--color-${key})`}
               radius={4}
+              isAnimationActive={true}
+              animationDuration={600}
+              animationEasing="ease-out"
+              animationBegin={index * 80}
             />
           ))}
           {showLegend && <ChartLegend content={<ChartLegendContent />} />}
@@ -552,7 +621,7 @@ export function DashboardMetricChart({
 
   return (
     <Card
-      className={`flex h-[420px] flex-col ${isPending ? "animate-pulse opacity-70" : ""}`}
+      className={`animate-in fade-in flex h-[420px] flex-col duration-300 ${isPending ? "animate-pulse opacity-70" : ""}`}
     >
       <CardHeader className="flex-shrink-0 space-y-0.5 px-5 pt-3 pb-1">
         <div className="flex items-center justify-between gap-2">
@@ -599,19 +668,7 @@ export function DashboardMetricChart({
               className="text-muted-foreground shrink-0 text-[10px]"
             >
               <Loader2 className="mr-1 h-2.5 w-2.5 animate-spin" />
-              {isPending
-                ? "Saving..."
-                : loadingPhase === "fetching-api"
-                  ? "Fetching..."
-                  : loadingPhase === "running-transformer"
-                    ? "Transforming..."
-                    : loadingPhase === "ai-regenerating"
-                      ? "AI Regenerating..."
-                      : loadingPhase === "saving-data"
-                        ? "Saving..."
-                        : loadingPhase === "updating-chart"
-                          ? "Updating..."
-                          : "Processing..."}
+              {isPending ? "Saving..." : getLoadingMessage(loadingPhase)}
             </Badge>
           )}
         </div>
@@ -621,11 +678,12 @@ export function DashboardMetricChart({
             <span className="text-2xl font-bold tracking-tight">
               {formatValue(currentValue.value)}
             </span>
-            {/* Show valueLabel from transformer, fallback to chart data key */}
+            {/* Show valueLabel from ChartTransformer (unified metadata) with override support */}
             <span className="text-muted-foreground text-xs">
-              {valueLabel ??
+              {chartTransform?.valueLabelOverride ??
+                chartTransform?.valueLabel ??
+                valueLabel ??
                 chartTransform?.dataKeys?.[0] ??
-                chartTransform?.title?.split(" ")[0] ??
                 ""}
             </span>
             {goalTargetValue !== null && goalProgress && (
@@ -633,8 +691,14 @@ export function DashboardMetricChart({
                 <Target className="text-destructive h-3 w-3" />
                 <span className="text-destructive">
                   {formatValue(goalTargetValue)}
-                  {valueLabel && (
-                    <span className="ml-0.5 text-[10px]">{valueLabel}</span>
+                  {(chartTransform?.valueLabelOverride ??
+                    chartTransform?.valueLabel ??
+                    valueLabel) && (
+                    <span className="ml-0.5 text-[10px]">
+                      {chartTransform?.valueLabelOverride ??
+                        chartTransform?.valueLabel ??
+                        valueLabel}
+                    </span>
                   )}
                 </span>
                 <span className="text-muted-foreground">
@@ -688,7 +752,11 @@ export function DashboardMetricChart({
       </CardHeader>
 
       <CardContent className="relative flex flex-1 flex-col overflow-hidden px-4 pt-0 pb-4">
-        {hasChartData && renderChart()}
+        {hasChartData && (
+          <div key={chartKey} className="h-full w-full">
+            {renderChart()}
+          </div>
+        )}
 
         {!hasChartData && !isProcessing && !loadingPhase && (
           <div className="text-muted-foreground flex flex-1 items-center justify-center rounded-md border border-dashed p-4 text-center text-sm">

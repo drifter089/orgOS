@@ -1,8 +1,12 @@
 import type { Cadence, MetricGoal, Prisma, PrismaClient } from "@prisma/client";
 
-import type { ChartConfig } from "@/lib/metrics/transformer-types";
-
-import { type GoalProgress, calculateGoalProgress } from "./goal-calculation";
+import {
+  type ChartDataForGoal,
+  type GoalInput,
+  type GoalProgress,
+  calculateGoalProgress,
+} from "@/lib/goals";
+import type { ChartTransformResult } from "@/lib/metrics/transformer-types";
 
 /**
  * Dashboard chart with metric and chartTransformer included
@@ -34,26 +38,18 @@ export type EnrichedDashboardChart<T extends DashboardChartWithRelations> =
 
 /**
  * Gets the cache key for looking up DataIngestionTransformer
- * GSheets uses a composite key: `{templateId}:{metricId}`
- * Other templates use just the templateId
+ * All metrics now use metricId as the cache key (independent metrics)
  */
-function getTransformerCacheKey(
-  templateId: string | null,
-  metricId: string,
-): string | null {
-  if (!templateId) return null;
-  if (templateId.startsWith("gsheets-")) {
-    return `${templateId}:${metricId}`;
-  }
-  return templateId;
+function getTransformerCacheKey(metricId: string): string {
+  return metricId;
 }
 
 /**
- * Enriches dashboard charts with goal progress and value labels from DataIngestionTransformer
+ * Enriches dashboard charts with goal progress and value labels
  *
  * This function:
- * 1. Collects unique templateIds from all charts
- * 2. Batch fetches valueLabels and dataDescriptions from DataIngestionTransformer
+ * 1. Gets valueLabel from chartConfig (ChartTransformer output) as primary source
+ * 2. Falls back to DataIngestionTransformer valueLabel for backward compatibility
  * 3. Calculates goal progress for charts that have goals
  *
  * @param charts - Dashboard charts with metric and chartTransformer relations
@@ -63,20 +59,14 @@ function getTransformerCacheKey(
 export async function enrichChartsWithGoalProgress<
   T extends DashboardChartWithRelations,
 >(charts: T[], db: PrismaClient): Promise<EnrichedDashboardChart<T>[]> {
-  // Get unique templateIds to fetch valueLabels
-  const templateIds = [
-    ...new Set(
-      charts
-        .map((chart) =>
-          getTransformerCacheKey(chart.metric.templateId, chart.metric.id),
-        )
-        .filter((id): id is string => id !== null),
-    ),
+  // Get unique metricIds to fetch fallback valueLabels from DataIngestionTransformer
+  const metricIds = [
+    ...new Set(charts.map((chart) => getTransformerCacheKey(chart.metric.id))),
   ];
 
-  // Fetch valueLabels and dataDescription from DataIngestionTransformer
+  // Fetch valueLabels and dataDescription from DataIngestionTransformer (fallback)
   const transformers = await db.dataIngestionTransformer.findMany({
-    where: { templateId: { in: templateIds } },
+    where: { templateId: { in: metricIds } },
     select: { templateId: true, valueLabel: true, dataDescription: true },
   });
 
@@ -90,14 +80,21 @@ export async function enrichChartsWithGoalProgress<
 
   // Calculate goal progress and add valueLabel for each chart
   return charts.map((chart) => {
-    const cacheKey = getTransformerCacheKey(
-      chart.metric.templateId,
-      chart.metric.id,
-    );
-    const valueLabel = cacheKey ? (valueLabelMap.get(cacheKey) ?? null) : null;
-    const dataDescription = cacheKey
-      ? (dataDescriptionMap.get(cacheKey) ?? null)
-      : null;
+    const cacheKey = getTransformerCacheKey(chart.metric.id);
+
+    // Parse chartConfig to get unified metadata
+    const chartConfig = chart.chartConfig as unknown as ChartTransformResult;
+
+    // Prefer valueLabel from chartConfig (ChartTransformer), fallback to DataIngestionTransformer
+    const valueLabel =
+      chartConfig?.valueLabelOverride ??
+      chartConfig?.valueLabel ??
+      valueLabelMap.get(cacheKey) ??
+      null;
+
+    // Prefer description from chartConfig, fallback to DataIngestionTransformer
+    const dataDescription =
+      chartConfig?.description ?? dataDescriptionMap.get(cacheKey) ?? null;
 
     // No goal or no cadence - return without progress calculation
     if (!chart.metric.goal || !chart.chartTransformer?.cadence) {
@@ -109,12 +106,27 @@ export async function enrichChartsWithGoalProgress<
       };
     }
 
-    // Parse chartConfig and calculate progress
-    const chartConfig = chart.chartConfig as unknown as ChartConfig;
+    // Convert MetricGoal to GoalInput
+    const goalInput: GoalInput = {
+      goalType: chart.metric.goal.goalType,
+      targetValue: chart.metric.goal.targetValue,
+      baselineValue: chart.metric.goal.baselineValue,
+      baselineTimestamp: chart.metric.goal.baselineTimestamp,
+      onTrackThreshold: chart.metric.goal.onTrackThreshold,
+    };
+
+    // Convert ChartConfig to ChartDataForGoal
+    const chartData: ChartDataForGoal = {
+      chartData: chartConfig?.chartData ?? [],
+      xAxisKey: chartConfig?.xAxisKey ?? "date",
+      dataKeys: chartConfig?.dataKeys ?? [],
+    };
+
+    // Calculate goal progress
     const progress = calculateGoalProgress(
-      chart.metric.goal,
+      goalInput,
       chart.chartTransformer.cadence,
-      chartConfig,
+      chartData,
     );
 
     return {
