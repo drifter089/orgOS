@@ -422,7 +422,7 @@ interface RefreshMetricResult {
   error?: string;
 }
 
-/** Helper to update refresh status */
+/** Helper to update refresh status and log step transition */
 async function setRefreshStatus(
   metricId: string,
   status: string | null,
@@ -431,6 +431,20 @@ async function setRefreshStatus(
     where: { id: metricId },
     data: { refreshStatus: status },
   });
+
+  // Log step transition to MetricApiLog for progress tracking
+  if (status) {
+    await db.metricApiLog
+      .create({
+        data: {
+          metricId,
+          endpoint: `pipeline-step:${status}`,
+          rawResponse: { startedAt: new Date().toISOString() },
+          success: true,
+        },
+      })
+      .catch(() => undefined); // Non-blocking, ignore errors
+  }
 }
 
 /** Refresh metric data and update all associated charts. Used by cron and manual refresh. */
