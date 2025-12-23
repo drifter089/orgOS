@@ -165,6 +165,7 @@ async function runChartRegenInBackground(
   metricDescription: string,
   chartType: string,
   selectedDimension?: string,
+  cadence?: "DAILY" | "WEEKLY" | "MONTHLY",
 ): Promise<void> {
   try {
     // Delete existing chart transformer
@@ -186,7 +187,7 @@ async function runChartRegenInBackground(
       metricName,
       metricDescription,
       chartType,
-      cadence: "DAILY", // Default, will be adjusted by AI based on data
+      cadence: cadence ?? "DAILY",
       selectedDimension,
     });
 
@@ -456,6 +457,8 @@ export const pipelineRouter = createTRPCRouter({
       z.object({
         metricId: z.string(),
         selectedDimension: z.string().optional(),
+        chartType: z.string().optional(),
+        cadence: z.enum(["DAILY", "WEEKLY", "MONTHLY"]).optional(),
       }),
     )
     .mutation(async ({ ctx, input }) => {
@@ -513,8 +516,9 @@ export const pipelineRouter = createTRPCRouter({
         dashboardChart.id,
         metric.name,
         metric.description ?? "",
-        dashboardChart.chartType ?? "line",
+        input.chartType ?? dashboardChart.chartType ?? "line",
         input.selectedDimension,
+        input.cadence,
       );
 
       // Return immediately - frontend polls getProgress

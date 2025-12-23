@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 
+import type { Cadence } from "@prisma/client";
 import { AlertCircle, Bug, Settings } from "lucide-react";
 import { toast } from "sonner";
 
@@ -55,20 +56,57 @@ export function DashboardMetricCard({
   readOnly = false,
 }: DashboardMetricCardProps) {
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
-  const [isProcessing, setIsProcessing] = useState(false);
-  const [isRegeneratingPipeline, setIsRegeneratingPipeline] = useState(false);
 
   const utils = api.useUtils();
   const { confirm } = useConfirmation();
 
-  // Poll for refresh status when processing
+  // Poll for refresh status when refreshStatus exists in database
   const { data: pipelineProgress } = api.pipeline.getProgress.useQuery(
     { metricId: dashboardMetric.metric.id },
     {
-      enabled: isProcessing || isRegeneratingPipeline,
-      refetchInterval: 500,
+      enabled: !!dashboardMetric.metric.refreshStatus,
+      refetchInterval: dashboardMetric.metric.refreshStatus ? 500 : false,
     },
   );
+
+  // Derive processing state from database refreshStatus
+  const isProcessing =
+    !!dashboardMetric.metric.refreshStatus ||
+    (pipelineProgress?.isProcessing ?? false);
+
+  const isRegeneratingPipeline =
+    dashboardMetric.metric.refreshStatus === "deleting-old-data" ||
+    dashboardMetric.metric.refreshStatus === "deleting-old-transformer" ||
+    (pipelineProgress?.completedSteps?.some(
+      (s) => s.step === "deleting-old-data",
+    ) ??
+      false);
+
+  // Track previous status to detect completion
+  const prevRefreshStatusRef = useRef<string | null | undefined>(
+    dashboardMetric.metric.refreshStatus,
+  );
+
+  // Detect completion and refetch charts
+  useEffect(() => {
+    const prevStatus = prevRefreshStatusRef.current;
+    const currentStatus = dashboardMetric.metric.refreshStatus;
+
+    prevRefreshStatusRef.current = currentStatus;
+
+    // Pipeline just completed (status went from non-null to null)
+    if (prevStatus && !currentStatus) {
+      const teamId = dashboardMetric.metric.teamId;
+      void utils.dashboard.getDashboardCharts.refetch();
+      if (teamId) {
+        void utils.dashboard.getDashboardCharts.refetch({ teamId });
+      }
+    }
+  }, [
+    dashboardMetric.metric.refreshStatus,
+    dashboardMetric.metric.teamId,
+    utils.dashboard.getDashboardCharts,
+  ]);
 
   // Derive loadingPhase from polled status
   const loadingPhase: LoadingPhase =
@@ -88,15 +126,12 @@ export function DashboardMetricCard({
         description: error,
         duration: 10000, // Show longer for errors
       });
-      // Reset processing state
-      setIsProcessing(false);
-      setIsRegeneratingPipeline(false);
     }
     // Clear ref when no error
-    if (!error && !isProcessing && !isRegeneratingPipeline) {
+    if (!isProcessing) {
       lastErrorShownRef.current = null;
     }
-  }, [pipelineProgress?.error, isProcessing, isRegeneratingPipeline]);
+  }, [pipelineProgress?.error, isProcessing]);
 
   const isPending = dashboardMetric.id.startsWith("temp-");
   const { metric } = dashboardMetric;
@@ -174,54 +209,23 @@ export function DashboardMetricCard({
    */
   const handleRefresh = useCallback(
     async (forceRebuild = false) => {
-      // For manual metrics, regenerate via full pipeline
-      if (!isIntegrationMetric) {
-        setIsProcessing(true);
-        try {
-          await regeneratePipelineMutation.mutateAsync({
-            metricId: metric.id,
-          });
-          // Fire-and-forget: will poll for progress via pipelineProgress query
-          toast.success("Chart regeneration started");
-          // Poll will detect completion and refetch
-          const teamId = metric.teamId;
-          await utils.dashboard.getDashboardCharts.refetch();
-          if (teamId) {
-            await utils.dashboard.getDashboardCharts.refetch({ teamId });
-          }
-        } catch (error) {
-          toast.error("Regeneration failed", {
-            description:
-              error instanceof Error ? error.message : "Unknown error",
-          });
-        } finally {
-          setIsProcessing(false);
-        }
-        return;
-      }
-
-      // For integration metrics
-      if (!metric.templateId || !metric.integration) return;
-
-      if (forceRebuild) {
-        setIsRegeneratingPipeline(true);
-      } else {
-        setIsProcessing(true);
-      }
-
       try {
+        // For manual metrics, regenerate via full pipeline
+        if (!isIntegrationMetric) {
+          await regeneratePipelineMutation.mutateAsync({ metricId: metric.id });
+          toast.success("Chart regeneration started");
+          return;
+        }
+
+        // For integration metrics
+        if (!metric.templateId || !metric.integration) return;
+
         if (forceRebuild) {
           await regeneratePipelineMutation.mutateAsync({ metricId: metric.id });
           toast.success("Pipeline regeneration started");
         } else {
           await refreshMetricMutation.mutateAsync({ metricId: metric.id });
           toast.success("Data refresh started");
-        }
-        // Fire-and-forget: will poll for progress
-        const teamId = metric.teamId;
-        await utils.dashboard.getDashboardCharts.refetch();
-        if (teamId) {
-          await utils.dashboard.getDashboardCharts.refetch({ teamId });
         }
       } catch (error) {
         toast.error(
@@ -231,23 +235,16 @@ export function DashboardMetricCard({
               error instanceof Error ? error.message : "Unknown error",
           },
         );
-      } finally {
-        if (forceRebuild) {
-          setIsRegeneratingPipeline(false);
-        } else {
-          setIsProcessing(false);
-        }
       }
+      // NO finally block - state is derived from database
     },
     [
       isIntegrationMetric,
       metric.id,
       metric.templateId,
       metric.integration,
-      metric.teamId,
       regeneratePipelineMutation,
       refreshMetricMutation,
-      utils.dashboard.getDashboardCharts,
     ],
   );
 
@@ -261,32 +258,17 @@ export function DashboardMetricCard({
       _cadence?: "DAILY" | "WEEKLY" | "MONTHLY",
       _userPrompt?: string,
     ) => {
-      setIsProcessing(true);
       try {
-        await regeneratePipelineMutation.mutateAsync({
-          metricId: metric.id,
-        });
-        // Fire-and-forget: will poll for progress
+        await regeneratePipelineMutation.mutateAsync({ metricId: metric.id });
         toast.success("Chart regeneration started");
-        const teamId = metric.teamId;
-        await utils.dashboard.getDashboardCharts.refetch();
-        if (teamId) {
-          await utils.dashboard.getDashboardCharts.refetch({ teamId });
-        }
       } catch (error) {
         toast.error("Regeneration failed", {
           description: error instanceof Error ? error.message : "Unknown error",
         });
-      } finally {
-        setIsProcessing(false);
       }
+      // NO finally block - state is derived from database
     },
-    [
-      metric.id,
-      metric.teamId,
-      regeneratePipelineMutation,
-      utils.dashboard.getDashboardCharts,
-    ],
+    [metric.id, regeneratePipelineMutation],
   );
 
   const handleRemove = async () => {
@@ -311,28 +293,17 @@ export function DashboardMetricCard({
   };
 
   const handleRegenerateIngestion = useCallback(() => {
-    setIsProcessing(true);
-    regenerateIngestionMutation.mutate(
-      { metricId: metric.id },
-      {
-        onSettled: () => {
-          setIsProcessing(false);
-        },
-      },
-    );
+    regenerateIngestionMutation.mutate({ metricId: metric.id });
   }, [metric.id, regenerateIngestionMutation]);
 
   const handleRegenerateChart = useCallback(
-    (selectedDimension?: string) => {
-      setIsProcessing(true);
-      regenerateChartMutation.mutate(
-        { metricId: metric.id, selectedDimension },
-        {
-          onSettled: () => {
-            setIsProcessing(false);
-          },
-        },
-      );
+    (chartType: string, cadence: Cadence, selectedDimension?: string) => {
+      regenerateChartMutation.mutate({
+        metricId: metric.id,
+        chartType,
+        cadence,
+        selectedDimension,
+      });
     },
     [metric.id, regenerateChartMutation],
   );
@@ -434,6 +405,9 @@ export function DashboardMetricCard({
               dashboardMetric.chartTransformer?.chartType ?? null
             }
             currentCadence={dashboardMetric.chartTransformer?.cadence ?? null}
+            currentSelectedDimension={
+              dashboardMetric.chartTransformer?.selectedDimension ?? null
+            }
             roles={roles}
             valueLabel={dashboardMetric.valueLabel ?? null}
             dataDescription={dashboardMetric.dataDescription ?? null}

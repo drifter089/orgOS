@@ -271,6 +271,7 @@ export const metricRouter = createTRPCRouter({
                   cadence: true,
                   userPrompt: true,
                   updatedAt: true,
+                  selectedDimension: true,
                 },
               },
             },

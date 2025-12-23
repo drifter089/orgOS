@@ -3,16 +3,14 @@
 import { useEffect, useState } from "react";
 
 import type { Cadence, MetricGoal, Role } from "@prisma/client";
-import { format, formatDistanceToNow } from "date-fns";
+import { formatDistanceToNow } from "date-fns";
 import {
   BarChart3,
   Check,
   ClipboardCheck,
   Clock,
-  Database,
   Loader2,
   RefreshCw,
-  Sparkles,
   Trash2,
   TrendingUp,
   X,
@@ -22,6 +20,7 @@ import { Link } from "next-transition-router";
 import { GoalEditor } from "@/components/metric/goal-editor";
 import { GoalProgressDisplay } from "@/components/metric/goal-progress-display";
 import { RoleAssignment } from "@/components/metric/role-assignment";
+import { PipelineProgress } from "@/components/pipeline-progress";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { DrawerClose } from "@/components/ui/drawer";
@@ -35,7 +34,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
-import { Textarea } from "@/components/ui/textarea";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import {
   Tooltip,
@@ -65,6 +63,7 @@ interface DashboardMetricDrawerProps {
   chartTransform: ChartTransformResult | null;
   currentChartType: string | null;
   currentCadence: Cadence | null;
+  currentSelectedDimension: string | null;
   roles: Role[];
   valueLabel: string | null;
   dataDescription: string | null;
@@ -91,7 +90,11 @@ interface DashboardMetricDrawerProps {
   onDelete: () => void;
   onClose: () => void;
   onRegenerateIngestion: () => void;
-  onRegenerateChart: (selectedDimension?: string) => void;
+  onRegenerateChart: (
+    chartType: string,
+    cadence: Cadence,
+    selectedDimension?: string,
+  ) => void;
   transformerInfo?: {
     ingestionTransformer: {
       exists: boolean;
@@ -121,6 +124,7 @@ export function DashboardMetricDrawer({
   chartTransform,
   currentChartType,
   currentCadence,
+  currentSelectedDimension,
   roles,
   valueLabel,
   dataDescription: _dataDescription,
@@ -137,14 +141,14 @@ export function DashboardMetricDrawer({
   isDeleting,
   isRegeneratingPipeline,
   loadingPhase,
-  onRegenerate,
+  onRegenerate: _onRegenerate,
   onRefresh,
   onUpdateMetric,
   onDelete,
   onClose: _onClose,
-  onRegenerateIngestion,
+  onRegenerateIngestion: _onRegenerateIngestion,
   onRegenerateChart,
-  transformerInfo,
+  transformerInfo: _transformerInfo,
 }: DashboardMetricDrawerProps) {
   const [name, setName] = useState(metricName);
   const [selectedChartType, setSelectedChartType] = useState(
@@ -153,12 +157,13 @@ export function DashboardMetricDrawer({
   const [selectedCadence, setSelectedCadence] = useState<Cadence>(
     currentCadence ?? "WEEKLY",
   );
-  const [selectedDimension, setSelectedDimension] = useState<string>("value");
-  const [prompt, setPrompt] = useState("");
+  const [selectedDimension, setSelectedDimension] = useState<string>(
+    currentSelectedDimension ?? "value",
+  );
   const [forceRebuild, setForceRebuild] = useState(false);
 
   // Query for available dimensions from data points
-  const { data: availableDimensions } =
+  const { data: availableDimensions, isLoading: isDimensionsLoading } =
     api.pipeline.getAvailableDimensions.useQuery(
       { metricId },
       { enabled: isIntegrationMetric },
@@ -176,12 +181,17 @@ export function DashboardMetricDrawer({
     if (currentCadence) setSelectedCadence(currentCadence);
   }, [currentCadence]);
 
+  useEffect(() => {
+    setSelectedDimension(currentSelectedDimension ?? "value");
+  }, [currentSelectedDimension]);
+
   const hasNameChanges = name !== metricName;
 
+  // Check if chart config has changed (type, cadence, or dimension)
   const hasChartChanges =
     selectedChartType !== (currentChartType ?? "bar") ||
     selectedCadence !== (currentCadence ?? "WEEKLY") ||
-    prompt.trim() !== "";
+    selectedDimension !== (currentSelectedDimension ?? "value");
 
   const handleSave = () => {
     if (hasNameChanges && name.trim()) {
@@ -189,8 +199,13 @@ export function DashboardMetricDrawer({
     }
   };
 
+  // Apply changes only regenerates chart transformer with current data
   const handleApplyChanges = () => {
-    onRegenerate(selectedChartType, selectedCadence, prompt || undefined);
+    onRegenerateChart(
+      selectedChartType,
+      selectedCadence,
+      selectedDimension !== "value" ? selectedDimension : undefined,
+    );
   };
 
   const handleDelete = () => {
@@ -242,7 +257,7 @@ export function DashboardMetricDrawer({
                     (isProcessing || isRegeneratingPipeline) && "animate-spin",
                   )}
                 />
-                {forceRebuild ? "Rebuild" : "Refresh"}
+                {forceRebuild ? "Hard Refresh" : "Refresh"}
               </Button>
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -257,13 +272,14 @@ export function DashboardMetricDrawer({
                       htmlFor="force-rebuild"
                       className="text-muted-foreground cursor-pointer text-xs"
                     >
-                      Force
+                      Hard
                     </Label>
                   </div>
                 </TooltipTrigger>
                 <TooltipContent side="bottom">
                   <p className="text-xs">
-                    When enabled, regenerates the entire data pipeline
+                    Hard refresh: Regenerates entire data pipeline (data +
+                    chart)
                   </p>
                 </TooltipContent>
               </Tooltip>
@@ -302,6 +318,7 @@ export function DashboardMetricDrawer({
 
       <div className="flex-1 overflow-y-auto">
         <div className="space-y-6 px-8 py-6">
+          {/* Chart Configuration */}
           <div className="bg-muted/30 space-y-4 rounded-lg border p-4">
             <div className="flex flex-wrap items-center gap-4">
               <ToggleGroup
@@ -329,24 +346,29 @@ export function DashboardMetricDrawer({
                   </ToggleGroupItem>
                 ))}
               </ToggleGroup>
-              {availableDimensions && availableDimensions.length > 0 && (
-                <Select
-                  value={selectedDimension}
-                  onValueChange={setSelectedDimension}
-                >
-                  <SelectTrigger className="h-8 w-[140px]">
-                    <SelectValue placeholder="Track" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="value">Issue Count</SelectItem>
-                    {availableDimensions.map((dim) => (
-                      <SelectItem key={dim} value={dim}>
-                        {getDimensionDisplayLabel(dim)}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              )}
+              {isIntegrationMetric &&
+                (isDimensionsLoading ? (
+                  <div className="flex h-8 w-[140px] items-center justify-center rounded-md border">
+                    <Loader2 className="text-muted-foreground h-4 w-4 animate-spin" />
+                  </div>
+                ) : availableDimensions && availableDimensions.length > 0 ? (
+                  <Select
+                    value={selectedDimension}
+                    onValueChange={setSelectedDimension}
+                  >
+                    <SelectTrigger className="h-8 w-[140px]">
+                      <SelectValue placeholder="Track" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="value">Issue Count</SelectItem>
+                      {availableDimensions.map((dim) => (
+                        <SelectItem key={dim} value={dim}>
+                          {getDimensionDisplayLabel(dim)}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                ) : null)}
               {lastFetchedAt && (
                 <span className="text-muted-foreground ml-auto flex items-center gap-1.5 text-xs">
                   <Clock className="h-3 w-3" />
@@ -356,108 +378,31 @@ export function DashboardMetricDrawer({
                 </span>
               )}
             </div>
-            <Textarea
-              placeholder="AI Customization (optional) - e.g., 'Group by user', 'Show cumulative growth'..."
-              value={prompt}
-              onChange={(e) => setPrompt(e.target.value)}
-              className="min-h-[60px] resize-none"
-            />
             <Button
               size="sm"
               onClick={handleApplyChanges}
-              disabled={isProcessing || !hasChartChanges}
+              disabled={
+                isProcessing || isRegeneratingPipeline || !hasChartChanges
+              }
               className="w-full"
             >
-              {isProcessing ? (
+              {isProcessing || isRegeneratingPipeline ? (
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
               ) : (
-                <Sparkles className="mr-2 h-4 w-4" />
+                <BarChart3 className="mr-2 h-4 w-4" />
               )}
-              {isIntegrationMetric ? "Apply Changes" : "Regenerate Chart"}
+              Apply Changes
             </Button>
           </div>
 
-          {/* Transformer Actions Section */}
-          {isIntegrationMetric && (
-            <div className="bg-muted/30 space-y-3 rounded-lg border p-4">
-              <h4 className="text-muted-foreground text-sm font-medium">
-                Advanced: Regenerate Transformers
-              </h4>
-              <p className="text-muted-foreground text-xs">
-                Regenerate individual transformers without losing all data.
-              </p>
-
-              <div className="flex gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={onRegenerateIngestion}
-                  disabled={isProcessing || isRegeneratingPipeline}
-                  className="flex-1"
-                >
-                  {isProcessing || isRegeneratingPipeline ? (
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  ) : (
-                    <Database className="mr-2 h-4 w-4" />
-                  )}
-                  Regenerate Data
-                </Button>
-
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() =>
-                    onRegenerateChart(
-                      selectedDimension !== "value"
-                        ? selectedDimension
-                        : undefined,
-                    )
-                  }
-                  disabled={isProcessing || isRegeneratingPipeline}
-                  className="flex-1"
-                >
-                  {isProcessing || isRegeneratingPipeline ? (
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  ) : (
-                    <BarChart3 className="mr-2 h-4 w-4" />
-                  )}
-                  Regenerate Chart
-                </Button>
-              </div>
-
-              {/* Transformer Info Display */}
-              {transformerInfo && (
-                <div className="text-muted-foreground space-y-1 border-t pt-2 text-xs">
-                  <p>
-                    Data transformer:{" "}
-                    {transformerInfo.ingestionTransformer.exists
-                      ? `Created ${formatDistanceToNow(transformerInfo.ingestionTransformer.createdAt!)} ago`
-                      : "Not created"}
-                  </p>
-                  <p>
-                    Chart transformer:{" "}
-                    {transformerInfo.chartTransformer.exists
-                      ? `${transformerInfo.chartTransformer.chartType} (${transformerInfo.chartTransformer.cadence})`
-                      : "Not created"}
-                  </p>
-                  <p>
-                    Data points: {transformerInfo.dataPoints.count}
-                    {transformerInfo.dataPoints.firstDate &&
-                      transformerInfo.dataPoints.lastDate && (
-                        <span className="ml-1">
-                          (
-                          {format(
-                            transformerInfo.dataPoints.firstDate,
-                            "MMM d",
-                          )}{" "}
-                          -{" "}
-                          {format(transformerInfo.dataPoints.lastDate, "MMM d")}
-                          )
-                        </span>
-                      )}
-                  </p>
-                </div>
-              )}
+          {/* Pipeline Progress Display */}
+          {(isProcessing || isRegeneratingPipeline) && (
+            <div className="bg-muted/30 rounded-lg border p-4">
+              <PipelineProgress
+                metricId={metricId}
+                isActive={isProcessing || isRegeneratingPipeline}
+                variant="detailed"
+              />
             </div>
           )}
 

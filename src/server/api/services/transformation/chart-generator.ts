@@ -228,12 +228,14 @@ export async function createChartTransformer(
       chartType: input.chartType,
       cadence: effectiveCadence as "DAILY" | "WEEKLY" | "MONTHLY",
       userPrompt: input.userPrompt,
+      selectedDimension: input.selectedDimension ?? null,
     },
     update: {
       transformerCode: generated.code,
       chartType: input.chartType,
       cadence: effectiveCadence as "DAILY" | "WEEKLY" | "MONTHLY",
       userPrompt: input.userPrompt,
+      selectedDimension: input.selectedDimension ?? null,
       version: { increment: 1 },
     },
   });
@@ -437,12 +439,14 @@ export async function regenerateChartTransformer(input: {
         chartType,
         cadence: effectiveCadence as "DAILY" | "WEEKLY" | "MONTHLY",
         userPrompt: input.userPrompt,
+        selectedDimension: input.selectedDimension ?? null,
       },
       update: {
         transformerCode: generated.code,
         chartType,
         cadence: effectiveCadence as "DAILY" | "WEEKLY" | "MONTHLY",
         userPrompt: input.userPrompt,
+        selectedDimension: input.selectedDimension ?? null,
         version: { increment: 1 },
       },
     });

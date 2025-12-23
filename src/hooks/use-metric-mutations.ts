@@ -127,9 +127,9 @@ export function useMetricMutations({ teamId }: UseMetricMutationsOptions = {}) {
       }
     },
 
-    onSettled: () => {
-      void utils.dashboard.getDashboardCharts.invalidate();
-    },
+    // Note: onSettled is intentionally omitted for the create mutation.
+    // Cache invalidation happens in MetricDialogBase after pipeline completes
+    // via useWaitForPipeline hook to prevent metric disappearing during processing.
   });
 
   /**

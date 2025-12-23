@@ -301,7 +301,8 @@ model ChartTransformer {
     cadence      Cadence   @default(DAILY) // How to aggregate data for display
 
     // Generation context
-    userPrompt   String?   @db.Text // User's natural language request
+    userPrompt        String?   @db.Text // User's natural language request
+    selectedDimension String?   // User-selected dimension to track (e.g., "storyPoints")
 
     version   Int @default(1)
 
