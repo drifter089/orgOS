@@ -40,6 +40,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import type { PipelineStatus } from "@/hooks/use-pipeline-status";
 import { type GoalProgress, calculateTargetDisplayValue } from "@/lib/goals";
 import { formatValue } from "@/lib/helpers/format-value";
 import { getUserName } from "@/lib/helpers/get-user-name";
@@ -101,14 +102,11 @@ function getLoadingMessage(phase: LoadingPhase | undefined): string {
 }
 
 interface DashboardMetricChartProps {
-  metricId: string;
   title: string;
   chartTransform: ChartTransformResult | null;
   hasChartData: boolean;
   isIntegrationMetric: boolean;
   isPending: boolean;
-  isProcessing: boolean;
-  loadingPhase?: LoadingPhase;
   integrationId?: string | null;
   roles?: Role[];
   // Goal data from parent - eliminates N+1 query
@@ -117,26 +115,26 @@ interface DashboardMetricChartProps {
   // Legacy prop - value label from DataIngestionTransformer
   // Prefer chartTransform.valueLabel (unified metadata from ChartTransformer)
   valueLabel?: string | null;
-  /** Whether to show the pipeline progress overlay. Default true. Set false if parent shows it. */
-  showProgressOverlay?: boolean;
+  /** Pipeline status from parent - single source of truth for loading states */
+  pipelineStatus?: PipelineStatus | null;
 }
 
 export function DashboardMetricChart({
-  metricId,
   title,
   chartTransform,
   hasChartData,
   isIntegrationMetric,
   isPending,
-  isProcessing,
-  loadingPhase,
   integrationId,
   roles = [],
   goal,
   goalProgress,
   valueLabel,
-  showProgressOverlay = true,
+  pipelineStatus,
 }: DashboardMetricChartProps) {
+  // Derive loading state from pipelineStatus (single source of truth)
+  const isProcessing = pipelineStatus?.isProcessing ?? false;
+  const loadingPhase = pipelineStatus?.currentStep as LoadingPhase | null;
   const platformConfig = integrationId
     ? getPlatformConfig(integrationId)
     : null;
@@ -783,15 +781,12 @@ export function DashboardMetricChart({
           </div>
         )}
 
-        {showProgressOverlay &&
-          (isProcessing || loadingPhase) &&
-          !hasChartData && (
-            <PipelineProgressDisplay
-              metricId={metricId}
-              isActive={true}
-              variant="card"
-            />
-          )}
+        {pipelineStatus && isProcessing && !hasChartData && (
+          <PipelineProgressDisplay
+            pipelineStatus={pipelineStatus}
+            variant="card"
+          />
+        )}
       </CardContent>
     </Card>
   );

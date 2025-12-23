@@ -10,21 +10,17 @@ import {
 } from "framer-motion";
 import { Check, Loader2 } from "lucide-react";
 
-import {
-  type CompletedStep,
-  usePipelineStatus,
+import type {
+  CompletedStep,
+  PipelineStatus,
 } from "@/hooks/use-pipeline-status";
 import { cn } from "@/lib/utils";
 
 interface PipelineProgressDisplayProps {
-  metricId: string;
-  isActive: boolean;
+  /** Pipeline status from parent's usePipelineStatus hook - single source of truth */
+  pipelineStatus: PipelineStatus;
   /** Height variant: card=220px (chart area), drawer=400px */
   variant?: "card" | "drawer";
-  /** Callback when pipeline completes successfully */
-  onComplete?: () => void;
-  /** Callback when pipeline fails */
-  onError?: (error: string) => void;
 }
 
 // Animation variants
@@ -155,32 +151,22 @@ function AnimatedProgressBar({ percent }: { percent: number }) {
 /**
  * Animated pipeline progress display.
  *
- * Pure UI component - callbacks are passed to the hook for proper handling.
- * Parent component is responsible for error toasts and side effects.
+ * Pure UI component - receives pipeline status from parent.
+ * Parent owns the single usePipelineStatus hook call.
  */
 export function PipelineProgressDisplay({
-  metricId,
-  isActive,
+  pipelineStatus,
   variant = "card",
-  onComplete,
-  onError,
 }: PipelineProgressDisplayProps) {
-  // Hook handles polling, transition detection, and callbacks
-  const progress = usePipelineStatus({
-    metricId,
-    enabled: isActive,
-    onComplete,
-    onError,
-  });
-
   // Don't render if not processing
-  if (!progress.isProcessing) {
+  if (!pipelineStatus.isProcessing) {
     return null;
   }
 
   // Calculate step display
-  const currentStepIndex = progress.completedSteps.length;
-  const stepDisplay = `Step ${currentStepIndex + 1} of ${progress.totalSteps}`;
+  const currentStepIndex = pipelineStatus.completedSteps.length;
+  const totalSteps = pipelineStatus.totalSteps || 1;
+  const stepDisplay = `Step ${currentStepIndex + 1} of ${totalSteps}`;
   const heightClass = variant === "drawer" ? "h-[400px]" : "h-[220px]";
 
   return (
@@ -202,12 +188,12 @@ export function PipelineProgressDisplay({
             {stepDisplay}
           </span>
           <span className="text-muted-foreground text-sm tabular-nums">
-            {progress.progressPercent}%
+            {pipelineStatus.progressPercent}%
           </span>
         </div>
 
         {/* Progress bar */}
-        <AnimatedProgressBar percent={progress.progressPercent} />
+        <AnimatedProgressBar percent={pipelineStatus.progressPercent} />
 
         {/* Steps list */}
         <motion.div
@@ -215,13 +201,15 @@ export function PipelineProgressDisplay({
           variants={containerVariants}
         >
           {/* Completed steps */}
-          {progress.completedSteps.map((step) => (
+          {pipelineStatus.completedSteps.map((step) => (
             <CompletedStepItem key={step.step} step={step} />
           ))}
 
           {/* Current step */}
-          {progress.currentStepDisplayName && (
-            <CurrentStepItem displayName={progress.currentStepDisplayName} />
+          {pipelineStatus.currentStepDisplayName && (
+            <CurrentStepItem
+              displayName={pipelineStatus.currentStepDisplayName}
+            />
           )}
         </motion.div>
       </motion.div>
