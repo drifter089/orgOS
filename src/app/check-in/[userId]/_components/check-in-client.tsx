@@ -9,8 +9,9 @@ interface CheckInClientProps {
 }
 
 export function CheckInClient({ userId }: CheckInClientProps) {
-  const { data, isLoading, error } =
-    api.metric.getManualMetricsForUser.useQuery({ userId });
+  const { data, isLoading, error } = api.manualMetric.getForUser.useQuery({
+    userId,
+  });
 
   if (isLoading) {
     return (

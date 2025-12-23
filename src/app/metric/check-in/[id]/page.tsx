@@ -12,7 +12,7 @@ export default async function MetricCheckInPage({
   const { id: metricId } = await params;
 
   // Prefetch the metric data
-  await api.metric.getManualMetricById.prefetch({ metricId });
+  await api.manualMetric.getById.prefetch({ metricId });
 
   return (
     <HydrateClient>

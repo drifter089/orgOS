@@ -96,8 +96,8 @@ export function BaseMetricCheckInForm({
     setIsDirty(false);
   }, [existingValues, periods]);
 
-  const addDataPointsMutation = api.metric.addDataPoints.useMutation();
-  const updateChartMutation = api.transformer.updateManualChart.useMutation();
+  const addDataPointsMutation = api.manualMetric.addDataPoints.useMutation();
+  const updateChartMutation = api.manualMetric.updateChart.useMutation();
 
   const handleValueChange = useCallback(
     (periodLabel: string, value: string) => {

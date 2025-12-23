@@ -3,13 +3,15 @@ import { aiRoleRouter } from "@/server/api/routers/ai-role";
 import { dashboardRouter } from "@/server/api/routers/dashboard";
 import { editSessionRouter } from "@/server/api/routers/edit-session";
 import { feedbackRouter } from "@/server/api/routers/feedback";
+import { goalRouter } from "@/server/api/routers/goal";
 import { integrationRouter } from "@/server/api/routers/integration";
+import { manualMetricRouter } from "@/server/api/routers/manual-metric";
 import { metricRouter } from "@/server/api/routers/metric";
 import { organizationRouter } from "@/server/api/routers/organization";
+import { pipelineRouter } from "@/server/api/routers/pipeline";
 import { publicViewRouter } from "@/server/api/routers/public-view";
 import { roleRouter } from "@/server/api/routers/role";
 import { teamRouter } from "@/server/api/routers/team";
-import { transformerRouter } from "@/server/api/routers/transformer";
 import { createCallerFactory, createTRPCRouter } from "@/server/api/trpc";
 
 /**
@@ -28,8 +30,11 @@ export const appRouter = createTRPCRouter({
   feedback: feedbackRouter,
   publicView: publicViewRouter,
   adminPortal: adminPortalRouter,
-  transformer: transformerRouter,
   editSession: editSessionRouter,
+  // Plan 5: New routers
+  goal: goalRouter,
+  manualMetric: manualMetricRouter,
+  pipeline: pipelineRouter,
 });
 
 // export type definition of API

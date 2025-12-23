@@ -5,7 +5,7 @@ import type { Cadence } from "@/lib/metrics/periods";
 import type { RouterOutputs } from "@/trpc/react";
 import { api } from "@/trpc/react";
 
-type ManualMetricsForUser = RouterOutputs["metric"]["getManualMetricsForUser"];
+type ManualMetricsForUser = RouterOutputs["manualMetric"]["getForUser"];
 type MetricWithDataPoints = ManualMetricsForUser["weekly"][number]["metric"];
 
 interface MetricCheckInCardProps {
@@ -26,7 +26,7 @@ export function MetricCheckInCard({
   const utils = api.useUtils();
 
   const handleSuccess = async () => {
-    await utils.metric.getManualMetricsForUser.invalidate();
+    await utils.manualMetric.getForUser.invalidate();
   };
 
   return (
