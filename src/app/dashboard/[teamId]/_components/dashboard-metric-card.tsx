@@ -440,6 +440,7 @@ export function DashboardMetricCard({
 
       {/* Chart content - directly rendered */}
       <DashboardMetricChart
+        metricId={metric.id}
         title={title}
         chartTransform={chartTransform}
         hasChartData={hasChartData}

@@ -25,6 +25,7 @@ import {
   YAxis,
 } from "recharts";
 
+import { PipelineProgressDisplay } from "@/components/pipeline-progress-display";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -100,6 +101,7 @@ function getLoadingMessage(phase: LoadingPhase | undefined): string {
 }
 
 interface DashboardMetricChartProps {
+  metricId: string;
   title: string;
   chartTransform: ChartTransformResult | null;
   hasChartData: boolean;
@@ -118,6 +120,7 @@ interface DashboardMetricChartProps {
 }
 
 export function DashboardMetricChart({
+  metricId,
   title,
   chartTransform,
   hasChartData,
@@ -778,14 +781,11 @@ export function DashboardMetricChart({
         )}
 
         {(isProcessing || loadingPhase) && !hasChartData && (
-          <div className="flex flex-1 items-center justify-center rounded-md border border-dashed">
-            <div className="text-center">
-              <Loader2 className="text-muted-foreground mx-auto h-6 w-6 animate-spin" />
-              <p className="text-muted-foreground mt-2 text-sm">
-                {getLoadingMessage(loadingPhase)}
-              </p>
-            </div>
-          </div>
+          <PipelineProgressDisplay
+            metricId={metricId}
+            isActive={true}
+            variant="card"
+          />
         )}
       </CardContent>
     </Card>
