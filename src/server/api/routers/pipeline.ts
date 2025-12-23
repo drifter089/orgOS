@@ -77,11 +77,9 @@ async function runBackgroundTask(config: BackgroundTaskConfig): Promise<void> {
       }
 
       case "ingestion-only": {
-        // Delete existing ingestion transformer
         await db.dataIngestionTransformer
           .delete({ where: { templateId: metricId } })
           .catch(() => null);
-
         await db.metric.update({
           where: { id: metricId },
           data: { refreshStatus: "generating-ingestion-transformer" },
@@ -95,10 +93,8 @@ async function runBackgroundTask(config: BackgroundTaskConfig): Promise<void> {
           endpointConfig: config.endpointConfig ?? {},
         });
 
-        if (!result.success) {
+        if (!result.success)
           throw new Error(result.error ?? "Failed to regenerate ingestion");
-        }
-
         await db.metric.update({
           where: { id: metricId },
           data: {
@@ -107,24 +103,13 @@ async function runBackgroundTask(config: BackgroundTaskConfig): Promise<void> {
             lastError: null,
           },
         });
-
-        await logPipelineEvent(
-          metricId,
-          "regenerate-ingestion:complete",
-          true,
-          {
-            dataPointCount: result.dataPoints?.length ?? 0,
-          },
-        );
         break;
       }
 
       case "chart-only": {
-        // Delete existing chart transformer
         await db.chartTransformer
           .delete({ where: { dashboardChartId: config.dashboardChartId } })
           .catch(() => null);
-
         await db.metric.update({
           where: { id: metricId },
           data: { refreshStatus: "generating-chart-transformer" },
@@ -143,44 +128,17 @@ async function runBackgroundTask(config: BackgroundTaskConfig): Promise<void> {
           where: { id: metricId },
           data: { refreshStatus: null, lastError: null },
         });
-
-        await logPipelineEvent(metricId, "regenerate-chart:complete", true);
         break;
       }
     }
   } catch (error) {
     const errorMsg = error instanceof Error ? error.message : "Unknown error";
     console.error(`[Pipeline] ${type} error for ${metricId}:`, errorMsg);
-
-    await logPipelineEvent(metricId, `${type}:error`, false, {
-      error: errorMsg,
-    });
-
     await db.metric.update({
       where: { id: metricId },
       data: { refreshStatus: null, lastError: errorMsg },
     });
   }
-}
-
-async function logPipelineEvent(
-  metricId: string,
-  action: string,
-  success: boolean,
-  data?: Record<string, unknown>,
-): Promise<void> {
-  await db.metricApiLog.create({
-    data: {
-      metricId,
-      endpoint: `transformer:${action}`,
-      success,
-      rawResponse: {
-        action,
-        ...data,
-        timestamp: new Date().toISOString(),
-      },
-    },
-  });
 }
 
 // ============================================================================
@@ -200,17 +158,14 @@ export const pipelineRouter = createTRPCRouter({
         input.metricId,
         ctx.workspace.organizationId,
       );
-
       await ctx.db.metric.update({
         where: { id: input.metricId },
         data: { refreshStatus: "fetching-api-data", lastError: null },
       });
-
       void runBackgroundTask({
         metricId: input.metricId,
         type: "soft-refresh",
       });
-
       return { success: true, started: true };
     }),
 
@@ -226,17 +181,14 @@ export const pipelineRouter = createTRPCRouter({
         input.metricId,
         ctx.workspace.organizationId,
       );
-
       await ctx.db.metric.update({
         where: { id: input.metricId },
         data: { refreshStatus: "deleting-old-data", lastError: null },
       });
-
       void runBackgroundTask({
         metricId: input.metricId,
         type: "hard-refresh",
       });
-
       return { success: true, started: true };
     }),
 
@@ -252,30 +204,21 @@ export const pipelineRouter = createTRPCRouter({
         input.metricId,
         ctx.workspace.organizationId,
       );
-
       if (!metric.templateId) {
         throw new TRPCError({
           code: "BAD_REQUEST",
           message: "Manual metrics don't have ingestion transformers",
         });
       }
-
       const integration = await ctx.db.integration.findUnique({
         where: { id: metric.integrationId! },
       });
-
       if (!integration) {
         throw new TRPCError({
           code: "NOT_FOUND",
           message: "Integration not found",
         });
       }
-
-      await logPipelineEvent(
-        input.metricId,
-        "regenerate-ingestion:start",
-        true,
-      );
 
       await ctx.db.metric.update({
         where: { id: input.metricId },
@@ -313,30 +256,24 @@ export const pipelineRouter = createTRPCRouter({
         input.metricId,
         ctx.workspace.organizationId,
       );
-
       const dashboardChart = await ctx.db.dashboardChart.findFirst({
         where: { metricId: input.metricId },
       });
-
       if (!dashboardChart) {
         throw new TRPCError({
           code: "NOT_FOUND",
           message: "Dashboard chart not found",
         });
       }
-
       const dataPointCount = await ctx.db.metricDataPoint.count({
         where: { metricId: input.metricId },
       });
-
       if (dataPointCount === 0) {
         throw new TRPCError({
           code: "BAD_REQUEST",
           message: "No data points to chart - run a data refresh first",
         });
       }
-
-      await logPipelineEvent(input.metricId, "regenerate-chart:start", true);
 
       await ctx.db.metric.update({
         where: { id: input.metricId },

@@ -275,22 +275,24 @@ async function getOrCreateDataIngestionTransformer(
 // ============================================================================
 
 /**
- * Fetch data from API and transform using existing transformer
+ * Fetch data from API, transform, and save to database.
+ * When generateTransformer=true, creates new transformer if none exists.
+ * When generateTransformer=false, uses existing transformer (soft refresh).
  */
-async function fetchAndTransformData(input: {
+async function fetchTransformAndSave(input: {
   metricId: string;
   templateId: string;
   integrationId: string;
   connectionId: string;
   endpointConfig: Record<string, string>;
   isTimeSeries: boolean;
+  generateTransformer: boolean;
 }): Promise<TransformResult> {
   const template = getTemplate(input.templateId);
   if (!template) {
     return { success: false, error: `Template not found: ${input.templateId}` };
   }
 
-  // Fetch API data
   const fetchResult = await fetchApiDataWithLogging({
     metricId: input.metricId,
     integrationId: input.integrationId,
@@ -308,18 +310,34 @@ async function fetchAndTransformData(input: {
     };
   }
 
-  // Get existing transformer
-  const transformer = await db.dataIngestionTransformer.findUnique({
-    where: { templateId: input.metricId },
-  });
+  let transformerCode: string;
+  let transformerCreated = false;
 
-  if (!transformer) {
-    return { success: false, error: "No transformer found for this metric" };
+  if (input.generateTransformer) {
+    const { transformer, isNew } = await getOrCreateDataIngestionTransformer(
+      input.metricId,
+      input.integrationId,
+      template,
+      fetchResult.data,
+      input.endpointConfig,
+    );
+    if (!transformer) {
+      return { success: false, error: "Failed to get or create transformer" };
+    }
+    transformerCode = transformer.transformerCode;
+    transformerCreated = isNew;
+  } else {
+    const transformer = await db.dataIngestionTransformer.findUnique({
+      where: { templateId: input.metricId },
+    });
+    if (!transformer) {
+      return { success: false, error: "No transformer found for this metric" };
+    }
+    transformerCode = transformer.transformerCode;
   }
 
-  // Execute transformer
   const result = await executeDataIngestionTransformer(
-    transformer.transformerCode,
+    transformerCode,
     fetchResult.data,
     input.endpointConfig,
   );
@@ -328,74 +346,9 @@ async function fetchAndTransformData(input: {
     return { success: false, error: result.error };
   }
 
-  // Save data points
   await saveDataPointsBatch(input.metricId, result.data, input.isTimeSeries);
 
-  return { success: true, dataPoints: result.data };
-}
-
-/**
- * Fetch data, generate new transformer, and save data points
- */
-async function fetchGenerateAndSaveData(input: {
-  metricId: string;
-  templateId: string;
-  integrationId: string;
-  connectionId: string;
-  endpointConfig: Record<string, string>;
-  isTimeSeries: boolean;
-}): Promise<TransformResult> {
-  const template = getTemplate(input.templateId);
-  if (!template) {
-    return { success: false, error: `Template not found: ${input.templateId}` };
-  }
-
-  // Fetch API data
-  const fetchResult = await fetchApiDataWithLogging({
-    metricId: input.metricId,
-    integrationId: input.integrationId,
-    connectionId: input.connectionId,
-    endpoint: template.metricEndpoint,
-    method: template.method,
-    endpointConfig: input.endpointConfig,
-    requestBody: template.requestBody,
-  });
-
-  if (!fetchResult.success) {
-    return {
-      success: false,
-      error: `Failed to fetch data: ${fetchResult.error}`,
-    };
-  }
-
-  // Create new transformer (uses metricId as cache key)
-  const { transformer, isNew } = await getOrCreateDataIngestionTransformer(
-    input.metricId,
-    input.integrationId,
-    template,
-    fetchResult.data,
-    input.endpointConfig,
-  );
-
-  if (!transformer) {
-    return { success: false, error: "Failed to get or create transformer" };
-  }
-
-  // Execute transformer
-  const result = await executeDataIngestionTransformer(
-    transformer.transformerCode,
-    fetchResult.data,
-    input.endpointConfig,
-  );
-
-  if (!result.success || !result.data) {
-    return { success: false, error: result.error };
-  }
-
-  // Save data points
-  await saveDataPointsBatch(input.metricId, result.data, input.isTimeSeries);
-
-  return { success: true, dataPoints: result.data, transformerCreated: isNew };
+  return { success: true, dataPoints: result.data, transformerCreated };
 }
 
 // ============================================================================
@@ -460,31 +413,30 @@ export async function refreshMetricAndCharts(
 
       // Fetch data and generate new transformer
       await runner.setStatus("fetching-api-data");
-      transformResult = await runner.run(
-        "generate-ingestion-transformer",
-        async () => {
-          return fetchGenerateAndSaveData({
-            metricId: metric.id,
-            templateId: metric.templateId!,
-            integrationId: metric.integration!.providerId,
-            connectionId: metric.integration!.connectionId,
-            endpointConfig,
-            isTimeSeries,
-          });
-        },
-      );
-    } else {
-      // SOFT REFRESH: Reuse existing transformers
-      transformResult = await runner.run("fetch-data", async () => {
-        return fetchAndTransformData({
+      transformResult = await runner.run("generate-ingestion-transformer", () =>
+        fetchTransformAndSave({
           metricId: metric.id,
           templateId: metric.templateId!,
           integrationId: metric.integration!.providerId,
           connectionId: metric.integration!.connectionId,
           endpointConfig,
           isTimeSeries,
-        });
-      });
+          generateTransformer: true,
+        }),
+      );
+    } else {
+      // SOFT REFRESH: Reuse existing transformers
+      transformResult = await runner.run("fetch-data", () =>
+        fetchTransformAndSave({
+          metricId: metric.id,
+          templateId: metric.templateId!,
+          integrationId: metric.integration!.providerId,
+          connectionId: metric.integration!.connectionId,
+          endpointConfig,
+          isTimeSeries,
+          generateTransformer: false,
+        }),
+      );
     }
 
     if (!transformResult.success) {
@@ -647,12 +599,13 @@ export async function ingestMetricData(input: {
   endpointConfig: Record<string, string>;
   isTimeSeries?: boolean;
 }): Promise<TransformResult> {
-  return fetchGenerateAndSaveData({
+  return fetchTransformAndSave({
     metricId: input.metricId,
     templateId: input.templateId,
     integrationId: input.integrationId,
     connectionId: input.connectionId,
     endpointConfig: input.endpointConfig,
     isTimeSeries: input.isTimeSeries !== false,
+    generateTransformer: true,
   });
 }
