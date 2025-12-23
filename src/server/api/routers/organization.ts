@@ -98,14 +98,12 @@ export const organizationRouter = createTRPCRouter({
 
     for (const role of roles) {
       const userId = role.assignedUserId!;
-      if (!statsMap[userId]) {
-        statsMap[userId] = {
-          roleCount: 0,
-          totalEffort: 0,
-          goalsOnTrack: 0,
-          goalsTotal: 0,
-        };
-      }
+      statsMap[userId] ??= {
+        roleCount: 0,
+        totalEffort: 0,
+        goalsOnTrack: 0,
+        goalsTotal: 0,
+      };
 
       statsMap[userId].roleCount += 1;
       statsMap[userId].totalEffort += role.effortPoints ?? 0;
