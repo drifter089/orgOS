@@ -101,22 +101,25 @@ export const templates: MetricTemplate[] = [
     extractionPrompt: `
 RESPONSE STRUCTURE: data.issues.nodes[]
 
-TIMESTAMP: Use "completedAt" field (NOT createdAt).
-This tracks when work was COMPLETED, not when it was created.
+WHAT WE TRACK: Issues completed over time (when work was DONE, not when created)
 
-FILTER: Only include issues where completedAt is not null.
-Skip issues that are still open or were canceled.
+TIMESTAMP: Use "completedAt" field as the canonical timestamp.
+- Skip issues where completedAt is null (still open or canceled)
+- Normalize to midnight UTC for daily grouping
 
-VALUE: Count of issues completed per day.
-Group by completedAt date (normalized to midnight UTC).
+VALUE (primary): Count of issues completed per day (always value=1 per issue)
 
-DIMENSIONS to preserve:
-- estimate (story points, number or null)
-- priority (0-4 scale)
-- team.name (string)
-- project.name (string, may be null)
+DIMENSIONS (store with each data point - user can switch tracking in UI):
+- estimate: Story points (number or null) - for tracking effort/velocity
+- priority: Priority level (0-4)
+- teamName: team.name (string)
+- projectName: project.name (string, may be null)
 
-AGGREGATION: SUM (count completed issues per day)
+AGGREGATION: SUM per day for counts. When user tracks "estimate" dimension,
+they see total story points completed per day instead of issue count.
+
+IMPORTANT: Always store estimate as dimension so users can choose between
+tracking "issue count" vs "total effort points completed" per day.
 `,
 
     requiredParams: [
@@ -201,22 +204,25 @@ AGGREGATION: SUM (count completed issues per day)
     extractionPrompt: `
 RESPONSE STRUCTURE: data.project.issues.nodes[]
 
-TIMESTAMP: Use "completedAt" field (NOT createdAt).
-This tracks when work was COMPLETED, not when it was created.
+WHAT WE TRACK: Issues completed over time (when work was DONE, not when created)
 
-FILTER: Only include issues where completedAt is not null.
-Skip issues that are still open or were canceled.
+TIMESTAMP: Use "completedAt" field as the canonical timestamp.
+- Skip issues where completedAt is null (still open or canceled)
+- Normalize to midnight UTC for daily grouping
 
-VALUE: Count of issues completed per day.
-Group by completedAt date (normalized to midnight UTC).
+VALUE (primary): Count of issues completed per day (always value=1 per issue)
 
-DIMENSIONS to preserve:
-- estimate (story points, number or null)
-- priority (0-4 scale)
-- team.name (string)
-- assignee.name (string, may be null)
+DIMENSIONS (store with each data point - user can switch tracking in UI):
+- estimate: Story points (number or null) - for tracking effort/velocity
+- priority: Priority level (0-4)
+- teamName: team.name (string)
+- assigneeName: assignee.name (string, may be null)
 
-AGGREGATION: SUM (count completed issues per day)
+AGGREGATION: SUM per day for counts. When user tracks "estimate" dimension,
+they see total story points completed per day instead of issue count.
+
+IMPORTANT: Always store estimate as dimension so users can choose between
+tracking "issue count" vs "total effort points completed" per day.
 `,
 
     requiredParams: [
@@ -299,22 +305,25 @@ AGGREGATION: SUM (count completed issues per day)
     extractionPrompt: `
 RESPONSE STRUCTURE: data.team.issues.nodes[]
 
-TIMESTAMP: Use "completedAt" field (NOT createdAt).
-This tracks when work was COMPLETED, not when it was created.
+WHAT WE TRACK: Issues completed over time (when work was DONE, not when created)
 
-FILTER: Only include issues where completedAt is not null.
-Skip issues that are still open or were canceled.
+TIMESTAMP: Use "completedAt" field as the canonical timestamp.
+- Skip issues where completedAt is null (still open or canceled)
+- Normalize to midnight UTC for daily grouping
 
-VALUE: Count of issues completed per day.
-Group by completedAt date (normalized to midnight UTC).
+VALUE (primary): Count of issues completed per day (always value=1 per issue)
 
-DIMENSIONS to preserve:
-- estimate (story points, number or null)
-- priority (0-4 scale)
-- project.name (string, may be null)
-- assignee.name (string, may be null)
+DIMENSIONS (store with each data point - user can switch tracking in UI):
+- estimate: Story points (number or null) - for tracking effort/velocity
+- priority: Priority level (0-4)
+- projectName: project.name (string, may be null)
+- assigneeName: assignee.name (string, may be null)
 
-AGGREGATION: SUM (count completed issues per day)
+AGGREGATION: SUM per day for counts. When user tracks "estimate" dimension,
+they see total story points completed per day instead of issue count.
+
+IMPORTANT: Always store estimate as dimension so users can choose between
+tracking "issue count" vs "total effort points completed" per day.
 `,
 
     requiredParams: [
