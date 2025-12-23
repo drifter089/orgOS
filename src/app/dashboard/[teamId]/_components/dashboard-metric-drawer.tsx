@@ -20,7 +20,6 @@ import { Link } from "next-transition-router";
 import { GoalEditor } from "@/components/metric/goal-editor";
 import { GoalProgressDisplay } from "@/components/metric/goal-progress-display";
 import { RoleAssignment } from "@/components/metric/role-assignment";
-import { PipelineProgressDisplay } from "@/components/pipeline-progress-display";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { DrawerClose } from "@/components/ui/drawer";
@@ -396,15 +395,6 @@ export function DashboardMetricDrawer({
               Apply Changes
             </Button>
           </div>
-
-          {/* Pipeline Progress Display */}
-          {(isProcessing || isRegeneratingPipeline) && (
-            <PipelineProgressDisplay
-              metricId={metricId}
-              isActive={isProcessing || isRegeneratingPipeline}
-              variant="drawer"
-            />
-          )}
 
           <div className="h-[400px]">
             <DashboardMetricChart

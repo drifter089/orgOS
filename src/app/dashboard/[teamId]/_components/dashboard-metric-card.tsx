@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 import type { Cadence } from "@prisma/client";
 import { AlertCircle, Bug, Settings } from "lucide-react";
@@ -15,6 +15,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { useMetricMutations } from "@/hooks/use-metric-mutations";
+import { usePipelineStatus } from "@/hooks/use-pipeline-status";
 import { isDevMode } from "@/lib/dev-mode";
 import type { ChartTransformResult } from "@/lib/metrics/transformer-types";
 import type { PipelineStepName } from "@/lib/pipeline";
@@ -120,29 +121,38 @@ export function DashboardMetricCard({
     isAnyMutationPending ||
     activeOperation !== null;
 
-  const { data: pipelineProgress } = api.pipeline.getProgress.useQuery(
-    { metricId: dashboardMetric.metric.id },
-    {
-      enabled: shouldPoll,
-      refetchInterval: shouldPoll ? 500 : false,
+  // Pipeline status tracking with callbacks for completion/error
+  const pipelineStatus = usePipelineStatus({
+    metricId: dashboardMetric.metric.id,
+    enabled: shouldPoll,
+    onComplete: () => {
+      // Refetch charts on completion
+      const teamId = dashboardMetric.metric.teamId;
+      void utils.dashboard.getDashboardCharts.refetch();
+      if (teamId) {
+        void utils.dashboard.getDashboardCharts.refetch({ teamId });
+      }
     },
-  );
+    onError: (error) => {
+      // Single source of truth for error toasts
+      toast.error("Pipeline failed", {
+        description: error,
+        duration: 10000,
+      });
+    },
+  });
 
-  // Clear activeOperation when polling confirms done
+  // Clear activeOperation when pipeline confirms done
   useEffect(() => {
-    if (
-      activeOperation !== null &&
-      pipelineProgress !== undefined &&
-      !pipelineProgress.isProcessing
-    ) {
+    if (activeOperation !== null && !pipelineStatus.isProcessing) {
       setActiveOperation(null);
     }
-  }, [activeOperation, pipelineProgress]);
+  }, [activeOperation, pipelineStatus.isProcessing]);
 
   const isProcessing =
     activeOperation !== null ||
     isAnyMutationPending ||
-    (pipelineProgress?.isProcessing ?? false) ||
+    pipelineStatus.isProcessing ||
     !!dashboardMetric.metric.refreshStatus;
 
   const isRegeneratingPipeline =
@@ -152,38 +162,11 @@ export function DashboardMetricCard({
     regenerateChartMutation.isPending ||
     dashboardMetric.metric.refreshStatus === "deleting-old-data" ||
     dashboardMetric.metric.refreshStatus === "deleting-old-transformer" ||
-    (pipelineProgress?.completedSteps?.some(
-      (s) => s.step === "deleting-old-data",
-    ) ??
-      false);
-
-  // Detect pipeline completion (isProcessing: true -> false) and refetch charts
-  const prevIsProcessingRef = useRef<boolean | null>(null);
-  useEffect(() => {
-    const prevProcessing = prevIsProcessingRef.current;
-    const currentProcessing = pipelineProgress?.isProcessing ?? false;
-
-    if (pipelineProgress !== undefined) {
-      prevIsProcessingRef.current = currentProcessing;
-    }
-
-    if (prevProcessing === true && currentProcessing === false) {
-      const teamId = dashboardMetric.metric.teamId;
-      void utils.dashboard.getDashboardCharts.refetch();
-      if (teamId) {
-        void utils.dashboard.getDashboardCharts.refetch({ teamId });
-      }
-    }
-  }, [
-    pipelineProgress?.isProcessing,
-    pipelineProgress,
-    dashboardMetric.metric.teamId,
-    utils.dashboard.getDashboardCharts,
-  ]);
+    pipelineStatus.completedSteps.some((s) => s.step === "deleting-old-data");
 
   const loadingPhase: LoadingPhase = (() => {
-    if (pipelineProgress?.currentStep) {
-      return pipelineProgress.currentStep as LoadingPhase;
+    if (pipelineStatus.currentStep) {
+      return pipelineStatus.currentStep as LoadingPhase;
     }
     if (!isProcessing && !isRegeneratingPipeline) {
       return null;
@@ -208,25 +191,6 @@ export function DashboardMetricCard({
 
     return INITIAL_STEPS.softRefresh;
   })();
-
-  // Track if we've shown error toast to avoid duplicates
-  const lastErrorShownRef = useRef<string | null>(null);
-
-  // Show error toast when pipeline fails
-  useEffect(() => {
-    const error = pipelineProgress?.error;
-    if (error && error !== lastErrorShownRef.current) {
-      lastErrorShownRef.current = error;
-      toast.error("Pipeline failed", {
-        description: error,
-        duration: 10000, // Show longer for errors
-      });
-    }
-    // Clear ref when no error
-    if (!isProcessing) {
-      lastErrorShownRef.current = null;
-    }
-  }, [pipelineProgress?.error, isProcessing]);
 
   const isPending = dashboardMetric.id.startsWith("temp-");
   const { metric } = dashboardMetric;

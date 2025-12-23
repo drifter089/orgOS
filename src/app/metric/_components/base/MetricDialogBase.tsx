@@ -16,7 +16,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { useMetricMutations } from "@/hooks/use-metric-mutations";
-import { useWaitForPipeline } from "@/hooks/use-wait-for-pipeline";
+import { usePipelineStatus } from "@/hooks/use-pipeline-status";
 import { cn } from "@/lib/utils";
 import { api } from "@/trpc/react";
 
@@ -98,8 +98,10 @@ export function MetricDialogBase({
   const { create: createMutation } = useMetricMutations({ teamId });
   const utils = api.useUtils();
 
-  const { error: pipelineError } = useWaitForPipeline({
+  // Track pipeline progress with completion/error callbacks
+  const { error: pipelineError } = usePipelineStatus({
     metricId: pipelineMetricId,
+    enabled: !!pipelineMetricId,
     onComplete: () => {
       void utils.dashboard.getDashboardCharts.invalidate();
       setStep("goal");

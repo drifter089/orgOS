@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect } from "react";
 
 import {
   AnimatePresence,
@@ -9,12 +9,11 @@ import {
   useTransform,
 } from "framer-motion";
 import { Check, Loader2 } from "lucide-react";
-import { toast } from "sonner";
 
 import {
   type CompletedStep,
-  usePipelineProgress,
-} from "@/hooks/use-pipeline-progress";
+  usePipelineStatus,
+} from "@/hooks/use-pipeline-status";
 import { cn } from "@/lib/utils";
 
 interface PipelineProgressDisplayProps {
@@ -153,6 +152,12 @@ function AnimatedProgressBar({ percent }: { percent: number }) {
   );
 }
 
+/**
+ * Animated pipeline progress display.
+ *
+ * Pure UI component - callbacks are passed to the hook for proper handling.
+ * Parent component is responsible for error toasts and side effects.
+ */
 export function PipelineProgressDisplay({
   metricId,
   isActive,
@@ -160,50 +165,22 @@ export function PipelineProgressDisplay({
   onComplete,
   onError,
 }: PipelineProgressDisplayProps) {
-  const progress = usePipelineProgress({
+  // Hook handles polling, transition detection, and callbacks
+  const progress = usePipelineStatus({
     metricId,
     enabled: isActive,
+    onComplete,
+    onError,
   });
-
-  const prevIsProcessingRef = useRef<boolean | null>(null);
-  const errorShownRef = useRef<string | null>(null);
-
-  // Calculate step display
-  const currentStepIndex = progress.completedSteps.length;
-  const stepDisplay = `Step ${currentStepIndex + 1} of ${progress.totalSteps}`;
-
-  // Detect completion transition
-  useEffect(() => {
-    if (
-      prevIsProcessingRef.current === true &&
-      !progress.isProcessing &&
-      !progress.error
-    ) {
-      onComplete?.();
-    }
-    prevIsProcessingRef.current = progress.isProcessing;
-  }, [progress.isProcessing, progress.error, onComplete]);
-
-  // Handle errors via toast (only show once per error)
-  useEffect(() => {
-    if (progress.error && progress.error !== errorShownRef.current) {
-      errorShownRef.current = progress.error;
-      toast.error("Pipeline failed", {
-        description: progress.error,
-        duration: 10000,
-      });
-      onError?.(progress.error);
-    }
-    if (!progress.isProcessing) {
-      errorShownRef.current = null;
-    }
-  }, [progress.error, progress.isProcessing, onError]);
 
   // Don't render if not processing
   if (!progress.isProcessing) {
     return null;
   }
 
+  // Calculate step display
+  const currentStepIndex = progress.completedSteps.length;
+  const stepDisplay = `Step ${currentStepIndex + 1} of ${progress.totalSteps}`;
   const heightClass = variant === "drawer" ? "h-[400px]" : "h-[220px]";
 
   return (

@@ -117,6 +117,8 @@ interface DashboardMetricChartProps {
   // Legacy prop - value label from DataIngestionTransformer
   // Prefer chartTransform.valueLabel (unified metadata from ChartTransformer)
   valueLabel?: string | null;
+  /** Whether to show the pipeline progress overlay. Default true. Set false if parent shows it. */
+  showProgressOverlay?: boolean;
 }
 
 export function DashboardMetricChart({
@@ -133,6 +135,7 @@ export function DashboardMetricChart({
   goal,
   goalProgress,
   valueLabel,
+  showProgressOverlay = true,
 }: DashboardMetricChartProps) {
   const platformConfig = integrationId
     ? getPlatformConfig(integrationId)
@@ -780,13 +783,15 @@ export function DashboardMetricChart({
           </div>
         )}
 
-        {(isProcessing || loadingPhase) && !hasChartData && (
-          <PipelineProgressDisplay
-            metricId={metricId}
-            isActive={true}
-            variant="card"
-          />
-        )}
+        {showProgressOverlay &&
+          (isProcessing || loadingPhase) &&
+          !hasChartData && (
+            <PipelineProgressDisplay
+              metricId={metricId}
+              isActive={true}
+              variant="card"
+            />
+          )}
       </CardContent>
     </Card>
   );
