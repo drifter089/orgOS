@@ -91,10 +91,27 @@ export class PipelineRunner {
   }
 
   /**
-   * Manually update refresh status without running a step
+   * Manually update refresh status without running a step.
+   * Also logs to MetricApiLog for progress tracking.
    */
   async setStatus(step: PipelineStepName): Promise<void> {
     await this.updateRefreshStatus(step);
+    // Log step transition for progress tracking
+    await this.ctx.db.metricApiLog
+      .create({
+        data: {
+          metricId: this.ctx.metricId,
+          endpoint: `pipeline-step:${step}`,
+          success: true,
+          rawResponse: {
+            pipelineType: this.pipelineType,
+            step,
+            status: "started",
+            timestamp: new Date().toISOString(),
+          },
+        },
+      })
+      .catch(() => undefined); // Non-blocking
   }
 
   /**
@@ -147,7 +164,7 @@ export class PipelineRunner {
     await this.ctx.db.metricApiLog.create({
       data: {
         metricId: this.ctx.metricId,
-        endpoint: `pipeline:${stepConfig.step}`,
+        endpoint: `pipeline-step:${stepConfig.step}`,
         success: status === "completed",
         rawResponse: {
           pipelineType: this.pipelineType,

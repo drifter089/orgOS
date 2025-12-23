@@ -11,6 +11,7 @@ import { TRPCError } from "@trpc/server";
 
 import { getTemplate } from "@/lib/integrations";
 import type { DataPoint } from "@/lib/metrics/transformer-types";
+import { createPipelineRunner } from "@/lib/pipeline";
 import { db } from "@/server/db";
 
 import { fetchData } from "../data-fetching/nango";
@@ -422,32 +423,7 @@ interface RefreshMetricResult {
   error?: string;
 }
 
-/** Helper to update refresh status and log step transition */
-async function setRefreshStatus(
-  metricId: string,
-  status: string | null,
-): Promise<void> {
-  await db.metric.update({
-    where: { id: metricId },
-    data: { refreshStatus: status },
-  });
-
-  // Log step transition to MetricApiLog for progress tracking
-  if (status) {
-    await db.metricApiLog
-      .create({
-        data: {
-          metricId,
-          endpoint: `pipeline-step:${status}`,
-          rawResponse: { startedAt: new Date().toISOString() },
-          success: true,
-        },
-      })
-      .catch(() => undefined); // Non-blocking, ignore errors
-  }
-}
-
-/** Refresh metric data and update all associated charts. Used by cron and manual refresh. */
+/** Refresh metric data and update all associated charts. Uses PipelineRunner for progress tracking. */
 export async function refreshMetricAndCharts(
   input: RefreshMetricInput,
 ): Promise<RefreshMetricResult> {
@@ -463,9 +439,18 @@ export async function refreshMetricAndCharts(
     return { success: false, error: "Metric not found or not configured" };
   }
 
+  // Create pipeline runner for progress tracking
+  const pipelineType = input.forceRegenerate ? "hard-refresh" : "soft-refresh";
+  const runner = createPipelineRunner(
+    db,
+    input.metricId,
+    metric.organizationId,
+    pipelineType,
+  );
+
   try {
     // Step 1: Fetching API data
-    await setRefreshStatus(input.metricId, "fetching-api-data");
+    await runner.setStatus("fetching-api-data");
 
     const template = getTemplate(metric.templateId);
     const isTimeSeries = template?.isTimeSeries !== false;
@@ -474,17 +459,16 @@ export async function refreshMetricAndCharts(
 
     if (input.forceRegenerate) {
       // HARD REFRESH: Delete everything and regenerate from scratch
-      // All metrics use metricId as cache key (independent metrics)
       const cacheKey = metric.id;
 
       // Step 2: Delete old data points
-      await setRefreshStatus(input.metricId, "deleting-old-data");
+      await runner.setStatus("deleting-old-data");
       await db.metricDataPoint.deleteMany({
         where: { metricId: metric.id },
       });
 
       // Step 3: Delete old transformer
-      await setRefreshStatus(input.metricId, "deleting-old-transformer");
+      await runner.setStatus("deleting-old-transformer");
       await db.dataIngestionTransformer
         .delete({ where: { templateId: cacheKey } })
         .catch(() => {
@@ -496,10 +480,7 @@ export async function refreshMetricAndCharts(
       );
 
       // Step 4: AI regenerating transformer
-      await setRefreshStatus(
-        input.metricId,
-        "generating-ingestion-transformer",
-      );
+      await runner.setStatus("generating-ingestion-transformer");
 
       // Use ingestMetricData which will create new transformer
       transformResult = await ingestMetricData({
@@ -512,8 +493,7 @@ export async function refreshMetricAndCharts(
       });
     } else {
       // SOFT REFRESH: Reuse existing transformer
-      // Step 2: Running existing transformer
-      await setRefreshStatus(input.metricId, "executing-ingestion-transformer");
+      await runner.setStatus("executing-ingestion-transformer");
 
       // Normal refresh using existing transformer
       transformResult = await refreshMetricDataPoints({
@@ -527,23 +507,20 @@ export async function refreshMetricAndCharts(
     }
 
     if (!transformResult.success) {
-      await db.metric.update({
-        where: { id: input.metricId },
-        data: { lastError: transformResult.error, refreshStatus: null },
-      });
+      await runner.fail(transformResult.error ?? "Transform failed");
       return { success: false, error: transformResult.error };
     }
 
-    // Step 3: Saving data points (already done in ingestMetricData/refreshMetricDataPoints)
-    await setRefreshStatus(input.metricId, "saving-timeseries-data");
+    // Step: Saving data points (already done in ingestMetricData/refreshMetricDataPoints)
+    await runner.setStatus("saving-timeseries-data");
 
     await db.metric.update({
       where: { id: input.metricId },
       data: { lastFetchedAt: new Date(), lastError: null },
     });
 
-    // Step 4: Updating charts
-    await setRefreshStatus(input.metricId, "executing-chart-transformer");
+    // Step: Updating charts
+    await runner.setStatus("executing-chart-transformer");
 
     // Fetch dataPoints once for all chart transformers (avoids N+1 queries)
     const chartsWithTransformers = metric.dashboardCharts.filter(
@@ -551,7 +528,6 @@ export async function refreshMetricAndCharts(
     );
 
     if (chartsWithTransformers.length > 0) {
-      // Get fresh dataPoints once - up to 1000 for chart generation
       const freshDataPoints = await db.metricDataPoint.findMany({
         where: { metricId: metric.id },
         orderBy: { timestamp: "desc" },
@@ -572,7 +548,6 @@ export async function refreshMetricAndCharts(
       for (const dc of chartsWithTransformers) {
         const transformer = dc.chartTransformer!;
         try {
-          // Pass data directly - no re-fetching
           await executeChartTransformerWithData({
             dashboardChartId: dc.id,
             transformerCode: transformer.transformerCode,
@@ -591,21 +566,15 @@ export async function refreshMetricAndCharts(
     }
 
     // Clear status on success
-    await setRefreshStatus(input.metricId, null);
+    await runner.complete();
 
     return {
       success: true,
       dataPointCount: transformResult.dataPoints?.length ?? 0,
     };
   } catch (error) {
-    // Clear status on error
-    await db.metric.update({
-      where: { id: input.metricId },
-      data: {
-        refreshStatus: null,
-        lastError: error instanceof Error ? error.message : "Unknown error",
-      },
-    });
+    // Mark pipeline as failed
+    await runner.fail(error instanceof Error ? error.message : "Unknown error");
     throw error;
   }
 }
