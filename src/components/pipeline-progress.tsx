@@ -3,7 +3,7 @@
 import { CheckCircle2, Loader2, XCircle } from "lucide-react";
 
 import { Progress } from "@/components/ui/progress";
-import { usePipelineProgress } from "@/hooks/use-pipeline-progress";
+import { usePipelineStatus } from "@/hooks/use-pipeline-status";
 import { cn } from "@/lib/utils";
 
 interface PipelineProgressProps {
@@ -17,7 +17,7 @@ export function PipelineProgress({
   isActive,
   variant = "compact",
 }: PipelineProgressProps) {
-  const progress = usePipelineProgress({
+  const progress = usePipelineStatus({
     metricId,
     enabled: isActive,
   });

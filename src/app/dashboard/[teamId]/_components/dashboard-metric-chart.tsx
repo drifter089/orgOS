@@ -25,6 +25,7 @@ import {
   YAxis,
 } from "recharts";
 
+import { PipelineProgressDisplay } from "@/components/pipeline-progress-display";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -100,6 +101,7 @@ function getLoadingMessage(phase: LoadingPhase | undefined): string {
 }
 
 interface DashboardMetricChartProps {
+  metricId: string;
   title: string;
   chartTransform: ChartTransformResult | null;
   hasChartData: boolean;
@@ -115,9 +117,12 @@ interface DashboardMetricChartProps {
   // Legacy prop - value label from DataIngestionTransformer
   // Prefer chartTransform.valueLabel (unified metadata from ChartTransformer)
   valueLabel?: string | null;
+  /** Whether to show the pipeline progress overlay. Default true. Set false if parent shows it. */
+  showProgressOverlay?: boolean;
 }
 
 export function DashboardMetricChart({
+  metricId,
   title,
   chartTransform,
   hasChartData,
@@ -130,6 +135,7 @@ export function DashboardMetricChart({
   goal,
   goalProgress,
   valueLabel,
+  showProgressOverlay = true,
 }: DashboardMetricChartProps) {
   const platformConfig = integrationId
     ? getPlatformConfig(integrationId)
@@ -777,16 +783,15 @@ export function DashboardMetricChart({
           </div>
         )}
 
-        {(isProcessing || loadingPhase) && !hasChartData && (
-          <div className="flex flex-1 items-center justify-center rounded-md border border-dashed">
-            <div className="text-center">
-              <Loader2 className="text-muted-foreground mx-auto h-6 w-6 animate-spin" />
-              <p className="text-muted-foreground mt-2 text-sm">
-                {getLoadingMessage(loadingPhase)}
-              </p>
-            </div>
-          </div>
-        )}
+        {showProgressOverlay &&
+          (isProcessing || loadingPhase) &&
+          !hasChartData && (
+            <PipelineProgressDisplay
+              metricId={metricId}
+              isActive={true}
+              variant="card"
+            />
+          )}
       </CardContent>
     </Card>
   );
