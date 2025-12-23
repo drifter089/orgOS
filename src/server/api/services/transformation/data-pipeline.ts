@@ -218,7 +218,6 @@ async function getOrCreateDataIngestionTransformer(
 
   let finalCode = generated.code;
   let finalValueLabel = generated.valueLabel;
-  let finalDataDescription = generated.dataDescription;
 
   if (!testResult.success) {
     const regenerated = await regenerateDataIngestionTransformerCode({
@@ -250,7 +249,6 @@ async function getOrCreateDataIngestionTransformer(
 
     finalCode = regenerated.code;
     finalValueLabel = regenerated.valueLabel;
-    finalDataDescription = regenerated.dataDescription;
   }
 
   // Upsert handles race condition
@@ -260,7 +258,6 @@ async function getOrCreateDataIngestionTransformer(
       templateId,
       transformerCode: finalCode,
       valueLabel: finalValueLabel,
-      dataDescription: finalDataDescription,
       extractionPromptUsed: template.extractionPrompt,
     },
     update: {},

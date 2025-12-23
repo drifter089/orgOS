@@ -54,7 +54,6 @@ export interface DisplayedChart {
 interface DashboardMetricCardProps {
   dashboardMetric: DashboardMetricWithRelations & {
     valueLabel?: string | null;
-    dataDescription?: string | null;
   };
   /** When true, hides settings drawer and dev tool button (for public views) */
   readOnly?: boolean;
@@ -482,7 +481,6 @@ export function DashboardMetricCard({
             }
             roles={roles}
             valueLabel={dashboardMetric.valueLabel ?? null}
-            dataDescription={dashboardMetric.dataDescription ?? null}
             integrationId={metric.integration?.providerId ?? null}
             isIntegrationMetric={isIntegrationMetric}
             lastFetchedAt={metric.lastFetchedAt}

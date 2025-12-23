@@ -39,28 +39,24 @@ interface GeneratedCode {
 
 interface GeneratedDataIngestionCode extends GeneratedCode {
   valueLabel?: string;
-  dataDescription?: string;
 }
 
 /**
- * Parse AI response that returns JSON with code, valueLabel, and dataDescription
+ * Parse AI response that returns JSON with code and valueLabel
  */
 function parseDataIngestionResponse(response: string): {
   code: string;
   valueLabel?: string;
-  dataDescription?: string;
 } {
   try {
     const parsed = JSON.parse(response) as {
       code?: string;
       valueLabel?: string;
-      dataDescription?: string;
     };
     if (parsed.code) {
       return {
         code: cleanGeneratedCode(parsed.code),
         valueLabel: parsed.valueLabel,
-        dataDescription: parsed.dataDescription,
       };
     }
   } catch {
@@ -116,7 +112,7 @@ Analyze this spreadsheet data and generate a transformer that:
 3. Identifies numeric value columns
 4. Creates appropriate DataPoints with dimensions
 
-Generate the JavaScript transform function and return as JSON with code, valueLabel, and dataDescription.`;
+Generate the JavaScript transform function and return as JSON with code and valueLabel.`;
 
   const result = await generateText({
     model: openrouter("anthropic/claude-sonnet-4"),
@@ -131,7 +127,6 @@ Generate the JavaScript transform function and return as JSON with code, valueLa
   return {
     code: parsed.code,
     valueLabel: parsed.valueLabel,
-    dataDescription: parsed.dataDescription,
     reasoning: `Generated Google Sheets transformer for ${input.sheetName}. Detected ${totalRows} rows × ${totalCols} columns.`,
   };
 }
@@ -185,7 +180,7 @@ Fix the error and ensure:
   }
 
   userPrompt +=
-    "\n\nGenerate a FIXED JavaScript transform function and return as JSON with code, valueLabel, and dataDescription.";
+    "\n\nGenerate a FIXED JavaScript transform function and return as JSON with code and valueLabel.";
 
   const result = await generateText({
     model: openrouter("anthropic/claude-sonnet-4"),
@@ -200,7 +195,6 @@ Fix the error and ensure:
   return {
     code: parsed.code,
     valueLabel: parsed.valueLabel,
-    dataDescription: parsed.dataDescription,
     reasoning: `Regenerated Google Sheets transformer after failure.`,
   };
 }

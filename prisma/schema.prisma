@@ -262,13 +262,6 @@ model DataIngestionTransformer {
     // AI generates this once when creating the transformer
     valueLabel      String?
 
-    // Documentation of what this transformer does
-    // Helps debugging and understanding the endpoint
-    // Example: "Extracts commit data from GitHub API. value = commit count per day.
-    //          dimensions.additions = lines added, dimensions.deletions = lines deleted.
-    //          Data is aggregated daily by commit date."
-    dataDescription String?  @db.Text
-
     // The extraction prompt that was used to generate this transformer
     // Allows debugging and comparing what prompt produced what code
     extractionPromptUsed String?  @db.Text

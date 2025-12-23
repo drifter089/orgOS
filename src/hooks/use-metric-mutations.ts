@@ -58,7 +58,6 @@ export function useMetricMutations({ teamId }: UseMetricMutationsOptions = {}) {
         },
         goalProgress: null,
         valueLabel: null,
-        dataDescription: null,
       };
 
       // Save previous data for rollback
@@ -90,7 +89,6 @@ export function useMetricMutations({ teamId }: UseMetricMutationsOptions = {}) {
         metric: { ...realChart.metric, goal: null },
         goalProgress: null,
         valueLabel: null,
-        dataDescription: null,
       };
 
       // Swap temp chart with real chart
@@ -184,7 +182,6 @@ export function useMetricMutations({ teamId }: UseMetricMutationsOptions = {}) {
         },
         goalProgress: null,
         valueLabel: variables.unitType === "percentage" ? "%" : null,
-        dataDescription: null,
       };
 
       // Save previous data for rollback
@@ -217,7 +214,6 @@ export function useMetricMutations({ teamId }: UseMetricMutationsOptions = {}) {
         metric: { ...realChart.metric, goal: null },
         goalProgress: null,
         valueLabel: variables.unitType === "percentage" ? "%" : null,
-        dataDescription: null,
       };
 
       // Swap temp chart with real chart

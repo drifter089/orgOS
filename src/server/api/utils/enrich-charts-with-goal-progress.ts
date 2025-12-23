@@ -33,7 +33,6 @@ export type EnrichedDashboardChart<T extends DashboardChartWithRelations> =
   T & {
     goalProgress: GoalProgress | null;
     valueLabel: string | null;
-    dataDescription: string | null;
   };
 
 /**
@@ -54,7 +53,7 @@ function getTransformerCacheKey(metricId: string): string {
  *
  * @param charts - Dashboard charts with metric and chartTransformer relations
  * @param db - Prisma client for database queries
- * @returns Charts enriched with goalProgress, valueLabel, and dataDescription
+ * @returns Charts enriched with goalProgress and valueLabel
  */
 export async function enrichChartsWithGoalProgress<
   T extends DashboardChartWithRelations,
@@ -64,18 +63,15 @@ export async function enrichChartsWithGoalProgress<
     ...new Set(charts.map((chart) => getTransformerCacheKey(chart.metric.id))),
   ];
 
-  // Fetch valueLabels and dataDescription from DataIngestionTransformer (fallback)
+  // Fetch valueLabels from DataIngestionTransformer (fallback)
   const transformers = await db.dataIngestionTransformer.findMany({
     where: { templateId: { in: metricIds } },
-    select: { templateId: true, valueLabel: true, dataDescription: true },
+    select: { templateId: true, valueLabel: true },
   });
 
-  // Create maps for quick lookup
+  // Create map for quick lookup
   const valueLabelMap = new Map(
     transformers.map((t) => [t.templateId, t.valueLabel]),
-  );
-  const dataDescriptionMap = new Map(
-    transformers.map((t) => [t.templateId, t.dataDescription]),
   );
 
   // Calculate goal progress and add valueLabel for each chart
@@ -92,17 +88,12 @@ export async function enrichChartsWithGoalProgress<
       valueLabelMap.get(cacheKey) ??
       null;
 
-    // Prefer description from chartConfig, fallback to DataIngestionTransformer
-    const dataDescription =
-      chartConfig?.description ?? dataDescriptionMap.get(cacheKey) ?? null;
-
     // No goal or no cadence - return without progress calculation
     if (!chart.metric.goal || !chart.chartTransformer?.cadence) {
       return {
         ...chart,
         goalProgress: null,
         valueLabel,
-        dataDescription,
       };
     }
 
@@ -133,7 +124,6 @@ export async function enrichChartsWithGoalProgress<
       ...chart,
       goalProgress: progress,
       valueLabel,
-      dataDescription,
     };
   });
 }

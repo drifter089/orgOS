@@ -66,7 +66,6 @@ interface GeneratedCode {
 
 interface GeneratedDataIngestionCode extends GeneratedCode {
   valueLabel?: string;
-  dataDescription?: string;
 }
 
 // =============================================================================
@@ -116,19 +115,12 @@ OUTPUT FORMAT:
 Return a JSON object with this exact structure:
 {
   "code": "function transform(apiResponse, endpointConfig) { ... }",
-  "valueLabel": "commits",
-  "dataDescription": "Extracts commit data from GitHub API. The value field contains the number of commits per day. Dimensions include: additions (lines added), deletions (lines deleted). Data is grouped by commit date with UTC normalization."
+  "valueLabel": "commits"
 }
 
 REQUIRED FIELDS:
 - code: The JavaScript transform function
 - valueLabel: A SHORT label for what the value represents (e.g., "commits", "stars", "views", "issues", "subscribers", "points"). This will be shown next to the number in the UI (e.g., "1,234 commits")
-- dataDescription: A detailed description explaining:
-  - What API data is extracted
-  - What the value field represents
-  - What each dimension field contains (if any)
-  - How the data is aggregated
-  - Any data transformations applied
 
 Output ONLY valid JSON, no markdown or code blocks.`;
 
@@ -307,7 +299,7 @@ Analyze the API response structure and determine:
 
 Parameters available in endpointConfig: ${input.availableParams.join(", ") || "none"}
 
-Generate the JavaScript transform function and return as JSON with code, valueLabel, and dataDescription.`;
+Generate the JavaScript transform function and return as JSON with code and valueLabel.`;
 
   const result = await generateText({
     model: openrouter("anthropic/claude-sonnet-4"),
@@ -322,7 +314,6 @@ Generate the JavaScript transform function and return as JSON with code, valueLa
   return {
     code: parsed.code,
     valueLabel: parsed.valueLabel,
-    dataDescription: parsed.dataDescription,
     reasoning: `Generated transformer for ${input.templateId} based on actual API response structure.`,
   };
 }
@@ -352,25 +343,22 @@ function extractJsonFromResponse(response: string): string | null {
 }
 
 /**
- * Parse AI response that returns JSON with code, valueLabel, and dataDescription
+ * Parse AI response that returns JSON with code and valueLabel
  */
 function parseDataIngestionTransformerResponse(response: string): {
   code: string;
   valueLabel?: string;
-  dataDescription?: string;
 } {
   // First try direct JSON parse
   try {
     const parsed = JSON.parse(response) as {
       code?: string;
       valueLabel?: string;
-      dataDescription?: string;
     };
     if (parsed.code) {
       return {
         code: cleanGeneratedCode(parsed.code),
         valueLabel: parsed.valueLabel,
-        dataDescription: parsed.dataDescription,
       };
     }
   } catch {
@@ -384,13 +372,11 @@ function parseDataIngestionTransformerResponse(response: string): {
       const parsed = JSON.parse(extractedJson) as {
         code?: string;
         valueLabel?: string;
-        dataDescription?: string;
       };
       if (parsed.code) {
         return {
           code: cleanGeneratedCode(parsed.code),
           valueLabel: parsed.valueLabel,
-          dataDescription: parsed.dataDescription,
         };
       }
     } catch {
@@ -601,7 +587,7 @@ Fix the error while ensuring:
   }
 
   userPrompt +=
-    "\n\nGenerate a FIXED JavaScript transform function and return as JSON with code, valueLabel, and dataDescription.";
+    "\n\nGenerate a FIXED JavaScript transform function and return as JSON with code and valueLabel.";
 
   const result = await generateText({
     model: openrouter("anthropic/claude-sonnet-4"),
@@ -616,7 +602,6 @@ Fix the error while ensuring:
   return {
     code: parsed.code,
     valueLabel: parsed.valueLabel,
-    dataDescription: parsed.dataDescription,
     reasoning: `Regenerated transformer for ${input.templateId} after failure.`,
   };
 }

@@ -66,7 +66,6 @@ interface DashboardMetricDrawerProps {
   currentSelectedDimension: string | null;
   roles: Role[];
   valueLabel: string | null;
-  dataDescription: string | null;
   integrationId: string | null;
   isIntegrationMetric: boolean;
   lastFetchedAt: Date | null;
@@ -127,7 +126,6 @@ export function DashboardMetricDrawer({
   currentSelectedDimension,
   roles,
   valueLabel,
-  dataDescription: _dataDescription,
   integrationId,
   isIntegrationMetric,
   lastFetchedAt,

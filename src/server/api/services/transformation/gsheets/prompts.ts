@@ -86,14 +86,12 @@ OUTPUT FORMAT:
 Return a JSON object with this exact structure:
 {
   "code": "function transform(apiResponse, endpointConfig) { ... }",
-  "valueLabel": "count",
-  "dataDescription": "Extracts data from Google Sheets. The value field contains the numeric value from the data column. Dimensions include: label (row identifier), series (column header if multi-series). Data is organized by rows with unique timestamps."
+  "valueLabel": "count"
 }
 
 REQUIRED FIELDS:
 - code: The JavaScript transform function
 - valueLabel: A SHORT label for what the value represents (e.g., "count", "revenue", "score", "amount"). This will be shown next to the number in the UI
-- dataDescription: A description explaining the data structure and how values are extracted
 
 Output ONLY valid JSON, no markdown or code blocks.`;
 

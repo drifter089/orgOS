@@ -85,7 +85,6 @@ async function analyzeMetric(metric, ingestionTransformer, templates) {
       ? {
           templateId: ingestionTransformer.templateId,
           valueLabel: ingestionTransformer.valueLabel,
-          dataDescription: ingestionTransformer.dataDescription,
           extractionPromptUsed: ingestionTransformer.extractionPromptUsed,
           transformerCode: ingestionTransformer.transformerCode,
         }
@@ -441,9 +440,6 @@ async function analyzeCommand(filterName, templates) {
     if (analysis.ingestionTransformer) {
       console.log("## DATA INGESTION TRANSFORMER");
       console.log("Value Label: " + analysis.ingestionTransformer.valueLabel);
-      console.log(
-        "Data Description: " + analysis.ingestionTransformer.dataDescription,
-      );
       if (analysis.ingestionTransformer.extractionPromptUsed) {
         console.log("Extraction Prompt Used: YES");
       } else {
@@ -583,7 +579,6 @@ async function promptCommand(templateId, templates) {
   if (transformer) {
     console.log("## Current Transformer (stored in DB)");
     console.log("Value label: " + transformer.valueLabel);
-    console.log("Data description: " + transformer.dataDescription);
     console.log(
       "Extraction prompt used: " +
         (transformer.extractionPromptUsed ? "YES" : "NO"),
@@ -668,7 +663,6 @@ async function exportCommand(metricNameOrId, templates) {
       ? {
           transformerCode: transformer.transformerCode,
           valueLabel: transformer.valueLabel,
-          dataDescription: transformer.dataDescription,
           extractionPromptUsed: transformer.extractionPromptUsed,
         }
       : null,
