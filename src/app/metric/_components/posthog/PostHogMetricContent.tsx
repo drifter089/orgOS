@@ -133,8 +133,6 @@ export function PostHogMetricContent({
     });
   };
 
-  const isFormValid = !!selectedProject && !!selectedEvent;
-
   return (
     <>
       <div className="space-y-4">

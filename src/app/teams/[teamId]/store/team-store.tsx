@@ -19,7 +19,7 @@ import { type StoreApi, create, useStore } from "zustand";
 
 import { type FreehandNodeType } from "@/lib/canvas";
 
-import { type ChartNode, type ChartNodeData } from "../_components/chart-node";
+import { type ChartNode } from "../_components/chart-node";
 import { type RoleNodeData } from "../_components/role-node";
 import { type KpiEdgeData, type TextNodeFontSize } from "../types/canvas";
 import { determineEdgeType } from "../utils/generate-metric-edges";

@@ -6,7 +6,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { Area, AreaChart, ResponsiveContainer } from "recharts";
 
 function HeroVisual() {
-  const [_, setPhase] = useState<"role" | "metric" | "insight">("role");
+  const [, setPhase] = useState<"role" | "metric" | "insight">("role");
   const [cursorPosition, setCursorPosition] = useState({ x: 25, y: 35 });
   const [isClicking, setIsClicking] = useState(false);
   const [showRole, setShowRole] = useState(false);

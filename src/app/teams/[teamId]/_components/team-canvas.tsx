@@ -47,10 +47,10 @@ import {
 } from "../store/team-store";
 import { type KpiEdgeData } from "../types/canvas";
 import { determineEdgeType } from "../utils/generate-metric-edges";
-import { type ChartNodeData, ChartNodeMemo } from "./chart-node";
+import { ChartNodeMemo } from "./chart-node";
 import { KpiEdge } from "./kpi-edge";
 import { RoleDialog } from "./role-dialog";
-import { type RoleNodeData, RoleNodeMemo } from "./role-node";
+import { RoleNodeMemo } from "./role-node";
 import { TeamCanvasControls } from "./team-canvas-controls";
 import { TeamEdge } from "./team-edge";
 import { TextNodeMemo } from "./text-node";
