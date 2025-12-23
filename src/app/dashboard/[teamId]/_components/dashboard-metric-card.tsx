@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import { AlertCircle, Bug, Settings } from "lucide-react";
 import { toast } from "sonner";
@@ -75,6 +75,28 @@ export function DashboardMetricCard({
     isProcessing || isRegeneratingPipeline
       ? ((pipelineProgress?.currentStep as LoadingPhase) ?? "fetching-api")
       : null;
+
+  // Track if we've shown error toast to avoid duplicates
+  const lastErrorShownRef = useRef<string | null>(null);
+
+  // Show error toast when pipeline fails
+  useEffect(() => {
+    const error = pipelineProgress?.error;
+    if (error && error !== lastErrorShownRef.current) {
+      lastErrorShownRef.current = error;
+      toast.error("Pipeline failed", {
+        description: error,
+        duration: 10000, // Show longer for errors
+      });
+      // Reset processing state
+      setIsProcessing(false);
+      setIsRegeneratingPipeline(false);
+    }
+    // Clear ref when no error
+    if (!error && !isProcessing && !isRegeneratingPipeline) {
+      lastErrorShownRef.current = null;
+    }
+  }, [pipelineProgress?.error, isProcessing, isRegeneratingPipeline]);
 
   const isPending = dashboardMetric.id.startsWith("temp-");
   const { metric } = dashboardMetric;

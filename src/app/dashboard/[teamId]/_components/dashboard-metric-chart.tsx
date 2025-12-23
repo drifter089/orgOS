@@ -668,19 +668,7 @@ export function DashboardMetricChart({
               className="text-muted-foreground shrink-0 text-[10px]"
             >
               <Loader2 className="mr-1 h-2.5 w-2.5 animate-spin" />
-              {isPending
-                ? "Saving..."
-                : loadingPhase === "fetching-api"
-                  ? "Fetching..."
-                  : loadingPhase === "running-transformer"
-                    ? "Transforming..."
-                    : loadingPhase === "ai-regenerating"
-                      ? "AI Regenerating..."
-                      : loadingPhase === "saving-data"
-                        ? "Saving..."
-                        : loadingPhase === "updating-chart"
-                          ? "Updating..."
-                          : "Processing..."}
+              {isPending ? "Saving..." : getLoadingMessage(loadingPhase)}
             </Badge>
           )}
         </div>
