@@ -117,6 +117,8 @@ interface DashboardMetricChartProps {
   valueLabel?: string | null;
   /** Pipeline status from parent - single source of truth for loading states */
   pipelineStatus?: PipelineStatus | null;
+  /** True when a mutation is pending - covers gap before first poll returns */
+  isMutationPending?: boolean;
 }
 
 export function DashboardMetricChart({
@@ -131,9 +133,12 @@ export function DashboardMetricChart({
   goalProgress,
   valueLabel,
   pipelineStatus,
+  isMutationPending = false,
 }: DashboardMetricChartProps) {
   // Derive loading state from pipelineStatus (single source of truth)
-  const isProcessing = pipelineStatus?.isProcessing ?? false;
+  // isMutationPending covers the gap between mutation start and first poll response
+  const isProcessing =
+    isMutationPending || (pipelineStatus?.isProcessing ?? false);
   const loadingPhase = pipelineStatus?.currentStep as LoadingPhase | null;
   const platformConfig = integrationId
     ? getPlatformConfig(integrationId)

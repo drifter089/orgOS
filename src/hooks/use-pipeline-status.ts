@@ -63,6 +63,16 @@ export function usePipelineStatus({
   onComplete,
   onError,
 }: UsePipelineStatusOptions): PipelineStatus {
+  // Use refs for callbacks to avoid stale closures and unnecessary effect re-runs
+  const onCompleteRef = useRef(onComplete);
+  const onErrorRef = useRef(onError);
+
+  // Keep refs in sync with latest callbacks
+  useEffect(() => {
+    onCompleteRef.current = onComplete;
+    onErrorRef.current = onError;
+  });
+
   // Refs for transition detection and callback guards
   const prevIsProcessingRef = useRef<boolean | null>(null);
   const hasCalledCompleteRef = useRef(false);
@@ -86,7 +96,7 @@ export function usePipelineStatus({
   const isComplete =
     prevIsProcessingRef.current === true && !isProcessing && hasData;
 
-  // Handle completion/error callbacks
+  // Handle completion/error callbacks (no callbacks in deps - use refs instead)
   useEffect(() => {
     if (!hasData) return;
 
@@ -94,18 +104,35 @@ export function usePipelineStatus({
     if (prevIsProcessingRef.current === true && !isProcessing) {
       if (error && !hasCalledErrorRef.current) {
         hasCalledErrorRef.current = true;
-        onError?.(error);
+        onErrorRef.current?.(error);
       } else if (!error && !hasCalledCompleteRef.current) {
         hasCalledCompleteRef.current = true;
-        onComplete?.();
+        onCompleteRef.current?.();
       }
     }
 
     prevIsProcessingRef.current = isProcessing;
-  }, [isProcessing, error, hasData, onComplete, onError]);
+  }, [isProcessing, error, hasData]);
 
-  // Reset refs when metricId changes
+  // Track enabled state to detect new pipeline starts
+  const prevEnabledRef = useRef(enabled);
+
+  // Reset refs when metricId changes OR when enabled transitions false → true (new pipeline)
   useEffect(() => {
+    const wasDisabled = !prevEnabledRef.current;
+    const isNowEnabled = enabled;
+    prevEnabledRef.current = enabled;
+
+    // Reset when a new pipeline starts (enabled becomes true) or metricId changes
+    if (wasDisabled && isNowEnabled) {
+      hasCalledCompleteRef.current = false;
+      hasCalledErrorRef.current = false;
+      prevIsProcessingRef.current = null;
+    }
+  }, [enabled]);
+
+  useEffect(() => {
+    // Always reset when metricId changes
     hasCalledCompleteRef.current = false;
     hasCalledErrorRef.current = false;
     prevIsProcessingRef.current = null;

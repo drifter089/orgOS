@@ -93,23 +93,22 @@ export function DashboardMetricCard({
   const shouldPoll = isAnyMutationPending || !!metric.refreshStatus;
 
   // Single source of truth for pipeline status
+  // Uses invalidate() to mark all getDashboardCharts queries as stale
+  // TanStack Query will refetch any active queries automatically
   const pipelineStatus = usePipelineStatus({
     metricId: metric.id,
     enabled: shouldPoll,
     onComplete: () => {
-      // Refetch charts on completion
-      void utils.dashboard.getDashboardCharts.refetch();
-      if (metric.teamId) {
-        void utils.dashboard.getDashboardCharts.refetch({
-          teamId: metric.teamId,
-        });
-      }
+      // Invalidate all dashboard chart queries - TanStack Query handles refetching
+      void utils.dashboard.getDashboardCharts.invalidate();
     },
     onError: (error) => {
       toast.error("Pipeline failed", {
         description: error,
         duration: 10000,
       });
+      // Still invalidate to show error state
+      void utils.dashboard.getDashboardCharts.invalidate();
     },
   });
 
@@ -304,6 +303,7 @@ export function DashboardMetricCard({
         goalProgress={dashboardMetric.goalProgress}
         valueLabel={dashboardMetric.valueLabel}
         pipelineStatus={pipelineStatus}
+        isMutationPending={isAnyMutationPending}
       />
     </div>
   );

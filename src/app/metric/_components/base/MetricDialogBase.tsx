@@ -5,7 +5,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 
 import { GoalSetupStep } from "@/components/metric/goal-setup-step";
-import { PipelineProgress } from "@/components/pipeline-progress";
+import { PipelineProgressDisplay } from "@/components/pipeline-progress-display";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Dialog,
@@ -99,7 +99,8 @@ export function MetricDialogBase({
   const utils = api.useUtils();
 
   // Track pipeline progress with completion/error callbacks
-  const { error: pipelineError } = usePipelineStatus({
+  // Single source of truth - also used for display via PipelineProgressDisplay
+  const pipelineStatus = usePipelineStatus({
     metricId: pipelineMetricId,
     enabled: !!pipelineMetricId,
     onComplete: () => {
@@ -113,6 +114,8 @@ export function MetricDialogBase({
       setPipelineMetricId(null);
     },
   });
+
+  const pipelineError = pipelineStatus.error;
 
   const integrationQuery = api.integration.listWithStats.useQuery();
   const connection = integrationQuery.data?.active.find((int) =>
@@ -214,11 +217,10 @@ export function MetricDialogBase({
             </DialogHeader>
 
             <div className="py-8">
-              {pipelineMetricId && (
-                <PipelineProgress
-                  metricId={pipelineMetricId}
-                  isActive={true}
-                  variant="detailed"
+              {pipelineMetricId && pipelineStatus.isProcessing && (
+                <PipelineProgressDisplay
+                  pipelineStatus={pipelineStatus}
+                  variant="drawer"
                 />
               )}
             </div>
