@@ -42,12 +42,39 @@ interface GeneratedDataIngestionCode extends GeneratedCode {
 }
 
 /**
- * Parse AI response that returns JSON with code and valueLabel
+ * Extract JSON from a response that may contain markdown.
+ */
+function extractJsonFromResponse(response: string): string | null {
+  // Try to find JSON in markdown code block
+  const jsonBlockMatch = /```(?:json)?\s*\n?([\s\S]*?)\n?```/.exec(response);
+  if (jsonBlockMatch?.[1]) {
+    const content = jsonBlockMatch[1].trim();
+    if (content.startsWith("{") || content.startsWith("[")) {
+      return content;
+    }
+  }
+
+  // Try to find raw JSON object with "code" key
+  const jsonMatch = /\{[\s\S]*"code"[\s\S]*\}/.exec(response);
+  if (jsonMatch?.[0]) {
+    return jsonMatch[0];
+  }
+
+  return null;
+}
+
+/**
+ * Parse AI response that returns JSON with code and valueLabel.
+ * Uses 2 fallback layers:
+ * 1. Direct JSON parse
+ * 2. Markdown extraction
+ * Throws if parsing fails (no silent fallbacks to broken code).
  */
 function parseDataIngestionResponse(response: string): {
   code: string;
   valueLabel?: string;
 } {
+  // Layer 1: Direct JSON parse
   try {
     const parsed = JSON.parse(response) as {
       code?: string;
@@ -60,11 +87,32 @@ function parseDataIngestionResponse(response: string): {
       };
     }
   } catch {
-    // If JSON parsing fails, treat the whole response as code (fallback)
+    // Direct parse failed, try markdown extraction
   }
 
-  // Fallback: treat the entire response as code
-  return { code: cleanGeneratedCode(response) };
+  // Layer 2: Extract JSON from markdown
+  const extractedJson = extractJsonFromResponse(response);
+  if (extractedJson) {
+    try {
+      const parsed = JSON.parse(extractedJson) as {
+        code?: string;
+        valueLabel?: string;
+      };
+      if (parsed.code) {
+        return {
+          code: cleanGeneratedCode(parsed.code),
+          valueLabel: parsed.valueLabel,
+        };
+      }
+    } catch {
+      // Extracted content wasn't valid JSON either
+    }
+  }
+
+  // No fallback - throw clear error
+  throw new Error(
+    "Failed to parse Google Sheets AI response as JSON. Response did not contain valid JSON with 'code' field.",
+  );
 }
 
 function getOpenRouterClient() {

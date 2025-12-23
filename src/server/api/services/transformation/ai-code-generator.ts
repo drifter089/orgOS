@@ -343,13 +343,17 @@ function extractJsonFromResponse(response: string): string | null {
 }
 
 /**
- * Parse AI response that returns JSON with code and valueLabel
+ * Parse AI response that returns JSON with code and valueLabel.
+ * Uses 2 fallback layers:
+ * 1. Direct JSON parse
+ * 2. Markdown extraction
+ * Throws if parsing fails (no silent fallbacks to broken code).
  */
 function parseDataIngestionTransformerResponse(response: string): {
   code: string;
   valueLabel?: string;
 } {
-  // First try direct JSON parse
+  // Layer 1: Direct JSON parse
   try {
     const parsed = JSON.parse(response) as {
       code?: string;
@@ -362,10 +366,10 @@ function parseDataIngestionTransformerResponse(response: string): {
       };
     }
   } catch {
-    // Direct parse failed, try to extract JSON from response
+    // Direct parse failed, try markdown extraction
   }
 
-  // Try to extract JSON from markdown or prose
+  // Layer 2: Extract JSON from markdown or prose
   const extractedJson = extractJsonFromResponse(response);
   if (extractedJson) {
     try {
@@ -384,30 +388,25 @@ function parseDataIngestionTransformerResponse(response: string): {
     }
   }
 
-  // Last resort: try to extract just the function from the response
-  const functionMatch = /function\s+transform\s*\([^)]*\)\s*\{[\s\S]*\}/.exec(
-    response,
+  // No fallback - throw clear error
+  throw new Error(
+    "Failed to parse AI response as JSON. Response did not contain valid JSON with 'code' field.",
   );
-  if (functionMatch?.[0]) {
-    return { code: cleanGeneratedCode(functionMatch[0]) };
-  }
-
-  // Fallback: treat the entire response as code (will likely fail validation)
-  console.error(
-    "[AI-GEN] Could not extract JSON from response, falling back to raw response",
-  );
-  return { code: cleanGeneratedCode(response) };
 }
 
 /**
- * Parse AI response that returns JSON with code and optional suggestedCadence
+ * Parse AI response that returns JSON with code and optional suggestedCadence.
+ * Uses 2 fallback layers:
+ * 1. Direct JSON parse
+ * 2. Markdown extraction
+ * Throws if parsing fails (no silent fallbacks to broken code).
  */
 function parseChartTransformerResponse(response: string): {
   code: string;
   suggestedCadence?: "DAILY" | "WEEKLY" | "MONTHLY";
 } {
+  // Layer 1: Direct JSON parse
   try {
-    // Try to parse as JSON first
     const parsed = JSON.parse(response) as {
       code?: string;
       suggestedCadence?: string;
@@ -423,11 +422,36 @@ function parseChartTransformerResponse(response: string): {
       };
     }
   } catch {
-    // If JSON parsing fails, treat the whole response as code (fallback)
+    // Direct parse failed, try markdown extraction
   }
 
-  // Fallback: treat the entire response as code
-  return { code: cleanGeneratedCode(response) };
+  // Layer 2: Extract JSON from markdown or prose
+  const extractedJson = extractJsonFromResponse(response);
+  if (extractedJson) {
+    try {
+      const parsed = JSON.parse(extractedJson) as {
+        code?: string;
+        suggestedCadence?: string;
+      };
+      if (parsed.code) {
+        return {
+          code: cleanGeneratedCode(parsed.code),
+          suggestedCadence: parsed.suggestedCadence as
+            | "DAILY"
+            | "WEEKLY"
+            | "MONTHLY"
+            | undefined,
+        };
+      }
+    } catch {
+      // Extracted content wasn't valid JSON either
+    }
+  }
+
+  // No fallback - throw clear error
+  throw new Error(
+    "Failed to parse chart transformer AI response as JSON. Response did not contain valid JSON with 'code' field.",
+  );
 }
 
 /**
