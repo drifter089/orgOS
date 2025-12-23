@@ -64,7 +64,9 @@ export async function runInSandbox<T>(
     `;
 
     const script = await isolate.compileScript(wrappedCode);
-    const resultJson = await script.run(context, { timeout: TIMEOUT_MS });
+    const resultJson: unknown = await script.run(context, {
+      timeout: TIMEOUT_MS,
+    });
 
     if (typeof resultJson !== "string") {
       return {
