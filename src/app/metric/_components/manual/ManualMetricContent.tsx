@@ -2,17 +2,14 @@
 
 import { useState } from "react";
 
-import type { Prisma } from "@prisma/client";
 import { ArrowLeft, Hash, Loader2, Percent } from "lucide-react";
 import { toast } from "sonner";
 
 import { GoalSetupStep } from "@/components/metric/goal-setup-step";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { useOptimisticMetricUpdate } from "@/hooks/use-optimistic-metric-update";
+import { useMetricMutations } from "@/hooks/use-metric-mutations";
 import { cn } from "@/lib/utils";
-import { api } from "@/trpc/react";
-import type { DashboardChartWithRelations } from "@/types/dashboard";
 
 type UnitType = "number" | "percentage";
 type Cadence = "daily" | "weekly" | "monthly";
@@ -79,74 +76,19 @@ export function ManualMetricContent({
   const [createdMetricId, setCreatedMetricId] = useState<string | null>(null);
   const [createdMetricName, setCreatedMetricName] = useState("");
 
-  const { cancelQueries, addOptimisticChart, swapTempWithReal, rollback } =
-    useOptimisticMetricUpdate({ teamId });
-
-  const createMutation = api.manualMetric.create.useMutation();
+  const { createManual: createMutation } = useMetricMutations({ teamId });
 
   const handleSubmit = async () => {
     if (!metricName.trim() || !unitType || !cadence) return;
 
-    const tempId = `temp-${Date.now()}`;
-
-    const optimisticDashboardChart: DashboardChartWithRelations = {
-      id: tempId,
-      organizationId: "",
-      metricId: tempId,
-      chartType: "bar",
-      chartConfig: {} as Prisma.JsonValue,
-      position: 9999,
-      size: "medium",
-      chartTransformerId: null,
-      chartTransformer: null,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-      metric: {
-        id: tempId,
-        name: metricName.trim(),
-        description: null,
-        organizationId: "",
-        integrationId: null,
-        templateId: "manual",
-        endpointConfig: { type: "manual", unitType, cadence },
-        teamId: teamId,
-        lastFetchedAt: null,
-        pollFrequency: "manual",
-        nextPollAt: null,
-        lastError: null,
-        refreshStatus: null,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-        integration: null,
-        roles: [],
-        goal: null,
-      },
-      goalProgress: null,
-      valueLabel: unitType === "percentage" ? "%" : null,
-      dataDescription: null,
-    };
-
-    await cancelQueries();
-    addOptimisticChart(optimisticDashboardChart);
-
     try {
+      // Create the metric with optimistic update (handled by hook)
       const realDashboardChart = await createMutation.mutateAsync({
         name: metricName.trim(),
         unitType,
         cadence,
         teamId,
       });
-
-      const realDashboardChartWithGoal: DashboardChartWithRelations = {
-        ...realDashboardChart,
-        chartTransformer: null,
-        metric: { ...realDashboardChart.metric, goal: null },
-        goalProgress: null,
-        valueLabel: unitType === "percentage" ? "%" : null,
-        dataDescription: null,
-      };
-
-      swapTempWithReal(tempId, realDashboardChartWithGoal);
 
       toast.success("KPI created", {
         description: "You can now set a goal for this metric.",
@@ -156,7 +98,7 @@ export function ManualMetricContent({
       setCreatedMetricName(metricName.trim());
       setDialogStep("goal");
     } catch {
-      rollback(tempId);
+      // Error handling and rollback handled by hook
       toast.error("Failed to create KPI");
     }
   };

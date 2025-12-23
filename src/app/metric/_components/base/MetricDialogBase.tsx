@@ -2,11 +2,9 @@
 
 import { useState } from "react";
 
-import type { Prisma } from "@prisma/client";
 import { toast } from "sonner";
 
 import { GoalSetupStep } from "@/components/metric/goal-setup-step";
-import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Dialog,
@@ -16,10 +14,9 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { useOptimisticMetricUpdate } from "@/hooks/use-optimistic-metric-update";
+import { useMetricMutations } from "@/hooks/use-metric-mutations";
 import { cn } from "@/lib/utils";
 import { api } from "@/trpc/react";
-import type { DashboardChartWithRelations } from "@/types/dashboard";
 
 export interface MetricCreateInput {
   templateId: string;
@@ -94,8 +91,7 @@ export function MetricDialogBase({
     }
   };
 
-  const { cancelQueries, addOptimisticChart, swapTempWithReal, rollback } =
-    useOptimisticMetricUpdate({ teamId });
+  const { create: createMutation } = useMetricMutations({ teamId });
 
   const integrationQuery = api.integration.listWithStats.useQuery();
   const connection = integrationQuery.data?.active.find((int) =>
@@ -103,8 +99,6 @@ export function MetricDialogBase({
       ? int.connectionId === connectionIdProp
       : int.providerId === integrationId,
   );
-
-  const createMutation = api.metric.create.useMutation();
 
   /**
    * TODO: Chart generation will be implemented as part of METRICS_ARCHITECTURE_PLAN.md
@@ -119,80 +113,13 @@ export function MetricDialogBase({
 
   const handleSubmit = async (data: MetricCreateInput) => {
     setError(null);
-    const tempId = `temp-${Date.now()}`;
-
-    // Build optimistic dashboard chart (no chart data - will be generated later)
-    const optimisticDashboardChart: DashboardChartWithRelations = {
-      id: tempId,
-      organizationId: "",
-      metricId: tempId,
-      chartType: "bar",
-      chartConfig: {} as Prisma.JsonValue,
-      position: 9999,
-      size: "medium",
-      chartTransformerId: null,
-      chartTransformer: null,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-      metric: {
-        id: tempId,
-        name: data.name,
-        description: data.description ?? null,
-        organizationId: "",
-        integrationId: data.connectionId,
-        templateId: data.templateId,
-        endpointConfig: data.endpointParams,
-        teamId: teamId ?? null,
-        lastFetchedAt: null,
-        pollFrequency: "daily",
-        nextPollAt: null,
-        lastError: null,
-        refreshStatus: null,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-        integration: connection
-          ? {
-              id: connection.id,
-              connectionId: connection.connectionId,
-              providerId: connection.providerId,
-              displayName: connection.displayName ?? null,
-              organizationId: "",
-              connectedBy: "",
-              status: "active",
-              metadata: null,
-              lastSyncAt: null,
-              errorMessage: null,
-              createdAt: connection.createdAt,
-              updatedAt: connection.createdAt,
-            }
-          : null,
-        roles: [],
-        goal: null,
-      },
-      goalProgress: null,
-      valueLabel: null, // Will be populated after transformer is created
-      dataDescription: null, // Will be populated after transformer is created
-    };
-
-    await cancelQueries();
-    addOptimisticChart(optimisticDashboardChart);
 
     try {
-      // Create the metric (chart generation will be implemented in new architecture)
+      // Create the metric with optimistic update (handled by hook)
       const realDashboardChart = await createMutation.mutateAsync({
         ...data,
         teamId,
       });
-
-      const realDashboardChartWithGoal: DashboardChartWithRelations = {
-        ...realDashboardChart,
-        metric: { ...realDashboardChart.metric, goal: null },
-        goalProgress: null,
-        valueLabel: null,
-        dataDescription: null,
-      };
-
-      swapTempWithReal(tempId, realDashboardChartWithGoal);
 
       toast.success("KPI created", {
         description: "You can now set a goal for this metric.",
@@ -202,7 +129,7 @@ export function MetricDialogBase({
       setCreatedMetricName(data.name);
       setStep("goal");
     } catch {
-      rollback(tempId);
+      // Error handling and rollback handled by hook
       toast.error("Failed to create KPI");
     }
   };

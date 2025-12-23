@@ -13,6 +13,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { useMetricMutations } from "@/hooks/use-metric-mutations";
 import { isDevMode } from "@/lib/dev-mode";
 import type { ChartTransformResult } from "@/lib/metrics/transformer-types";
 import { useConfirmation } from "@/providers/ConfirmationDialogProvider";
@@ -87,57 +88,12 @@ export function DashboardMetricCard({
     chartTransform?.chartData && chartTransform.chartData.length > 0
   );
 
-  const deleteMetricMutation = api.metric.delete.useMutation({
-    onMutate: async ({ id }) => {
-      const teamId = metric.teamId;
-
-      await utils.dashboard.getDashboardCharts.cancel();
-      if (teamId) {
-        await utils.dashboard.getDashboardCharts.cancel({ teamId });
-      }
-
-      const previousUnscopedMetrics =
-        utils.dashboard.getDashboardCharts.getData();
-      const previousTeamMetrics = teamId
-        ? utils.dashboard.getDashboardCharts.getData({ teamId })
-        : undefined;
-
-      if (previousUnscopedMetrics) {
-        utils.dashboard.getDashboardCharts.setData(
-          undefined,
-          previousUnscopedMetrics.filter((dm) => dm.metric.id !== id),
-        );
-      }
-
-      if (teamId && previousTeamMetrics) {
-        utils.dashboard.getDashboardCharts.setData(
-          { teamId },
-          previousTeamMetrics.filter((dm) => dm.metric.id !== id),
-        );
-      }
-
-      return { previousUnscopedMetrics, previousTeamMetrics, teamId };
-    },
-    onError: (err, _variables, context) => {
-      if (context?.previousUnscopedMetrics) {
-        utils.dashboard.getDashboardCharts.setData(
-          undefined,
-          context.previousUnscopedMetrics,
-        );
-      }
-      if (context?.teamId && context?.previousTeamMetrics) {
-        utils.dashboard.getDashboardCharts.setData(
-          { teamId: context.teamId },
-          context.previousTeamMetrics,
-        );
-      }
-      toast.info(err.message);
-    },
-  });
-
-  // Mutations for pipeline operations
-  const refreshMetricMutation = api.pipeline.refresh.useMutation();
-  const regeneratePipelineMutation = api.pipeline.regenerate.useMutation();
+  // Use shared mutation hooks for delete, refresh, regenerate
+  const {
+    delete: deleteMetricMutation,
+    refresh: refreshMetricMutation,
+    regenerate: regeneratePipelineMutation,
+  } = useMetricMutations({ teamId: metric.teamId ?? undefined });
 
   const updateMetricMutation = api.metric.update.useMutation({
     onSuccess: (updatedMetric) => {

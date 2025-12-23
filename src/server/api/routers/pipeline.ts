@@ -106,6 +106,7 @@ export const pipelineRouter = createTRPCRouter({
 
   /**
    * Get pipeline progress for frontend polling
+   * Returns current step + completed steps with durations
    */
   getProgress: workspaceProcedure
     .input(z.object({ metricId: z.string() }))
@@ -126,14 +127,81 @@ export const pipelineRouter = createTRPCRouter({
         return {
           isProcessing: false,
           currentStep: null,
-          error: metric?.lastError,
+          completedSteps: [] as Array<{
+            step: string;
+            displayName: string;
+            status: "completed" | "failed";
+            durationMs?: number;
+          }>,
+          error: metric?.lastError ?? null,
         };
+      }
+
+      // Query recent pipeline step logs (last 5 minutes)
+      const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
+      const stepLogs = await ctx.db.metricApiLog.findMany({
+        where: {
+          metricId: input.metricId,
+          endpoint: { startsWith: "pipeline-step:" },
+          fetchedAt: { gte: fiveMinutesAgo },
+        },
+        orderBy: { fetchedAt: "asc" },
+        select: { endpoint: true, fetchedAt: true },
+      });
+
+      // Build completed steps (all steps except the current one)
+      const completedSteps: Array<{
+        step: string;
+        displayName: string;
+        status: "completed" | "failed";
+        durationMs?: number;
+      }> = [];
+
+      for (let i = 0; i < stepLogs.length; i++) {
+        const log = stepLogs[i]!;
+        if (!log.endpoint) continue;
+        const stepName = log.endpoint.replace("pipeline-step:", "");
+
+        // Skip the current step (it's still in progress)
+        if (stepName === metric.refreshStatus) {
+          continue;
+        }
+
+        // Calculate duration if there's a next step
+        const nextLog = stepLogs[i + 1];
+        const durationMs = nextLog
+          ? nextLog.fetchedAt.getTime() - log.fetchedAt.getTime()
+          : undefined;
+
+        completedSteps.push({
+          step: stepName,
+          displayName: getStepDisplayName(stepName),
+          status: "completed",
+          durationMs,
+        });
       }
 
       return {
         isProcessing: true,
         currentStep: metric.refreshStatus,
+        completedSteps,
         error: null,
       };
     }),
 });
+
+/** Map step names to human-readable display names */
+function getStepDisplayName(step: string): string {
+  const displayNames: Record<string, string> = {
+    "fetching-api-data": "Fetching data from API",
+    "deleting-old-data": "Clearing old data",
+    "deleting-old-transformer": "Removing old transformer",
+    "generating-ingestion-transformer": "Generating data transformer",
+    "executing-ingestion-transformer": "Processing API response",
+    "saving-timeseries-data": "Saving metric data",
+    "generating-chart-transformer": "Generating chart configuration",
+    "executing-chart-transformer": "Creating visualization",
+    "saving-chart-config": "Finalizing",
+  };
+  return displayNames[step] ?? step;
+}
