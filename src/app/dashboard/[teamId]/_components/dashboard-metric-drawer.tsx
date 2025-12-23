@@ -360,7 +360,9 @@ export function DashboardMetricDrawer({
                       <SelectValue placeholder="Track" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="value">Issue Count</SelectItem>
+                      <SelectItem value="value">
+                        {valueLabel ?? "Primary Value"}
+                      </SelectItem>
                       {availableDimensions.map((dim) => (
                         <SelectItem key={dim} value={dim}>
                           {getDimensionDisplayLabel(dim)}

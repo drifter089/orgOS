@@ -1,3 +1,4 @@
+import { PIPELINE_CONFIGS } from "@/lib/pipeline/configs";
 import { api } from "@/trpc/react";
 
 interface UsePipelineProgressOptions {
@@ -36,9 +37,10 @@ const STEP_DISPLAY_NAMES: Record<string, string> = {
   "saving-chart-config": "Finalizing...",
 };
 
-// Estimated total steps for progress calculation
-const SOFT_REFRESH_STEPS = 4;
-const HARD_REFRESH_STEPS = 7;
+// Step counts from pipeline configs (single source of truth)
+const SOFT_REFRESH_STEPS = PIPELINE_CONFIGS["soft-refresh"].length;
+const HARD_REFRESH_STEPS = PIPELINE_CONFIGS["hard-refresh"].length;
+const CREATE_STEPS = PIPELINE_CONFIGS.create.length;
 
 export function usePipelineProgress({
   metricId,
@@ -53,7 +55,6 @@ export function usePipelineProgress({
     },
   );
 
-  // Not processing or no data yet
   if (!data?.isProcessing) {
     return {
       isProcessing: false,
@@ -69,12 +70,19 @@ export function usePipelineProgress({
   const completedSteps = data.completedSteps ?? [];
   const currentStep = data.currentStep;
 
-  // Determine if this is a hard refresh (starts with deleting-old-data)
-  const isHardRefresh =
-    completedSteps.some((s) => s.step === "deleting-old-data") ||
-    currentStep === "deleting-old-data";
-
-  const totalSteps = isHardRefresh ? HARD_REFRESH_STEPS : SOFT_REFRESH_STEPS;
+  // Detect pipeline type: hard-refresh has delete steps, create has generate, soft-refresh has neither
+  const allSteps = [...completedSteps.map((s) => s.step), currentStep].filter(
+    Boolean,
+  );
+  const hasDeleteStep =
+    allSteps.includes("deleting-old-data") ||
+    allSteps.includes("deleting-old-transformer");
+  const hasGenerateStep = allSteps.includes("generating-ingestion-transformer");
+  const totalSteps = hasDeleteStep
+    ? HARD_REFRESH_STEPS
+    : hasGenerateStep
+      ? CREATE_STEPS
+      : SOFT_REFRESH_STEPS;
   const completedCount = completedSteps.length;
   const progressPercent = Math.min(
     Math.round((completedCount / totalSteps) * 100),

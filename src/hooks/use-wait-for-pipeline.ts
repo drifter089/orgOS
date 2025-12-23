@@ -1,5 +1,6 @@
 import { useEffect, useRef } from "react";
 
+import { PIPELINE_CONFIGS } from "@/lib/pipeline/configs";
 import { api } from "@/trpc/react";
 
 interface UseWaitForPipelineOptions {
@@ -35,7 +36,10 @@ const STEP_DISPLAY_NAMES: Record<string, string> = {
   "saving-chart-config": "Finalizing...",
 };
 
-const TOTAL_STEPS = 7;
+// Step counts from pipeline configs (single source of truth)
+const CREATE_STEPS = PIPELINE_CONFIGS.create.length;
+const SOFT_REFRESH_STEPS = PIPELINE_CONFIGS["soft-refresh"].length;
+const HARD_REFRESH_STEPS = PIPELINE_CONFIGS["hard-refresh"].length;
 
 export function useWaitForPipeline({
   metricId,
@@ -60,8 +64,22 @@ export function useWaitForPipeline({
   const currentStep = data?.currentStep ?? null;
   const completedSteps = data?.completedSteps ?? [];
 
+  // Detect pipeline type: hard-refresh has delete steps, create has generate, soft-refresh has neither
+  const allSteps = [...completedSteps.map((s) => s.step), currentStep].filter(
+    Boolean,
+  );
+  const hasDeleteStep =
+    allSteps.includes("deleting-old-data") ||
+    allSteps.includes("deleting-old-transformer");
+  const hasGenerateStep = allSteps.includes("generating-ingestion-transformer");
+  const totalSteps = hasDeleteStep
+    ? HARD_REFRESH_STEPS
+    : hasGenerateStep
+      ? CREATE_STEPS
+      : SOFT_REFRESH_STEPS;
+
   const progressPercent = isProcessing
-    ? Math.min(Math.round((completedSteps.length / TOTAL_STEPS) * 100), 95)
+    ? Math.min(Math.round((completedSteps.length / totalSteps) * 100), 95)
     : error
       ? 100
       : completedSteps.length > 0
