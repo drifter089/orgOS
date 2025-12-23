@@ -3,12 +3,13 @@
 import { useEffect, useState } from "react";
 
 import type { Cadence, MetricGoal, Role } from "@prisma/client";
-import { formatDistanceToNow } from "date-fns";
+import { format, formatDistanceToNow } from "date-fns";
 import {
   BarChart3,
   Check,
   ClipboardCheck,
   Clock,
+  Database,
   Loader2,
   RefreshCw,
   Sparkles,
@@ -80,6 +81,27 @@ interface DashboardMetricDrawerProps {
   onUpdateMetric: (name: string, description: string) => void;
   onDelete: () => void;
   onClose: () => void;
+  onRegenerateIngestion: () => void;
+  onRegenerateChart: () => void;
+  transformerInfo?: {
+    ingestionTransformer: {
+      exists: boolean;
+      createdAt?: Date;
+      updatedAt?: Date;
+    };
+    chartTransformer: {
+      exists: boolean;
+      createdAt?: Date;
+      updatedAt?: Date;
+      chartType?: string;
+      cadence?: string;
+    };
+    dataPoints: {
+      count: number;
+      firstDate?: Date | null;
+      lastDate?: Date | null;
+    };
+  };
 }
 
 export function DashboardMetricDrawer({
@@ -111,6 +133,9 @@ export function DashboardMetricDrawer({
   onUpdateMetric,
   onDelete,
   onClose: _onClose,
+  onRegenerateIngestion,
+  onRegenerateChart,
+  transformerInfo,
 }: DashboardMetricDrawerProps) {
   const [name, setName] = useState(metricName);
   const [selectedChartType, setSelectedChartType] = useState(
@@ -316,6 +341,84 @@ export function DashboardMetricDrawer({
               {isIntegrationMetric ? "Apply Changes" : "Regenerate Chart"}
             </Button>
           </div>
+
+          {/* Transformer Actions Section */}
+          {isIntegrationMetric && (
+            <div className="bg-muted/30 space-y-3 rounded-lg border p-4">
+              <h4 className="text-muted-foreground text-sm font-medium">
+                Advanced: Regenerate Transformers
+              </h4>
+              <p className="text-muted-foreground text-xs">
+                Regenerate individual transformers without losing all data.
+              </p>
+
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={onRegenerateIngestion}
+                  disabled={isProcessing || isRegeneratingPipeline}
+                  className="flex-1"
+                >
+                  {isProcessing || isRegeneratingPipeline ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : (
+                    <Database className="mr-2 h-4 w-4" />
+                  )}
+                  Regenerate Data
+                </Button>
+
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={onRegenerateChart}
+                  disabled={isProcessing || isRegeneratingPipeline}
+                  className="flex-1"
+                >
+                  {isProcessing || isRegeneratingPipeline ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : (
+                    <BarChart3 className="mr-2 h-4 w-4" />
+                  )}
+                  Regenerate Chart
+                </Button>
+              </div>
+
+              {/* Transformer Info Display */}
+              {transformerInfo && (
+                <div className="text-muted-foreground space-y-1 border-t pt-2 text-xs">
+                  <p>
+                    Data transformer:{" "}
+                    {transformerInfo.ingestionTransformer.exists
+                      ? `Created ${formatDistanceToNow(transformerInfo.ingestionTransformer.createdAt!)} ago`
+                      : "Not created"}
+                  </p>
+                  <p>
+                    Chart transformer:{" "}
+                    {transformerInfo.chartTransformer.exists
+                      ? `${transformerInfo.chartTransformer.chartType} (${transformerInfo.chartTransformer.cadence})`
+                      : "Not created"}
+                  </p>
+                  <p>
+                    Data points: {transformerInfo.dataPoints.count}
+                    {transformerInfo.dataPoints.firstDate &&
+                      transformerInfo.dataPoints.lastDate && (
+                        <span className="ml-1">
+                          (
+                          {format(
+                            transformerInfo.dataPoints.firstDate,
+                            "MMM d",
+                          )}{" "}
+                          -{" "}
+                          {format(transformerInfo.dataPoints.lastDate, "MMM d")}
+                          )
+                        </span>
+                      )}
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
 
           <div className="h-[400px]">
             <DashboardMetricChart
