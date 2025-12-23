@@ -55,6 +55,7 @@ interface GenerateChartTransformerInput {
   userPrompt?: string;
   dataStats?: DataStats;
   templateId?: string; // Used to route to Google Sheets specific generator
+  selectedDimension?: string; // User can select a dimension to track (e.g., "estimate" for effort points)
 }
 
 interface GeneratedCode {
@@ -164,6 +165,7 @@ REQUIRED METADATA FIELDS:
 - valueLabel: Short label for the primary value being tracked. This appears next to the main number.
   Examples: "commits", "issues", "story points", "views", "subscribers"
   Should be lowercase, plural form.
+  NOTE: valueLabel can be the default metric label OR a dimension key label if user selects a dimension.
 
 CADENCE determines how to aggregate data:
 - DAILY: Group by day, one data point per day
@@ -490,6 +492,17 @@ Preferences:
 
 Metric name: ${input.metricName}
 Metric description: ${input.metricDescription}`;
+
+  // Add selected dimension preference if specified
+  if (input.selectedDimension && input.selectedDimension !== "value") {
+    userPrompt += `
+
+USER DIMENSION PREFERENCE:
+Instead of tracking the default "value" field, track the "${input.selectedDimension}" dimension.
+- Aggregate this dimension when grouping by period (SUM the dimension values, not counts)
+- Set valueLabel to something appropriate for this dimension (e.g., "points" for "estimate")
+- The chartData should show the aggregated dimension values, not issue counts`;
+  }
 
   if (input.userPrompt) {
     userPrompt += `\n\nUser request: "${input.userPrompt}"`;

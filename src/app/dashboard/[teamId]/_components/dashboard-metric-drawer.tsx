@@ -27,6 +27,13 @@ import { Button } from "@/components/ui/button";
 import { DrawerClose } from "@/components/ui/drawer";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
@@ -36,9 +43,11 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import type { GoalProgress } from "@/lib/goals";
+import { getDimensionDisplayLabel } from "@/lib/metrics/dimension-labels";
 import { getLatestMetricValue } from "@/lib/metrics/get-latest-value";
 import { getPlatformConfig } from "@/lib/platform-config";
 import { cn } from "@/lib/utils";
+import { api } from "@/trpc/react";
 
 import type { ChartTransformResult } from "./dashboard-metric-card";
 import {
@@ -82,7 +91,7 @@ interface DashboardMetricDrawerProps {
   onDelete: () => void;
   onClose: () => void;
   onRegenerateIngestion: () => void;
-  onRegenerateChart: () => void;
+  onRegenerateChart: (selectedDimension?: string) => void;
   transformerInfo?: {
     ingestionTransformer: {
       exists: boolean;
@@ -144,8 +153,16 @@ export function DashboardMetricDrawer({
   const [selectedCadence, setSelectedCadence] = useState<Cadence>(
     currentCadence ?? "WEEKLY",
   );
+  const [selectedDimension, setSelectedDimension] = useState<string>("value");
   const [prompt, setPrompt] = useState("");
   const [forceRebuild, setForceRebuild] = useState(false);
+
+  // Query for available dimensions from data points
+  const { data: availableDimensions } =
+    api.pipeline.getAvailableDimensions.useQuery(
+      { metricId },
+      { enabled: isIntegrationMetric },
+    );
 
   useEffect(() => {
     setName(metricName);
@@ -312,6 +329,24 @@ export function DashboardMetricDrawer({
                   </ToggleGroupItem>
                 ))}
               </ToggleGroup>
+              {availableDimensions && availableDimensions.length > 0 && (
+                <Select
+                  value={selectedDimension}
+                  onValueChange={setSelectedDimension}
+                >
+                  <SelectTrigger className="h-8 w-[140px]">
+                    <SelectValue placeholder="Track" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="value">Issue Count</SelectItem>
+                    {availableDimensions.map((dim) => (
+                      <SelectItem key={dim} value={dim}>
+                        {getDimensionDisplayLabel(dim)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
               {lastFetchedAt && (
                 <span className="text-muted-foreground ml-auto flex items-center gap-1.5 text-xs">
                   <Clock className="h-3 w-3" />
@@ -371,7 +406,13 @@ export function DashboardMetricDrawer({
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={onRegenerateChart}
+                  onClick={() =>
+                    onRegenerateChart(
+                      selectedDimension !== "value"
+                        ? selectedDimension
+                        : undefined,
+                    )
+                  }
                   disabled={isProcessing || isRegeneratingPipeline}
                   className="flex-1"
                 >

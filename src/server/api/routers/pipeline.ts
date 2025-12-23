@@ -12,6 +12,7 @@
  * 3. Run pipeline in background (NOT awaited)
  * 4. Frontend polls getProgress to show progress
  */
+import { Prisma } from "@prisma/client";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 
@@ -163,6 +164,7 @@ async function runChartRegenInBackground(
   metricName: string,
   metricDescription: string,
   chartType: string,
+  selectedDimension?: string,
 ): Promise<void> {
   try {
     // Delete existing chart transformer
@@ -185,6 +187,7 @@ async function runChartRegenInBackground(
       metricDescription,
       chartType,
       cadence: "DAILY", // Default, will be adjusted by AI based on data
+      selectedDimension,
     });
 
     // Clear status
@@ -449,7 +452,12 @@ export const pipelineRouter = createTRPCRouter({
    * FIRE-AND-FORGET: Returns immediately, frontend polls getProgress
    */
   regenerateChartOnly: workspaceProcedure
-    .input(z.object({ metricId: z.string() }))
+    .input(
+      z.object({
+        metricId: z.string(),
+        selectedDimension: z.string().optional(),
+      }),
+    )
     .mutation(async ({ ctx, input }) => {
       const metric = await getMetricAndVerifyAccess(
         ctx.db,
@@ -506,10 +514,47 @@ export const pipelineRouter = createTRPCRouter({
         metric.name,
         metric.description ?? "",
         dashboardChart.chartType ?? "line",
+        input.selectedDimension,
       );
 
       // Return immediately - frontend polls getProgress
       return { success: true, started: true };
+    }),
+
+  /**
+   * Get available dimensions for a metric's data points.
+   * Used for the dimension selection dropdown in the chart drawer.
+   */
+  getAvailableDimensions: workspaceProcedure
+    .input(z.object({ metricId: z.string() }))
+    .query(async ({ ctx, input }) => {
+      await getMetricAndVerifyAccess(
+        ctx.db,
+        input.metricId,
+        ctx.workspace.organizationId,
+      );
+
+      // Get sample of data points with dimensions
+      const samples = await ctx.db.metricDataPoint.findMany({
+        where: {
+          metricId: input.metricId,
+          dimensions: { not: Prisma.DbNull },
+        },
+        select: { dimensions: true },
+        take: 100,
+      });
+
+      // Extract unique dimension keys
+      const dimensionKeys = new Set<string>();
+      for (const sample of samples) {
+        if (sample.dimensions && typeof sample.dimensions === "object") {
+          Object.keys(sample.dimensions as object).forEach((k) =>
+            dimensionKeys.add(k),
+          );
+        }
+      }
+
+      return Array.from(dimensionKeys);
     }),
 
   /**

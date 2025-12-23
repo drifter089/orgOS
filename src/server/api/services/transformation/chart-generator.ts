@@ -10,8 +10,9 @@ import { generateChartTransformerCode } from "./ai-code-generator";
 import { executeChartTransformer, testChartTransformer } from "./executor";
 
 /**
- * Recapture baseline from chart config when cadence changes.
- * This ensures the goal baseline aligns with the new period boundaries.
+ * Recapture baseline from chart config when cadence or dimension changes.
+ * This ensures the goal baseline aligns with the new period boundaries
+ * or the new data semantics when tracking a different dimension.
  * Applies to both ABSOLUTE and RELATIVE goals for consistency.
  */
 async function recaptureGoalBaseline(
@@ -19,9 +20,10 @@ async function recaptureGoalBaseline(
   newChartConfig: ChartConfig,
   newCadence: Cadence,
   oldCadence: Cadence | null,
+  forceRecapture = false,
 ): Promise<void> {
-  // Only recapture if cadence actually changed
-  if (oldCadence === newCadence) return;
+  // Only recapture if cadence changed or force recapture is requested
+  if (!forceRecapture && oldCadence === newCadence) return;
 
   // Check if metric has a goal
   const goal = await db.metricGoal.findUnique({
@@ -54,8 +56,11 @@ async function recaptureGoalBaseline(
     },
   });
 
+  const reason = forceRecapture
+    ? "dimension changed"
+    : `cadence changed from ${oldCadence} to ${newCadence}`;
   console.info(
-    `[ChartGenerator] Recaptured baseline for goal ${goal.id}: ${newBaselineValue} (cadence changed from ${oldCadence} to ${newCadence})`,
+    `[ChartGenerator] Recaptured baseline for goal ${goal.id}: ${newBaselineValue} (${reason})`,
   );
 }
 
@@ -74,6 +79,7 @@ interface CreateChartTransformerInput {
   cadence: string; // "DAILY" | "WEEKLY" | "MONTHLY"
   userPrompt?: string;
   templateId?: string; // Used to route to Google Sheets specific generator
+  selectedDimension?: string; // User can select a dimension to track (e.g., "estimate" for effort points)
 }
 
 interface ChartTransformResult {
@@ -197,6 +203,7 @@ export async function createChartTransformer(
     userPrompt: input.userPrompt,
     dataStats,
     templateId: templateId ?? undefined,
+    selectedDimension: input.selectedDimension,
   });
 
   // Use suggested cadence if AI detected one from user prompt
@@ -239,6 +246,21 @@ export async function createChartTransformer(
       chartTransformerId: transformer.id,
     },
   });
+
+  // Recapture goal baseline if dimension was selected (data semantics changed)
+  if (
+    testResult.data &&
+    input.selectedDimension &&
+    input.selectedDimension !== "value"
+  ) {
+    await recaptureGoalBaseline(
+      dashboardChart.metric.id,
+      testResult.data,
+      effectiveCadence as Cadence,
+      null, // No old cadence for comparison
+      true, // Force recapture due to dimension change
+    );
+  }
 
   // Invalidate dashboard cache so queries return fresh transformer fields
   const cacheTags = [`dashboard_org_${dashboardChart.organizationId}`];
@@ -315,6 +337,7 @@ export async function regenerateChartTransformer(input: {
   chartType?: string;
   cadence?: string;
   userPrompt?: string;
+  selectedDimension?: string;
 }): Promise<ChartTransformResult> {
   const dashboardChart = await db.dashboardChart.findUnique({
     where: { id: input.dashboardChartId },
@@ -377,6 +400,7 @@ export async function regenerateChartTransformer(input: {
       userPrompt: input.userPrompt,
       dataStats,
       templateId: dashboardChart.metric.templateId ?? undefined,
+      selectedDimension: input.selectedDimension,
     });
 
     const effectiveCadence = generated.suggestedCadence ?? cadence;
@@ -428,13 +452,16 @@ export async function regenerateChartTransformer(input: {
       data: { chartConfig: chartConfigToJson(testResult.data), chartType },
     });
 
-    // Recapture goal baseline if cadence changed (for RELATIVE goals)
+    // Recapture goal baseline if cadence or dimension changed
     if (testResult.data) {
+      const forceRecapture =
+        !!input.selectedDimension && input.selectedDimension !== "value";
       await recaptureGoalBaseline(
         metricId,
         testResult.data,
         effectiveCadence as Cadence,
         oldCadence,
+        forceRecapture,
       );
     }
 

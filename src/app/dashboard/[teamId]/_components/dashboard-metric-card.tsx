@@ -322,17 +322,20 @@ export function DashboardMetricCard({
     );
   }, [metric.id, regenerateIngestionMutation]);
 
-  const handleRegenerateChart = useCallback(() => {
-    setIsProcessing(true);
-    regenerateChartMutation.mutate(
-      { metricId: metric.id },
-      {
-        onSettled: () => {
-          setIsProcessing(false);
+  const handleRegenerateChart = useCallback(
+    (selectedDimension?: string) => {
+      setIsProcessing(true);
+      regenerateChartMutation.mutate(
+        { metricId: metric.id, selectedDimension },
+        {
+          onSettled: () => {
+            setIsProcessing(false);
+          },
         },
-      },
-    );
-  }, [metric.id, regenerateChartMutation]);
+      );
+    },
+    [metric.id, regenerateChartMutation],
+  );
 
   // Use AI-generated chart title when available, fallback to metric name
   const title = chartTransform?.title ?? metric.name;
