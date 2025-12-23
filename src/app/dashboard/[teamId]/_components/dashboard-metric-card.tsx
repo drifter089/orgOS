@@ -95,6 +95,34 @@ export function DashboardMetricCard({
     regenerate: regeneratePipelineMutation,
   } = useMetricMutations({ teamId: metric.teamId ?? undefined });
 
+  // Mutations for granular transformer regeneration
+  const regenerateIngestionMutation =
+    api.pipeline.regenerateIngestionOnly.useMutation({
+      onSuccess: () => {
+        toast.success("Data transformer regeneration started");
+        void utils.dashboard.getDashboardCharts.invalidate();
+      },
+      onError: (error) => {
+        toast.error(`Failed: ${error.message}`);
+      },
+    });
+
+  const regenerateChartMutation = api.pipeline.regenerateChartOnly.useMutation({
+    onSuccess: () => {
+      toast.success("Chart transformer regeneration started");
+      void utils.dashboard.getDashboardCharts.invalidate();
+    },
+    onError: (error) => {
+      toast.error(`Failed: ${error.message}`);
+    },
+  });
+
+  // Query for transformer info (only when drawer is open)
+  const { data: transformerInfo } = api.pipeline.getTransformerInfo.useQuery(
+    { metricId: metric.id },
+    { enabled: isDrawerOpen },
+  );
+
   const updateMetricMutation = api.metric.update.useMutation({
     onSuccess: (updatedMetric) => {
       const teamId = metric.teamId;
@@ -260,6 +288,30 @@ export function DashboardMetricCard({
     });
   };
 
+  const handleRegenerateIngestion = useCallback(() => {
+    setIsProcessing(true);
+    regenerateIngestionMutation.mutate(
+      { metricId: metric.id },
+      {
+        onSettled: () => {
+          setIsProcessing(false);
+        },
+      },
+    );
+  }, [metric.id, regenerateIngestionMutation]);
+
+  const handleRegenerateChart = useCallback(() => {
+    setIsProcessing(true);
+    regenerateChartMutation.mutate(
+      { metricId: metric.id },
+      {
+        onSettled: () => {
+          setIsProcessing(false);
+        },
+      },
+    );
+  }, [metric.id, regenerateChartMutation]);
+
   // Use AI-generated chart title when available, fallback to metric name
   const title = chartTransform?.title ?? metric.name;
 
@@ -378,6 +430,9 @@ export function DashboardMetricCard({
             onUpdateMetric={handleUpdateMetric}
             onDelete={handleRemove}
             onClose={() => setIsDrawerOpen(false)}
+            onRegenerateIngestion={handleRegenerateIngestion}
+            onRegenerateChart={handleRegenerateChart}
+            transformerInfo={transformerInfo}
           />
         </div>
       </DrawerContent>
