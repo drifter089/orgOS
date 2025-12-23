@@ -154,24 +154,38 @@ export function getPipelineStepCount(type: PipelineType): number {
 
 /**
  * Detect pipeline type from completed steps (for frontend progress)
+ *
+ * Detection logic based on unique steps per pipeline type:
+ * - hard-refresh: has deleting-old-data (only hard-refresh deletes data points)
+ * - ingestion-only: has deleting-old-transformer + generating-ingestion-transformer, but NO deleting-old-data
+ * - chart-only: no fetching-api-data (chart regeneration without data fetch)
+ * - soft-refresh: default (no deletes, just refresh with existing transformers)
  */
 export function detectPipelineType(completedSteps: string[]): PipelineType {
-  const hasDeleteStep =
-    completedSteps.includes("deleting-old-data") ||
-    completedSteps.includes("deleting-old-transformer");
+  const hasDeleteDataStep = completedSteps.includes("deleting-old-data");
+  const hasDeleteTransformerStep = completedSteps.includes(
+    "deleting-old-transformer",
+  );
   const hasGenerateIngestionStep = completedSteps.includes(
     "generating-ingestion-transformer",
   );
   const hasFetchStep = completedSteps.includes("fetching-api-data");
 
+  // chart-only: no data fetch, just regenerate chart
   if (!hasFetchStep) {
     return "chart-only";
   }
-  if (hasDeleteStep && hasGenerateIngestionStep) {
+
+  // hard-refresh: deletes data points (unique to hard-refresh)
+  if (hasDeleteDataStep) {
     return "hard-refresh";
   }
-  if (hasDeleteStep && !hasGenerateIngestionStep) {
+
+  // ingestion-only: regenerates ingestion transformer without deleting data
+  if (hasDeleteTransformerStep && hasGenerateIngestionStep) {
     return "ingestion-only";
   }
+
+  // soft-refresh: uses existing transformers
   return "soft-refresh";
 }

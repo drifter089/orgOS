@@ -1,11 +1,6 @@
 import { useEffect, useRef } from "react";
 
-import {
-  detectPipelineType,
-  getPipelineStepCount,
-  getStepShortName,
-} from "@/lib/pipeline";
-import { api } from "@/trpc/react";
+import { usePipelineQuery } from "./use-pipeline-query";
 
 interface UseWaitForPipelineOptions {
   metricId: string | null;
@@ -28,6 +23,10 @@ interface UseWaitForPipelineReturn {
   }>;
 }
 
+/**
+ * Hook for waiting on pipeline completion with callbacks.
+ * Detects when pipeline transitions from processing to done.
+ */
 export function useWaitForPipeline({
   metricId,
   pollInterval = 500,
@@ -38,69 +37,52 @@ export function useWaitForPipeline({
   const hasCalledError = useRef(false);
   const previousIsProcessing = useRef<boolean | null>(null);
 
-  const { data } = api.pipeline.getProgress.useQuery(
-    { metricId: metricId! },
-    {
-      enabled: !!metricId,
-      refetchInterval: metricId ? pollInterval : false,
-    },
-  );
-
-  const isProcessing = data?.isProcessing ?? false;
-  const error = data?.error ?? null;
-  const currentStep = data?.currentStep ?? null;
-  const completedSteps = data?.completedSteps ?? [];
-
-  // Detect pipeline type from completed steps
-  const allSteps = [...completedSteps.map((s) => s.step), currentStep].filter(
-    Boolean,
-  ) as string[];
-  const pipelineType = detectPipelineType(allSteps);
-  const totalSteps = getPipelineStepCount(pipelineType);
-
-  const progressPercent = isProcessing
-    ? Math.min(Math.round((completedSteps.length / totalSteps) * 100), 95)
-    : error
-      ? 100
-      : completedSteps.length > 0
-        ? 100
-        : 0;
+  const result = usePipelineQuery({ metricId, pollInterval });
 
   const isComplete =
     previousIsProcessing.current === true &&
-    !isProcessing &&
-    data !== undefined;
+    !result.isProcessing &&
+    result.hasData;
 
+  // Handle completion/error callbacks
   useEffect(() => {
-    if (data !== undefined) {
-      if (previousIsProcessing.current === true && !isProcessing) {
-        if (error && !hasCalledError.current) {
+    if (result.hasData) {
+      // Detect transition from processing -> done
+      if (previousIsProcessing.current === true && !result.isProcessing) {
+        if (result.error && !hasCalledError.current) {
           hasCalledError.current = true;
-          onError?.(error);
-        } else if (!error && !hasCalledComplete.current) {
+          onError?.(result.error);
+        } else if (!result.error && !hasCalledComplete.current) {
           hasCalledComplete.current = true;
           onComplete?.();
         }
       }
-      previousIsProcessing.current = isProcessing;
+      previousIsProcessing.current = result.isProcessing;
     }
-  }, [isProcessing, error, data, onComplete, onError]);
+  }, [result.isProcessing, result.error, result.hasData, onComplete, onError]);
 
+  // Reset refs when metricId changes
   useEffect(() => {
     hasCalledComplete.current = false;
     hasCalledError.current = false;
     previousIsProcessing.current = null;
   }, [metricId]);
 
+  // Calculate final progress percent (100% on completion)
+  const progressPercent = result.isProcessing
+    ? result.progressPercent
+    : result.error
+      ? 100
+      : result.completedSteps.length > 0
+        ? 100
+        : 0;
+
   return {
-    isProcessing,
+    isProcessing: result.isProcessing,
     isComplete,
-    error,
-    currentStepDisplayName: currentStep ? getStepShortName(currentStep) : null,
+    error: result.error,
+    currentStepDisplayName: result.currentStepDisplayName,
     progressPercent,
-    completedSteps: completedSteps.map((step) => ({
-      ...step,
-      displayName: getStepShortName(step.step),
-    })),
+    completedSteps: result.completedSteps,
   };
 }

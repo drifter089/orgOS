@@ -1,9 +1,4 @@
-import {
-  detectPipelineType,
-  getPipelineStepCount,
-  getStepShortName,
-} from "@/lib/pipeline";
-import { api } from "@/trpc/react";
+import { type CompletedStep, usePipelineQuery } from "./use-pipeline-query";
 
 interface UsePipelineProgressOptions {
   metricId: string;
@@ -11,12 +6,7 @@ interface UsePipelineProgressOptions {
   pollInterval?: number;
 }
 
-export interface CompletedStep {
-  step: string;
-  displayName: string;
-  status: "completed" | "failed";
-  durationMs?: number;
-}
+export type { CompletedStep };
 
 export interface PipelineProgressState {
   isProcessing: boolean;
@@ -28,57 +18,24 @@ export interface PipelineProgressState {
   error: string | null;
 }
 
+/**
+ * Hook for monitoring pipeline progress.
+ * Returns current step, completed steps, and progress percentage.
+ */
 export function usePipelineProgress({
   metricId,
   enabled = true,
   pollInterval = 500,
 }: UsePipelineProgressOptions): PipelineProgressState {
-  const { data } = api.pipeline.getProgress.useQuery(
-    { metricId },
-    {
-      enabled,
-      refetchInterval: enabled ? pollInterval : false,
-    },
-  );
-
-  if (!data?.isProcessing) {
-    return {
-      isProcessing: false,
-      currentStep: null,
-      currentStepDisplayName: null,
-      completedSteps: [],
-      totalSteps: 0,
-      progressPercent: 0,
-      error: data?.error ?? null,
-    };
-  }
-
-  const completedSteps = data.completedSteps ?? [];
-  const currentStep = data.currentStep;
-
-  // Detect pipeline type from completed steps
-  const allSteps = [...completedSteps.map((s) => s.step), currentStep].filter(
-    Boolean,
-  ) as string[];
-  const pipelineType = detectPipelineType(allSteps);
-  const totalSteps = getPipelineStepCount(pipelineType);
-
-  const completedCount = completedSteps.length;
-  const progressPercent = Math.min(
-    Math.round((completedCount / totalSteps) * 100),
-    95, // Cap at 95% until done
-  );
+  const result = usePipelineQuery({ metricId, enabled, pollInterval });
 
   return {
-    isProcessing: true,
-    currentStep,
-    currentStepDisplayName: currentStep ? getStepShortName(currentStep) : null,
-    completedSteps: completedSteps.map((step) => ({
-      ...step,
-      displayName: getStepShortName(step.step),
-    })),
-    totalSteps,
-    progressPercent,
-    error: null,
+    isProcessing: result.isProcessing,
+    currentStep: result.currentStep,
+    currentStepDisplayName: result.currentStepDisplayName,
+    completedSteps: result.completedSteps,
+    totalSteps: result.totalSteps,
+    progressPercent: result.progressPercent,
+    error: result.error,
   };
 }

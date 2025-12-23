@@ -2,7 +2,6 @@ import type { PrismaClient } from "@prisma/client";
 
 import {
   OPERATION_TO_STEP,
-  PIPELINE_OPERATIONS,
   type PipelineOperation,
   type PipelineStepName,
   type PipelineType,
@@ -28,12 +27,10 @@ export class PipelineRunner {
   private completedSteps: StepResult[] = [];
   private pipelineType: PipelineType;
   private ctx: PipelineContext;
-  private operations: readonly PipelineOperation[];
 
   constructor(ctx: PipelineContext, pipelineType: PipelineType) {
     this.ctx = ctx;
     this.pipelineType = pipelineType;
-    this.operations = PIPELINE_OPERATIONS[pipelineType];
   }
 
   /**
@@ -137,27 +134,6 @@ export class PipelineRunner {
         lastError: error,
       },
     });
-  }
-
-  /**
-   * Get pipeline type (for logging/debugging)
-   */
-  getPipelineType(): PipelineType {
-    return this.pipelineType;
-  }
-
-  /**
-   * Get expected operations for this pipeline
-   */
-  getOperations(): readonly PipelineOperation[] {
-    return this.operations;
-  }
-
-  /**
-   * Get completed steps for debugging
-   */
-  getCompletedSteps(): StepResult[] {
-    return [...this.completedSteps];
   }
 
   private async updateRefreshStatus(step: PipelineStepName): Promise<void> {
