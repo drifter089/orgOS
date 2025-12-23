@@ -3,7 +3,6 @@ import { z } from "zod";
 
 import { getTemplate } from "@/lib/integrations";
 import { fetchData } from "@/server/api/services/data-fetching";
-import { refreshMetricAndCharts } from "@/server/api/services/transformation";
 import { createTRPCRouter, workspaceProcedure } from "@/server/api/trpc";
 import {
   getIntegrationAndVerifyAccess,
@@ -11,6 +10,8 @@ import {
   getTeamAndVerifyAccess,
 } from "@/server/api/utils/authorization";
 import { invalidateCacheByTags } from "@/server/api/utils/cache-strategy";
+
+import { runBackgroundTask } from "./pipeline";
 
 export const metricRouter = createTRPCRouter({
   // ===========================================================================
@@ -169,23 +170,14 @@ export const metricRouter = createTRPCRouter({
         { timeout: 15000 },
       );
 
-      // Step 2: Fire-and-forget pipeline execution using unified pipeline
-      // Uses hard-refresh which handles everything (delete is no-op for new metric)
-      void refreshMetricAndCharts({
+      // Fire-and-forget: frontend polls refreshStatus for progress
+      void runBackgroundTask({
         metricId: dashboardChart.metricId,
-        forceRegenerate: true, // Hard refresh = create new transformers
-      }).then(async (result) => {
-        if (result.success) {
-          // Invalidate cache after successful pipeline
-          const cacheTags = [`dashboard_org_${ctx.workspace.organizationId}`];
-          if (input.teamId) {
-            cacheTags.push(`dashboard_team_${input.teamId}`);
-          }
-          await invalidateCacheByTags(ctx.db, cacheTags);
-        }
+        type: "hard-refresh",
+        organizationId: ctx.workspace.organizationId,
+        teamId: input.teamId,
       });
 
-      // Return immediately - frontend will poll refreshStatus
       return dashboardChart;
     }),
 

@@ -24,6 +24,7 @@ import { createChartTransformer } from "@/server/api/services/transformation/cha
 import { ingestMetricData } from "@/server/api/services/transformation/data-pipeline";
 import { createTRPCRouter, workspaceProcedure } from "@/server/api/trpc";
 import { getMetricAndVerifyAccess } from "@/server/api/utils/authorization";
+import { invalidateCacheByTags } from "@/server/api/utils/cache-strategy";
 import { db } from "@/server/db";
 
 // ============================================================================
@@ -39,12 +40,14 @@ type BackgroundTaskType =
 interface BackgroundTaskConfig {
   metricId: string;
   type: BackgroundTaskType;
-  // For ingestion-only
+  organizationId: string;
+  teamId?: string;
+  // Ingestion-only fields
   templateId?: string;
   integrationId?: string;
   connectionId?: string;
   endpointConfig?: Record<string, string>;
-  // For chart-only
+  // Chart-only fields
   dashboardChartId?: string;
   metricName?: string;
   metricDescription?: string;
@@ -54,10 +57,20 @@ interface BackgroundTaskConfig {
 }
 
 /**
- * Generic background task runner - handles all pipeline types
+ * Generic background task runner - handles all pipeline types.
+ * Single source of truth for all background pipeline operations.
+ * Handles cache invalidation and error recording consistently.
  */
-async function runBackgroundTask(config: BackgroundTaskConfig): Promise<void> {
-  const { metricId, type } = config;
+export async function runBackgroundTask(
+  config: BackgroundTaskConfig,
+): Promise<void> {
+  const { metricId, type, organizationId, teamId } = config;
+
+  const invalidateCache = async () => {
+    const cacheTags = [`dashboard_org_${organizationId}`];
+    if (teamId) cacheTags.push(`dashboard_team_${teamId}`);
+    await invalidateCacheByTags(db, cacheTags);
+  };
 
   try {
     switch (type) {
@@ -68,11 +81,9 @@ async function runBackgroundTask(config: BackgroundTaskConfig): Promise<void> {
           forceRegenerate: type === "hard-refresh",
         });
         if (!result.success) {
-          console.error(
-            `[Pipeline] ${type} failed for ${metricId}:`,
-            result.error,
-          );
+          throw new Error(result.error ?? `${type} failed`);
         }
+        await invalidateCache();
         break;
       }
 
@@ -103,6 +114,7 @@ async function runBackgroundTask(config: BackgroundTaskConfig): Promise<void> {
             lastError: null,
           },
         });
+        await invalidateCache();
         break;
       }
 
@@ -128,6 +140,7 @@ async function runBackgroundTask(config: BackgroundTaskConfig): Promise<void> {
           where: { id: metricId },
           data: { refreshStatus: null, lastError: null },
         });
+        await invalidateCache();
         break;
       }
     }
@@ -153,7 +166,7 @@ export const pipelineRouter = createTRPCRouter({
   refresh: workspaceProcedure
     .input(z.object({ metricId: z.string() }))
     .mutation(async ({ ctx, input }) => {
-      await getMetricAndVerifyAccess(
+      const metric = await getMetricAndVerifyAccess(
         ctx.db,
         input.metricId,
         ctx.workspace.organizationId,
@@ -165,6 +178,8 @@ export const pipelineRouter = createTRPCRouter({
       void runBackgroundTask({
         metricId: input.metricId,
         type: "soft-refresh",
+        organizationId: ctx.workspace.organizationId,
+        teamId: metric.teamId ?? undefined,
       });
       return { success: true, started: true };
     }),
@@ -176,7 +191,7 @@ export const pipelineRouter = createTRPCRouter({
   regenerate: workspaceProcedure
     .input(z.object({ metricId: z.string() }))
     .mutation(async ({ ctx, input }) => {
-      await getMetricAndVerifyAccess(
+      const metric = await getMetricAndVerifyAccess(
         ctx.db,
         input.metricId,
         ctx.workspace.organizationId,
@@ -188,6 +203,8 @@ export const pipelineRouter = createTRPCRouter({
       void runBackgroundTask({
         metricId: input.metricId,
         type: "hard-refresh",
+        organizationId: ctx.workspace.organizationId,
+        teamId: metric.teamId ?? undefined,
       });
       return { success: true, started: true };
     }),
@@ -228,6 +245,8 @@ export const pipelineRouter = createTRPCRouter({
       void runBackgroundTask({
         metricId: input.metricId,
         type: "ingestion-only",
+        organizationId: ctx.workspace.organizationId,
+        teamId: metric.teamId ?? undefined,
         templateId: metric.templateId,
         integrationId: integration.providerId,
         connectionId: integration.connectionId,
@@ -283,6 +302,8 @@ export const pipelineRouter = createTRPCRouter({
       void runBackgroundTask({
         metricId: input.metricId,
         type: "chart-only",
+        organizationId: ctx.workspace.organizationId,
+        teamId: metric.teamId ?? undefined,
         dashboardChartId: dashboardChart.id,
         metricName: metric.name,
         metricDescription: metric.description ?? "",
