@@ -119,7 +119,10 @@ function ChartNodeComponent({ data, selected }: NodeProps<ChartNode>) {
         {data.readOnly ? (
           <ReadOnlyMetricCard dashboardChart={dashboardMetric} />
         ) : (
-          <DashboardMetricCard dashboardChart={dashboardMetric} />
+          <DashboardMetricCard
+            dashboardChart={dashboardMetric}
+            teamId={data.teamId}
+          />
         )}
       </div>
     </div>
