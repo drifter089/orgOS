@@ -97,7 +97,7 @@ export function MetricDialogBase({
         metric: { ...result.metric, goal: null },
       } as DashboardChartWithRelations;
 
-      // Update cache for this team
+      // Update dashboard charts cache (single source of truth)
       if (teamId) {
         utils.dashboard.getDashboardCharts.setData({ teamId }, (old) => {
           if (!old) return [enrichedResult];
