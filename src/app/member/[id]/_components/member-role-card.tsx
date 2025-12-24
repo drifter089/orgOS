@@ -2,7 +2,7 @@
 
 import { TrendingUp } from "lucide-react";
 
-import { DashboardMetricCard } from "@/app/dashboard/[teamId]/_components/dashboard-metric-card";
+import { ReadOnlyMetricCard } from "@/app/dashboard/[teamId]/_components/dashboard-metric-card";
 import { stripHtml } from "@/lib/html-utils";
 import { type RouterOutputs } from "@/trpc/react";
 
@@ -45,12 +45,7 @@ export function MemberRoleCard({ role, dashboardChart }: MemberRoleCardProps) {
       <div className="border-border/60 mt-auto border-t">
         {dashboardChart ? (
           <div className="overflow-hidden">
-            <DashboardMetricCard
-              metricId={dashboardChart.metric.id}
-              teamId={dashboardChart.metric.teamId ?? ""}
-              dataOverride={dashboardChart}
-              readOnly
-            />
+            <ReadOnlyMetricCard dashboardChart={dashboardChart} />
           </div>
         ) : role.metric ? (
           <div className="bg-muted/30 flex items-center gap-2 px-4 py-3">

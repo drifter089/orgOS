@@ -13,9 +13,7 @@ interface DashboardClientProps {
 
 /**
  * Dashboard client - renders metric cards.
- *
- * Cards handle their own status tracking via useMetricStatus hook.
- * Completion detection and error toasts are handled in each card.
+ * Cards handle their own status tracking via usePipelineOperations hook.
  */
 export function DashboardClient({
   teamId,

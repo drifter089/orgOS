@@ -13,7 +13,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { useMetricMutations } from "@/hooks/use-metric-mutations";
+import { usePipelineOperations } from "@/hooks/use-pipeline-operations";
 import { cn } from "@/lib/utils";
 import { api } from "@/trpc/react";
 
@@ -79,7 +79,7 @@ export function MetricDialogBase({
     }
   };
 
-  const { create: createMutation } = useMetricMutations({ teamId });
+  const pipeline = usePipelineOperations({ teamId });
 
   const integrationQuery = api.integration.listWithStats.useQuery();
   const connection = integrationQuery.data?.active.find((int) =>
@@ -92,7 +92,7 @@ export function MetricDialogBase({
     setError(null);
 
     try {
-      await createMutation.mutateAsync({
+      await pipeline.create.mutateAsync({
         ...data,
         teamId,
       });
@@ -134,7 +134,7 @@ export function MetricDialogBase({
         {children({
           connection,
           onSubmit: handleSubmit,
-          isCreating: createMutation.isPending,
+          isCreating: pipeline.isCreating,
           error,
         })}
 
