@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 import type { Cadence } from "@prisma/client";
 import { AlertCircle, Bug, Settings } from "lucide-react";
@@ -62,14 +62,13 @@ export function DashboardMetricCard({
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const { confirm } = useConfirmation();
 
-  // Single query subscription
-  const { data: dashboardCharts } = api.dashboard.getDashboardCharts.useQuery(
+  // Single query subscription with select to prevent re-renders from other metrics
+  const { data: dashboardChart } = api.dashboard.getDashboardCharts.useQuery(
     { teamId },
-    { enabled: Boolean(teamId) },
-  );
-
-  const dashboardChart = dashboardCharts?.find(
-    (dc) => dc.metric.id === metricId,
+    {
+      enabled: Boolean(teamId),
+      select: (data) => data?.find((dc) => dc.metric.id === metricId),
+    },
   );
   const metric = dashboardChart?.metric;
 
@@ -107,6 +106,18 @@ export function DashboardMetricCard({
   );
   const title = chartTransform?.title ?? metric?.name ?? "Loading...";
   const isPollingThisCard = pipeline.isPolling(metricId);
+
+  // Auto-start polling for metrics that are already processing on mount
+  // (e.g., from another session or cron job)
+  useEffect(() => {
+    if (
+      metric?.refreshStatus &&
+      !isOptimistic &&
+      !pipeline.isPolling(metricId)
+    ) {
+      pipeline.startPolling(metricId);
+    }
+  }, [metric?.refreshStatus, metricId, isOptimistic, pipeline]);
 
   // ==========================================================================
   // Handlers
