@@ -67,8 +67,9 @@ export function useUpdateRole({
       return { previousRoles };
     },
     onSuccess: (updatedRole) => {
-      // Invalidate team.getById cache to ensure fresh data on next fetch
+      // Invalidate caches to ensure fresh data on next fetch
       void utils.team.getById.invalidate({ id: teamId });
+      void utils.role.getByTeamId.invalidate({ teamId });
 
       // Update role cache with server response (includes metric relation)
       utils.role.getByTeamId.setData({ teamId }, (old) => {
