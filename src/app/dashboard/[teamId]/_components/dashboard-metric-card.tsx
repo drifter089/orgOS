@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useState } from "react";
 
 import type { Cadence } from "@prisma/client";
 import { AlertCircle, Bug, Settings } from "lucide-react";
@@ -17,16 +17,12 @@ import {
 import { useMetricMutations } from "@/hooks/use-metric-mutations";
 import { isDevMode } from "@/lib/dev-mode";
 import type { ChartTransformResult } from "@/lib/metrics/transformer-types";
-import { PIPELINE_CONFIGS } from "@/lib/pipeline/configs";
-import type { PipelineStepName } from "@/lib/pipeline/types";
 import { useConfirmation } from "@/providers/ConfirmationDialogProvider";
 import type { RouterOutputs } from "@/trpc/react";
 import { api } from "@/trpc/react";
 
-import {
-  DashboardMetricChart,
-  type LoadingPhase,
-} from "./dashboard-metric-chart";
+import type { PipelineProgressData } from "./dashboard-client";
+import { DashboardMetricChart } from "./dashboard-metric-chart";
 import { DashboardMetricDrawer } from "./dashboard-metric-drawer";
 
 type DashboardMetrics = RouterOutputs["dashboard"]["getDashboardCharts"];
@@ -37,14 +33,6 @@ export type {
   ChartType,
   ChartTransformResult,
 } from "@/lib/metrics/transformer-types";
-
-// Initial steps set by backend for each mutation type (matches pipeline.ts)
-const INITIAL_STEPS = {
-  softRefresh: PIPELINE_CONFIGS["soft-refresh"][0]!.step,
-  hardRefresh: "deleting-old-data" as PipelineStepName,
-  regenerateIngestion: "deleting-old-transformer" as PipelineStepName,
-  regenerateChart: "deleting-old-transformer" as PipelineStepName,
-} as const;
 
 export interface DisplayedChart {
   id: string;
@@ -57,183 +45,99 @@ interface DashboardMetricCardProps {
     valueLabel?: string | null;
     dataDescription?: string | null;
   };
+  /** Pipeline status from parent (centralized polling) */
+  pipelineStatus?: PipelineProgressData;
+  /** Team ID for targeted cache invalidation (optional for non-dashboard contexts) */
+  teamId?: string;
   /** When true, hides settings drawer and dev tool button (for public views) */
   readOnly?: boolean;
+  /** Whether the parent dashboard query is currently fetching */
+  isFetching?: boolean;
 }
 
-type ActiveOperation =
-  | "soft-refresh"
-  | "hard-refresh"
-  | "regenerate-chart"
-  | "regenerate-ingestion"
-  | null;
-
+/**
+ * Dashboard metric card component.
+ *
+ * Key simplifications:
+ * - Receives pipelineStatus from parent (no internal polling)
+ * - Single source of truth: metric.refreshStatus + pipelineStatus from parent
+ * - Targeted invalidation using teamId prop
+ */
 export function DashboardMetricCard({
   dashboardMetric,
+  pipelineStatus,
+  teamId: teamIdProp,
   readOnly = false,
+  isFetching = false,
 }: DashboardMetricCardProps) {
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
-  const [activeOperation, setActiveOperation] = useState<ActiveOperation>(null);
 
   const utils = api.useUtils();
   const { confirm } = useConfirmation();
 
-  // Mutations defined before polling query to use isPending states
+  const { metric } = dashboardMetric;
+  // Use prop teamId or fallback to metric's teamId
+  const teamId = teamIdProp ?? metric.teamId ?? undefined;
+  const isPending = dashboardMetric.id.startsWith("temp-");
+  const isIntegrationMetric = !!metric.integration?.providerId;
+  const roles = metric.roles ?? [];
+  const hasError = !!metric.lastError;
+
+  // Derive loading state from server data only (single source of truth)
+  const isProcessing =
+    !!metric.refreshStatus || (pipelineStatus?.isProcessing ?? false);
+
+  // Mutations with targeted invalidation
   const {
     delete: deleteMetricMutation,
     refresh: refreshMetricMutation,
     regenerate: regeneratePipelineMutation,
   } = useMetricMutations({
-    teamId: dashboardMetric.metric.teamId ?? undefined,
+    teamId,
   });
 
-  const regenerateIngestionMutation =
-    api.pipeline.regenerateIngestionOnly.useMutation({
-      onSuccess: () => {
-        toast.success("Data transformer regeneration started");
-        void utils.dashboard.getDashboardCharts.invalidate();
-      },
-      onError: (error) => {
-        setActiveOperation(null);
-        toast.error(`Failed: ${error.message}`);
-      },
-    });
-
   const regenerateChartMutation = api.pipeline.regenerateChartOnly.useMutation({
+    onMutate: () => {
+      // Set loading state immediately in cache
+      const updateFn = (
+        old: RouterOutputs["dashboard"]["getDashboardCharts"] | undefined,
+      ) =>
+        old?.map((dc) =>
+          dc.metric.id === metric.id
+            ? {
+                ...dc,
+                metric: {
+                  ...dc.metric,
+                  refreshStatus: "generating-chart-transformer",
+                },
+              }
+            : dc,
+        );
+      utils.dashboard.getDashboardCharts.setData(undefined, updateFn);
+      if (teamId) {
+        utils.dashboard.getDashboardCharts.setData({ teamId }, updateFn);
+      }
+    },
     onSuccess: () => {
-      toast.success("Chart transformer regeneration started");
-      void utils.dashboard.getDashboardCharts.invalidate();
+      toast.success("Chart regeneration started");
     },
     onError: (error) => {
-      setActiveOperation(null);
+      // Clear loading state on error
+      const updateFn = (
+        old: RouterOutputs["dashboard"]["getDashboardCharts"] | undefined,
+      ) =>
+        old?.map((dc) =>
+          dc.metric.id === metric.id
+            ? { ...dc, metric: { ...dc.metric, refreshStatus: null } }
+            : dc,
+        );
+      utils.dashboard.getDashboardCharts.setData(undefined, updateFn);
+      if (teamId) {
+        utils.dashboard.getDashboardCharts.setData({ teamId }, updateFn);
+      }
       toast.error(`Failed: ${error.message}`);
     },
   });
-
-  const isAnyMutationPending =
-    refreshMetricMutation.isPending ||
-    regeneratePipelineMutation.isPending ||
-    regenerateIngestionMutation.isPending ||
-    regenerateChartMutation.isPending;
-
-  const shouldPoll =
-    !!dashboardMetric.metric.refreshStatus ||
-    isAnyMutationPending ||
-    activeOperation !== null;
-
-  const { data: pipelineProgress } = api.pipeline.getProgress.useQuery(
-    { metricId: dashboardMetric.metric.id },
-    {
-      enabled: shouldPoll,
-      refetchInterval: shouldPoll ? 500 : false,
-    },
-  );
-
-  // Clear activeOperation when polling confirms done
-  useEffect(() => {
-    if (
-      activeOperation !== null &&
-      pipelineProgress !== undefined &&
-      !pipelineProgress.isProcessing
-    ) {
-      setActiveOperation(null);
-    }
-  }, [activeOperation, pipelineProgress]);
-
-  const isProcessing =
-    activeOperation !== null ||
-    isAnyMutationPending ||
-    (pipelineProgress?.isProcessing ?? false) ||
-    !!dashboardMetric.metric.refreshStatus;
-
-  const isRegeneratingPipeline =
-    activeOperation === "hard-refresh" ||
-    activeOperation === "regenerate-chart" ||
-    regeneratePipelineMutation.isPending ||
-    regenerateChartMutation.isPending ||
-    dashboardMetric.metric.refreshStatus === "deleting-old-data" ||
-    dashboardMetric.metric.refreshStatus === "deleting-old-transformer" ||
-    (pipelineProgress?.completedSteps?.some(
-      (s) => s.step === "deleting-old-data",
-    ) ??
-      false);
-
-  // Detect pipeline completion (isProcessing: true -> false) and refetch charts
-  const prevIsProcessingRef = useRef<boolean | null>(null);
-  useEffect(() => {
-    const prevProcessing = prevIsProcessingRef.current;
-    const currentProcessing = pipelineProgress?.isProcessing ?? false;
-
-    if (pipelineProgress !== undefined) {
-      prevIsProcessingRef.current = currentProcessing;
-    }
-
-    if (prevProcessing === true && currentProcessing === false) {
-      const teamId = dashboardMetric.metric.teamId;
-      void utils.dashboard.getDashboardCharts.refetch();
-      if (teamId) {
-        void utils.dashboard.getDashboardCharts.refetch({ teamId });
-      }
-    }
-  }, [
-    pipelineProgress?.isProcessing,
-    pipelineProgress,
-    dashboardMetric.metric.teamId,
-    utils.dashboard.getDashboardCharts,
-  ]);
-
-  const loadingPhase: LoadingPhase = (() => {
-    if (pipelineProgress?.currentStep) {
-      return pipelineProgress.currentStep as LoadingPhase;
-    }
-    if (!isProcessing && !isRegeneratingPipeline) {
-      return null;
-    }
-
-    // Fallback based on activeOperation or mutation.isPending
-    switch (activeOperation) {
-      case "hard-refresh":
-        return INITIAL_STEPS.hardRefresh;
-      case "regenerate-chart":
-        return INITIAL_STEPS.regenerateChart;
-      case "regenerate-ingestion":
-        return INITIAL_STEPS.regenerateIngestion;
-      case "soft-refresh":
-        return INITIAL_STEPS.softRefresh;
-    }
-    if (regeneratePipelineMutation.isPending) return INITIAL_STEPS.hardRefresh;
-    if (regenerateChartMutation.isPending) return INITIAL_STEPS.regenerateChart;
-    if (regenerateIngestionMutation.isPending)
-      return INITIAL_STEPS.regenerateIngestion;
-    if (refreshMetricMutation.isPending) return INITIAL_STEPS.softRefresh;
-
-    return INITIAL_STEPS.softRefresh;
-  })();
-
-  // Track if we've shown error toast to avoid duplicates
-  const lastErrorShownRef = useRef<string | null>(null);
-
-  // Show error toast when pipeline fails
-  useEffect(() => {
-    const error = pipelineProgress?.error;
-    if (error && error !== lastErrorShownRef.current) {
-      lastErrorShownRef.current = error;
-      toast.error("Pipeline failed", {
-        description: error,
-        duration: 10000, // Show longer for errors
-      });
-    }
-    // Clear ref when no error
-    if (!isProcessing) {
-      lastErrorShownRef.current = null;
-    }
-  }, [pipelineProgress?.error, isProcessing]);
-
-  const isPending = dashboardMetric.id.startsWith("temp-");
-  const { metric } = dashboardMetric;
-  const isIntegrationMetric = !!metric.integration?.providerId;
-  const roles = metric.roles ?? [];
-  const hasError = !!metric.lastError;
 
   const chartTransform =
     dashboardMetric.chartConfig as unknown as ChartTransformResult | null;
@@ -241,15 +145,9 @@ export function DashboardMetricCard({
     chartTransform?.chartData && chartTransform.chartData.length > 0
   );
 
-  // Query for transformer info (only when drawer is open)
-  const { data: transformerInfo } = api.pipeline.getTransformerInfo.useQuery(
-    { metricId: metric.id },
-    { enabled: isDrawerOpen },
-  );
-
   const updateMetricMutation = api.metric.update.useMutation({
     onSuccess: (updatedMetric) => {
-      const teamId = metric.teamId;
+      // Update both query variants
       utils.dashboard.getDashboardCharts.setData(undefined, (old) =>
         old?.map((dm) =>
           dm.metric.id === updatedMetric.id
@@ -257,29 +155,25 @@ export function DashboardMetricCard({
             : dm,
         ),
       );
-      if (teamId) {
-        utils.dashboard.getDashboardCharts.setData({ teamId }, (old) =>
-          old?.map((dm) =>
-            dm.metric.id === updatedMetric.id
-              ? { ...dm, metric: { ...dm.metric, ...updatedMetric } }
-              : dm,
-          ),
-        );
-      }
+      utils.dashboard.getDashboardCharts.setData({ teamId }, (old) =>
+        old?.map((dm) =>
+          dm.metric.id === updatedMetric.id
+            ? { ...dm, metric: { ...dm.metric, ...updatedMetric } }
+            : dm,
+        ),
+      );
     },
   });
 
   /**
    * Refresh metric data using existing transformer, or regenerate entire pipeline
-   * when forceRebuild is true. Progress status is polled from the database.
-   * For manual metrics, regenerates via full pipeline.
+   * when forceRebuild is true. Progress status is polled centrally by parent.
    */
   const handleRefresh = useCallback(
     async (forceRebuild = false) => {
       try {
         // For manual metrics, regenerate via full pipeline
         if (!isIntegrationMetric) {
-          setActiveOperation("hard-refresh");
           await regeneratePipelineMutation.mutateAsync({ metricId: metric.id });
           toast.success("Chart regeneration started");
           return;
@@ -289,16 +183,13 @@ export function DashboardMetricCard({
         if (!metric.templateId || !metric.integration) return;
 
         if (forceRebuild) {
-          setActiveOperation("hard-refresh");
           await regeneratePipelineMutation.mutateAsync({ metricId: metric.id });
           toast.success("Pipeline regeneration started");
         } else {
-          setActiveOperation("soft-refresh");
           await refreshMetricMutation.mutateAsync({ metricId: metric.id });
           toast.success("Data refresh started");
         }
       } catch (error) {
-        setActiveOperation(null);
         toast.error(
           forceRebuild ? "Pipeline regeneration failed" : "Refresh failed",
           {
@@ -320,27 +211,17 @@ export function DashboardMetricCard({
 
   /**
    * Regenerate chart via full pipeline regeneration
-   * Note: chartType, cadence, and userPrompt are ignored in current implementation
    */
-  const handleRegenerate = useCallback(
-    async (
-      _chartType?: string,
-      _cadence?: "DAILY" | "WEEKLY" | "MONTHLY",
-      _userPrompt?: string,
-    ) => {
-      try {
-        setActiveOperation("hard-refresh");
-        await regeneratePipelineMutation.mutateAsync({ metricId: metric.id });
-        toast.success("Chart regeneration started");
-      } catch (error) {
-        setActiveOperation(null);
-        toast.error("Regeneration failed", {
-          description: error instanceof Error ? error.message : "Unknown error",
-        });
-      }
-    },
-    [metric.id, regeneratePipelineMutation],
-  );
+  const handleRegenerate = useCallback(async () => {
+    try {
+      await regeneratePipelineMutation.mutateAsync({ metricId: metric.id });
+      toast.success("Chart regeneration started");
+    } catch (error) {
+      toast.error("Regeneration failed", {
+        description: error instanceof Error ? error.message : "Unknown error",
+      });
+    }
+  }, [metric.id, regeneratePipelineMutation]);
 
   const handleRemove = async () => {
     const confirmed = await confirm({
@@ -363,14 +244,8 @@ export function DashboardMetricCard({
     });
   };
 
-  const handleRegenerateIngestion = useCallback(() => {
-    setActiveOperation("regenerate-ingestion");
-    regenerateIngestionMutation.mutate({ metricId: metric.id });
-  }, [metric.id, regenerateIngestionMutation]);
-
   const handleRegenerateChart = useCallback(
     (chartType: string, cadence: Cadence, selectedDimension?: string) => {
-      setActiveOperation("regenerate-chart");
       regenerateChartMutation.mutate({
         metricId: metric.id,
         chartType,
@@ -439,20 +314,21 @@ export function DashboardMetricCard({
         </Tooltip>
       )}
 
-      {/* Chart content - directly rendered */}
+      {/* Chart content */}
       <DashboardMetricChart
         title={title}
         chartTransform={chartTransform}
         hasChartData={hasChartData}
         isIntegrationMetric={isIntegrationMetric}
         isPending={isPending}
-        isProcessing={isProcessing}
-        loadingPhase={loadingPhase}
         integrationId={metric.integration?.providerId}
         roles={roles}
         goal={metric.goal}
         goalProgress={dashboardMetric.goalProgress}
         valueLabel={dashboardMetric.valueLabel}
+        isProcessing={isProcessing}
+        processingStep={pipelineStatus?.currentStep ?? metric.refreshStatus}
+        isFetching={isFetching}
       />
     </div>
   );
@@ -483,28 +359,22 @@ export function DashboardMetricCard({
             }
             roles={roles}
             valueLabel={dashboardMetric.valueLabel ?? null}
-            dataDescription={dashboardMetric.dataDescription ?? null}
             integrationId={metric.integration?.providerId ?? null}
             isIntegrationMetric={isIntegrationMetric}
             lastFetchedAt={metric.lastFetchedAt}
             chartUpdatedAt={dashboardMetric.chartTransformer?.updatedAt ?? null}
             lastError={metric.lastError}
-            pollFrequency={metric.pollFrequency}
             goal={metric.goal}
             goalProgress={dashboardMetric.goalProgress ?? null}
             isProcessing={isProcessing}
             isUpdating={updateMetricMutation.isPending}
             isDeleting={isPending || deleteMetricMutation.isPending}
-            isRegeneratingPipeline={isRegeneratingPipeline}
-            loadingPhase={loadingPhase}
             onRegenerate={handleRegenerate}
             onRefresh={handleRefresh}
             onUpdateMetric={handleUpdateMetric}
             onDelete={handleRemove}
             onClose={() => setIsDrawerOpen(false)}
-            onRegenerateIngestion={handleRegenerateIngestion}
             onRegenerateChart={handleRegenerateChart}
-            transformerInfo={transformerInfo}
           />
         </div>
       </DrawerContent>

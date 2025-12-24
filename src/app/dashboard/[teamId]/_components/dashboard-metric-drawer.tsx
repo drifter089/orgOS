@@ -20,7 +20,6 @@ import { Link } from "next-transition-router";
 import { GoalEditor } from "@/components/metric/goal-editor";
 import { GoalProgressDisplay } from "@/components/metric/goal-progress-display";
 import { RoleAssignment } from "@/components/metric/role-assignment";
-import { PipelineProgress } from "@/components/pipeline-progress";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { DrawerClose } from "@/components/ui/drawer";
@@ -48,10 +47,7 @@ import { cn } from "@/lib/utils";
 import { api } from "@/trpc/react";
 
 import type { ChartTransformResult } from "./dashboard-metric-card";
-import {
-  DashboardMetricChart,
-  type LoadingPhase,
-} from "./dashboard-metric-chart";
+import { DashboardMetricChart } from "./dashboard-metric-chart";
 
 const CADENCE_OPTIONS: Cadence[] = ["DAILY", "WEEKLY", "MONTHLY"];
 
@@ -66,54 +62,26 @@ interface DashboardMetricDrawerProps {
   currentSelectedDimension: string | null;
   roles: Role[];
   valueLabel: string | null;
-  dataDescription: string | null;
   integrationId: string | null;
   isIntegrationMetric: boolean;
   lastFetchedAt: Date | null;
   chartUpdatedAt: Date | null;
   lastError: string | null;
-  pollFrequency: string;
   goal: MetricGoal | null;
   goalProgress: GoalProgress | null;
   isProcessing: boolean;
   isUpdating: boolean;
   isDeleting: boolean;
-  isRegeneratingPipeline: boolean;
-  loadingPhase: LoadingPhase;
-  onRegenerate: (
-    chartType?: string,
-    cadence?: Cadence,
-    prompt?: string,
-  ) => void;
+  onRegenerate: () => void;
   onRefresh: (forceRebuild?: boolean) => void;
   onUpdateMetric: (name: string, description: string) => void;
   onDelete: () => void;
   onClose: () => void;
-  onRegenerateIngestion: () => void;
   onRegenerateChart: (
     chartType: string,
     cadence: Cadence,
     selectedDimension?: string,
   ) => void;
-  transformerInfo?: {
-    ingestionTransformer: {
-      exists: boolean;
-      createdAt?: Date;
-      updatedAt?: Date;
-    };
-    chartTransformer: {
-      exists: boolean;
-      createdAt?: Date;
-      updatedAt?: Date;
-      chartType?: string;
-      cadence?: string;
-    };
-    dataPoints: {
-      count: number;
-      firstDate?: Date | null;
-      lastDate?: Date | null;
-    };
-  };
 }
 
 export function DashboardMetricDrawer({
@@ -127,28 +95,22 @@ export function DashboardMetricDrawer({
   currentSelectedDimension,
   roles,
   valueLabel,
-  dataDescription: _dataDescription,
   integrationId,
   isIntegrationMetric,
   lastFetchedAt,
   chartUpdatedAt,
   lastError,
-  pollFrequency: _pollFrequency,
   goal,
   goalProgress,
   isProcessing,
   isUpdating: _isUpdating,
   isDeleting,
-  isRegeneratingPipeline,
-  loadingPhase,
   onRegenerate: _onRegenerate,
   onRefresh,
   onUpdateMetric,
   onDelete,
   onClose: _onClose,
-  onRegenerateIngestion: _onRegenerateIngestion,
   onRegenerateChart,
-  transformerInfo: _transformerInfo,
 }: DashboardMetricDrawerProps) {
   const [name, setName] = useState(metricName);
   const [selectedChartType, setSelectedChartType] = useState(
@@ -249,13 +211,10 @@ export function DashboardMetricDrawer({
                 variant="ghost"
                 size="sm"
                 onClick={() => onRefresh(forceRebuild)}
-                disabled={isProcessing || isRegeneratingPipeline}
+                disabled={isProcessing}
               >
                 <RefreshCw
-                  className={cn(
-                    "mr-2 h-4 w-4",
-                    (isProcessing || isRegeneratingPipeline) && "animate-spin",
-                  )}
+                  className={cn("mr-2 h-4 w-4", isProcessing && "animate-spin")}
                 />
                 {forceRebuild ? "Hard Refresh" : "Refresh"}
               </Button>
@@ -266,7 +225,7 @@ export function DashboardMetricDrawer({
                       id="force-rebuild"
                       checked={forceRebuild}
                       onCheckedChange={setForceRebuild}
-                      disabled={isProcessing || isRegeneratingPipeline}
+                      disabled={isProcessing}
                     />
                     <Label
                       htmlFor="force-rebuild"
@@ -290,13 +249,10 @@ export function DashboardMetricDrawer({
                 variant="ghost"
                 size="sm"
                 onClick={() => onRefresh(true)}
-                disabled={isProcessing || isRegeneratingPipeline}
+                disabled={isProcessing}
               >
                 <RefreshCw
-                  className={cn(
-                    "mr-2 h-4 w-4",
-                    (isProcessing || isRegeneratingPipeline) && "animate-spin",
-                  )}
+                  className={cn("mr-2 h-4 w-4", isProcessing && "animate-spin")}
                 />
                 Regenerate
               </Button>
@@ -383,12 +339,10 @@ export function DashboardMetricDrawer({
             <Button
               size="sm"
               onClick={handleApplyChanges}
-              disabled={
-                isProcessing || isRegeneratingPipeline || !hasChartChanges
-              }
+              disabled={isProcessing || !hasChartChanges}
               className="w-full"
             >
-              {isProcessing || isRegeneratingPipeline ? (
+              {isProcessing ? (
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
               ) : (
                 <BarChart3 className="mr-2 h-4 w-4" />
@@ -397,17 +351,6 @@ export function DashboardMetricDrawer({
             </Button>
           </div>
 
-          {/* Pipeline Progress Display */}
-          {(isProcessing || isRegeneratingPipeline) && (
-            <div className="bg-muted/30 rounded-lg border p-4">
-              <PipelineProgress
-                metricId={metricId}
-                isActive={isProcessing || isRegeneratingPipeline}
-                variant="detailed"
-              />
-            </div>
-          )}
-
           <div className="h-[400px]">
             <DashboardMetricChart
               title={chartTransform?.title ?? metricName}
@@ -415,13 +358,12 @@ export function DashboardMetricDrawer({
               hasChartData={hasChartData}
               isIntegrationMetric={isIntegrationMetric}
               isPending={false}
-              isProcessing={isProcessing || isRegeneratingPipeline}
-              loadingPhase={loadingPhase}
               integrationId={integrationId}
               roles={roles}
               goal={goal}
               goalProgress={goalProgress}
               valueLabel={valueLabel}
+              isProcessing={isProcessing}
             />
           </div>
 
@@ -430,7 +372,7 @@ export function DashboardMetricDrawer({
             valueLabel={valueLabel}
             goal={goal}
             goalProgress={goalProgress}
-            isLoading={isProcessing || isRegeneratingPipeline}
+            isLoading={isProcessing}
             lastFetchedAt={lastFetchedAt}
             chartUpdatedAt={chartUpdatedAt}
           />

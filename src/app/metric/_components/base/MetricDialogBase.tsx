@@ -4,8 +4,6 @@ import { useState } from "react";
 
 import { toast } from "sonner";
 
-import { GoalSetupStep } from "@/components/metric/goal-setup-step";
-import { PipelineProgress } from "@/components/pipeline-progress";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Dialog,
@@ -16,7 +14,6 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { useMetricMutations } from "@/hooks/use-metric-mutations";
-import { useWaitForPipeline } from "@/hooks/use-wait-for-pipeline";
 import { cn } from "@/lib/utils";
 import { api } from "@/trpc/react";
 
@@ -56,8 +53,14 @@ interface MetricDialogBaseProps {
   children: (props: ContentProps) => React.ReactNode;
 }
 
-type DialogStep = "form" | "processing" | "goal";
-
+/**
+ * Simplified metric dialog - just form submission, no steps.
+ *
+ * After successful creation:
+ * - Dialog closes immediately
+ * - Optimistic card appears on dashboard with loading state
+ * - Dashboard centralized polling handles progress tracking
+ */
 export function MetricDialogBase({
   integrationId,
   connectionId: connectionIdProp,
@@ -73,10 +76,6 @@ export function MetricDialogBase({
 }: MetricDialogBaseProps) {
   const [internalOpen, setInternalOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [step, setStep] = useState<DialogStep>("form");
-  const [createdMetricId, setCreatedMetricId] = useState<string | null>(null);
-  const [createdMetricName, setCreatedMetricName] = useState<string>("");
-  const [pipelineMetricId, setPipelineMetricId] = useState<string | null>(null);
 
   const isControlled = controlledOpen !== undefined;
   const open = isControlled ? controlledOpen : internalOpen;
@@ -86,31 +85,10 @@ export function MetricDialogBase({
     } else {
       setInternalOpen(value ?? false);
     }
-    // Reset state when closing
-    if (!value) {
-      setStep("form");
-      setCreatedMetricId(null);
-      setCreatedMetricName("");
-      setPipelineMetricId(null);
-    }
   };
 
   const { create: createMutation } = useMetricMutations({ teamId });
   const utils = api.useUtils();
-
-  const { error: pipelineError } = useWaitForPipeline({
-    metricId: pipelineMetricId,
-    onComplete: () => {
-      void utils.dashboard.getDashboardCharts.invalidate();
-      setStep("goal");
-    },
-    onError: (error) => {
-      void utils.dashboard.getDashboardCharts.invalidate();
-      toast.error("KPI creation failed", { description: error });
-      setStep("form");
-      setPipelineMetricId(null);
-    },
-  });
 
   const integrationQuery = api.integration.listWithStats.useQuery();
   const connection = integrationQuery.data?.active.find((int) =>
@@ -119,48 +97,34 @@ export function MetricDialogBase({
       : int.providerId === integrationId,
   );
 
-  /**
-   * TODO: Chart generation will be implemented as part of METRICS_ARCHITECTURE_PLAN.md
-   *
-   * The new flow will:
-   * 1. Use saved MetricTransformer to transform raw API data into DataPoints
-   * 2. Use saved ChartTransformer to convert DataPoints into chart configuration
-   *
-   * For now, metrics are created without chart data.
-   * Users can regenerate charts from the Settings tab once the architecture is implemented.
-   */
-
   const handleSubmit = async (data: MetricCreateInput) => {
     setError(null);
 
     try {
-      // Create the metric with optimistic update (handled by hook)
-      const realDashboardChart = await createMutation.mutateAsync({
+      // Create the metric - wait for server response
+      await createMutation.mutateAsync({
         ...data,
         teamId,
       });
 
-      // Store metric info for goal setup after pipeline completes
-      setCreatedMetricId(realDashboardChart.metric.id);
-      setCreatedMetricName(data.name);
+      // Explicitly invalidate cache to ensure new card shows
+      // This triggers a refetch which will include the new metric
+      await Promise.all([
+        utils.dashboard.getDashboardCharts.invalidate(),
+        teamId
+          ? utils.dashboard.getDashboardCharts.invalidate({ teamId })
+          : Promise.resolve(),
+      ]);
 
-      // Start watching the pipeline progress
-      setPipelineMetricId(realDashboardChart.metric.id);
-      setStep("processing");
+      // Success! Close dialog
+      toast.success("KPI created", {
+        description: "Building your chart...",
+      });
+      setOpen(false);
+      onSuccess?.();
     } catch {
-      // Error handling and rollback handled by hook
       toast.error("Failed to create KPI");
     }
-  };
-
-  const handleFinish = () => {
-    setOpen(false);
-    onSuccess?.();
-  };
-
-  const handleSkipGoal = () => {
-    setOpen(false);
-    onSuccess?.();
   };
 
   if (!connection) {
@@ -182,62 +146,19 @@ export function MetricDialogBase({
     <Dialog open={open} onOpenChange={setOpen}>
       {trigger && <DialogTrigger asChild>{trigger}</DialogTrigger>}
       <DialogContent className={cn("max-h-[90vh] overflow-y-auto", maxWidth)}>
-        {step === "form" ? (
-          <>
-            <DialogHeader>
-              <DialogTitle>{title}</DialogTitle>
-              {description && (
-                <DialogDescription>{description}</DialogDescription>
-              )}
-            </DialogHeader>
+        <DialogHeader>
+          <DialogTitle>{title}</DialogTitle>
+          {description && <DialogDescription>{description}</DialogDescription>}
+        </DialogHeader>
 
-            {children({
-              connection,
-              onSubmit: handleSubmit,
-              isCreating: createMutation.isPending,
-              error,
-            })}
+        {children({
+          connection,
+          onSubmit: handleSubmit,
+          isCreating: createMutation.isPending,
+          error,
+        })}
 
-            {error && (
-              <p className="text-destructive text-sm">Error: {error}</p>
-            )}
-          </>
-        ) : step === "processing" ? (
-          <>
-            <DialogHeader>
-              <DialogTitle>Creating KPI</DialogTitle>
-              <DialogDescription>
-                Setting up your metric and generating the chart...
-              </DialogDescription>
-            </DialogHeader>
-
-            <div className="py-8">
-              {pipelineMetricId && (
-                <PipelineProgress
-                  metricId={pipelineMetricId}
-                  isActive={true}
-                  variant="detailed"
-                />
-              )}
-            </div>
-
-            {pipelineError && (
-              <p className="text-destructive text-sm">Error: {pipelineError}</p>
-            )}
-          </>
-        ) : (
-          createdMetricId && (
-            <GoalSetupStep
-              metricId={createdMetricId}
-              metricName={createdMetricName}
-              teamId={teamId}
-              onBack={() => setStep("form")}
-              onSkip={handleSkipGoal}
-              onFinish={handleFinish}
-              useDialogHeader={true}
-            />
-          )
-        )}
+        {error && <p className="text-destructive text-sm">Error: {error}</p>}
       </DialogContent>
     </Dialog>
   );

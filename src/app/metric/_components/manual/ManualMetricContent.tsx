@@ -5,7 +5,6 @@ import { useState } from "react";
 import { ArrowLeft, Hash, Loader2, Percent } from "lucide-react";
 import { toast } from "sonner";
 
-import { GoalSetupStep } from "@/components/metric/goal-setup-step";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useMetricMutations } from "@/hooks/use-metric-mutations";
@@ -13,7 +12,6 @@ import { cn } from "@/lib/utils";
 
 type UnitType = "number" | "percentage";
 type Cadence = "daily" | "weekly" | "monthly";
-type DialogStep = "form" | "goal";
 
 interface ManualMetricContentProps {
   teamId: string;
@@ -69,12 +67,9 @@ export function ManualMetricContent({
   onClose,
 }: ManualMetricContentProps) {
   const [formStep, setFormStep] = useState<1 | 2 | 3>(1);
-  const [dialogStep, setDialogStep] = useState<DialogStep>("form");
   const [metricName, setMetricName] = useState("");
   const [unitType, setUnitType] = useState<UnitType | null>(null);
   const [cadence, setCadence] = useState<Cadence | null>(null);
-  const [createdMetricId, setCreatedMetricId] = useState<string | null>(null);
-  const [createdMetricName, setCreatedMetricName] = useState("");
 
   const { createManual: createMutation } = useMetricMutations({ teamId });
 
@@ -83,7 +78,7 @@ export function ManualMetricContent({
 
     try {
       // Create the metric with optimistic update (handled by hook)
-      const realDashboardChart = await createMutation.mutateAsync({
+      await createMutation.mutateAsync({
         name: metricName.trim(),
         unitType,
         cadence,
@@ -91,12 +86,12 @@ export function ManualMetricContent({
       });
 
       toast.success("KPI created", {
-        description: "You can now set a goal for this metric.",
+        description: "You can set a goal via the settings drawer.",
       });
 
-      setCreatedMetricId(realDashboardChart.metric.id);
-      setCreatedMetricName(metricName.trim());
-      setDialogStep("goal");
+      // Close dialog immediately - no goal step
+      onClose?.();
+      onSuccess?.();
     } catch {
       // Error handling and rollback handled by hook
       toast.error("Failed to create KPI");
@@ -126,29 +121,6 @@ export function ManualMetricContent({
     if (formStep === 2) setFormStep(1);
     else if (formStep === 3) setFormStep(2);
   };
-
-  const handleFinish = () => {
-    onClose?.();
-    onSuccess?.();
-  };
-
-  const handleSkipGoal = () => {
-    onClose?.();
-    onSuccess?.();
-  };
-
-  if (dialogStep === "goal" && createdMetricId) {
-    return (
-      <GoalSetupStep
-        metricId={createdMetricId}
-        metricName={createdMetricName}
-        teamId={teamId}
-        onBack={() => setDialogStep("form")}
-        onSkip={handleSkipGoal}
-        onFinish={handleFinish}
-      />
-    );
-  }
 
   return (
     <div className="space-y-6">

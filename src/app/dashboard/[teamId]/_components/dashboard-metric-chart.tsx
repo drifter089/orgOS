@@ -3,7 +3,14 @@
 import { useMemo } from "react";
 
 import type { MetricGoal, Role } from "@prisma/client";
-import { AlertTriangle, Info, Loader2, Target, User } from "lucide-react";
+import {
+  AlertTriangle,
+  BarChart3,
+  Info,
+  Loader2,
+  Target,
+  User,
+} from "lucide-react";
 import {
   Area,
   AreaChart,
@@ -43,61 +50,12 @@ import { type GoalProgress, calculateTargetDisplayValue } from "@/lib/goals";
 import { formatValue } from "@/lib/helpers/format-value";
 import { getUserName } from "@/lib/helpers/get-user-name";
 import { getLatestMetricValue } from "@/lib/metrics/get-latest-value";
+import { getStepDisplayName } from "@/lib/pipeline";
 import { getPlatformConfig } from "@/lib/platform-config";
 import { cn } from "@/lib/utils";
 import { api } from "@/trpc/react";
 
 import type { ChartTransformResult } from "./dashboard-metric-card";
-
-// Pipeline step names from src/lib/pipeline/types.ts
-export type LoadingPhase =
-  | "fetching-api-data"
-  | "deleting-old-data"
-  | "deleting-old-transformer"
-  | "generating-ingestion-transformer"
-  | "executing-ingestion-transformer"
-  | "saving-timeseries-data"
-  | "generating-chart-transformer"
-  | "executing-chart-transformer"
-  | "saving-chart-config"
-  // Legacy phase names for backward compatibility
-  | "fetching-api"
-  | "running-transformer"
-  | "ai-regenerating"
-  | "saving-data"
-  | "updating-chart"
-  | null;
-
-function getLoadingMessage(phase: LoadingPhase | undefined): string {
-  switch (phase) {
-    // New pipeline step names
-    case "fetching-api-data":
-    case "fetching-api":
-      return "Fetching data from API...";
-    case "deleting-old-data":
-      return "Clearing old data...";
-    case "deleting-old-transformer":
-      return "Clearing old transformer...";
-    case "generating-ingestion-transformer":
-    case "ai-regenerating":
-      return "AI is generating transformer...";
-    case "executing-ingestion-transformer":
-    case "running-transformer":
-      return "Processing data...";
-    case "saving-timeseries-data":
-    case "saving-data":
-      return "Saving data points...";
-    case "generating-chart-transformer":
-      return "Generating chart...";
-    case "executing-chart-transformer":
-    case "updating-chart":
-      return "Updating chart...";
-    case "saving-chart-config":
-      return "Finalizing...";
-    default:
-      return "Processing...";
-  }
-}
 
 interface DashboardMetricChartProps {
   title: string;
@@ -105,8 +63,6 @@ interface DashboardMetricChartProps {
   hasChartData: boolean;
   isIntegrationMetric: boolean;
   isPending: boolean;
-  isProcessing: boolean;
-  loadingPhase?: LoadingPhase;
   integrationId?: string | null;
   roles?: Role[];
   // Goal data from parent - eliminates N+1 query
@@ -115,6 +71,12 @@ interface DashboardMetricChartProps {
   // Legacy prop - value label from DataIngestionTransformer
   // Prefer chartTransform.valueLabel (unified metadata from ChartTransformer)
   valueLabel?: string | null;
+  /** Whether the metric is currently processing (from parent) */
+  isProcessing?: boolean;
+  /** Current processing step name (e.g., "fetching-api-data") */
+  processingStep?: string | null;
+  /** Whether the parent query is fetching updated data */
+  isFetching?: boolean;
 }
 
 export function DashboardMetricChart({
@@ -123,13 +85,14 @@ export function DashboardMetricChart({
   hasChartData,
   isIntegrationMetric,
   isPending,
-  isProcessing,
-  loadingPhase,
   integrationId,
   roles = [],
   goal,
   goalProgress,
   valueLabel,
+  isProcessing = false,
+  processingStep,
+  isFetching = false,
 }: DashboardMetricChartProps) {
   const platformConfig = integrationId
     ? getPlatformConfig(integrationId)
@@ -156,14 +119,12 @@ export function DashboardMetricChart({
 
   const currentValue = getLatestMetricValue(chartTransform);
 
-  // Generate a key that changes when chart data changes to trigger animation replay
+  // Generate a stable key for chart re-renders (no JSON serialization)
   const chartKey = useMemo(() => {
-    const chartData = chartTransform?.chartData;
-    if (!chartData || chartData.length === 0) return "empty";
-    const first = JSON.stringify(chartData[0]);
-    const last = JSON.stringify(chartData[chartData.length - 1]);
-    return `${first}-${last}-${chartData.length}`;
-  }, [chartTransform?.chartData]);
+    if (!chartTransform?.chartData?.length) return "empty";
+    // Use length and chart type as a cheap stable key
+    return `${chartTransform.chartType}-${chartTransform.chartData.length}`;
+  }, [chartTransform?.chartData?.length, chartTransform?.chartType]);
 
   const renderChart = () => {
     if (!chartTransform) return null;
@@ -621,7 +582,10 @@ export function DashboardMetricChart({
 
   return (
     <Card
-      className={`animate-in fade-in flex h-[420px] flex-col duration-300 ${isPending ? "animate-pulse opacity-70" : ""}`}
+      className={cn(
+        "flex h-[420px] flex-col transition-opacity duration-200",
+        isPending && "opacity-60",
+      )}
     >
       <CardHeader className="flex-shrink-0 space-y-0.5 px-5 pt-3 pb-1">
         <div className="flex items-center justify-between gap-2">
@@ -662,13 +626,13 @@ export function DashboardMetricChart({
               </Badge>
             )}
           </div>
-          {(isPending || isProcessing || loadingPhase) && (
+          {(isPending || isProcessing) && (
             <Badge
               variant="outline"
               className="text-muted-foreground shrink-0 text-[10px]"
             >
               <Loader2 className="mr-1 h-2.5 w-2.5 animate-spin" />
-              {isPending ? "Saving..." : getLoadingMessage(loadingPhase)}
+              {isPending ? "Saving..." : "Processing..."}
             </Badge>
           )}
         </div>
@@ -758,33 +722,34 @@ export function DashboardMetricChart({
           </div>
         )}
 
-        {!hasChartData && !isProcessing && !loadingPhase && (
+        {/* State 1: Actively processing or fetching - combined for simpler UX */}
+        {!hasChartData && (isProcessing || isFetching) && (
+          <div className="flex flex-1 items-center justify-center rounded-md border border-dashed p-4">
+            <div className="text-center">
+              <div className="bg-primary/10 mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full">
+                <BarChart3 className="text-primary h-6 w-6" />
+              </div>
+              <div className="flex items-center justify-center gap-2">
+                <Loader2 className="text-primary h-4 w-4 animate-spin" />
+                <p className="text-foreground text-sm font-medium">
+                  {isProcessing ? "Building your chart" : "Loading chart..."}
+                </p>
+              </div>
+              {isProcessing && processingStep && (
+                <p className="text-muted-foreground mt-1.5 text-xs">
+                  {getStepDisplayName(processingStep)}
+                </p>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* State 2: No processing, no fetching, genuinely no data */}
+        {!hasChartData && !isProcessing && !isFetching && (
           <div className="text-muted-foreground flex flex-1 items-center justify-center rounded-md border border-dashed p-4 text-center text-sm">
             {isIntegrationMetric
-              ? "Loading chart..."
+              ? "No data available"
               : "Add data points via check-in to see chart"}
-          </div>
-        )}
-
-        {(isProcessing || loadingPhase) && hasChartData && (
-          <div className="bg-background/80 absolute inset-0 flex items-center justify-center rounded-md backdrop-blur-sm">
-            <div className="text-center">
-              <Loader2 className="text-muted-foreground mx-auto h-6 w-6 animate-spin" />
-              <p className="text-muted-foreground mt-2 text-sm">
-                {getLoadingMessage(loadingPhase)}
-              </p>
-            </div>
-          </div>
-        )}
-
-        {(isProcessing || loadingPhase) && !hasChartData && (
-          <div className="flex flex-1 items-center justify-center rounded-md border border-dashed">
-            <div className="text-center">
-              <Loader2 className="text-muted-foreground mx-auto h-6 w-6 animate-spin" />
-              <p className="text-muted-foreground mt-2 text-sm">
-                {getLoadingMessage(loadingPhase)}
-              </p>
-            </div>
           </div>
         )}
       </CardContent>

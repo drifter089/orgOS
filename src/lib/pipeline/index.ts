@@ -1,10 +1,22 @@
-export * from "./types";
-export * from "./configs";
-export { PipelineRunner, createPipelineRunner } from "./runner";
+// Types
+export type {
+  PipelineContext,
+  PipelineStepName,
+  PipelineOperation,
+  PipelineType,
+  StepResult,
+} from "./types";
+
+// Step definitions (single source of truth)
 export {
-  deleteOldMetricData,
-  deleteIngestionTransformer,
-  deleteChartTransformer,
-  deleteDataPoints,
-  type DeleteResult,
-} from "./steps/delete-old-data";
+  PIPELINE_STEPS,
+  PIPELINE_OPERATIONS,
+  OPERATION_TO_STEP,
+  getStepDisplayName,
+  getStepShortName,
+  getPipelineStepCount,
+  detectPipelineType,
+} from "./steps";
+
+// Runner
+export { PipelineRunner, createPipelineRunner } from "./runner";

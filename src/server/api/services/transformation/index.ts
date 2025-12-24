@@ -26,7 +26,6 @@ export {
 // Data Pipeline - main entry point for metric data ingestion
 export {
   ingestMetricData,
-  refreshMetricDataPoints,
   refreshMetricAndCharts,
   updateManualMetricChart,
 } from "./data-pipeline";
