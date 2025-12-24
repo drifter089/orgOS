@@ -97,6 +97,7 @@ export function enrichNodesWithRoleData(
   _roles: unknown[], // No longer needed, kept for backward compatibility
   _userNameMap?: Map<string, string>, // No longer needed
   dashboardCharts?: DashboardMetricWithRelations[],
+  teamId?: string,
 ): TeamNode[] {
   const dashboardChartMap = new Map<string, DashboardMetricWithRelations>();
   if (dashboardCharts) {
@@ -139,6 +140,7 @@ export function enrichNodesWithRoleData(
           position: node.position,
           data: {
             dashboardMetricId: dashboardMetric.id,
+            teamId: teamId ?? dashboardMetric.metric.teamId ?? "",
             dashboardMetric,
           },
         };

@@ -45,7 +45,12 @@ export function MemberRoleCard({ role, dashboardChart }: MemberRoleCardProps) {
       <div className="border-border/60 mt-auto border-t">
         {dashboardChart ? (
           <div className="overflow-hidden">
-            <DashboardMetricCard dashboardMetric={dashboardChart} />
+            <DashboardMetricCard
+              metricId={dashboardChart.metric.id}
+              teamId={dashboardChart.metric.teamId ?? ""}
+              dataOverride={dashboardChart}
+              readOnly
+            />
           </div>
         ) : role.metric ? (
           <div className="bg-muted/30 flex items-center gap-2 px-4 py-3">
