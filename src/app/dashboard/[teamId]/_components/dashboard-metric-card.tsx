@@ -15,11 +15,12 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { useMetricMutations } from "@/hooks/use-metric-mutations";
-import { usePipelineStatus } from "@/hooks/use-pipeline-status";
+import { type MetricStatus, useMetricStatus } from "@/hooks/use-metric-status";
 import { isDevMode } from "@/lib/dev-mode";
 import type { ChartTransformResult } from "@/lib/metrics/transformer-types";
 import { useConfirmation } from "@/providers/ConfirmationDialogProvider";
 import type { RouterOutputs } from "@/trpc/react";
+import { api } from "@/trpc/react";
 
 import { DashboardMetricChart } from "./dashboard-metric-chart";
 import { DashboardMetricDrawer } from "./dashboard-metric-drawer";
@@ -42,7 +43,7 @@ interface DashboardMetricCardProps {
   readOnly?: boolean;
   /**
    * Optional data override - use when data comes from a different query.
-   * When provided, skips the hook and uses this data directly.
+   * When provided, derives status from this data instead of calling the hook.
    * Useful for: public views, default dashboard, member cards, chart nodes.
    */
   dataOverride?: DashboardChartData;
@@ -51,10 +52,8 @@ interface DashboardMetricCardProps {
 /**
  * Dashboard metric card component.
  *
- * Uses usePipelineStatus hook for unified status tracking:
- * - Subscribes to getDashboardCharts cache
- * - Polls metric.getStatus when processing
- * - Automatically invalidates cache on completion
+ * Uses useMetricStatus hook for status tracking.
+ * Owns the status and passes it to drawer - no duplicate polling.
  */
 export function DashboardMetricCard({
   metricId,
@@ -65,18 +64,24 @@ export function DashboardMetricCard({
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const { confirm } = useConfirmation();
 
-  // Unified status tracking - single source of truth
-  const {
-    dashboardChart: hookChart,
-    status,
-    isFetching,
-  } = usePipelineStatus(metricId, teamId);
+  // Status tracking - single source of truth
+  const { status, startPolling, isFetching } = useMetricStatus(
+    metricId,
+    teamId,
+  );
+
+  // Get chart data from cache
+  const { data: dashboardCharts } = api.dashboard.getDashboardCharts.useQuery(
+    { teamId },
+    { enabled: !dataOverride },
+  );
+  const hookChart = dashboardCharts?.find((dc) => dc.metric.id === metricId);
 
   // Use override if provided, otherwise use hook data
-  const dashboardChart = dataOverride ?? hookChart;
+  const dashboardChart = dataOverride ?? hookChart ?? null;
 
-  // For dataOverride, derive status from the override data
-  const effectiveStatus = dataOverride
+  // For dataOverride, derive status from the override data (for read-only views)
+  const effectiveStatus: MetricStatus = dataOverride
     ? {
         isProcessing: !!dataOverride.metric.refreshStatus,
         processingStep: dataOverride.metric.refreshStatus,
@@ -86,7 +91,7 @@ export function DashboardMetricCard({
       }
     : status;
 
-  // All mutations in one place
+  // All mutations
   const mutations = useMetricMutations({ teamId });
 
   const metric = dashboardChart?.metric;
@@ -111,6 +116,7 @@ export function DashboardMetricCard({
       try {
         if (!isIntegrationMetric) {
           await mutations.regenerate.mutateAsync({ metricId: metric.id });
+          startPolling(); // Start polling immediately
           toast.success("Chart regeneration started");
           return;
         }
@@ -119,9 +125,11 @@ export function DashboardMetricCard({
 
         if (forceRebuild) {
           await mutations.regenerate.mutateAsync({ metricId: metric.id });
+          startPolling(); // Start polling immediately
           toast.success("Pipeline regeneration started");
         } else {
           await mutations.refresh.mutateAsync({ metricId: metric.id });
+          startPolling(); // Start polling immediately
           toast.success("Data refresh started");
         }
       } catch (error) {
@@ -134,7 +142,7 @@ export function DashboardMetricCard({
         );
       }
     },
-    [metric, isIntegrationMetric, mutations],
+    [metric, isIntegrationMetric, mutations, startPolling],
   );
 
   const handleRemove = useCallback(async () => {
@@ -172,8 +180,9 @@ export function DashboardMetricCard({
         cadence,
         selectedDimension,
       });
+      startPolling(); // Start polling immediately
     },
-    [metric, mutations],
+    [metric, mutations, startPolling],
   );
 
   // ==========================================================================
@@ -268,8 +277,9 @@ export function DashboardMetricCard({
       <DrawerContent className="flex h-[96vh] max-h-[96vh] flex-col">
         <div className="mx-auto min-h-0 w-full flex-1">
           <DashboardMetricDrawer
-            metricId={metric.id}
-            teamId={teamId}
+            dashboardChart={dashboardChart}
+            status={effectiveStatus}
+            isFetching={isFetching}
             isDeleting={mutations.delete.isPending}
             onRefresh={handleRefresh}
             onUpdateMetric={handleUpdateMetric}

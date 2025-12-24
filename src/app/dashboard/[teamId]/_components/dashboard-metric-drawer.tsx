@@ -39,23 +39,29 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { usePipelineStatus } from "@/hooks/use-pipeline-status";
+import type { MetricStatus } from "@/hooks/use-metric-status";
 import { getDimensionDisplayLabel } from "@/lib/metrics/dimension-labels";
 import { getLatestMetricValue } from "@/lib/metrics/get-latest-value";
 import type { ChartTransformResult } from "@/lib/metrics/transformer-types";
 import { getPlatformConfig } from "@/lib/platform-config";
 import { cn } from "@/lib/utils";
+import type { RouterOutputs } from "@/trpc/react";
 import { api } from "@/trpc/react";
 
 import { DashboardMetricChart } from "./dashboard-metric-chart";
 
+type DashboardChartData =
+  RouterOutputs["dashboard"]["getDashboardCharts"][number];
+
 const CADENCE_OPTIONS: Cadence[] = ["DAILY", "WEEKLY", "MONTHLY"];
 
 interface DashboardMetricDrawerProps {
-  /** Metric ID - used to fetch live data from cache */
-  metricId: string;
-  /** Team ID - required for cache query */
-  teamId: string;
+  /** Dashboard chart data - passed from parent to avoid duplicate queries */
+  dashboardChart: DashboardChartData;
+  /** Status - passed from parent to avoid duplicate polling */
+  status: MetricStatus;
+  /** Whether the parent query is fetching */
+  isFetching: boolean;
   /** Whether delete mutation is pending */
   isDeleting: boolean;
   /** Callback to refresh/regenerate metric data */
@@ -77,12 +83,13 @@ interface DashboardMetricDrawerProps {
 /**
  * Drawer for viewing and editing metric settings.
  *
- * Uses usePipelineStatus hook for unified status tracking.
- * Form state is initialized from cache and synced when data changes.
+ * Receives status and data from parent - no hook calls needed.
+ * Form state is initialized from props and synced when data changes.
  */
 export function DashboardMetricDrawer({
-  metricId,
-  teamId,
+  dashboardChart,
+  status,
+  isFetching,
   isDeleting,
   onRefresh,
   onUpdateMetric,
@@ -90,50 +97,51 @@ export function DashboardMetricDrawer({
   onClose,
   onRegenerateChart,
 }: DashboardMetricDrawerProps) {
-  // Unified status tracking
-  const { dashboardChart, status, isFetching } = usePipelineStatus(
-    metricId,
-    teamId,
-  );
-
-  const metric = dashboardChart?.metric;
-  const chartTransform = dashboardChart?.chartConfig as
+  const metric = dashboardChart.metric;
+  const metricId = metric.id;
+  const chartTransform = dashboardChart.chartConfig as
     | ChartTransformResult
     | null
     | undefined;
-  const chartTransformer = dashboardChart?.chartTransformer;
-  const goalProgress = dashboardChart?.goalProgress ?? null;
+  const chartTransformer = dashboardChart.chartTransformer;
+  const goalProgress = dashboardChart.goalProgress ?? null;
 
   // Track if user is actively editing (to prevent overwriting their changes)
   const isEditingRef = useRef(false);
 
-  // Local form state - initialized from cache data
-  const [name, setName] = useState("");
-  const [selectedChartType, setSelectedChartType] = useState("bar");
-  const [selectedCadence, setSelectedCadence] = useState<Cadence>("WEEKLY");
-  const [selectedDimension, setSelectedDimension] = useState<string>("value");
+  // Local form state - initialized from props
+  const [name, setName] = useState(metric.name);
+  const [selectedChartType, setSelectedChartType] = useState(
+    chartTransformer?.chartType ?? "bar",
+  );
+  const [selectedCadence, setSelectedCadence] = useState<Cadence>(
+    chartTransformer?.cadence ?? "WEEKLY",
+  );
+  const [selectedDimension, setSelectedDimension] = useState<string>(
+    chartTransformer?.selectedDimension ?? "value",
+  );
   const [forceRebuild, setForceRebuild] = useState(false);
 
   // Query for available dimensions
-  const isIntegrationMetric = !!metric?.integration?.providerId;
+  const isIntegrationMetric = !!metric.integration?.providerId;
   const { data: availableDimensions, isLoading: isDimensionsLoading } =
     api.pipeline.getAvailableDimensions.useQuery(
       { metricId },
       { enabled: isIntegrationMetric },
     );
 
-  // Sync form state when cache data changes (only if not actively editing)
+  // Sync form state when props change (only if not actively editing)
   useEffect(() => {
-    if (!metric || !dashboardChart || isEditingRef.current) return;
+    if (isEditingRef.current) return;
 
     setName(metric.name);
     setSelectedChartType(chartTransformer?.chartType ?? "bar");
     setSelectedCadence(chartTransformer?.cadence ?? "WEEKLY");
     setSelectedDimension(chartTransformer?.selectedDimension ?? "value");
-  }, [metric, dashboardChart, chartTransformer]);
+  }, [metric.name, chartTransformer]);
 
-  // Derived state - compare current form values to cache
-  const hasNameChanges = name !== (metric?.name ?? "");
+  // Derived state - compare current form values to props
+  const hasNameChanges = name !== metric.name;
   const hasChartChanges =
     selectedChartType !== (chartTransformer?.chartType ?? "bar") ||
     selectedCadence !== (chartTransformer?.cadence ?? "WEEKLY") ||
@@ -143,7 +151,7 @@ export function DashboardMetricDrawer({
     chartTransform?.chartData && chartTransform.chartData.length > 0
   );
   const currentValue = getLatestMetricValue(chartTransform ?? null);
-  const platformConfig = metric?.integration?.providerId
+  const platformConfig = metric.integration?.providerId
     ? getPlatformConfig(metric.integration.providerId)
     : null;
 
@@ -165,7 +173,7 @@ export function DashboardMetricDrawer({
 
   const handleSave = () => {
     if (hasNameChanges && name.trim()) {
-      onUpdateMetric(name.trim(), metric?.description ?? "");
+      onUpdateMetric(name.trim(), metric.description ?? "");
     }
   };
 
@@ -185,14 +193,6 @@ export function DashboardMetricDrawer({
   // ==========================================================================
   // Render
   // ==========================================================================
-
-  if (!dashboardChart || !metric) {
-    return (
-      <div className="flex h-full items-center justify-center">
-        <Loader2 className="text-muted-foreground h-8 w-8 animate-spin" />
-      </div>
-    );
-  }
 
   return (
     <div className="flex h-full flex-col">
