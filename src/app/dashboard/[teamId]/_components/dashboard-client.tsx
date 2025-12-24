@@ -21,6 +21,8 @@ export interface PipelineProgressData {
 interface DashboardClientProps {
   teamId: string;
   dashboardCharts: DashboardMetrics;
+  /** Whether the dashboard charts query is currently fetching */
+  isFetching?: boolean;
 }
 
 /**
@@ -35,26 +37,28 @@ interface DashboardClientProps {
 export function DashboardClient({
   teamId,
   dashboardCharts,
+  isFetching = false,
 }: DashboardClientProps) {
   const utils = api.useUtils();
 
-  // Find metrics currently processing (from server data - single source of truth)
-  const processingMetricIds = useMemo(
+  // Get initial processing IDs from server data (props)
+  const serverProcessingIds = useMemo(
     () =>
-      dashboardCharts
-        .filter((dc) => !!dc.metric.refreshStatus)
-        .map((dc) => dc.metric.id),
+      new Set(
+        dashboardCharts
+          .filter((dc) => !!dc.metric.refreshStatus)
+          .map((dc) => dc.metric.id),
+      ),
     [dashboardCharts],
   );
 
-  const hasProcessingMetrics = processingMetricIds.length > 0;
-
   // Single centralized poll for ALL processing metrics
+  // Uses server data as initial list, batchProgress refines it
   const { data: batchProgress } = api.pipeline.getBatchProgress.useQuery(
-    { metricIds: processingMetricIds },
+    { metricIds: Array.from(serverProcessingIds) },
     {
-      enabled: hasProcessingMetrics,
-      refetchInterval: hasProcessingMetrics ? 1000 : false,
+      enabled: serverProcessingIds.size > 0,
+      refetchInterval: serverProcessingIds.size > 0 ? 1000 : false,
     },
   );
 
@@ -65,54 +69,44 @@ export function DashboardClient({
   useEffect(() => {
     if (!batchProgress) return;
 
-    const currentProcessing = new Set<string>();
-    const completed: string[] = [];
-    const failed: Array<{ id: string; error: string }> = [];
+    const justCompleted: string[] = [];
+    const justFailed: Array<{ id: string; error: string }> = [];
 
-    // Check each metric that was previously processing
-    for (const metricId of prevProcessingRef.current) {
-      const status = batchProgress[metricId];
+    // Check each metric in batchProgress for completion
+    for (const [metricId, status] of Object.entries(batchProgress)) {
+      const wasProcessing = prevProcessingRef.current.has(metricId);
 
-      if (status && !status.isProcessing) {
-        // This metric just finished
+      if (wasProcessing && !status.isProcessing) {
         if (status.error) {
-          failed.push({ id: metricId, error: status.error });
+          justFailed.push({ id: metricId, error: status.error });
         } else {
-          completed.push(metricId);
+          justCompleted.push(metricId);
         }
       }
     }
 
-    // Build current processing set
-    for (const [metricId, status] of Object.entries(batchProgress)) {
-      if (status.isProcessing) {
-        currentProcessing.add(metricId);
-      }
-    }
-
-    // Also add metrics that server says are processing but haven't been polled yet
-    for (const metricId of processingMetricIds) {
-      if (!batchProgress[metricId]) {
-        currentProcessing.add(metricId);
-      }
-    }
-
     // Show error toasts
-    for (const { error } of failed) {
+    for (const { error } of justFailed) {
       toast.error("Pipeline failed", {
         description: error,
         duration: 10000,
       });
     }
 
-    // Invalidate if any completed (success or error)
-    if (completed.length > 0 || failed.length > 0) {
+    // Invalidate on completion (refetchInterval in parent will also catch this)
+    if (justCompleted.length > 0 || justFailed.length > 0) {
       void utils.dashboard.getDashboardCharts.invalidate({ teamId });
     }
 
-    // Update tracking ref
-    prevProcessingRef.current = currentProcessing;
-  }, [batchProgress, processingMetricIds, teamId, utils]);
+    // Update ref - track what batchProgress says is processing
+    const nowProcessing = new Set<string>();
+    for (const [metricId, status] of Object.entries(batchProgress)) {
+      if (status.isProcessing) {
+        nowProcessing.add(metricId);
+      }
+    }
+    prevProcessingRef.current = nowProcessing;
+  }, [batchProgress, teamId, utils]);
 
   // Create lookup map for cards to access their pipeline status
   const pipelineStatusMap = useMemo(() => {
@@ -167,6 +161,7 @@ export function DashboardClient({
               dashboardMetric={dashboardMetric}
               pipelineStatus={pipelineStatusMap.get(dashboardMetric.metric.id)}
               teamId={teamId}
+              isFetching={isFetching}
             />
           ))}
         </div>

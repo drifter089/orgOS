@@ -65,6 +65,8 @@ interface DashboardMetricChartProps {
   valueLabel?: string | null;
   /** Whether the metric is currently processing (from parent) */
   isProcessing?: boolean;
+  /** Whether the parent query is fetching updated data */
+  isFetching?: boolean;
 }
 
 export function DashboardMetricChart({
@@ -79,6 +81,7 @@ export function DashboardMetricChart({
   goalProgress,
   valueLabel,
   isProcessing = false,
+  isFetching = false,
 }: DashboardMetricChartProps) {
   const platformConfig = integrationId
     ? getPlatformConfig(integrationId)
@@ -708,14 +711,7 @@ export function DashboardMetricChart({
           </div>
         )}
 
-        {!hasChartData && !isProcessing && (
-          <div className="text-muted-foreground flex flex-1 items-center justify-center rounded-md border border-dashed p-4 text-center text-sm">
-            {isIntegrationMetric
-              ? "Loading chart..."
-              : "Add data points via check-in to see chart"}
-          </div>
-        )}
-
+        {/* State 1: Actively processing pipeline */}
         {!hasChartData && isProcessing && (
           <div className="flex flex-1 items-center justify-center rounded-md border border-dashed p-4">
             <div className="text-center">
@@ -724,6 +720,27 @@ export function DashboardMetricChart({
                 Processing...
               </p>
             </div>
+          </div>
+        )}
+
+        {/* State 2: Processing done, fetching updated data */}
+        {!hasChartData && !isProcessing && isFetching && (
+          <div className="flex flex-1 items-center justify-center rounded-md border border-dashed p-4">
+            <div className="text-center">
+              <Loader2 className="text-muted-foreground mx-auto h-6 w-6 animate-spin" />
+              <p className="text-muted-foreground mt-2 text-sm">
+                Loading data...
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* State 3: No processing, no fetching, genuinely no data */}
+        {!hasChartData && !isProcessing && !isFetching && (
+          <div className="text-muted-foreground flex flex-1 items-center justify-center rounded-md border border-dashed p-4 text-center text-sm">
+            {isIntegrationMetric
+              ? "No data available"
+              : "Add data points via check-in to see chart"}
           </div>
         )}
       </CardContent>

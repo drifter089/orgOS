@@ -404,11 +404,11 @@ export async function refreshMetricAndCharts(
         await db.metricDataPoint.deleteMany({ where: { metricId: metric.id } });
       });
 
-      // Delete old ingestion transformer
+      // Delete old ingestion transformer (use deleteMany to avoid error when none exists)
       await runner.run("delete-ingestion-transformer", async () => {
-        await db.dataIngestionTransformer
-          .delete({ where: { templateId: metric.id } })
-          .catch(() => null);
+        await db.dataIngestionTransformer.deleteMany({
+          where: { templateId: metric.id },
+        });
       });
 
       // Fetch data and generate new transformer
@@ -448,7 +448,40 @@ export async function refreshMetricAndCharts(
     const chartsWithTransformers = metric.dashboardCharts.filter(
       (dc) => dc.chartTransformer,
     );
+    const chartsWithoutTransformers = metric.dashboardCharts.filter(
+      (dc) => !dc.chartTransformer,
+    );
 
+    // For hard-refresh or new metrics, generate chart transformers for charts that don't have one
+    if (input.forceRegenerate && chartsWithoutTransformers.length > 0) {
+      await runner.run("generate-chart-transformer", async () => {
+        const { createChartTransformer } = await import("./chart-generator");
+
+        for (const dc of chartsWithoutTransformers) {
+          try {
+            const cadence =
+              (endpointConfig.cadence?.toUpperCase() as
+                | "DAILY"
+                | "WEEKLY"
+                | "MONTHLY") ?? "DAILY";
+            await createChartTransformer({
+              dashboardChartId: dc.id,
+              metricName: metric.name,
+              metricDescription: metric.description ?? "",
+              chartType: dc.chartType ?? "line",
+              cadence,
+            });
+          } catch (chartError) {
+            console.error(
+              `[Pipeline] Chart transformer generation error for ${dc.id}:`,
+              chartError,
+            );
+          }
+        }
+      });
+    }
+
+    // Execute existing chart transformers with fresh data
     if (chartsWithTransformers.length > 0) {
       await runner.run("execute-chart-transformer", async () => {
         const freshDataPoints = await db.metricDataPoint.findMany({

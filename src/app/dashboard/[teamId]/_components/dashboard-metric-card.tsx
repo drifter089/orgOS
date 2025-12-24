@@ -51,6 +51,8 @@ interface DashboardMetricCardProps {
   teamId?: string;
   /** When true, hides settings drawer and dev tool button (for public views) */
   readOnly?: boolean;
+  /** Whether the parent dashboard query is currently fetching */
+  isFetching?: boolean;
 }
 
 /**
@@ -66,6 +68,7 @@ export function DashboardMetricCard({
   pipelineStatus,
   teamId: teamIdProp,
   readOnly = false,
+  isFetching = false,
 }: DashboardMetricCardProps) {
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
 
@@ -293,6 +296,7 @@ export function DashboardMetricCard({
         goalProgress={dashboardMetric.goalProgress}
         valueLabel={dashboardMetric.valueLabel}
         isProcessing={isProcessing}
+        isFetching={isFetching}
       />
     </div>
   );

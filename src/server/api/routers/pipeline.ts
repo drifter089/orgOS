@@ -88,9 +88,9 @@ export async function runBackgroundTask(
       }
 
       case "ingestion-only": {
-        await db.dataIngestionTransformer
-          .delete({ where: { templateId: metricId } })
-          .catch(() => null);
+        await db.dataIngestionTransformer.deleteMany({
+          where: { templateId: metricId },
+        });
         await db.metric.update({
           where: { id: metricId },
           data: { refreshStatus: "generating-ingestion-transformer" },
@@ -119,9 +119,9 @@ export async function runBackgroundTask(
       }
 
       case "chart-only": {
-        await db.chartTransformer
-          .delete({ where: { dashboardChartId: config.dashboardChartId } })
-          .catch(() => null);
+        await db.chartTransformer.deleteMany({
+          where: { dashboardChartId: config.dashboardChartId },
+        });
         await db.metric.update({
           where: { id: metricId },
           data: { refreshStatus: "generating-chart-transformer" },

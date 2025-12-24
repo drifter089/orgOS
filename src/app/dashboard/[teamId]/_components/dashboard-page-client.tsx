@@ -20,11 +20,23 @@ interface DashboardPageClientProps {
  */
 export function DashboardPageClient({ teamId }: DashboardPageClientProps) {
   // Single query for dashboard charts - data is hydrated from server prefetch
+  // refetchInterval: Poll every 3s when any metric is processing (catches completion)
   const {
     data: dashboardCharts,
     isLoading: chartsLoading,
     isError: chartsError,
-  } = api.dashboard.getDashboardCharts.useQuery({ teamId });
+    isFetching,
+  } = api.dashboard.getDashboardCharts.useQuery(
+    { teamId },
+    {
+      refetchInterval: (query) => {
+        const hasProcessing = query.state.data?.some(
+          (dc) => dc.metric.refreshStatus !== null,
+        );
+        return hasProcessing ? 3000 : false;
+      },
+    },
+  );
 
   const {
     data: integrations,
@@ -72,7 +84,11 @@ export function DashboardPageClient({ teamId }: DashboardPageClientProps) {
         </p>
       </div>
 
-      <DashboardClient teamId={teamId} dashboardCharts={dashboardCharts} />
+      <DashboardClient
+        teamId={teamId}
+        dashboardCharts={dashboardCharts}
+        isFetching={isFetching}
+      />
       <DashboardSidebar teamId={teamId} initialIntegrations={integrations} />
     </div>
   );

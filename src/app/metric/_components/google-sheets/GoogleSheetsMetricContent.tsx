@@ -359,9 +359,9 @@ export function GoogleSheetsMetricContent({
                   <Loader2 className="size-6 animate-spin" />
                 </div>
               ) : previewData.length > 0 ? (
-                <div className="rounded-md border">
-                  <ScrollArea className="h-[350px] w-full">
-                    <div className="p-2">
+                <div className="overflow-hidden rounded-md border">
+                  <ScrollArea className="h-[350px]">
+                    <div className="min-w-0 overflow-x-auto p-2">
                       <Table>
                         <TableHeader>
                           <TableRow>
