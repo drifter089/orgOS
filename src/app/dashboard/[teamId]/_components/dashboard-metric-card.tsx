@@ -3,14 +3,25 @@
 import { useCallback, useState } from "react";
 
 import type { Cadence } from "@prisma/client";
-import { AlertCircle, Bug, Settings } from "lucide-react";
+import {
+  AlertCircle,
+  Bug,
+  ClipboardCheck,
+  Info,
+  Loader2,
+  Settings,
+  X,
+} from "lucide-react";
+import { Link } from "next-transition-router";
 import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   Drawer,
+  DrawerClose,
   DrawerContent,
+  DrawerHeader,
   DrawerTitle,
   DrawerTrigger,
 } from "@/components/ui/drawer";
@@ -21,6 +32,8 @@ import {
 } from "@/components/ui/tooltip";
 import { isDevMode } from "@/lib/dev-mode";
 import type { ChartTransformResult } from "@/lib/metrics/transformer-types";
+import { getPlatformConfig } from "@/lib/platform-config";
+import { cn } from "@/lib/utils";
 import { useConfirmation } from "@/providers/ConfirmationDialogProvider";
 import { api } from "@/trpc/react";
 import type { DashboardChartWithRelations } from "@/types/dashboard";
@@ -53,6 +66,9 @@ export function DashboardMetricCard({
     dashboardChart.chartConfig as ChartTransformResult | null;
   const hasChartData = !!chartTransform?.chartData?.length;
   const title = chartTransform?.title ?? metric.name;
+  const platformConfig = metric.integration?.providerId
+    ? getPlatformConfig(metric.integration.providerId)
+    : null;
 
   // ---------------------------------------------------------------------------
   // Mutations with optimistic updates
@@ -225,8 +241,74 @@ export function DashboardMetricCard({
     <Drawer open={isDrawerOpen} onOpenChange={setIsDrawerOpen}>
       {cardContent}
 
-      <DrawerContent className="flex h-[90vh] max-h-[90vh] flex-col overflow-hidden">
-        <DrawerTitle className="sr-only">{metric.name} Settings</DrawerTitle>
+      <DrawerContent className="flex h-[70vh] max-h-[70vh] flex-col overflow-hidden">
+        <DrawerHeader className="flex flex-row items-center justify-between border-b px-6 py-4">
+          <div className="flex items-center gap-3">
+            <DrawerTitle className="text-lg font-semibold">
+              {metric.name}
+            </DrawerTitle>
+            {chartTransform && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    type="button"
+                    className="text-muted-foreground/60 hover:text-muted-foreground shrink-0 transition-colors"
+                  >
+                    <Info className="h-4 w-4" />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom" className="max-w-[280px]">
+                  <p className="text-xs">
+                    {chartTransform.description ??
+                      `Showing ${chartTransform.chartType} chart with ${chartTransform.dataKeys?.join(", ") ?? "data"}`}
+                  </p>
+                </TooltipContent>
+              </Tooltip>
+            )}
+            {platformConfig && (
+              <Badge
+                variant="secondary"
+                className={cn(platformConfig.bgColor, platformConfig.textColor)}
+              >
+                {platformConfig.name}
+              </Badge>
+            )}
+            {error && (
+              <Badge variant="destructive" className="text-xs">
+                Error
+              </Badge>
+            )}
+            {processing && (
+              <Badge variant="outline" className="text-xs">
+                <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                Processing
+              </Badge>
+            )}
+          </div>
+          <div className="flex items-center gap-2">
+            {!isIntegrationMetric && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button variant="default" size="sm" asChild>
+                    <Link href={`/metric/check-in/${metricId}`}>
+                      <ClipboardCheck className="mr-1 h-4 w-4" />
+                      Check-in
+                    </Link>
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom">
+                  <p className="text-xs">Add a new data point</p>
+                </TooltipContent>
+              </Tooltip>
+            )}
+            <DrawerClose asChild>
+              <Button variant="ghost" size="icon" className="h-8 w-8">
+                <X className="h-4 w-4" />
+              </Button>
+            </DrawerClose>
+          </div>
+        </DrawerHeader>
+
         <div className="min-h-0 w-full flex-1">
           <DashboardMetricDrawer
             dashboardChart={dashboardChart}
