@@ -3,7 +3,6 @@ import { notFound } from "next/navigation";
 
 import { Lock } from "lucide-react";
 
-import { PipelineStatusProvider } from "@/app/dashboard/[teamId]/_components/pipeline-status-provider";
 import { Button } from "@/components/ui/button";
 import { HydrateClient, api } from "@/trpc/server";
 
@@ -121,37 +120,35 @@ export default async function TeamPage({
 
   return (
     <HydrateClient>
-      <PipelineStatusProvider teamId={team.id}>
-        <TeamStoreProvider
-          teamId={team.id}
-          teamName={team.name}
-          initialViewport={initialViewport}
-        >
-          <ChartDragProvider>
-            <div className="flex h-screen w-full overflow-hidden">
-              <DashboardSidebarWithDragDrop
-                teamId={team.id}
-                initialIntegrations={integrations}
-              />
+      <TeamStoreProvider
+        teamId={team.id}
+        teamName={team.name}
+        initialViewport={initialViewport}
+      >
+        <ChartDragProvider>
+          <div className="flex h-screen w-full overflow-hidden">
+            <DashboardSidebarWithDragDrop
+              teamId={team.id}
+              initialIntegrations={integrations}
+            />
 
-              <div className="relative h-full w-full flex-1 overflow-hidden">
-                <TeamCanvasWrapper
-                  initialNodes={nodes}
-                  initialEdges={edges}
-                  teamId={team.id}
-                />
-              </div>
-
-              <TeamSheetSidebar
+            <div className="relative h-full w-full flex-1 overflow-hidden">
+              <TeamCanvasWrapper
+                initialNodes={nodes}
+                initialEdges={edges}
                 teamId={team.id}
-                teamName={team.name}
-                teamDescription={team.description}
-                roleCount={team.roles.length}
               />
             </div>
-          </ChartDragProvider>
-        </TeamStoreProvider>
-      </PipelineStatusProvider>
+
+            <TeamSheetSidebar
+              teamId={team.id}
+              teamName={team.name}
+              teamDescription={team.description}
+              roleCount={team.roles.length}
+            />
+          </div>
+        </ChartDragProvider>
+      </TeamStoreProvider>
     </HydrateClient>
   );
 }

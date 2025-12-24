@@ -3,14 +3,14 @@
 import { Skeleton } from "@/components/ui/skeleton";
 
 import { DashboardMetricCard } from "./dashboard-metric-card";
-import { usePipelineStatus } from "./pipeline-status-provider";
+import { useDashboardCharts } from "./use-dashboard-charts";
 
-/**
- * Dashboard content - renders metric cards.
- * Gets charts from PipelineStatusProvider context.
- */
-export function DashboardContent() {
-  const { dashboardCharts, isLoading, isError } = usePipelineStatus();
+interface DashboardContentProps {
+  teamId: string;
+}
+
+export function DashboardContent({ teamId }: DashboardContentProps) {
+  const { charts, isLoading, isError } = useDashboardCharts(teamId);
 
   if (isLoading) {
     return (
@@ -37,13 +37,13 @@ export function DashboardContent() {
 
   return (
     <div className="space-y-6">
-      {dashboardCharts.length > 0 && (
+      {charts.length > 0 && (
         <p className="text-muted-foreground text-sm">
-          {`Showing ${dashboardCharts.length} metric${dashboardCharts.length === 1 ? "" : "s"}`}
+          {`Showing ${charts.length} metric${charts.length === 1 ? "" : "s"}`}
         </p>
       )}
 
-      {dashboardCharts.length === 0 ? (
+      {charts.length === 0 ? (
         <div className="flex flex-col items-center justify-center rounded-lg border-2 border-dashed py-16">
           <div className="space-y-2 text-center">
             <h3 className="text-lg font-semibold">No KPIs yet</h3>
@@ -55,8 +55,12 @@ export function DashboardContent() {
         </div>
       ) : (
         <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-          {dashboardCharts.map((dc) => (
-            <DashboardMetricCard key={dc.id} dashboardChart={dc} />
+          {charts.map((dc) => (
+            <DashboardMetricCard
+              key={dc.id}
+              dashboardChart={dc}
+              teamId={teamId}
+            />
           ))}
         </div>
       )}
