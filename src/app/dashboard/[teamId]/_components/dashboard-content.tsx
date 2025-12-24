@@ -1,18 +1,40 @@
 "use client";
 
-import type { DashboardChartWithRelations } from "@/types/dashboard";
+import { Skeleton } from "@/components/ui/skeleton";
 
 import { DashboardMetricCard } from "./dashboard-metric-card";
-
-interface DashboardClientProps {
-  dashboardCharts: DashboardChartWithRelations[];
-}
+import { usePipelineStatus } from "./pipeline-status-provider";
 
 /**
- * Dashboard client - renders metric cards.
- * Cards receive data as props and use PipelineStatusProvider for status.
+ * Dashboard content - renders metric cards.
+ * Gets charts from PipelineStatusProvider context.
  */
-export function DashboardClient({ dashboardCharts }: DashboardClientProps) {
+export function DashboardContent() {
+  const { dashboardCharts, isLoading, isError } = usePipelineStatus();
+
+  if (isLoading) {
+    return (
+      <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+        {[1, 2, 3, 4].map((i) => (
+          <Skeleton key={i} className="h-[420px] rounded-lg" />
+        ))}
+      </div>
+    );
+  }
+
+  if (isError) {
+    return (
+      <div className="flex flex-col items-center justify-center rounded-lg border-2 border-dashed py-16">
+        <div className="space-y-2 text-center">
+          <h3 className="text-lg font-semibold">Failed to load</h3>
+          <p className="text-muted-foreground max-w-sm text-sm">
+            Failed to load dashboard charts. Please refresh the page.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       {dashboardCharts.length > 0 && (

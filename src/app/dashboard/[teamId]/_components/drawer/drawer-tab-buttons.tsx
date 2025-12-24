@@ -22,23 +22,21 @@ export function DrawerTabButtons({
   ];
 
   return (
-    <div className="flex h-full flex-col">
+    <div className="bg-muted/30 flex h-full flex-col gap-2 p-3">
       {tabs.map((tab) => (
         <button
           key={tab.id}
           onClick={() => onTabChange(tab.id)}
           className={cn(
-            "flex flex-1 flex-col items-center justify-center gap-1.5",
-            "border-b transition-all duration-200 last:border-b-0",
+            "flex items-center gap-2 rounded-lg border px-3 py-3",
+            "transition-all duration-200",
             activeTab === tab.id
-              ? "bg-primary/10 text-primary border-l-primary border-l-2"
-              : "text-muted-foreground hover:bg-muted/50 hover:text-foreground",
+              ? "border-primary bg-primary/10 text-primary shadow-sm"
+              : "bg-background/60 text-muted-foreground hover:border-border hover:bg-background hover:text-foreground border-transparent",
           )}
         >
-          <tab.icon className="h-5 w-5" />
-          <span className="text-[10px] font-medium tracking-wide uppercase">
-            {tab.label}
-          </span>
+          <tab.icon className="h-4 w-4 shrink-0" />
+          <span className="text-xs font-medium">{tab.label}</span>
         </button>
       ))}
     </div>

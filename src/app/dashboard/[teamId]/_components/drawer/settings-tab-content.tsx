@@ -128,22 +128,22 @@ export function SettingsTabContent({
             type="single"
             value={selectedChartType}
             onValueChange={(v) => v && setSelectedChartType(v)}
-            className="grid w-full grid-cols-2"
+            className="grid w-full grid-cols-2 gap-2"
           >
             <ToggleGroupItem
               value="bar"
               aria-label="Bar Chart"
-              className="data-[state=on]:bg-primary data-[state=on]:text-primary-foreground"
+              className="data-[state=on]:border-primary data-[state=on]:bg-primary data-[state=on]:text-primary-foreground border"
             >
-              <BarChart3 className="mr-1 h-4 w-4" />
+              <BarChart3 className="mr-1.5 h-4 w-4" />
               Bar
             </ToggleGroupItem>
             <ToggleGroupItem
               value="line"
               aria-label="Line Chart"
-              className="data-[state=on]:bg-primary data-[state=on]:text-primary-foreground"
+              className="data-[state=on]:border-primary data-[state=on]:bg-primary data-[state=on]:text-primary-foreground border"
             >
-              <TrendingUp className="mr-1 h-4 w-4" />
+              <TrendingUp className="mr-1.5 h-4 w-4" />
               Line
             </ToggleGroupItem>
           </ToggleGroup>
@@ -156,13 +156,13 @@ export function SettingsTabContent({
             type="single"
             value={selectedCadence}
             onValueChange={(v) => v && setSelectedCadence(v as Cadence)}
-            className="grid w-full grid-cols-3"
+            className="grid w-full grid-cols-3 gap-2"
           >
             {CADENCE_OPTIONS.map((c) => (
               <ToggleGroupItem
                 key={c}
                 value={c}
-                className="data-[state=on]:bg-primary data-[state=on]:text-primary-foreground text-xs"
+                className="data-[state=on]:border-primary data-[state=on]:bg-primary data-[state=on]:text-primary-foreground border text-xs"
               >
                 {c.charAt(0) + c.slice(1).toLowerCase()}
               </ToggleGroupItem>

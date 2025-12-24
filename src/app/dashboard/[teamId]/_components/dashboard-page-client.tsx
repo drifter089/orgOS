@@ -3,7 +3,7 @@
 import { Skeleton } from "@/components/ui/skeleton";
 import { api } from "@/trpc/react";
 
-import { DashboardClient } from "./dashboard-client";
+import { DashboardContent } from "./dashboard-content";
 import { DashboardSidebar } from "./dashboard-sidebar";
 import { PipelineStatusProvider } from "./pipeline-status-provider";
 
@@ -15,25 +15,18 @@ interface DashboardPageClientProps {
  * Dashboard page client component.
  *
  * Architecture:
- * - Single getDashboardCharts query here
- * - PipelineStatusProvider wraps both client and sidebar
- * - Provider handles all status polling and mutations
- * - Cards receive data as props (no duplicate queries)
+ * - PipelineStatusProvider owns the dashboard query with conditional refetch
+ * - DashboardContent consumes charts from context
+ * - Simple, single source of truth
  */
 export function DashboardPageClient({ teamId }: DashboardPageClientProps) {
-  const {
-    data: dashboardCharts,
-    isLoading: chartsLoading,
-    isError: chartsError,
-  } = api.dashboard.getDashboardCharts.useQuery({ teamId });
-
   const {
     data: integrations,
     isLoading: integrationsLoading,
     isError: integrationsError,
   } = api.integration.listWithStats.useQuery();
 
-  if (chartsLoading || integrationsLoading) {
+  if (integrationsLoading) {
     return (
       <div className="container mx-auto px-4 py-8 pt-24">
         <div className="mb-8">
@@ -49,7 +42,7 @@ export function DashboardPageClient({ teamId }: DashboardPageClientProps) {
     );
   }
 
-  if (chartsError || integrationsError || !dashboardCharts || !integrations) {
+  if (integrationsError || !integrations) {
     return (
       <div className="container mx-auto px-4 py-8 pt-24">
         <div className="mb-8">
@@ -63,7 +56,7 @@ export function DashboardPageClient({ teamId }: DashboardPageClientProps) {
   }
 
   return (
-    <PipelineStatusProvider teamId={teamId} dashboardCharts={dashboardCharts}>
+    <PipelineStatusProvider teamId={teamId}>
       <div className="container mx-auto px-4 py-8 pt-24">
         <div className="mb-8">
           <h1 className="text-3xl font-bold tracking-tight">KPIs</h1>
@@ -72,7 +65,7 @@ export function DashboardPageClient({ teamId }: DashboardPageClientProps) {
           </p>
         </div>
 
-        <DashboardClient dashboardCharts={dashboardCharts} />
+        <DashboardContent />
         <DashboardSidebar teamId={teamId} initialIntegrations={integrations} />
       </div>
     </PipelineStatusProvider>

@@ -31,9 +31,9 @@ interface DashboardMetricCardProps {
  * Dashboard metric card component.
  *
  * Architecture:
- * - Receives dashboardChart as prop (no query)
+ * - Receives dashboardChart as prop
  * - Uses PipelineStatusProvider for status and mutations
- * - Simple, no optimistic updates
+ * - Simple isProcessing/getError API
  */
 export function DashboardMetricCard({
   dashboardChart,
@@ -44,7 +44,8 @@ export function DashboardMetricCard({
 
   const metric = dashboardChart.metric;
   const metricId = metric.id;
-  const status = pipeline.getStatus(metricId);
+  const isProcessing = pipeline.isProcessing(metricId);
+  const error = pipeline.getError(metricId);
 
   const isIntegrationMetric = !!metric.integration?.providerId;
   const chartTransform =
@@ -125,7 +126,7 @@ export function DashboardMetricCard({
   // ---------------------------------------------------------------------------
   const cardContent = (
     <div className="relative">
-      {status.error && !status.isProcessing && (
+      {error && !isProcessing && (
         <Tooltip>
           <TooltipTrigger asChild>
             <Badge
@@ -137,7 +138,7 @@ export function DashboardMetricCard({
             </Badge>
           </TooltipTrigger>
           <TooltipContent side="bottom" className="max-w-[300px]">
-            <p className="text-sm">{status.error}</p>
+            <p className="text-sm">{error}</p>
           </TooltipContent>
         </Tooltip>
       )}
@@ -182,8 +183,7 @@ export function DashboardMetricCard({
         goal={metric.goal}
         goalProgress={dashboardChart.goalProgress}
         valueLabel={dashboardChart.valueLabel}
-        isProcessing={status.isProcessing}
-        processingStep={status.step}
+        isProcessing={isProcessing}
       />
     </div>
   );
@@ -192,11 +192,12 @@ export function DashboardMetricCard({
     <Drawer open={isDrawerOpen} onOpenChange={setIsDrawerOpen}>
       {cardContent}
 
-      <DrawerContent className="flex h-[96vh] max-h-[96vh] flex-col">
-        <div className="mx-auto min-h-0 w-full flex-1">
+      <DrawerContent className="flex h-[90vh] max-h-[90vh] flex-col overflow-hidden">
+        <div className="min-h-0 w-full flex-1">
           <DashboardMetricDrawer
             dashboardChart={dashboardChart}
-            status={status}
+            isProcessing={isProcessing}
+            error={error}
             isDeleting={pipeline.isDeleting}
             onRefresh={handleRefresh}
             onUpdateMetric={handleUpdateMetric}
@@ -247,7 +248,6 @@ export function ReadOnlyMetricCard({
         goalProgress={dashboardChart.goalProgress}
         valueLabel={dashboardChart.valueLabel}
         isProcessing={!!metric.refreshStatus}
-        processingStep={metric.refreshStatus}
       />
     </div>
   );

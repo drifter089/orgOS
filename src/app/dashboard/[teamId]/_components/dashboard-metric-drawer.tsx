@@ -30,11 +30,11 @@ import {
   RoleTabContent,
   SettingsTabContent,
 } from "./drawer";
-import type { PipelineStatus } from "./pipeline-status-provider";
 
 interface DashboardMetricDrawerProps {
   dashboardChart: DashboardChartWithRelations;
-  status: PipelineStatus;
+  isProcessing: boolean;
+  error: string | null;
   isDeleting: boolean;
   onRefresh: (forceRebuild?: boolean) => void;
   onUpdateMetric: (name: string, description: string) => void;
@@ -49,7 +49,8 @@ interface DashboardMetricDrawerProps {
 
 export function DashboardMetricDrawer({
   dashboardChart,
-  status,
+  isProcessing,
+  error,
   isDeleting,
   onRefresh,
   onUpdateMetric,
@@ -90,12 +91,12 @@ export function DashboardMetricDrawer({
 
   // Sync form state when props change
   useEffect(() => {
-    if (!status.isProcessing) {
+    if (!isProcessing) {
       setSelectedChartType(chartTransformer?.chartType ?? "bar");
       setSelectedCadence(chartTransformer?.cadence ?? "WEEKLY");
       setSelectedDimension(chartTransformer?.selectedDimension ?? "value");
     }
-  }, [chartTransformer, status.isProcessing]);
+  }, [chartTransformer, isProcessing]);
 
   // Derived state
   const hasChartChanges =
@@ -125,11 +126,11 @@ export function DashboardMetricDrawer({
   };
 
   return (
-    <div className="grid h-full grid-cols-[1fr_280px_80px]">
-      {/* Chart Column (70%) */}
+    <div className="grid h-full grid-cols-[50%_30%_20%] gap-0">
+      {/* Chart Column (50%) */}
       <div className="flex flex-col border-r">
-        {/* Header */}
-        <div className="flex items-center justify-between border-b px-6 py-3">
+        {/* Header with Goal & Time Progress */}
+        <div className="flex items-center justify-between border-b px-6 py-4">
           <div className="flex items-center gap-3">
             <h2 className="text-lg font-semibold">{metric.name}</h2>
             {platformConfig && (
@@ -140,12 +141,12 @@ export function DashboardMetricDrawer({
                 {platformConfig.name}
               </Badge>
             )}
-            {status.error && (
+            {error && (
               <Badge variant="destructive" className="text-xs">
                 Error
               </Badge>
             )}
-            {status.isProcessing && (
+            {isProcessing && (
               <Badge variant="outline" className="text-xs">
                 <Loader2 className="mr-1 h-3 w-3 animate-spin" />
                 Processing
@@ -176,7 +177,7 @@ export function DashboardMetricDrawer({
           </div>
         </div>
 
-        {/* Stats Bar */}
+        {/* Stats Bar with Goal & Time Progress */}
         <ChartStatsBar
           currentValue={currentValue}
           valueLabel={dashboardChart.valueLabel ?? null}
@@ -195,14 +196,13 @@ export function DashboardMetricDrawer({
             goal={metric.goal}
             goalProgress={goalProgress}
             valueLabel={dashboardChart.valueLabel ?? null}
-            isProcessing={status.isProcessing}
-            processingStep={status.step}
+            isProcessing={isProcessing}
           />
         </div>
       </div>
 
-      {/* Tab Content Column (20%) */}
-      <div className="relative overflow-hidden border-r">
+      {/* Tab Content Column (30%) */}
+      <div className="bg-muted/20 relative overflow-hidden border-r">
         {/* Goal Tab */}
         <div
           className={cn(
@@ -268,7 +268,7 @@ export function DashboardMetricDrawer({
             isIntegrationMetric={isIntegrationMetric}
             valueLabel={dashboardChart.valueLabel ?? null}
             hasChartChanges={hasChartChanges}
-            isProcessing={status.isProcessing}
+            isProcessing={isProcessing}
             isDeleting={isDeleting}
             lastFetchedAt={metric.lastFetchedAt}
             onApplyChanges={handleApplyChanges}
