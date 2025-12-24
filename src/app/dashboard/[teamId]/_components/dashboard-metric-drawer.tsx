@@ -90,9 +90,6 @@ export function DashboardMetricDrawer({
   const chartTransformer = dashboardChart.chartTransformer;
   const goalProgress = dashboardChart.goalProgress ?? null;
 
-  // Track if user is actively editing (to prevent overwriting their changes)
-  const [isEditingName, setIsEditingName] = useState(false);
-
   // Local form state - initialized from props
   const [name, setName] = useState(metric.name);
   const [selectedChartType, setSelectedChartType] = useState(
@@ -106,6 +103,9 @@ export function DashboardMetricDrawer({
   );
   const [forceRebuild, setForceRebuild] = useState(false);
 
+  // Track if user has made unsaved changes (prevents overwriting during cache updates)
+  const [hasUnsavedNameChange, setHasUnsavedNameChange] = useState(false);
+
   // Query for available dimensions
   const isIntegrationMetric = !!metric.integration?.providerId;
   const { data: availableDimensions, isLoading: isDimensionsLoading } =
@@ -114,15 +114,31 @@ export function DashboardMetricDrawer({
       { enabled: isIntegrationMetric },
     );
 
-  // Sync form state when props change (only if not actively editing)
+  // Sync form state when props change (only if no unsaved changes)
+  // This runs when cache is invalidated and new data arrives
   useEffect(() => {
-    if (!isEditingName) {
+    if (!hasUnsavedNameChange) {
       setName(metric.name);
     }
-    setSelectedChartType(chartTransformer?.chartType ?? "bar");
-    setSelectedCadence(chartTransformer?.cadence ?? "WEEKLY");
-    setSelectedDimension(chartTransformer?.selectedDimension ?? "value");
-  }, [metric.name, chartTransformer, isEditingName]);
+    // Only sync chart settings if user hasn't made changes
+    // This prevents overwriting user's in-progress selections during cache updates
+    const serverChartType = chartTransformer?.chartType ?? "bar";
+    const serverCadence = chartTransformer?.cadence ?? "WEEKLY";
+    const serverDimension = chartTransformer?.selectedDimension ?? "value";
+
+    // If current selections match what user started with, sync to new values
+    // This handles the case where pipeline completes and we want fresh data
+    if (!status.isProcessing) {
+      setSelectedChartType(serverChartType);
+      setSelectedCadence(serverCadence);
+      setSelectedDimension(serverDimension);
+    }
+  }, [
+    metric.name,
+    chartTransformer,
+    hasUnsavedNameChange,
+    status.isProcessing,
+  ]);
 
   // Derived state - compare current form values to props
   const hasNameChanges = name !== metric.name;
@@ -144,7 +160,7 @@ export function DashboardMetricDrawer({
   // ==========================================================================
 
   const handleNameChange = (value: string) => {
-    setIsEditingName(true);
+    setHasUnsavedNameChange(true);
     setName(value);
   };
 
@@ -152,7 +168,7 @@ export function DashboardMetricDrawer({
     if (hasNameChanges && name.trim()) {
       onUpdateMetric(name.trim(), metric.description ?? "");
     }
-    setIsEditingName(false);
+    setHasUnsavedNameChange(false);
   };
 
   const handleApplyChanges = () => {
@@ -359,7 +375,6 @@ export function DashboardMetricDrawer({
               chartTransform={chartTransform ?? null}
               hasChartData={hasChartData}
               isIntegrationMetric={isIntegrationMetric}
-              isOptimistic={false}
               integrationId={metric.integration?.providerId}
               roles={metric.roles ?? []}
               goal={metric.goal}
@@ -367,7 +382,6 @@ export function DashboardMetricDrawer({
               valueLabel={dashboardChart.valueLabel ?? null}
               isProcessing={status.isProcessing}
               processingStep={status.step}
-              isFetching={status.isProcessing}
             />
           </div>
 
