@@ -5,9 +5,9 @@ import { useState } from "react";
 import { ArrowLeft, Hash, Loader2, Percent } from "lucide-react";
 import { toast } from "sonner";
 
+import { usePipelineStatus } from "@/app/dashboard/[teamId]/_components/pipeline-status-provider";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { usePipelineOperations } from "@/hooks/use-pipeline-operations";
 import { cn } from "@/lib/utils";
 
 type UnitType = "number" | "percentage";
@@ -70,31 +70,37 @@ export function ManualMetricContent({
   const [metricName, setMetricName] = useState("");
   const [unitType, setUnitType] = useState<UnitType | null>(null);
   const [cadence, setCadence] = useState<Cadence | null>(null);
+  const [isCreating, setIsCreating] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const pipeline = usePipelineOperations({ teamId });
+  const pipeline = usePipelineStatus();
 
   const handleSubmit = async () => {
     if (!metricName.trim() || !unitType || !cadence) return;
 
+    setIsCreating(true);
+    setError(null);
+
     try {
-      // Create the metric with optimistic update (handled by hook)
-      await pipeline.createManual.mutateAsync({
+      await pipeline.createManualMetric({
         name: metricName.trim(),
+        teamId,
         unitType,
         cadence,
-        teamId,
+        description: `${unitType} metric tracked ${cadence}`,
       });
 
       toast.success("KPI created", {
         description: "You can set a goal via the settings drawer.",
       });
 
-      // Close dialog immediately - no goal step
       onClose?.();
       onSuccess?.();
-    } catch {
-      // Error handling and rollback handled by hook
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to create KPI");
       toast.error("Failed to create KPI");
+    } finally {
+      setIsCreating(false);
     }
   };
 
@@ -239,11 +245,8 @@ export function ManualMetricContent({
           <div />
         )}
 
-        <Button
-          onClick={handleNext}
-          disabled={!canProceed() || pipeline.createManual.isPending}
-        >
-          {pipeline.createManual.isPending ? (
+        <Button onClick={handleNext} disabled={!canProceed() || isCreating}>
+          {isCreating ? (
             <>
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
               Creating...
@@ -256,11 +259,7 @@ export function ManualMetricContent({
         </Button>
       </div>
 
-      {pipeline.createManual.isError && (
-        <p className="text-destructive text-center text-sm">
-          {pipeline.createManual.error.message}
-        </p>
-      )}
+      {error && <p className="text-destructive text-center text-sm">{error}</p>}
     </div>
   );
 }

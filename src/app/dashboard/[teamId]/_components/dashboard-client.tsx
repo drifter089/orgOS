@@ -1,32 +1,24 @@
 "use client";
 
-import type { RouterOutputs } from "@/trpc/react";
+import type { DashboardChartWithRelations } from "@/types/dashboard";
 
 import { DashboardMetricCard } from "./dashboard-metric-card";
 
-type DashboardMetrics = RouterOutputs["dashboard"]["getDashboardCharts"];
-
 interface DashboardClientProps {
-  teamId: string;
-  dashboardCharts: DashboardMetrics;
+  dashboardCharts: DashboardChartWithRelations[];
 }
 
 /**
  * Dashboard client - renders metric cards.
- * Cards handle their own status tracking via usePipelineOperations hook.
+ * Cards receive data as props and use PipelineStatusProvider for status.
  */
-export function DashboardClient({
-  teamId,
-  dashboardCharts,
-}: DashboardClientProps) {
+export function DashboardClient({ dashboardCharts }: DashboardClientProps) {
   return (
     <div className="space-y-6">
       {dashboardCharts.length > 0 && (
-        <div>
-          <p className="text-muted-foreground text-sm">
-            {`Showing ${dashboardCharts.length} metric${dashboardCharts.length === 1 ? "" : "s"}`}
-          </p>
-        </div>
+        <p className="text-muted-foreground text-sm">
+          {`Showing ${dashboardCharts.length} metric${dashboardCharts.length === 1 ? "" : "s"}`}
+        </p>
       )}
 
       {dashboardCharts.length === 0 ? (
@@ -42,11 +34,7 @@ export function DashboardClient({
       ) : (
         <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
           {dashboardCharts.map((dc) => (
-            <DashboardMetricCard
-              key={dc.id}
-              metricId={dc.metric.id}
-              teamId={teamId}
-            />
+            <DashboardMetricCard key={dc.id} dashboardChart={dc} />
           ))}
         </div>
       )}

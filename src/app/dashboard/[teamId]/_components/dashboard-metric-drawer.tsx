@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 
 import type { Cadence } from "@prisma/client";
 import { formatDistanceToNow } from "date-fns";
@@ -39,40 +39,27 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import type { PipelineStatus } from "@/hooks/use-pipeline-operations";
 import { getDimensionDisplayLabel } from "@/lib/metrics/dimension-labels";
 import { getLatestMetricValue } from "@/lib/metrics/get-latest-value";
 import type { ChartTransformResult } from "@/lib/metrics/transformer-types";
 import { getPlatformConfig } from "@/lib/platform-config";
 import { cn } from "@/lib/utils";
-import type { RouterOutputs } from "@/trpc/react";
 import { api } from "@/trpc/react";
+import type { DashboardChartWithRelations } from "@/types/dashboard";
 
 import { DashboardMetricChart } from "./dashboard-metric-chart";
-
-type DashboardChartData =
-  RouterOutputs["dashboard"]["getDashboardCharts"][number];
+import type { PipelineStatus } from "./pipeline-status-provider";
 
 const CADENCE_OPTIONS: Cadence[] = ["DAILY", "WEEKLY", "MONTHLY"];
 
 interface DashboardMetricDrawerProps {
-  /** Dashboard chart data - passed from parent to avoid duplicate queries */
-  dashboardChart: DashboardChartData;
-  /** Status - passed from parent to avoid duplicate polling */
+  dashboardChart: DashboardChartWithRelations;
   status: PipelineStatus;
-  /** Whether the pipeline is currently polling for this metric */
-  isPolling: boolean;
-  /** Whether delete mutation is pending */
   isDeleting: boolean;
-  /** Callback to refresh/regenerate metric data */
   onRefresh: (forceRebuild?: boolean) => void;
-  /** Callback to update metric name/description */
   onUpdateMetric: (name: string, description: string) => void;
-  /** Callback to delete the metric */
   onDelete: () => void;
-  /** Callback to close the drawer */
   onClose: () => void;
-  /** Callback to regenerate chart with new settings */
   onRegenerateChart: (
     chartType: string,
     cadence: Cadence,
@@ -82,14 +69,11 @@ interface DashboardMetricDrawerProps {
 
 /**
  * Drawer for viewing and editing metric settings.
- *
- * Receives status and data from parent - no hook calls needed.
- * Form state is initialized from props and synced when data changes.
+ * Receives data and callbacks from parent card.
  */
 export function DashboardMetricDrawer({
   dashboardChart,
   status,
-  isPolling,
   isDeleting,
   onRefresh,
   onUpdateMetric,
@@ -107,7 +91,7 @@ export function DashboardMetricDrawer({
   const goalProgress = dashboardChart.goalProgress ?? null;
 
   // Track if user is actively editing (to prevent overwriting their changes)
-  const isEditingRef = useRef(false);
+  const [isEditingName, setIsEditingName] = useState(false);
 
   // Local form state - initialized from props
   const [name, setName] = useState(metric.name);
@@ -132,13 +116,13 @@ export function DashboardMetricDrawer({
 
   // Sync form state when props change (only if not actively editing)
   useEffect(() => {
-    if (isEditingRef.current) return;
-
-    setName(metric.name);
+    if (!isEditingName) {
+      setName(metric.name);
+    }
     setSelectedChartType(chartTransformer?.chartType ?? "bar");
     setSelectedCadence(chartTransformer?.cadence ?? "WEEKLY");
     setSelectedDimension(chartTransformer?.selectedDimension ?? "value");
-  }, [metric.name, chartTransformer]);
+  }, [metric.name, chartTransformer, isEditingName]);
 
   // Derived state - compare current form values to props
   const hasNameChanges = name !== metric.name;
@@ -160,21 +144,15 @@ export function DashboardMetricDrawer({
   // ==========================================================================
 
   const handleNameChange = (value: string) => {
-    isEditingRef.current = true;
+    setIsEditingName(true);
     setName(value);
-  };
-
-  const handleNameBlur = () => {
-    // Reset editing flag after a short delay to allow save to complete
-    setTimeout(() => {
-      isEditingRef.current = false;
-    }, 100);
   };
 
   const handleSave = () => {
     if (hasNameChanges && name.trim()) {
       onUpdateMetric(name.trim(), metric.description ?? "");
     }
+    setIsEditingName(false);
   };
 
   const handleApplyChanges = () => {
@@ -208,7 +186,7 @@ export function DashboardMetricDrawer({
               {platformConfig.name}
             </Badge>
           )}
-          {status.hasError && (
+          {status.error && (
             <Badge variant="destructive" className="text-xs">
               Error
             </Badge>
@@ -388,8 +366,8 @@ export function DashboardMetricDrawer({
               goalProgress={goalProgress}
               valueLabel={dashboardChart.valueLabel ?? null}
               isProcessing={status.isProcessing}
-              processingStep={status.processingStep}
-              isFetching={isPolling}
+              processingStep={status.step}
+              isFetching={status.isProcessing}
             />
           </div>
 
@@ -414,7 +392,6 @@ export function DashboardMetricDrawer({
                     <Input
                       value={name}
                       onChange={(e) => handleNameChange(e.target.value)}
-                      onBlur={handleNameBlur}
                       className="h-9"
                     />
                     <Button

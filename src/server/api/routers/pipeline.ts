@@ -134,6 +134,8 @@ export async function runBackgroundTask(
       where: { id: metricId },
       data: { refreshStatus: null, lastError: errorMsg },
     });
+    // Invalidate cache so frontend sees the error state
+    await invalidateCache();
   }
 }
 
