@@ -8,16 +8,13 @@ interface UseMetricMutationsOptions {
 }
 
 /**
- * Unified metric mutations with optimistic updates.
+ * Simplified metric mutations hook.
  *
- * All mutations that modify metric/pipeline state are here.
- * Optimistic updates provide immediate UI feedback.
- * Card-level polling (via usePipelineStatus) handles progress tracking.
- *
- * Cache invalidation strategy:
- * - Create/Delete: Invalidate on success (structural change)
- * - Refresh/Regenerate: Optimistic status update only (polling handles completion)
- * - Update/RegenerateChart: Optimistic status update (polling handles completion)
+ * Design principles:
+ * 1. Optimistic updates for structural changes (create/delete)
+ * 2. Atomic cache replacement on create success (no flicker)
+ * 3. No cache manipulation for processing operations (refresh/regenerate)
+ * 4. Callers use startPolling() from useMetricStatus after mutations
  */
 export function useMetricMutations({ teamId }: UseMetricMutationsOptions = {}) {
   const utils = api.useUtils();
@@ -26,32 +23,32 @@ export function useMetricMutations({ teamId }: UseMetricMutationsOptions = {}) {
     void utils.dashboard.getDashboardCharts.invalidate();
   };
 
-  // Helper to update a metric's status in cache
-  const updateMetricStatus = (
-    metricId: string,
-    refreshStatus: string | null,
-    clearError = true,
+  // Helper to replace temp card with real data atomically (no flicker)
+  const replaceTempCardWithReal = (
+    realChart: DashboardChartWithRelations,
+    tempPrefix = "temp-",
   ) => {
     if (!teamId) return;
 
-    utils.dashboard.getDashboardCharts.setData({ teamId }, (old) =>
-      old?.map((dc) =>
-        dc.metric.id === metricId
-          ? {
-              ...dc,
-              metric: {
-                ...dc.metric,
-                refreshStatus,
-                lastError: clearError ? null : dc.metric.lastError,
-              },
-            }
-          : dc,
-      ),
-    );
+    utils.dashboard.getDashboardCharts.setData({ teamId }, (old) => {
+      if (!old) return [realChart];
+
+      // Find and replace the temp card with real data
+      const tempIndex = old.findIndex((dc) => dc.id.startsWith(tempPrefix));
+      if (tempIndex === -1) {
+        // No temp card found, prepend the real one
+        return [realChart, ...old];
+      }
+
+      // Replace temp with real
+      const newData = [...old];
+      newData[tempIndex] = realChart;
+      return newData;
+    });
   };
 
   // ==========================================================================
-  // Create Mutations
+  // Create Mutations (with optimistic temp card)
   // ==========================================================================
 
   const create = api.metric.create.useMutation({
@@ -116,7 +113,11 @@ export function useMetricMutations({ teamId }: UseMetricMutationsOptions = {}) {
         );
       }
     },
-    onSuccess: invalidateDashboard,
+    onSuccess: (data) => {
+      // Replace temp card with real data atomically - no flicker!
+      // The server returns the full DashboardChart with metric data
+      replaceTempCardWithReal(data as DashboardChartWithRelations);
+    },
   });
 
   const createManual = api.manualMetric.create.useMutation({
@@ -181,11 +182,14 @@ export function useMetricMutations({ teamId }: UseMetricMutationsOptions = {}) {
         );
       }
     },
-    onSuccess: invalidateDashboard,
+    onSuccess: (data) => {
+      // Replace temp card with real data atomically
+      replaceTempCardWithReal(data as DashboardChartWithRelations);
+    },
   });
 
   // ==========================================================================
-  // Delete Mutation
+  // Delete Mutation (with optimistic removal)
   // ==========================================================================
 
   const deleteMutation = api.metric.delete.useMutation({
@@ -226,7 +230,7 @@ export function useMetricMutations({ teamId }: UseMetricMutationsOptions = {}) {
   });
 
   // ==========================================================================
-  // Update Mutation
+  // Update Mutation (simple - no optimistic update needed)
   // ==========================================================================
 
   const update = api.metric.update.useMutation({
@@ -234,29 +238,18 @@ export function useMetricMutations({ teamId }: UseMetricMutationsOptions = {}) {
   });
 
   // ==========================================================================
-  // Pipeline Mutations (Optimistic status → polling handles completion)
+  // Pipeline Mutations (simple - caller uses startPolling() for status)
+  //
+  // These don't manipulate cache. Instead:
+  // 1. Mutation fires, server starts processing
+  // 2. Caller calls startPolling() from useMetricStatus
+  // 3. Polling tracks progress until completion
+  // 4. useMetricStatus invalidates cache on completion
   // ==========================================================================
 
-  const refresh = api.pipeline.refresh.useMutation({
-    onMutate: async ({ metricId }) => {
-      await utils.dashboard.getDashboardCharts.cancel();
-      updateMetricStatus(metricId, "fetching-api-data");
-    },
-  });
-
-  const regenerate = api.pipeline.regenerate.useMutation({
-    onMutate: async ({ metricId }) => {
-      await utils.dashboard.getDashboardCharts.cancel();
-      updateMetricStatus(metricId, "deleting-old-data");
-    },
-  });
-
-  const regenerateChartOnly = api.pipeline.regenerateChartOnly.useMutation({
-    onMutate: async ({ metricId }) => {
-      await utils.dashboard.getDashboardCharts.cancel();
-      updateMetricStatus(metricId, "generating-chart-transformer");
-    },
-  });
+  const refresh = api.pipeline.refresh.useMutation();
+  const regenerate = api.pipeline.regenerate.useMutation();
+  const regenerateChartOnly = api.pipeline.regenerateChartOnly.useMutation();
 
   return {
     // Create
@@ -266,7 +259,7 @@ export function useMetricMutations({ teamId }: UseMetricMutationsOptions = {}) {
     update,
     // Delete
     delete: deleteMutation,
-    // Pipeline operations
+    // Pipeline operations (caller should call startPolling after these)
     refresh,
     regenerate,
     regenerateChartOnly,

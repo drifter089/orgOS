@@ -18,7 +18,7 @@ interface DashboardClientProps {
 /**
  * Dashboard client - renders metric cards and handles completion detection.
  *
- * Cards use usePipelineStatus hook internally for unified status tracking.
+ * Cards use useMetricStatus hook internally for unified status tracking.
  * We just pass metricId and teamId - no data drilling needed.
  */
 export function DashboardClient({
