@@ -2,7 +2,7 @@
 
 import { Eye } from "lucide-react";
 
-import { DashboardMetricCard } from "@/app/dashboard/[teamId]/_components/dashboard-metric-card";
+import { ReadOnlyMetricCard } from "@/app/dashboard/[teamId]/_components/dashboard-metric-card";
 import { Badge } from "@/components/ui/badge";
 
 import { usePublicView } from "../../../_context/public-view-context";
@@ -56,13 +56,7 @@ export function PublicDashboardUnified() {
       ) : (
         <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
           {dashboardCharts.map((dc) => (
-            <DashboardMetricCard
-              key={dc.id}
-              metricId={dc.metric.id}
-              teamId={dc.metric.teamId ?? ""}
-              dataOverride={dc}
-              readOnly
-            />
+            <ReadOnlyMetricCard key={dc.id} dashboardChart={dc} />
           ))}
         </div>
       )}

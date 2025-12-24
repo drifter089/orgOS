@@ -7,7 +7,7 @@ import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { useMetricMutations } from "@/hooks/use-metric-mutations";
+import { usePipelineOperations } from "@/hooks/use-pipeline-operations";
 import { cn } from "@/lib/utils";
 
 type UnitType = "number" | "percentage";
@@ -71,14 +71,14 @@ export function ManualMetricContent({
   const [unitType, setUnitType] = useState<UnitType | null>(null);
   const [cadence, setCadence] = useState<Cadence | null>(null);
 
-  const { createManual: createMutation } = useMetricMutations({ teamId });
+  const pipeline = usePipelineOperations({ teamId });
 
   const handleSubmit = async () => {
     if (!metricName.trim() || !unitType || !cadence) return;
 
     try {
       // Create the metric with optimistic update (handled by hook)
-      await createMutation.mutateAsync({
+      await pipeline.createManual.mutateAsync({
         name: metricName.trim(),
         unitType,
         cadence,
@@ -241,9 +241,9 @@ export function ManualMetricContent({
 
         <Button
           onClick={handleNext}
-          disabled={!canProceed() || createMutation.isPending}
+          disabled={!canProceed() || pipeline.createManual.isPending}
         >
-          {createMutation.isPending ? (
+          {pipeline.createManual.isPending ? (
             <>
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
               Creating...
@@ -256,9 +256,9 @@ export function ManualMetricContent({
         </Button>
       </div>
 
-      {createMutation.isError && (
+      {pipeline.createManual.isError && (
         <p className="text-destructive text-center text-sm">
-          {createMutation.error.message}
+          {pipeline.createManual.error.message}
         </p>
       )}
     </div>

@@ -35,9 +35,9 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { isTempId } from "@/hooks/use-pipeline-operations";
 import { getPlatformConfig } from "@/lib/platform-config";
 import { cn } from "@/lib/utils";
-import { isTempMetricId } from "@/lib/utils/metric-id";
 import { type RouterOutputs, api } from "@/trpc/react";
 
 import { DashboardSheetEdgeTrigger } from "./dashboard-sheet-edge-trigger";
@@ -245,7 +245,7 @@ export function DashboardSidebar({
                   tabsListClassName="flex gap-2 bg-transparent overflow-x-auto [&::-webkit-scrollbar]:h-2 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-border/40 hover:[&::-webkit-scrollbar-thumb]:bg-border/60 [&::-webkit-scrollbar-track]:bg-transparent"
                   tabTriggerClassName="text-xs border shrink-0"
                   renderMetricCard={(metric) => {
-                    const isSyncing = isTempMetricId(metric.id);
+                    const isSyncing = isTempId(metric.id);
                     const dashboardChart = metricToDashboardChart.get(
                       metric.id,
                     );

@@ -3,7 +3,7 @@
 import { Badge } from "@/components/ui/badge";
 import { api } from "@/trpc/react";
 
-import { DashboardMetricCard } from "../../[teamId]/_components/dashboard-metric-card";
+import { ReadOnlyMetricCard } from "../../[teamId]/_components/dashboard-metric-card";
 
 export function DefaultDashboardClient() {
   const { data: dashboardCharts } =
@@ -60,12 +60,7 @@ export function DefaultDashboardClient() {
                     {dc.metric.team.name}
                   </Badge>
                 )}
-                <DashboardMetricCard
-                  metricId={dc.metric.id}
-                  teamId={dc.metric.teamId ?? ""}
-                  dataOverride={dc}
-                  readOnly
-                />
+                <ReadOnlyMetricCard dashboardChart={dc} />
               </div>
             ))}
           </div>
