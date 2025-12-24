@@ -95,6 +95,7 @@ export default async function TeamPage({
     team.roles,
     userNameMap,
     dashboardCharts,
+    teamId,
   );
 
   const storedEdges: StoredEdge[] = Array.isArray(team.reactFlowEdges)

@@ -15,6 +15,24 @@ import { runBackgroundTask } from "./pipeline";
 
 export const metricRouter = createTRPCRouter({
   // ===========================================================================
+  // Status Polling (lightweight endpoint for card-level polling)
+  // ===========================================================================
+
+  /**
+   * Lightweight status endpoint for card-level polling.
+   * Returns only the fields needed to display pipeline progress.
+   * Polled at 500ms by cards with active pipeline.
+   */
+  getStatus: workspaceProcedure
+    .input(z.object({ metricId: z.string() }))
+    .query(async ({ ctx, input }) => {
+      return ctx.db.metric.findUnique({
+        where: { id: input.metricId },
+        select: { id: true, refreshStatus: true, lastError: true },
+      });
+    }),
+
+  // ===========================================================================
   // CRUD Operations
   // ===========================================================================
 
@@ -60,22 +78,6 @@ export const metricRouter = createTRPCRouter({
         input.id,
         ctx.workspace.organizationId,
       );
-    }),
-
-  /** Lightweight query for polling refresh status */
-  getRefreshStatus: workspaceProcedure
-    .input(z.object({ metricId: z.string() }))
-    .query(async ({ ctx, input }) => {
-      const metric = await ctx.db.metric.findUnique({
-        where: { id: input.metricId },
-        select: { refreshStatus: true, organizationId: true },
-      });
-
-      if (!metric || metric.organizationId !== ctx.workspace.organizationId) {
-        return null;
-      }
-
-      return metric.refreshStatus;
     }),
 
   /**
@@ -170,7 +172,11 @@ export const metricRouter = createTRPCRouter({
         { timeout: 15000 },
       );
 
-      // Fire-and-forget: frontend polls refreshStatus for progress
+      // Invalidate Prisma cache before returning so frontend refetch gets fresh data
+      const cacheTags = [`dashboard_org_${ctx.workspace.organizationId}`];
+      if (input.teamId) cacheTags.push(`dashboard_team_${input.teamId}`);
+      await invalidateCacheByTags(ctx.db, cacheTags);
+
       void runBackgroundTask({
         metricId: dashboardChart.metricId,
         type: "hard-refresh",

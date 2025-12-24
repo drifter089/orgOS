@@ -6,6 +6,10 @@
  */
 
 export const PIPELINE_STEPS = {
+  "adding-metric": {
+    displayName: "Adding metric...",
+    shortName: "Adding metric...",
+  },
   "fetching-api-data": {
     displayName: "Fetching data from API...",
     shortName: "Fetching data...",

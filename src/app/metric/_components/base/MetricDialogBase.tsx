@@ -53,14 +53,6 @@ interface MetricDialogBaseProps {
   children: (props: ContentProps) => React.ReactNode;
 }
 
-/**
- * Simplified metric dialog - just form submission, no steps.
- *
- * After successful creation:
- * - Dialog closes immediately
- * - Optimistic card appears on dashboard with loading state
- * - Dashboard centralized polling handles progress tracking
- */
 export function MetricDialogBase({
   integrationId,
   connectionId: connectionIdProp,
@@ -88,7 +80,6 @@ export function MetricDialogBase({
   };
 
   const { create: createMutation } = useMetricMutations({ teamId });
-  const utils = api.useUtils();
 
   const integrationQuery = api.integration.listWithStats.useQuery();
   const connection = integrationQuery.data?.active.find((int) =>
@@ -101,22 +92,11 @@ export function MetricDialogBase({
     setError(null);
 
     try {
-      // Create the metric - wait for server response
       await createMutation.mutateAsync({
         ...data,
         teamId,
       });
 
-      // Explicitly invalidate cache to ensure new card shows
-      // This triggers a refetch which will include the new metric
-      await Promise.all([
-        utils.dashboard.getDashboardCharts.invalidate(),
-        teamId
-          ? utils.dashboard.getDashboardCharts.invalidate({ teamId })
-          : Promise.resolve(),
-      ]);
-
-      // Success! Close dialog
       toast.success("KPI created", {
         description: "Building your chart...",
       });

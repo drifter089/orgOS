@@ -90,6 +90,7 @@ export function PublicTeamCanvasUnified() {
           position: node.position,
           data: {
             dashboardMetricId,
+            teamId: team?.id ?? "",
             readOnly: true,
             dashboardMetricOverride: dashboardMetric,
           },

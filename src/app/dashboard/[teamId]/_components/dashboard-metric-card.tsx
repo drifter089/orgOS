@@ -3,7 +3,7 @@
 import { useCallback, useState } from "react";
 
 import type { Cadence } from "@prisma/client";
-import { AlertCircle, Bug, Settings } from "lucide-react";
+import { AlertCircle, Bug, Loader2, Settings } from "lucide-react";
 import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
@@ -15,18 +15,17 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { useMetricMutations } from "@/hooks/use-metric-mutations";
+import { usePipelineStatus } from "@/hooks/use-pipeline-status";
 import { isDevMode } from "@/lib/dev-mode";
 import type { ChartTransformResult } from "@/lib/metrics/transformer-types";
 import { useConfirmation } from "@/providers/ConfirmationDialogProvider";
 import type { RouterOutputs } from "@/trpc/react";
-import { api } from "@/trpc/react";
 
-import type { PipelineProgressData } from "./dashboard-client";
 import { DashboardMetricChart } from "./dashboard-metric-chart";
 import { DashboardMetricDrawer } from "./dashboard-metric-drawer";
 
-type DashboardMetrics = RouterOutputs["dashboard"]["getDashboardCharts"];
-type DashboardMetricWithRelations = DashboardMetrics[number];
+type DashboardChartData =
+  RouterOutputs["dashboard"]["getDashboardCharts"][number];
 
 // Re-export for components that import from here
 export type {
@@ -34,130 +33,95 @@ export type {
   ChartTransformResult,
 } from "@/lib/metrics/transformer-types";
 
-export interface DisplayedChart {
-  id: string;
-  metricName: string;
-  chartTransform: ChartTransformResult;
-}
-
 interface DashboardMetricCardProps {
-  dashboardMetric: DashboardMetricWithRelations & {
-    valueLabel?: string | null;
-    dataDescription?: string | null;
-  };
-  /** Pipeline status from parent (centralized polling) */
-  pipelineStatus?: PipelineProgressData;
-  /** Team ID for targeted cache invalidation (optional for non-dashboard contexts) */
-  teamId?: string;
+  /** Metric ID - required to find data in TanStack Query cache */
+  metricId: string;
+  /** Team ID - required for cache query subscription */
+  teamId: string;
   /** When true, hides settings drawer and dev tool button (for public views) */
   readOnly?: boolean;
-  /** Whether the parent dashboard query is currently fetching */
-  isFetching?: boolean;
+  /**
+   * Optional data override - use when data comes from a different query.
+   * When provided, skips the hook and uses this data directly.
+   * Useful for: public views, default dashboard, member cards, chart nodes.
+   */
+  dataOverride?: DashboardChartData;
 }
 
 /**
  * Dashboard metric card component.
  *
- * Key simplifications:
- * - Receives pipelineStatus from parent (no internal polling)
- * - Single source of truth: metric.refreshStatus + pipelineStatus from parent
- * - Targeted invalidation using teamId prop
+ * Uses usePipelineStatus hook for unified status tracking:
+ * - Subscribes to getDashboardCharts cache
+ * - Polls metric.getStatus when processing
+ * - Automatically invalidates cache on completion
  */
 export function DashboardMetricCard({
-  dashboardMetric,
-  pipelineStatus,
-  teamId: teamIdProp,
+  metricId,
+  teamId,
   readOnly = false,
-  isFetching = false,
+  dataOverride,
 }: DashboardMetricCardProps) {
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
-
-  const utils = api.useUtils();
   const { confirm } = useConfirmation();
 
-  const { metric } = dashboardMetric;
-  // Use prop teamId or fallback to metric's teamId
-  const teamId = teamIdProp ?? metric.teamId ?? undefined;
-  const isPending = dashboardMetric.id.startsWith("temp-");
-  const isIntegrationMetric = !!metric.integration?.providerId;
-  const roles = metric.roles ?? [];
-  const hasError = !!metric.lastError;
-
-  // Derive loading state from server data only (single source of truth)
-  const isProcessing =
-    !!metric.refreshStatus || (pipelineStatus?.isProcessing ?? false);
-
-  // Mutations with targeted invalidation
+  // Unified status tracking - single source of truth
   const {
-    delete: deleteMetricMutation,
-    refresh: refreshMetricMutation,
-    regenerate: regeneratePipelineMutation,
-  } = useMetricMutations({
-    teamId,
-  });
+    dashboardChart: hookChart,
+    status,
+    isFetching,
+  } = usePipelineStatus(metricId, teamId);
 
-  const regenerateChartMutation = api.pipeline.regenerateChartOnly.useMutation({
-    onSuccess: async () => {
-      await Promise.all([
-        utils.dashboard.getDashboardCharts.invalidate(),
-        teamId
-          ? utils.dashboard.getDashboardCharts.invalidate({ teamId })
-          : Promise.resolve(),
-      ]);
-    },
-    onError: (error) => {
-      toast.error(`Failed: ${error.message}`);
-    },
-  });
+  // Use override if provided, otherwise use hook data
+  const dashboardChart = dataOverride ?? hookChart;
 
-  const chartTransform =
-    dashboardMetric.chartConfig as unknown as ChartTransformResult | null;
+  // For dataOverride, derive status from the override data
+  const effectiveStatus = dataOverride
+    ? {
+        isProcessing: !!dataOverride.metric.refreshStatus,
+        processingStep: dataOverride.metric.refreshStatus,
+        hasError: !!dataOverride.metric.lastError,
+        lastError: dataOverride.metric.lastError,
+        isOptimistic: dataOverride.id.startsWith("temp-"),
+      }
+    : status;
+
+  // All mutations in one place
+  const mutations = useMetricMutations({ teamId });
+
+  const metric = dashboardChart?.metric;
+  const isIntegrationMetric = !!metric?.integration?.providerId;
+  const roles = metric?.roles ?? [];
+  const chartTransform = dashboardChart?.chartConfig as unknown as
+    | ChartTransformResult
+    | null
+    | undefined;
   const hasChartData = !!(
     chartTransform?.chartData && chartTransform.chartData.length > 0
   );
+  const title = chartTransform?.title ?? metric?.name ?? "Loading...";
 
-  const updateMetricMutation = api.metric.update.useMutation({
-    onSuccess: (updatedMetric) => {
-      // Update both query variants
-      utils.dashboard.getDashboardCharts.setData(undefined, (old) =>
-        old?.map((dm) =>
-          dm.metric.id === updatedMetric.id
-            ? { ...dm, metric: { ...dm.metric, ...updatedMetric } }
-            : dm,
-        ),
-      );
-      utils.dashboard.getDashboardCharts.setData({ teamId }, (old) =>
-        old?.map((dm) =>
-          dm.metric.id === updatedMetric.id
-            ? { ...dm, metric: { ...dm.metric, ...updatedMetric } }
-            : dm,
-        ),
-      );
-    },
-  });
+  // ==========================================================================
+  // Handlers
+  // ==========================================================================
 
-  /**
-   * Refresh metric data using existing transformer, or regenerate entire pipeline
-   * when forceRebuild is true. Progress status is polled centrally by parent.
-   */
   const handleRefresh = useCallback(
     async (forceRebuild = false) => {
+      if (!metric) return;
       try {
-        // For manual metrics, regenerate via full pipeline
         if (!isIntegrationMetric) {
-          await regeneratePipelineMutation.mutateAsync({ metricId: metric.id });
+          await mutations.regenerate.mutateAsync({ metricId: metric.id });
           toast.success("Chart regeneration started");
           return;
         }
 
-        // For integration metrics
         if (!metric.templateId || !metric.integration) return;
 
         if (forceRebuild) {
-          await regeneratePipelineMutation.mutateAsync({ metricId: metric.id });
+          await mutations.regenerate.mutateAsync({ metricId: metric.id });
           toast.success("Pipeline regeneration started");
         } else {
-          await refreshMetricMutation.mutateAsync({ metricId: metric.id });
+          await mutations.refresh.mutateAsync({ metricId: metric.id });
           toast.success("Data refresh started");
         }
       } catch (error) {
@@ -170,31 +134,11 @@ export function DashboardMetricCard({
         );
       }
     },
-    [
-      isIntegrationMetric,
-      metric.id,
-      metric.templateId,
-      metric.integration,
-      regeneratePipelineMutation,
-      refreshMetricMutation,
-    ],
+    [metric, isIntegrationMetric, mutations],
   );
 
-  /**
-   * Regenerate chart via full pipeline regeneration
-   */
-  const handleRegenerate = useCallback(async () => {
-    try {
-      await regeneratePipelineMutation.mutateAsync({ metricId: metric.id });
-      toast.success("Chart regeneration started");
-    } catch (error) {
-      toast.error("Regeneration failed", {
-        description: error instanceof Error ? error.message : "Unknown error",
-      });
-    }
-  }, [metric.id, regeneratePipelineMutation]);
-
-  const handleRemove = async () => {
+  const handleRemove = useCallback(async () => {
+    if (!metric) return;
     const confirmed = await confirm({
       title: "Delete metric",
       description: `Are you sure you want to delete "${metric.name}"? This action cannot be undone.`,
@@ -203,38 +147,50 @@ export function DashboardMetricCard({
     });
 
     if (confirmed) {
-      deleteMetricMutation.mutate({ id: metric.id });
+      mutations.delete.mutate({ id: metric.id });
     }
-  };
+  }, [metric, confirm, mutations]);
 
-  const handleUpdateMetric = (name: string, description: string) => {
-    updateMetricMutation.mutate({
-      id: metric.id,
-      name,
-      description: description || undefined,
-    });
-  };
+  const handleUpdateMetric = useCallback(
+    (name: string, description: string) => {
+      if (!metric) return;
+      mutations.update.mutate({
+        id: metric.id,
+        name,
+        description: description || undefined,
+      });
+    },
+    [metric, mutations],
+  );
 
   const handleRegenerateChart = useCallback(
     (chartType: string, cadence: Cadence, selectedDimension?: string) => {
-      regenerateChartMutation.mutate({
+      if (!metric) return;
+      mutations.regenerateChartOnly.mutate({
         metricId: metric.id,
         chartType,
         cadence,
         selectedDimension,
       });
     },
-    [metric.id, regenerateChartMutation],
+    [metric, mutations],
   );
 
-  // Use AI-generated chart title when available, fallback to metric name
-  const title = chartTransform?.title ?? metric.name;
+  // ==========================================================================
+  // Render
+  // ==========================================================================
 
-  // Card content shared between readOnly and editable modes
+  if (!dashboardChart || !metric) {
+    return (
+      <div className="bg-card flex h-[420px] items-center justify-center rounded-lg border">
+        <Loader2 className="text-muted-foreground h-8 w-8 animate-spin" />
+      </div>
+    );
+  }
+
   const cardContent = (
     <div className="relative">
-      {/* Error indicator */}
-      {hasError && (
+      {effectiveStatus.hasError && (
         <Tooltip>
           <TooltipTrigger asChild>
             <Badge
@@ -246,12 +202,11 @@ export function DashboardMetricCard({
             </Badge>
           </TooltipTrigger>
           <TooltipContent side="bottom" className="max-w-[300px]">
-            <p className="text-sm">{metric.lastError}</p>
+            <p className="text-sm">{effectiveStatus.lastError}</p>
           </TooltipContent>
         </Tooltip>
       )}
 
-      {/* Settings trigger - top right (hidden in readOnly mode) */}
       {!readOnly && (
         <DrawerTrigger asChild>
           <Button
@@ -264,7 +219,6 @@ export function DashboardMetricCard({
         </DrawerTrigger>
       )}
 
-      {/* Dev Tool Button - Only visible in development mode (hidden in readOnly mode) */}
       {!readOnly && isDevMode() && (
         <Tooltip>
           <TooltipTrigger asChild>
@@ -285,26 +239,24 @@ export function DashboardMetricCard({
         </Tooltip>
       )}
 
-      {/* Chart content */}
       <DashboardMetricChart
         title={title}
-        chartTransform={chartTransform}
+        chartTransform={chartTransform ?? null}
         hasChartData={hasChartData}
         isIntegrationMetric={isIntegrationMetric}
-        isPending={isPending}
+        isOptimistic={effectiveStatus.isOptimistic}
         integrationId={metric.integration?.providerId}
         roles={roles}
         goal={metric.goal}
-        goalProgress={dashboardMetric.goalProgress}
-        valueLabel={dashboardMetric.valueLabel}
-        isProcessing={isProcessing}
-        processingStep={pipelineStatus?.currentStep ?? metric.refreshStatus}
-        isFetching={isFetching}
+        goalProgress={dashboardChart.goalProgress}
+        valueLabel={dashboardChart.valueLabel}
+        isProcessing={effectiveStatus.isProcessing}
+        processingStep={effectiveStatus.processingStep}
+        isFetching={dataOverride ? false : isFetching}
       />
     </div>
   );
 
-  // In readOnly mode, just render the card without the Drawer wrapper
   if (readOnly) {
     return cardContent;
   }
@@ -317,30 +269,8 @@ export function DashboardMetricCard({
         <div className="mx-auto min-h-0 w-full flex-1">
           <DashboardMetricDrawer
             metricId={metric.id}
-            metricName={metric.name}
-            metricDescription={metric.description}
-            teamId={metric.teamId}
-            chartTransform={chartTransform}
-            currentChartType={
-              dashboardMetric.chartTransformer?.chartType ?? null
-            }
-            currentCadence={dashboardMetric.chartTransformer?.cadence ?? null}
-            currentSelectedDimension={
-              dashboardMetric.chartTransformer?.selectedDimension ?? null
-            }
-            roles={roles}
-            valueLabel={dashboardMetric.valueLabel ?? null}
-            integrationId={metric.integration?.providerId ?? null}
-            isIntegrationMetric={isIntegrationMetric}
-            lastFetchedAt={metric.lastFetchedAt}
-            chartUpdatedAt={dashboardMetric.chartTransformer?.updatedAt ?? null}
-            lastError={metric.lastError}
-            goal={metric.goal}
-            goalProgress={dashboardMetric.goalProgress ?? null}
-            isProcessing={isProcessing}
-            isUpdating={updateMetricMutation.isPending}
-            isDeleting={isPending || deleteMetricMutation.isPending}
-            onRegenerate={handleRegenerate}
+            teamId={teamId}
+            isDeleting={mutations.delete.isPending}
             onRefresh={handleRefresh}
             onUpdateMetric={handleUpdateMetric}
             onDelete={handleRemove}

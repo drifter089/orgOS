@@ -55,10 +55,12 @@ export function PublicDashboardUnified() {
         </div>
       ) : (
         <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-          {dashboardCharts.map((dashboardMetric) => (
+          {dashboardCharts.map((dc) => (
             <DashboardMetricCard
-              key={dashboardMetric.id}
-              dashboardMetric={dashboardMetric}
+              key={dc.id}
+              metricId={dc.metric.id}
+              teamId={dc.metric.teamId ?? ""}
+              dataOverride={dc}
               readOnly
             />
           ))}

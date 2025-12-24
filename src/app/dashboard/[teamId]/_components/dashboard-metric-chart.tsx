@@ -50,19 +50,19 @@ import { type GoalProgress, calculateTargetDisplayValue } from "@/lib/goals";
 import { formatValue } from "@/lib/helpers/format-value";
 import { getUserName } from "@/lib/helpers/get-user-name";
 import { getLatestMetricValue } from "@/lib/metrics/get-latest-value";
+import type { ChartTransformResult } from "@/lib/metrics/transformer-types";
 import { getStepDisplayName } from "@/lib/pipeline";
 import { getPlatformConfig } from "@/lib/platform-config";
 import { cn } from "@/lib/utils";
 import { api } from "@/trpc/react";
-
-import type { ChartTransformResult } from "./dashboard-metric-card";
 
 interface DashboardMetricChartProps {
   title: string;
   chartTransform: ChartTransformResult | null;
   hasChartData: boolean;
   isIntegrationMetric: boolean;
-  isPending: boolean;
+  /** Whether this is an optimistic/temp card awaiting server response */
+  isOptimistic: boolean;
   integrationId?: string | null;
   roles?: Role[];
   // Goal data from parent - eliminates N+1 query
@@ -84,7 +84,7 @@ export function DashboardMetricChart({
   chartTransform,
   hasChartData,
   isIntegrationMetric,
-  isPending,
+  isOptimistic,
   integrationId,
   roles = [],
   goal,
@@ -584,7 +584,7 @@ export function DashboardMetricChart({
     <Card
       className={cn(
         "flex h-[420px] flex-col transition-opacity duration-200",
-        isPending && "opacity-60",
+        isOptimistic && "opacity-60",
       )}
     >
       <CardHeader className="flex-shrink-0 space-y-0.5 px-5 pt-3 pb-1">
@@ -626,13 +626,13 @@ export function DashboardMetricChart({
               </Badge>
             )}
           </div>
-          {(isPending || isProcessing) && (
+          {(isOptimistic || isProcessing) && (
             <Badge
               variant="outline"
               className="text-muted-foreground shrink-0 text-[10px]"
             >
               <Loader2 className="mr-1 h-2.5 w-2.5 animate-spin" />
-              {isPending ? "Saving..." : "Processing..."}
+              {isOptimistic ? "Creating..." : "Processing..."}
             </Badge>
           )}
         </div>
@@ -717,7 +717,10 @@ export function DashboardMetricChart({
 
       <CardContent className="relative flex flex-1 flex-col overflow-hidden px-4 pt-0 pb-4">
         {hasChartData && (
-          <div key={chartKey} className="h-full w-full">
+          <div
+            key={chartKey}
+            className="animate-in fade-in h-full w-full duration-500"
+          >
             {renderChart()}
           </div>
         )}
