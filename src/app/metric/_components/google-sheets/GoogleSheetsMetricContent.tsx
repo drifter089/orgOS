@@ -329,20 +329,43 @@ export function GoogleSheetsMetricContent({
   const handleRowCheckbox = useCallback(
     (rowIndex: number, checked: boolean) => {
       setSelectedRows((prev) => {
-        const next = new Set(prev);
+        if (prev.size === 0 && !checked) return prev;
+
+        const next = new Set<number>();
         if (checked) {
           // Fill contiguous range from min to max
-          const all = [...Array.from(next), rowIndex];
+          const all = [...Array.from(prev), rowIndex];
           const min = Math.min(...all);
           const max = Math.max(...all);
-          next.clear();
           for (let i = min; i <= max; i++) next.add(i);
         } else {
-          next.delete(rowIndex);
+          // Maintain contiguity on uncheck by keeping the larger segment
+          if (prev.size <= 1) return next; // Empty after removal
+
+          const indices = Array.from(prev);
+          const min = Math.min(...indices);
+          const max = Math.max(...indices);
+
+          if (rowIndex === min) {
+            // Removing at start - keep (min+1)..max
+            for (let i = min + 1; i <= max; i++) next.add(i);
+          } else if (rowIndex === max) {
+            // Removing at end - keep min..(max-1)
+            for (let i = min; i <= max - 1; i++) next.add(i);
+          } else {
+            // Removing in middle - keep larger segment
+            const leftSize = rowIndex - min;
+            const rightSize = max - rowIndex;
+            if (leftSize >= rightSize) {
+              for (let i = min; i < rowIndex; i++) next.add(i);
+            } else {
+              for (let i = rowIndex + 1; i <= max; i++) next.add(i);
+            }
+          }
         }
         return next;
       });
-      setSelection(null); // Clear drag selection
+      setSelection(null);
     },
     [],
   );
@@ -351,20 +374,43 @@ export function GoogleSheetsMetricContent({
   const handleColumnCheckbox = useCallback(
     (colIndex: number, checked: boolean) => {
       setSelectedCols((prev) => {
-        const next = new Set(prev);
+        if (prev.size === 0 && !checked) return prev;
+
+        const next = new Set<number>();
         if (checked) {
           // Fill contiguous range from min to max
-          const all = [...Array.from(next), colIndex];
+          const all = [...Array.from(prev), colIndex];
           const min = Math.min(...all);
           const max = Math.max(...all);
-          next.clear();
           for (let i = min; i <= max; i++) next.add(i);
         } else {
-          next.delete(colIndex);
+          // Maintain contiguity on uncheck by keeping the larger segment
+          if (prev.size <= 1) return next; // Empty after removal
+
+          const indices = Array.from(prev);
+          const min = Math.min(...indices);
+          const max = Math.max(...indices);
+
+          if (colIndex === min) {
+            // Removing at start - keep (min+1)..max
+            for (let i = min + 1; i <= max; i++) next.add(i);
+          } else if (colIndex === max) {
+            // Removing at end - keep min..(max-1)
+            for (let i = min; i <= max - 1; i++) next.add(i);
+          } else {
+            // Removing in middle - keep larger segment
+            const leftSize = colIndex - min;
+            const rightSize = max - colIndex;
+            if (leftSize >= rightSize) {
+              for (let i = min; i < colIndex; i++) next.add(i);
+            } else {
+              for (let i = colIndex + 1; i <= max; i++) next.add(i);
+            }
+          }
         }
         return next;
       });
-      setSelection(null); // Clear drag selection
+      setSelection(null);
     },
     [],
   );
