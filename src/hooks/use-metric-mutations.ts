@@ -1,3 +1,5 @@
+import type { Cadence } from "@prisma/client";
+
 import { api } from "@/trpc/react";
 import type { DashboardChartWithRelations } from "@/types/dashboard";
 
@@ -6,13 +8,16 @@ interface UseMetricMutationsOptions {
 }
 
 /**
- * Metric mutations with optimistic updates and cache invalidation.
+ * Unified metric mutations with optimistic updates.
  *
- * Cache Strategy:
- * - Create: Optimistic card with "adding-metric" status → invalidate on success
- * - Refresh/Regenerate: Optimistic status update for immediate feedback
- * - Delete: Optimistic removal with rollback on error
- * - Card-level polling handles progress updates during processing
+ * All mutations that modify metric/pipeline state are here.
+ * Optimistic updates provide immediate UI feedback.
+ * Card-level polling (via usePipelineStatus) handles progress tracking.
+ *
+ * Cache invalidation strategy:
+ * - Create/Delete: Invalidate on success (structural change)
+ * - Refresh/Regenerate: Optimistic status update only (polling handles completion)
+ * - Update/RegenerateChart: Optimistic status update (polling handles completion)
  */
 export function useMetricMutations({ teamId }: UseMetricMutationsOptions = {}) {
   const utils = api.useUtils();
@@ -20,6 +25,34 @@ export function useMetricMutations({ teamId }: UseMetricMutationsOptions = {}) {
   const invalidateDashboard = () => {
     void utils.dashboard.getDashboardCharts.invalidate();
   };
+
+  // Helper to update a metric's status in cache
+  const updateMetricStatus = (
+    metricId: string,
+    refreshStatus: string | null,
+    clearError = true,
+  ) => {
+    if (!teamId) return;
+
+    utils.dashboard.getDashboardCharts.setData({ teamId }, (old) =>
+      old?.map((dc) =>
+        dc.metric.id === metricId
+          ? {
+              ...dc,
+              metric: {
+                ...dc.metric,
+                refreshStatus,
+                lastError: clearError ? null : dc.metric.lastError,
+              },
+            }
+          : dc,
+      ),
+    );
+  };
+
+  // ==========================================================================
+  // Create Mutations
+  // ==========================================================================
 
   const create = api.metric.create.useMutation({
     onMutate: async (variables) => {
@@ -30,7 +63,7 @@ export function useMetricMutations({ teamId }: UseMetricMutationsOptions = {}) {
         teamId,
       });
 
-      // Create optimistic card with temp ID and "adding-metric" status
+      // Create optimistic card with temp ID
       const tempId = `temp-${Date.now()}`;
       const optimisticChart: DashboardChartWithRelations = {
         id: tempId,
@@ -76,7 +109,6 @@ export function useMetricMutations({ teamId }: UseMetricMutationsOptions = {}) {
       return { previousData };
     },
     onError: (_error, _variables, context) => {
-      // Rollback on error
       if (teamId && context?.previousData) {
         utils.dashboard.getDashboardCharts.setData(
           { teamId },
@@ -88,8 +120,73 @@ export function useMetricMutations({ teamId }: UseMetricMutationsOptions = {}) {
   });
 
   const createManual = api.manualMetric.create.useMutation({
+    onMutate: async (variables) => {
+      if (!teamId) return;
+
+      await utils.dashboard.getDashboardCharts.cancel();
+      const previousData = utils.dashboard.getDashboardCharts.getData({
+        teamId,
+      });
+
+      // Create optimistic card for manual metric
+      const tempId = `temp-${Date.now()}`;
+      const optimisticChart: DashboardChartWithRelations = {
+        id: tempId,
+        metricId: tempId,
+        organizationId: "temp",
+        chartType: "bar",
+        chartConfig: null,
+        chartTransformer: null,
+        chartTransformerId: null,
+        goalProgress: null,
+        valueLabel: null,
+        dataDescription: null,
+        size: "medium",
+        position: 0,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        metric: {
+          id: tempId,
+          name: variables.name,
+          description: variables.description ?? null,
+          refreshStatus: "adding-metric",
+          lastError: null,
+          lastFetchedAt: null,
+          nextPollAt: null,
+          pollFrequency: "manual",
+          goal: null,
+          templateId: null,
+          teamId: variables.teamId,
+          organizationId: "temp",
+          integrationId: null,
+          endpointConfig: null,
+          integration: null,
+          roles: [],
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        },
+      };
+
+      utils.dashboard.getDashboardCharts.setData({ teamId }, (old) =>
+        old ? [optimisticChart, ...old] : [optimisticChart],
+      );
+
+      return { previousData };
+    },
+    onError: (_error, _variables, context) => {
+      if (teamId && context?.previousData) {
+        utils.dashboard.getDashboardCharts.setData(
+          { teamId },
+          context.previousData,
+        );
+      }
+    },
     onSuccess: invalidateDashboard,
   });
+
+  // ==========================================================================
+  // Delete Mutation
+  // ==========================================================================
 
   const deleteMutation = api.metric.delete.useMutation({
     onMutate: async (variables) => {
@@ -128,61 +225,64 @@ export function useMetricMutations({ teamId }: UseMetricMutationsOptions = {}) {
     onSettled: invalidateDashboard,
   });
 
+  // ==========================================================================
+  // Update Mutation
+  // ==========================================================================
+
+  const update = api.metric.update.useMutation({
+    onSuccess: invalidateDashboard,
+  });
+
+  // ==========================================================================
+  // Pipeline Mutations (Optimistic status → polling handles completion)
+  // ==========================================================================
+
   const refresh = api.pipeline.refresh.useMutation({
     onMutate: async ({ metricId }) => {
-      if (!teamId) return;
-
       await utils.dashboard.getDashboardCharts.cancel();
-
-      // Optimistic update: set status to "fetching-api-data"
-      utils.dashboard.getDashboardCharts.setData({ teamId }, (old) =>
-        old?.map((dc) =>
-          dc.metric.id === metricId
-            ? {
-                ...dc,
-                metric: {
-                  ...dc.metric,
-                  refreshStatus: "fetching-api-data",
-                  lastError: null,
-                },
-              }
-            : dc,
-        ),
-      );
+      updateMetricStatus(metricId, "fetching-api-data");
     },
-    // No onSuccess invalidate - card polling handles completion
   });
 
   const regenerate = api.pipeline.regenerate.useMutation({
     onMutate: async ({ metricId }) => {
-      if (!teamId) return;
-
       await utils.dashboard.getDashboardCharts.cancel();
-
-      // Optimistic update: set status to indicate regeneration starting
-      utils.dashboard.getDashboardCharts.setData({ teamId }, (old) =>
-        old?.map((dc) =>
-          dc.metric.id === metricId
-            ? {
-                ...dc,
-                metric: {
-                  ...dc.metric,
-                  refreshStatus: "fetching-api-data",
-                  lastError: null,
-                },
-              }
-            : dc,
-        ),
-      );
+      updateMetricStatus(metricId, "deleting-old-data");
     },
-    // No onSuccess invalidate - card polling handles completion
+  });
+
+  const regenerateChartOnly = api.pipeline.regenerateChartOnly.useMutation({
+    onMutate: async ({ metricId }) => {
+      await utils.dashboard.getDashboardCharts.cancel();
+      updateMetricStatus(metricId, "generating-chart-transformer");
+    },
   });
 
   return {
+    // Create
     create,
     createManual,
+    // Update
+    update,
+    // Delete
     delete: deleteMutation,
+    // Pipeline operations
     refresh,
     regenerate,
+    regenerateChartOnly,
   };
+}
+
+/**
+ * Convenience type for mutation props passed to child components.
+ */
+export interface MetricMutationHandlers {
+  onRefresh: (forceRebuild?: boolean) => Promise<void>;
+  onDelete: () => Promise<void>;
+  onUpdateMetric: (name: string, description: string) => void;
+  onRegenerateChart: (
+    chartType: string,
+    cadence: Cadence,
+    selectedDimension?: string,
+  ) => void;
 }
