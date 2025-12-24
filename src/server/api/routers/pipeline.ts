@@ -368,18 +368,23 @@ export const pipelineRouter = createTRPCRouter({
   getProgress: workspaceProcedure
     .input(z.object({ metricId: z.string() }))
     .query(async ({ ctx, input }) => {
-      await getMetricAndVerifyAccess(
-        ctx.db,
-        input.metricId,
-        ctx.workspace.organizationId,
-      );
-
-      const metric = await ctx.db.metric.findUnique({
-        where: { id: input.metricId },
+      // Single query: Auth check via WHERE clause + fetch required fields
+      const metric = await ctx.db.metric.findFirst({
+        where: {
+          id: input.metricId,
+          organizationId: ctx.workspace.organizationId,
+        },
         select: { refreshStatus: true, lastError: true },
       });
 
-      if (!metric?.refreshStatus) {
+      if (!metric) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Metric not found",
+        });
+      }
+
+      if (!metric.refreshStatus) {
         return {
           isProcessing: false,
           currentStep: null,
