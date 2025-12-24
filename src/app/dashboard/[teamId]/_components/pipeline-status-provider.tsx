@@ -99,6 +99,9 @@ export function PipelineStatusProvider({
   // Track completed metrics to show toast (prevent double toast)
   const completedRef = useRef<Set<string>>(new Set());
 
+  // Track recently created metrics (skip "Chart updated" toast for these)
+  const recentlyCreatedRef = useRef<Set<string>>(new Set());
+
   // Track timeout IDs for cleanup on unmount
   const timeoutIdsRef = useRef<NodeJS.Timeout[]>([]);
 
@@ -170,8 +173,11 @@ export function PipelineStatusProvider({
     if (completedIds.length > 0 || errorIds.length > 0) {
       const allIds = [...completedIds, ...errorIds];
 
-      // Show toasts immediately
-      if (completedIds.length > 0) {
+      // Skip completion toast for newly created metrics (already got "KPI created" toast)
+      const nonRecentlyCreated = completedIds.filter(
+        (id) => !recentlyCreatedRef.current.has(id),
+      );
+      if (nonRecentlyCreated.length > 0) {
         toast.success("Chart updated successfully");
       }
       if (errorIds.length > 0) {
@@ -195,10 +201,12 @@ export function PipelineStatusProvider({
           });
         });
 
-      // Clear from completed ref after a delay to prevent re-triggering
+      // Clear refs after delay to prevent re-triggering
       const timeoutId = setTimeout(() => {
-        allIds.forEach((id) => completedRef.current.delete(id));
-        // Remove this timeout from tracking
+        allIds.forEach((id) => {
+          completedRef.current.delete(id);
+          recentlyCreatedRef.current.delete(id);
+        });
         timeoutIdsRef.current = timeoutIdsRef.current.filter(
           (id) => id !== timeoutId,
         );
@@ -257,16 +265,47 @@ export function PipelineStatusProvider({
   // Mutations
   // ---------------------------------------------------------------------------
   const createMutation = api.metric.create.useMutation({
-    onSuccess: async (result) => {
+    onSuccess: (result) => {
+      recentlyCreatedRef.current.add(result.metricId);
       startPolling(result.metricId);
-      await utils.dashboard.getDashboardCharts.invalidate({ teamId });
+
+      // Optimistic update to prevent card flicker
+      const enrichedResult = {
+        ...result,
+        goalProgress: null,
+        valueLabel: null,
+        dataDescription: null,
+        metric: { ...result.metric, goal: null },
+      } as DashboardChartWithRelations;
+
+      utils.dashboard.getDashboardCharts.setData({ teamId }, (old) => {
+        if (!old) return [enrichedResult];
+        if (old.some((dc) => dc.id === result.id)) return old;
+        return [...old, enrichedResult];
+      });
     },
   });
 
   const createManualMutation = api.manualMetric.create.useMutation({
-    onSuccess: async (result) => {
+    onSuccess: (result) => {
+      recentlyCreatedRef.current.add(result.metricId);
       startPolling(result.metricId);
-      await utils.dashboard.getDashboardCharts.invalidate({ teamId });
+
+      // Optimistic update to prevent card flicker
+      const enrichedResult = {
+        ...result,
+        goalProgress: null,
+        valueLabel: null,
+        dataDescription: null,
+        chartTransformer: null,
+        metric: { ...result.metric, goal: null },
+      } as DashboardChartWithRelations;
+
+      utils.dashboard.getDashboardCharts.setData({ teamId }, (old) => {
+        if (!old) return [enrichedResult];
+        if (old.some((dc) => dc.id === result.id)) return old;
+        return [...old, enrichedResult];
+      });
     },
   });
 
