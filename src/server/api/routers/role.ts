@@ -6,7 +6,11 @@ import {
   getTeamAndVerifyAccess,
   validateUserAssignable,
 } from "@/server/api/utils/authorization";
-import { invalidateCacheByTags } from "@/server/api/utils/cache-strategy";
+import {
+  cacheStrategyWithTags,
+  invalidateCacheByTags,
+  listCache,
+} from "@/server/api/utils/cache-strategy";
 import { getUserDisplayName } from "@/server/api/utils/get-user-display-name";
 
 const metricInclude = {
@@ -45,6 +49,7 @@ export const roleRouter = createTRPCRouter({
           metric: metricInclude,
         },
         orderBy: { createdAt: "asc" },
+        ...cacheStrategyWithTags(listCache, [`team_${input.teamId}`]),
       });
     }),
 

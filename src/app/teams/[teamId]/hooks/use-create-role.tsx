@@ -184,8 +184,9 @@ export function useCreateRole({
     onSuccess: (newRole, _variables, context) => {
       if (!context) return;
 
-      // Invalidate team.getById cache to ensure fresh data on next fetch
+      // Invalidate caches to ensure fresh data on next fetch
       void utils.team.getById.invalidate({ id: teamId });
+      void utils.role.getByTeamId.invalidate({ teamId });
 
       // Update node with real roleId and clear pending state
       const currentNodes = storeApi.getState().nodes;
