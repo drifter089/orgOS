@@ -3,7 +3,8 @@
 import { useState } from "react";
 
 import type { Cadence, GoalType, MetricGoal } from "@prisma/client";
-import { Loader2, Pencil, Target, Trash2 } from "lucide-react";
+import { format } from "date-fns";
+import { Calendar, Loader2, Pencil, Target, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -15,6 +16,20 @@ import { formatCadence } from "@/lib/helpers/format-cadence";
 import { formatValue } from "@/lib/helpers/format-value";
 import { cn } from "@/lib/utils";
 import { api } from "@/trpc/react";
+
+/**
+ * Format time remaining based on cadence
+ * - DAILY or < 1 day: show hours (e.g., "8 hrs")
+ * - WEEKLY/MONTHLY: show days (e.g., "3 days")
+ */
+function formatTimeRemaining(goalProgress: GoalProgress): string {
+  if (goalProgress.cadence === "DAILY" || goalProgress.daysRemaining < 1) {
+    const hours = Math.max(0, Math.round(goalProgress.hoursRemaining));
+    return `${hours} hr${hours !== 1 ? "s" : ""}`;
+  }
+  const days = Math.max(0, Math.round(goalProgress.daysRemaining));
+  return `${days} day${days !== 1 ? "s" : ""}`;
+}
 
 interface GoalTabContentProps {
   metricId: string;
@@ -242,7 +257,14 @@ export function GoalTabContent({
         {/* Time Elapsed */}
         {goalProgress && (
           <div className="bg-background rounded-lg border p-3 shadow-sm">
-            <Label className="text-xs">Time Elapsed</Label>
+            <div className="flex items-center justify-between">
+              <Label className="text-xs">Time Elapsed</Label>
+              <div className="text-muted-foreground flex items-center gap-1 text-[10px]">
+                <Calendar className="h-3 w-3" />
+                {format(new Date(goalProgress.periodStart), "MMM d")} -{" "}
+                {format(new Date(goalProgress.periodEnd), "MMM d")}
+              </div>
+            </div>
             <div className="mt-2 space-y-1">
               <div className="bg-muted h-2 w-full overflow-hidden rounded-full">
                 <div
@@ -259,7 +281,7 @@ export function GoalTabContent({
                 />
               </div>
               <div className="text-muted-foreground text-[10px]">
-                {goalProgress.daysRemaining}d remaining
+                {formatTimeRemaining(goalProgress)} remaining
               </div>
             </div>
           </div>
