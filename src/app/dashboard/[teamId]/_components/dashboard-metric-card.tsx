@@ -15,13 +15,13 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { useMetricMutations } from "@/hooks/use-metric-mutations";
-import { usePipelineStatus } from "@/hooks/use-pipeline-status";
 import { isDevMode } from "@/lib/dev-mode";
 import type { ChartTransformResult } from "@/lib/metrics/transformer-types";
 import { useConfirmation } from "@/providers/ConfirmationDialogProvider";
 import type { RouterOutputs } from "@/trpc/react";
 import { api } from "@/trpc/react";
 
+import type { PipelineProgressData } from "./dashboard-client";
 import { DashboardMetricChart } from "./dashboard-metric-chart";
 import { DashboardMetricDrawer } from "./dashboard-metric-drawer";
 
@@ -45,12 +45,26 @@ interface DashboardMetricCardProps {
     valueLabel?: string | null;
     dataDescription?: string | null;
   };
+  /** Pipeline status from parent (centralized polling) */
+  pipelineStatus?: PipelineProgressData;
+  /** Team ID for targeted cache invalidation (optional for non-dashboard contexts) */
+  teamId?: string;
   /** When true, hides settings drawer and dev tool button (for public views) */
   readOnly?: boolean;
 }
 
+/**
+ * Dashboard metric card component.
+ *
+ * Key simplifications:
+ * - Receives pipelineStatus from parent (no internal polling)
+ * - Single source of truth: metric.refreshStatus + pipelineStatus from parent
+ * - Targeted invalidation using teamId prop
+ */
 export function DashboardMetricCard({
   dashboardMetric,
+  pipelineStatus,
+  teamId: teamIdProp,
   readOnly = false,
 }: DashboardMetricCardProps) {
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
@@ -59,56 +73,35 @@ export function DashboardMetricCard({
   const { confirm } = useConfirmation();
 
   const { metric } = dashboardMetric;
+  // Use prop teamId or fallback to metric's teamId
+  const teamId = teamIdProp ?? metric.teamId ?? undefined;
   const isPending = dashboardMetric.id.startsWith("temp-");
   const isIntegrationMetric = !!metric.integration?.providerId;
   const roles = metric.roles ?? [];
   const hasError = !!metric.lastError;
 
-  // Mutations
+  // Derive loading state from server data only (single source of truth)
+  const isProcessing =
+    !!metric.refreshStatus || (pipelineStatus?.isProcessing ?? false);
+
+  // Mutations with targeted invalidation
   const {
     delete: deleteMetricMutation,
     refresh: refreshMetricMutation,
     regenerate: regeneratePipelineMutation,
   } = useMetricMutations({
-    teamId: metric.teamId ?? undefined,
+    teamId,
   });
 
   const regenerateChartMutation = api.pipeline.regenerateChartOnly.useMutation({
     onSuccess: () => {
       toast.success("Chart transformer regeneration started");
-      void utils.dashboard.getDashboardCharts.invalidate();
+      if (teamId) {
+        void utils.dashboard.getDashboardCharts.invalidate({ teamId });
+      }
     },
     onError: (error) => {
       toast.error(`Failed: ${error.message}`);
-    },
-  });
-
-  // Check if any mutation is in-flight (brief moment before DB updates)
-  const isAnyMutationPending =
-    refreshMetricMutation.isPending ||
-    regeneratePipelineMutation.isPending ||
-    regenerateChartMutation.isPending;
-
-  // Poll when: mutation just fired OR server says processing is active
-  const shouldPoll = isAnyMutationPending || !!metric.refreshStatus;
-
-  // Single source of truth for pipeline status
-  // Uses invalidate() to mark all getDashboardCharts queries as stale
-  // TanStack Query will refetch any active queries automatically
-  const pipelineStatus = usePipelineStatus({
-    metricId: metric.id,
-    enabled: shouldPoll,
-    onComplete: () => {
-      // Invalidate all dashboard chart queries - TanStack Query handles refetching
-      void utils.dashboard.getDashboardCharts.invalidate();
-    },
-    onError: (error) => {
-      toast.error("Pipeline failed", {
-        description: error,
-        duration: 10000,
-      });
-      // Still invalidate to show error state
-      void utils.dashboard.getDashboardCharts.invalidate();
     },
   });
 
@@ -120,7 +113,7 @@ export function DashboardMetricCard({
 
   const updateMetricMutation = api.metric.update.useMutation({
     onSuccess: (updatedMetric) => {
-      const teamId = metric.teamId;
+      // Update both query variants
       utils.dashboard.getDashboardCharts.setData(undefined, (old) =>
         old?.map((dm) =>
           dm.metric.id === updatedMetric.id
@@ -128,22 +121,19 @@ export function DashboardMetricCard({
             : dm,
         ),
       );
-      if (teamId) {
-        utils.dashboard.getDashboardCharts.setData({ teamId }, (old) =>
-          old?.map((dm) =>
-            dm.metric.id === updatedMetric.id
-              ? { ...dm, metric: { ...dm.metric, ...updatedMetric } }
-              : dm,
-          ),
-        );
-      }
+      utils.dashboard.getDashboardCharts.setData({ teamId }, (old) =>
+        old?.map((dm) =>
+          dm.metric.id === updatedMetric.id
+            ? { ...dm, metric: { ...dm.metric, ...updatedMetric } }
+            : dm,
+        ),
+      );
     },
   });
 
   /**
    * Refresh metric data using existing transformer, or regenerate entire pipeline
-   * when forceRebuild is true. Progress status is polled from the database.
-   * For manual metrics, regenerates via full pipeline.
+   * when forceRebuild is true. Progress status is polled centrally by parent.
    */
   const handleRefresh = useCallback(
     async (forceRebuild = false) => {
@@ -290,7 +280,7 @@ export function DashboardMetricCard({
         </Tooltip>
       )}
 
-      {/* Chart content - directly rendered */}
+      {/* Chart content */}
       <DashboardMetricChart
         title={title}
         chartTransform={chartTransform}
@@ -302,8 +292,7 @@ export function DashboardMetricCard({
         goal={metric.goal}
         goalProgress={dashboardMetric.goalProgress}
         valueLabel={dashboardMetric.valueLabel}
-        pipelineStatus={pipelineStatus}
-        isMutationPending={isAnyMutationPending}
+        isProcessing={isProcessing}
       />
     </div>
   );
@@ -341,7 +330,7 @@ export function DashboardMetricCard({
             lastError={metric.lastError}
             goal={metric.goal}
             goalProgress={dashboardMetric.goalProgress ?? null}
-            pipelineStatus={pipelineStatus}
+            isProcessing={isProcessing}
             isUpdating={updateMetricMutation.isPending}
             isDeleting={isPending || deleteMetricMutation.isPending}
             onRegenerate={handleRegenerate}

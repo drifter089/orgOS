@@ -316,6 +316,53 @@ export const pipelineRouter = createTRPCRouter({
     }),
 
   /**
+   * Get pipeline progress for multiple metrics (batch endpoint for centralized polling)
+   * Returns progress for all requested metrics in one request
+   */
+  getBatchProgress: workspaceProcedure
+    .input(z.object({ metricIds: z.array(z.string()) }))
+    .query(async ({ ctx, input }) => {
+      if (input.metricIds.length === 0) {
+        return {} as Record<
+          string,
+          {
+            isProcessing: boolean;
+            currentStep: string | null;
+            error: string | null;
+          }
+        >;
+      }
+
+      // Verify all metrics belong to the organization
+      const metrics = await ctx.db.metric.findMany({
+        where: {
+          id: { in: input.metricIds },
+          organizationId: ctx.workspace.organizationId,
+        },
+        select: { id: true, refreshStatus: true, lastError: true },
+      });
+
+      const result: Record<
+        string,
+        {
+          isProcessing: boolean;
+          currentStep: string | null;
+          error: string | null;
+        }
+      > = {};
+
+      for (const metric of metrics) {
+        result[metric.id] = {
+          isProcessing: !!metric.refreshStatus,
+          currentStep: metric.refreshStatus,
+          error: metric.lastError,
+        };
+      }
+
+      return result;
+    }),
+
+  /**
    * Get pipeline progress for frontend polling
    */
   getProgress: workspaceProcedure

@@ -84,10 +84,14 @@ export function useMetricMutations({ teamId }: UseMetricMutationsOptions = {}) {
     onSuccess: (realChart, _variables, context) => {
       if (!context) return;
 
-      // Extend the returned chart with required fields for cache
       const enrichedChart: DashboardChartWithRelations = {
         ...realChart,
-        metric: { ...realChart.metric, goal: null },
+        metric: {
+          ...realChart.metric,
+          goal: null,
+          // Preserve refreshStatus for loading indicator (server sets "fetching-api-data")
+          refreshStatus: realChart.metric.refreshStatus ?? "fetching-api-data",
+        },
         goalProgress: null,
         valueLabel: null,
         dataDescription: null,
@@ -127,9 +131,7 @@ export function useMetricMutations({ teamId }: UseMetricMutationsOptions = {}) {
       }
     },
 
-    // Note: onSettled is intentionally omitted for the create mutation.
-    // Cache invalidation happens in MetricDialogBase after pipeline completes
-    // via useWaitForPipeline hook to prevent metric disappearing during processing.
+    // onSettled omitted - centralized dashboard polling handles cache updates
   });
 
   /**
@@ -255,7 +257,10 @@ export function useMetricMutations({ teamId }: UseMetricMutationsOptions = {}) {
     },
 
     onSettled: () => {
-      void utils.dashboard.getDashboardCharts.invalidate();
+      // Targeted invalidation - only invalidate the team's dashboard
+      if (teamId) {
+        void utils.dashboard.getDashboardCharts.invalidate({ teamId });
+      }
     },
   });
 
@@ -309,27 +314,24 @@ export function useMetricMutations({ teamId }: UseMetricMutationsOptions = {}) {
     },
 
     onSettled: () => {
-      void utils.dashboard.getDashboardCharts.invalidate();
+      // Targeted invalidation - only invalidate the team's dashboard
+      if (teamId) {
+        void utils.dashboard.getDashboardCharts.invalidate({ teamId });
+      }
     },
   });
 
   /**
    * Refresh metric (soft refresh - reuse transformers)
+   * Note: No onSuccess invalidation - centralized polling handles cache updates
    */
-  const refresh = api.pipeline.refresh.useMutation({
-    onSuccess: () => {
-      void utils.dashboard.getDashboardCharts.invalidate();
-    },
-  });
+  const refresh = api.pipeline.refresh.useMutation();
 
   /**
    * Regenerate metric (hard refresh - delete & recreate)
+   * Note: No onSuccess invalidation - centralized polling handles cache updates
    */
-  const regenerate = api.pipeline.regenerate.useMutation({
-    onSuccess: () => {
-      void utils.dashboard.getDashboardCharts.invalidate();
-    },
-  });
+  const regenerate = api.pipeline.regenerate.useMutation();
 
   return {
     create,

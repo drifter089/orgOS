@@ -25,7 +25,6 @@ import {
   YAxis,
 } from "recharts";
 
-import { PipelineProgressDisplay } from "@/components/pipeline-progress-display";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -40,7 +39,6 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import type { PipelineStatus } from "@/hooks/use-pipeline-status";
 import { type GoalProgress, calculateTargetDisplayValue } from "@/lib/goals";
 import { formatValue } from "@/lib/helpers/format-value";
 import { getUserName } from "@/lib/helpers/get-user-name";
@@ -50,56 +48,6 @@ import { cn } from "@/lib/utils";
 import { api } from "@/trpc/react";
 
 import type { ChartTransformResult } from "./dashboard-metric-card";
-
-// Pipeline step names from src/lib/pipeline/types.ts
-export type LoadingPhase =
-  | "fetching-api-data"
-  | "deleting-old-data"
-  | "deleting-old-transformer"
-  | "generating-ingestion-transformer"
-  | "executing-ingestion-transformer"
-  | "saving-timeseries-data"
-  | "generating-chart-transformer"
-  | "executing-chart-transformer"
-  | "saving-chart-config"
-  // Legacy phase names for backward compatibility
-  | "fetching-api"
-  | "running-transformer"
-  | "ai-regenerating"
-  | "saving-data"
-  | "updating-chart"
-  | null;
-
-function getLoadingMessage(phase: LoadingPhase | undefined): string {
-  switch (phase) {
-    // New pipeline step names
-    case "fetching-api-data":
-    case "fetching-api":
-      return "Fetching data from API...";
-    case "deleting-old-data":
-      return "Clearing old data...";
-    case "deleting-old-transformer":
-      return "Clearing old transformer...";
-    case "generating-ingestion-transformer":
-    case "ai-regenerating":
-      return "AI is generating transformer...";
-    case "executing-ingestion-transformer":
-    case "running-transformer":
-      return "Processing data...";
-    case "saving-timeseries-data":
-    case "saving-data":
-      return "Saving data points...";
-    case "generating-chart-transformer":
-      return "Generating chart...";
-    case "executing-chart-transformer":
-    case "updating-chart":
-      return "Updating chart...";
-    case "saving-chart-config":
-      return "Finalizing...";
-    default:
-      return "Processing...";
-  }
-}
 
 interface DashboardMetricChartProps {
   title: string;
@@ -115,10 +63,8 @@ interface DashboardMetricChartProps {
   // Legacy prop - value label from DataIngestionTransformer
   // Prefer chartTransform.valueLabel (unified metadata from ChartTransformer)
   valueLabel?: string | null;
-  /** Pipeline status from parent - single source of truth for loading states */
-  pipelineStatus?: PipelineStatus | null;
-  /** True when a mutation is pending - covers gap before first poll returns */
-  isMutationPending?: boolean;
+  /** Whether the metric is currently processing (from parent) */
+  isProcessing?: boolean;
 }
 
 export function DashboardMetricChart({
@@ -132,14 +78,8 @@ export function DashboardMetricChart({
   goal,
   goalProgress,
   valueLabel,
-  pipelineStatus,
-  isMutationPending = false,
+  isProcessing = false,
 }: DashboardMetricChartProps) {
-  // Derive loading state from pipelineStatus (single source of truth)
-  // isMutationPending covers the gap between mutation start and first poll response
-  const isProcessing =
-    isMutationPending || (pipelineStatus?.isProcessing ?? false);
-  const loadingPhase = pipelineStatus?.currentStep as LoadingPhase | null;
   const platformConfig = integrationId
     ? getPlatformConfig(integrationId)
     : null;
@@ -165,14 +105,12 @@ export function DashboardMetricChart({
 
   const currentValue = getLatestMetricValue(chartTransform);
 
-  // Generate a key that changes when chart data changes to trigger animation replay
+  // Generate a stable key for chart re-renders (no JSON serialization)
   const chartKey = useMemo(() => {
-    const chartData = chartTransform?.chartData;
-    if (!chartData || chartData.length === 0) return "empty";
-    const first = JSON.stringify(chartData[0]);
-    const last = JSON.stringify(chartData[chartData.length - 1]);
-    return `${first}-${last}-${chartData.length}`;
-  }, [chartTransform?.chartData]);
+    if (!chartTransform?.chartData?.length) return "empty";
+    // Use length and chart type as a cheap stable key
+    return `${chartTransform.chartType}-${chartTransform.chartData.length}`;
+  }, [chartTransform?.chartData?.length, chartTransform?.chartType]);
 
   const renderChart = () => {
     if (!chartTransform) return null;
@@ -630,7 +568,10 @@ export function DashboardMetricChart({
 
   return (
     <Card
-      className={`animate-in fade-in flex h-[420px] flex-col duration-300 ${isPending ? "animate-pulse opacity-70" : ""}`}
+      className={cn(
+        "flex h-[420px] flex-col transition-opacity duration-200",
+        isPending && "opacity-60",
+      )}
     >
       <CardHeader className="flex-shrink-0 space-y-0.5 px-5 pt-3 pb-1">
         <div className="flex items-center justify-between gap-2">
@@ -671,13 +612,13 @@ export function DashboardMetricChart({
               </Badge>
             )}
           </div>
-          {(isPending || isProcessing || loadingPhase) && (
+          {(isPending || isProcessing) && (
             <Badge
               variant="outline"
               className="text-muted-foreground shrink-0 text-[10px]"
             >
               <Loader2 className="mr-1 h-2.5 w-2.5 animate-spin" />
-              {isPending ? "Saving..." : getLoadingMessage(loadingPhase)}
+              {isPending ? "Saving..." : "Processing..."}
             </Badge>
           )}
         </div>
@@ -767,7 +708,7 @@ export function DashboardMetricChart({
           </div>
         )}
 
-        {!hasChartData && !isProcessing && !loadingPhase && (
+        {!hasChartData && !isProcessing && (
           <div className="text-muted-foreground flex flex-1 items-center justify-center rounded-md border border-dashed p-4 text-center text-sm">
             {isIntegrationMetric
               ? "Loading chart..."
@@ -775,22 +716,15 @@ export function DashboardMetricChart({
           </div>
         )}
 
-        {(isProcessing || loadingPhase) && hasChartData && (
-          <div className="bg-background/80 absolute inset-0 flex items-center justify-center rounded-md backdrop-blur-sm">
+        {!hasChartData && isProcessing && (
+          <div className="flex flex-1 items-center justify-center rounded-md border border-dashed p-4">
             <div className="text-center">
               <Loader2 className="text-muted-foreground mx-auto h-6 w-6 animate-spin" />
               <p className="text-muted-foreground mt-2 text-sm">
-                {getLoadingMessage(loadingPhase)}
+                Processing...
               </p>
             </div>
           </div>
-        )}
-
-        {pipelineStatus && isProcessing && !hasChartData && (
-          <PipelineProgressDisplay
-            pipelineStatus={pipelineStatus}
-            variant="card"
-          />
         )}
       </CardContent>
     </Card>

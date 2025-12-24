@@ -39,7 +39,6 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import type { PipelineStatus } from "@/hooks/use-pipeline-status";
 import type { GoalProgress } from "@/lib/goals";
 import { getDimensionDisplayLabel } from "@/lib/metrics/dimension-labels";
 import { getLatestMetricValue } from "@/lib/metrics/get-latest-value";
@@ -70,7 +69,7 @@ interface DashboardMetricDrawerProps {
   lastError: string | null;
   goal: MetricGoal | null;
   goalProgress: GoalProgress | null;
-  pipelineStatus: PipelineStatus;
+  isProcessing: boolean;
   isUpdating: boolean;
   isDeleting: boolean;
   onRegenerate: () => void;
@@ -103,7 +102,7 @@ export function DashboardMetricDrawer({
   lastError,
   goal,
   goalProgress,
-  pipelineStatus,
+  isProcessing,
   isUpdating: _isUpdating,
   isDeleting,
   onRegenerate: _onRegenerate,
@@ -113,8 +112,6 @@ export function DashboardMetricDrawer({
   onClose: _onClose,
   onRegenerateChart,
 }: DashboardMetricDrawerProps) {
-  // Derive loading state from pipelineStatus
-  const isProcessing = pipelineStatus.isProcessing;
   const [name, setName] = useState(metricName);
   const [selectedChartType, setSelectedChartType] = useState(
     currentChartType ?? "bar",
@@ -366,7 +363,7 @@ export function DashboardMetricDrawer({
               goal={goal}
               goalProgress={goalProgress}
               valueLabel={valueLabel}
-              pipelineStatus={pipelineStatus}
+              isProcessing={isProcessing}
             />
           </div>
 
