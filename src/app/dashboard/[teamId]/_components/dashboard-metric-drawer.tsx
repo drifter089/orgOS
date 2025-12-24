@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 
 import type { Cadence } from "@prisma/client";
 import { formatDistanceToNow } from "date-fns";
@@ -107,7 +107,7 @@ export function DashboardMetricDrawer({
   const goalProgress = dashboardChart.goalProgress ?? null;
 
   // Track if user is actively editing (to prevent overwriting their changes)
-  const isEditingRef = useRef(false);
+  const [isEditingName, setIsEditingName] = useState(false);
 
   // Local form state - initialized from props
   const [name, setName] = useState(metric.name);
@@ -132,13 +132,13 @@ export function DashboardMetricDrawer({
 
   // Sync form state when props change (only if not actively editing)
   useEffect(() => {
-    if (isEditingRef.current) return;
-
-    setName(metric.name);
+    if (!isEditingName) {
+      setName(metric.name);
+    }
     setSelectedChartType(chartTransformer?.chartType ?? "bar");
     setSelectedCadence(chartTransformer?.cadence ?? "WEEKLY");
     setSelectedDimension(chartTransformer?.selectedDimension ?? "value");
-  }, [metric.name, chartTransformer]);
+  }, [metric.name, chartTransformer, isEditingName]);
 
   // Derived state - compare current form values to props
   const hasNameChanges = name !== metric.name;
@@ -160,21 +160,15 @@ export function DashboardMetricDrawer({
   // ==========================================================================
 
   const handleNameChange = (value: string) => {
-    isEditingRef.current = true;
+    setIsEditingName(true);
     setName(value);
-  };
-
-  const handleNameBlur = () => {
-    // Reset editing flag after a short delay to allow save to complete
-    setTimeout(() => {
-      isEditingRef.current = false;
-    }, 100);
   };
 
   const handleSave = () => {
     if (hasNameChanges && name.trim()) {
       onUpdateMetric(name.trim(), metric.description ?? "");
     }
+    setIsEditingName(false);
   };
 
   const handleApplyChanges = () => {
@@ -414,7 +408,6 @@ export function DashboardMetricDrawer({
                     <Input
                       value={name}
                       onChange={(e) => handleNameChange(e.target.value)}
-                      onBlur={handleNameBlur}
                       className="h-9"
                     />
                     <Button

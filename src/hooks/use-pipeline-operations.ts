@@ -621,6 +621,7 @@ export function usePipelineOperations({
     getStatus,
     isPolling,
     pollingMetricId,
+    startPolling,
 
     // Loading states
     isCreating: createMutation.isPending || createManualMutation.isPending,
