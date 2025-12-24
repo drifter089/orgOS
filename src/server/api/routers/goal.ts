@@ -39,12 +39,14 @@ export const goalRouter = createTRPCRouter({
         where: { metricId: input.metricId },
       });
 
-      // Get the chart's cadence and chartConfig for goal calculation
+      // Get the chart's cadence, selectedDimension, and chartConfig for goal calculation
       const dashboardChart = await ctx.db.dashboardChart.findFirst({
         where: { metricId: input.metricId },
         select: {
           chartConfig: true,
-          chartTransformer: { select: { cadence: true } },
+          chartTransformer: {
+            select: { cadence: true, selectedDimension: true },
+          },
           metric: { select: { integrationId: true, endpointConfig: true } },
         },
       });
@@ -82,13 +84,22 @@ export const goalRouter = createTRPCRouter({
         valueLabel = transformer?.valueLabel ?? null;
       }
 
+      // Get selectedDimension from chartTransformer
+      const selectedDimension =
+        dashboardChart?.chartTransformer?.selectedDimension ?? null;
+
       // Extract current value from chartConfig
+      // Use selectedDimension if available and valid, otherwise fall back to dataKeys[0]
       let currentValue: number | null = null;
       let currentValueLabel: string | null = null;
       if (chartConfig?.chartData && chartConfig.chartData.length > 0) {
         const latestData =
           chartConfig.chartData[chartConfig.chartData.length - 1];
-        const primaryKey = chartConfig.dataKeys?.[0];
+        const dataKeys = chartConfig.dataKeys ?? [];
+        const primaryKey =
+          selectedDimension && dataKeys.includes(selectedDimension)
+            ? selectedDimension
+            : dataKeys[0];
         if (latestData && primaryKey) {
           const val = latestData[primaryKey];
           if (typeof val === "number") {
@@ -140,6 +151,7 @@ export const goalRouter = createTRPCRouter({
         chartData: chartConfig?.chartData ?? [],
         xAxisKey: chartConfig?.xAxisKey ?? "date",
         dataKeys: chartConfig?.dataKeys ?? [],
+        selectedDimension,
       };
 
       const progress = calculateGoalProgress(

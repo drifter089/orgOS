@@ -22,6 +22,7 @@ type DashboardChartWithRelations = {
   };
   chartTransformer: {
     cadence: Cadence;
+    selectedDimension?: string | null;
   } | null;
   [key: string]: unknown;
 };
@@ -120,6 +121,7 @@ export async function enrichChartsWithGoalProgress<
       chartData: chartConfig?.chartData ?? [],
       xAxisKey: chartConfig?.xAxisKey ?? "date",
       dataKeys: chartConfig?.dataKeys ?? [],
+      selectedDimension: chart.chartTransformer.selectedDimension,
     };
 
     // Calculate goal progress

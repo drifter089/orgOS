@@ -57,4 +57,5 @@ export interface ChartDataForGoal {
   chartData: Array<Record<string, unknown>>;
   xAxisKey: string;
   dataKeys: string[];
+  selectedDimension?: string | null;
 }
