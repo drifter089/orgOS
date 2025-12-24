@@ -72,18 +72,21 @@ export function DashboardMetricCard({
 
   const refreshMutation = api.pipeline.refresh.useMutation({
     onMutate: () => setOptimisticProcessing(metricId),
+    onSuccess: () => utils.dashboard.getDashboardCharts.invalidate({ teamId }),
     onError: (err) =>
       toast.error("Refresh failed", { description: err.message }),
   });
 
   const regenerateMutation = api.pipeline.regenerate.useMutation({
     onMutate: () => setOptimisticProcessing(metricId),
+    onSuccess: () => utils.dashboard.getDashboardCharts.invalidate({ teamId }),
     onError: (err) =>
       toast.error("Regenerate failed", { description: err.message }),
   });
 
   const regenerateChartMutation = api.pipeline.regenerateChartOnly.useMutation({
     onMutate: () => setOptimisticProcessing(metricId),
+    onSuccess: () => utils.dashboard.getDashboardCharts.invalidate({ teamId }),
     onError: (err) =>
       toast.error("Chart update failed", { description: err.message }),
   });
