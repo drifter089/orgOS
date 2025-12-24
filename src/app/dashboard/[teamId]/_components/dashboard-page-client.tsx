@@ -25,7 +25,6 @@ export function DashboardPageClient({ teamId }: DashboardPageClientProps) {
     data: dashboardCharts,
     isLoading: chartsLoading,
     isError: chartsError,
-    isFetching,
   } = api.dashboard.getDashboardCharts.useQuery(
     { teamId },
     {
@@ -84,11 +83,7 @@ export function DashboardPageClient({ teamId }: DashboardPageClientProps) {
         </p>
       </div>
 
-      <DashboardClient
-        teamId={teamId}
-        dashboardCharts={dashboardCharts}
-        isFetching={isFetching}
-      />
+      <DashboardClient teamId={teamId} dashboardCharts={dashboardCharts} />
       <DashboardSidebar teamId={teamId} initialIntegrations={integrations} />
     </div>
   );

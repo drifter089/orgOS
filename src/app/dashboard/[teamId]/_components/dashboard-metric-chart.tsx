@@ -50,12 +50,11 @@ import { type GoalProgress, calculateTargetDisplayValue } from "@/lib/goals";
 import { formatValue } from "@/lib/helpers/format-value";
 import { getUserName } from "@/lib/helpers/get-user-name";
 import { getLatestMetricValue } from "@/lib/metrics/get-latest-value";
+import type { ChartTransformResult } from "@/lib/metrics/transformer-types";
 import { getStepDisplayName } from "@/lib/pipeline";
 import { getPlatformConfig } from "@/lib/platform-config";
 import { cn } from "@/lib/utils";
 import { api } from "@/trpc/react";
-
-import type { ChartTransformResult } from "./dashboard-metric-card";
 
 interface DashboardMetricChartProps {
   title: string;

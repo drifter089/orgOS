@@ -13,18 +13,21 @@ type DashboardMetrics = RouterOutputs["dashboard"]["getDashboardCharts"];
 interface DashboardClientProps {
   teamId: string;
   dashboardCharts: DashboardMetrics;
-  /** Whether the dashboard charts query is currently fetching */
-  isFetching?: boolean;
 }
 
-/** Dashboard client - receives data from parent, handles completion detection. */
+/**
+ * Dashboard client - renders metric cards and handles completion detection.
+ *
+ * Cards use useDashboardMetric hook internally to get live data.
+ * We just pass metricId and teamId - no data drilling needed.
+ */
 export function DashboardClient({
   teamId,
   dashboardCharts,
-  isFetching = false,
 }: DashboardClientProps) {
   const prevChartsRef = useRef<DashboardMetrics | null>(null);
 
+  // Detect pipeline completion and show error toast if failed
   useEffect(() => {
     if (!prevChartsRef.current) {
       prevChartsRef.current = dashboardCharts;
@@ -71,12 +74,11 @@ export function DashboardClient({
         </div>
       ) : (
         <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-          {dashboardCharts.map((dashboardMetric) => (
+          {dashboardCharts.map((dc) => (
             <DashboardMetricCard
-              key={dashboardMetric.id}
-              dashboardMetric={dashboardMetric}
+              key={dc.id}
+              metricId={dc.metric.id}
               teamId={teamId}
-              isFetching={isFetching}
             />
           ))}
         </div>

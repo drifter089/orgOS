@@ -18,6 +18,8 @@ type PublicDashboardMetric = PublicDashboardMetrics[number];
 
 export type ChartNodeData = {
   dashboardMetricId: string;
+  /** Team ID for cache queries */
+  teamId: string;
   /** Dashboard metric data - required for private view, optional if using override */
   dashboardMetric?: DashboardMetricWithRelations;
   /** Pre-fetched metric data for public views */
@@ -112,7 +114,9 @@ function ChartNodeComponent({ data, selected }: NodeProps<ChartNode>) {
 
       <div className="overflow-hidden rounded-lg">
         <DashboardMetricCard
-          dashboardMetric={dashboardMetric}
+          metricId={dashboardMetric.metric.id}
+          teamId={data.teamId}
+          dataOverride={dashboardMetric}
           readOnly={data.readOnly}
         />
       </div>

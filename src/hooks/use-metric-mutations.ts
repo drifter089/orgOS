@@ -5,7 +5,14 @@ interface UseMetricMutationsOptions {
   teamId?: string;
 }
 
-/** Metric mutations with unified cache invalidation. */
+/**
+ * Metric mutations with unified cache invalidation.
+ *
+ * Cache Strategy:
+ * - All mutations invalidate the dashboard query on success
+ * - Delete uses optimistic update for immediate UI feedback
+ * - Polling handles status updates during processing (no optimistic status needed)
+ */
 export function useMetricMutations({ teamId }: UseMetricMutationsOptions = {}) {
   const utils = api.useUtils();
 

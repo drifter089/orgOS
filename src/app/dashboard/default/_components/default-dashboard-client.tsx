@@ -50,17 +50,22 @@ export function DefaultDashboardClient() {
           </div>
         ) : (
           <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-            {dashboardCharts.map((dashboardMetric) => (
-              <div key={dashboardMetric.id} className="relative">
-                {dashboardMetric.metric.team && (
+            {dashboardCharts.map((dc) => (
+              <div key={dc.id} className="relative">
+                {dc.metric.team && (
                   <Badge
                     variant="secondary"
                     className="absolute top-2 left-2 z-20"
                   >
-                    {dashboardMetric.metric.team.name}
+                    {dc.metric.team.name}
                   </Badge>
                 )}
-                <DashboardMetricCard dashboardMetric={dashboardMetric} />
+                <DashboardMetricCard
+                  metricId={dc.metric.id}
+                  teamId={dc.metric.teamId ?? ""}
+                  dataOverride={dc}
+                  readOnly
+                />
               </div>
             ))}
           </div>
