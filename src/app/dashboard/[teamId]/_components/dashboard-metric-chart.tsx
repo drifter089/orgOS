@@ -61,22 +61,15 @@ interface DashboardMetricChartProps {
   chartTransform: ChartTransformResult | null;
   hasChartData: boolean;
   isIntegrationMetric: boolean;
-  /** Whether this is an optimistic/temp card awaiting server response */
-  isOptimistic: boolean;
   integrationId?: string | null;
   roles?: Role[];
-  // Goal data from parent - eliminates N+1 query
   goal?: MetricGoal | null;
   goalProgress?: GoalProgress | null;
-  // Legacy prop - value label from DataIngestionTransformer
-  // Prefer chartTransform.valueLabel (unified metadata from ChartTransformer)
   valueLabel?: string | null;
-  /** Whether the metric is currently processing (from parent) */
+  /** Whether the metric is currently processing */
   isProcessing?: boolean;
   /** Current processing step name (e.g., "fetching-api-data") */
   processingStep?: string | null;
-  /** Whether the parent query is fetching updated data */
-  isFetching?: boolean;
 }
 
 export function DashboardMetricChart({
@@ -84,7 +77,6 @@ export function DashboardMetricChart({
   chartTransform,
   hasChartData,
   isIntegrationMetric,
-  isOptimistic,
   integrationId,
   roles = [],
   goal,
@@ -92,7 +84,6 @@ export function DashboardMetricChart({
   valueLabel,
   isProcessing = false,
   processingStep,
-  isFetching = false,
 }: DashboardMetricChartProps) {
   const platformConfig = integrationId
     ? getPlatformConfig(integrationId)
@@ -581,12 +572,7 @@ export function DashboardMetricChart({
   };
 
   return (
-    <Card
-      className={cn(
-        "flex h-[420px] flex-col transition-opacity duration-200",
-        isOptimistic && "opacity-60",
-      )}
-    >
+    <Card className="flex h-[420px] flex-col">
       <CardHeader className="flex-shrink-0 space-y-0.5 px-5 pt-3 pb-1">
         <div className="flex items-center justify-between gap-2">
           <div className="flex min-w-0 items-center gap-1.5">
@@ -626,13 +612,13 @@ export function DashboardMetricChart({
               </Badge>
             )}
           </div>
-          {(isOptimistic || isProcessing) && (
+          {isProcessing && (
             <Badge
               variant="outline"
               className="text-muted-foreground shrink-0 text-[10px]"
             >
               <Loader2 className="mr-1 h-2.5 w-2.5 animate-spin" />
-              {isOptimistic ? "Creating..." : "Processing..."}
+              Processing...
             </Badge>
           )}
         </div>
@@ -725,8 +711,8 @@ export function DashboardMetricChart({
           </div>
         )}
 
-        {/* State 1: Actively processing or fetching - combined for simpler UX */}
-        {!hasChartData && (isProcessing || isFetching) && (
+        {/* Processing state - show loading */}
+        {!hasChartData && isProcessing && (
           <div className="flex flex-1 items-center justify-center rounded-md border border-dashed p-4">
             <div className="text-center">
               <div className="bg-primary/10 mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full">
@@ -735,10 +721,10 @@ export function DashboardMetricChart({
               <div className="flex items-center justify-center gap-2">
                 <Loader2 className="text-primary h-4 w-4 animate-spin" />
                 <p className="text-foreground text-sm font-medium">
-                  {isProcessing ? "Building your chart" : "Loading chart..."}
+                  Building your chart
                 </p>
               </div>
-              {isProcessing && processingStep && (
+              {processingStep && (
                 <p className="text-muted-foreground mt-1.5 text-xs">
                   {getStepDisplayName(processingStep)}
                 </p>
@@ -747,8 +733,8 @@ export function DashboardMetricChart({
           </div>
         )}
 
-        {/* State 2: No processing, no fetching, genuinely no data */}
-        {!hasChartData && !isProcessing && !isFetching && (
+        {/* No data state */}
+        {!hasChartData && !isProcessing && (
           <div className="text-muted-foreground flex flex-1 items-center justify-center rounded-md border border-dashed p-4 text-center text-sm">
             {isIntegrationMetric
               ? "No data available"
