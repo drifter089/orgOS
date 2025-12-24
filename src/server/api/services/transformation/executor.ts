@@ -84,8 +84,12 @@ export async function executeDataIngestionTransformer(
         throw new Error(`DataPoint at index ${index} has invalid timestamp`);
       }
       if (isNaN(timestamp.getTime())) {
+        const timestampStr =
+          point.timestamp instanceof Date
+            ? point.timestamp.toISOString()
+            : String(point.timestamp);
         throw new Error(
-          `DataPoint at index ${index} has invalid timestamp: ${point.timestamp}`,
+          `DataPoint at index ${index} has invalid timestamp: ${timestampStr}`,
         );
       }
 

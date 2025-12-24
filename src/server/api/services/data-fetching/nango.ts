@@ -66,12 +66,11 @@ export async function fetchData(
       // For full URLs (like YouTube Analytics API), get the token and make direct request
       const tokenResponse = await nango.getToken(integrationId, connectionId);
 
-      // Extract access token (supports both string tokens and OAuth2 token objects)
       const accessToken =
         typeof tokenResponse === "string"
           ? tokenResponse
           : "accessToken" in tokenResponse
-            ? tokenResponse.accessToken
+            ? (tokenResponse.accessToken as string)
             : "";
 
       if (!accessToken) {
@@ -89,7 +88,7 @@ export async function fetchData(
       });
 
       return {
-        data: response.data,
+        data: response.data as unknown,
         status: response.status,
       };
     } else {
@@ -113,15 +112,14 @@ export async function fetchData(
         ...(Object.keys(headers).length > 0 ? { headers } : {}),
       });
 
-      // GitHub stats endpoints return 202 or empty {} while computing
-      // Retry up to 3 times with delays for these endpoints
       const isGitHubStats =
         integrationId === "github" && finalEndpoint.includes("/stats/");
+      const responseData = response.data as Record<string, unknown> | null;
       const isEmptyResponse =
         response.status === 202 ||
-        (response.data &&
-          typeof response.data === "object" &&
-          Object.keys(response.data).length === 0);
+        (responseData &&
+          typeof responseData === "object" &&
+          Object.keys(responseData).length === 0);
 
       if (isGitHubStats && isEmptyResponse) {
         console.info(
@@ -141,16 +139,20 @@ export async function fetchData(
             method: options?.method ?? "GET",
           });
 
+          const retryData = retryResponse.data as Record<
+            string,
+            unknown
+          > | null;
           const isStillEmpty =
             retryResponse.status === 202 ||
-            (retryResponse.data &&
-              typeof retryResponse.data === "object" &&
-              Object.keys(retryResponse.data).length === 0);
+            (retryData &&
+              typeof retryData === "object" &&
+              Object.keys(retryData).length === 0);
 
           if (!isStillEmpty) {
             console.info("[GitHub Stats] Got data on retry!");
             return {
-              data: retryResponse.data,
+              data: retryData,
               status: retryResponse.status,
             };
           }
@@ -161,7 +163,7 @@ export async function fetchData(
       }
 
       return {
-        data: response.data,
+        data: responseData,
         status: response.status,
       };
     }

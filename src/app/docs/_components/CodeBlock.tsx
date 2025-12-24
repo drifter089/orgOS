@@ -28,11 +28,7 @@ export function CodeBlock({ children, className, inline }: CodeBlockProps) {
   const match = /language-(\w+)/.exec(className ?? "");
   const language = match ? match[1] : "text";
 
-  // Get code content as string
-  const code =
-    typeof children === "string"
-      ? children.replace(/\n$/, "")
-      : String(children ?? "").replace(/\n$/, "");
+  const code = typeof children === "string" ? children.replace(/\n$/, "") : "";
 
   // Inline code
   if (inline || !match) {
