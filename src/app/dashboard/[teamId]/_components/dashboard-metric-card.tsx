@@ -8,7 +8,12 @@ import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Drawer, DrawerContent, DrawerTrigger } from "@/components/ui/drawer";
+import {
+  Drawer,
+  DrawerContent,
+  DrawerTitle,
+  DrawerTrigger,
+} from "@/components/ui/drawer";
 import {
   Tooltip,
   TooltipContent,
@@ -17,35 +22,31 @@ import {
 import { isDevMode } from "@/lib/dev-mode";
 import type { ChartTransformResult } from "@/lib/metrics/transformer-types";
 import { useConfirmation } from "@/providers/ConfirmationDialogProvider";
+import { api } from "@/trpc/react";
 import type { DashboardChartWithRelations } from "@/types/dashboard";
 
 import { DashboardMetricChart } from "./dashboard-metric-chart";
 import { DashboardMetricDrawer } from "./dashboard-metric-drawer";
-import { usePipelineStatus } from "./pipeline-status-provider";
+import { useDashboardCharts } from "./use-dashboard-charts";
 
 interface DashboardMetricCardProps {
   dashboardChart: DashboardChartWithRelations;
+  teamId: string;
 }
 
-/**
- * Dashboard metric card component.
- *
- * Architecture:
- * - Receives dashboardChart as prop
- * - Uses PipelineStatusProvider for status and mutations
- * - Simple isProcessing/getError API
- */
 export function DashboardMetricCard({
   dashboardChart,
+  teamId,
 }: DashboardMetricCardProps) {
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const { confirm } = useConfirmation();
-  const pipeline = usePipelineStatus();
+  const utils = api.useUtils();
+  const { isProcessing, getError } = useDashboardCharts(teamId);
 
   const metric = dashboardChart.metric;
   const metricId = metric.id;
-  const isProcessing = pipeline.isProcessing(metricId);
-  const error = pipeline.getError(metricId);
+  const processing = isProcessing(metricId);
+  const error = getError(metricId);
 
   const isIntegrationMetric = !!metric.integration?.providerId;
   const chartTransform =
@@ -54,23 +55,66 @@ export function DashboardMetricCard({
   const title = chartTransform?.title ?? metric.name;
 
   // ---------------------------------------------------------------------------
+  // Mutations with optimistic updates
+  // ---------------------------------------------------------------------------
+  const setOptimisticProcessing = useCallback(
+    (id: string) => {
+      utils.dashboard.getDashboardCharts.setData({ teamId }, (old) =>
+        old?.map((dc) =>
+          dc.metric.id === id
+            ? { ...dc, metric: { ...dc.metric, refreshStatus: "processing" } }
+            : dc,
+        ),
+      );
+    },
+    [utils, teamId],
+  );
+
+  const refreshMutation = api.pipeline.refresh.useMutation({
+    onMutate: () => setOptimisticProcessing(metricId),
+    onSuccess: () => utils.dashboard.getDashboardCharts.invalidate({ teamId }),
+    onError: (err) =>
+      toast.error("Refresh failed", { description: err.message }),
+  });
+
+  const regenerateMutation = api.pipeline.regenerate.useMutation({
+    onMutate: () => setOptimisticProcessing(metricId),
+    onSuccess: () => utils.dashboard.getDashboardCharts.invalidate({ teamId }),
+    onError: (err) =>
+      toast.error("Regenerate failed", { description: err.message }),
+  });
+
+  const regenerateChartMutation = api.pipeline.regenerateChartOnly.useMutation({
+    onMutate: () => setOptimisticProcessing(metricId),
+    onSuccess: () => utils.dashboard.getDashboardCharts.invalidate({ teamId }),
+    onError: (err) =>
+      toast.error("Chart update failed", { description: err.message }),
+  });
+
+  const deleteMutation = api.metric.delete.useMutation({
+    onSuccess: () => utils.dashboard.getDashboardCharts.invalidate({ teamId }),
+    onError: (err) =>
+      toast.error("Delete failed", { description: err.message }),
+  });
+
+  const updateMutation = api.metric.update.useMutation({
+    onSuccess: () => utils.dashboard.getDashboardCharts.invalidate({ teamId }),
+    onError: (err) =>
+      toast.error("Update failed", { description: err.message }),
+  });
+
+  // ---------------------------------------------------------------------------
   // Handlers
   // ---------------------------------------------------------------------------
   const handleRefresh = useCallback(
-    async (forceRebuild = false) => {
-      try {
-        if (!isIntegrationMetric || forceRebuild) {
-          await pipeline.regenerateMetric(metricId);
-        } else {
-          await pipeline.refreshMetric(metricId);
-        }
-      } catch (error) {
-        toast.error("Operation failed", {
-          description: error instanceof Error ? error.message : "Unknown error",
-        });
+    (forceRebuild = false) => {
+      if (!isIntegrationMetric || forceRebuild) {
+        regenerateMutation.mutate({ metricId });
+      } else {
+        refreshMutation.mutate({ metricId });
       }
     },
-    [metricId, isIntegrationMetric, pipeline],
+    [metricId, isIntegrationMetric, refreshMutation, regenerateMutation],
   );
 
   const handleDelete = useCallback(async () => {
@@ -82,43 +126,32 @@ export function DashboardMetricCard({
     });
 
     if (confirmed) {
-      await pipeline.deleteMetric(metricId);
+      deleteMutation.mutate({ id: metricId });
       setIsDrawerOpen(false);
     }
-  }, [metric.name, metricId, confirm, pipeline]);
+  }, [metric.name, metricId, confirm, deleteMutation]);
 
   const handleUpdateMetric = useCallback(
-    async (name: string, description: string) => {
-      try {
-        await pipeline.updateMetric(metricId, {
-          name,
-          description: description || undefined,
-        });
-      } catch (error) {
-        console.error("Failed to update metric:", error);
-        toast.error("Failed to update metric", {
-          description: error instanceof Error ? error.message : "Unknown error",
-        });
-      }
+    (name: string, description: string) => {
+      updateMutation.mutate({
+        id: metricId,
+        name,
+        description: description || undefined,
+      });
     },
-    [metricId, pipeline],
+    [metricId, updateMutation],
   );
 
   const handleRegenerateChart = useCallback(
-    async (chartType: string, cadence: Cadence, selectedDimension?: string) => {
-      try {
-        await pipeline.regenerateChart(metricId, {
-          chartType,
-          cadence,
-          selectedDimension,
-        });
-      } catch (error) {
-        toast.error("Failed to regenerate chart", {
-          description: error instanceof Error ? error.message : "Unknown error",
-        });
-      }
+    (chartType: string, cadence: Cadence, selectedDimension?: string) => {
+      regenerateChartMutation.mutate({
+        metricId,
+        chartType,
+        cadence,
+        selectedDimension,
+      });
     },
-    [metricId, pipeline],
+    [metricId, regenerateChartMutation],
   );
 
   // ---------------------------------------------------------------------------
@@ -126,7 +159,7 @@ export function DashboardMetricCard({
   // ---------------------------------------------------------------------------
   const cardContent = (
     <div className="relative">
-      {error && !isProcessing && (
+      {error && !processing && (
         <Tooltip>
           <TooltipTrigger asChild>
             <Badge
@@ -183,7 +216,7 @@ export function DashboardMetricCard({
         goal={metric.goal}
         goalProgress={dashboardChart.goalProgress}
         valueLabel={dashboardChart.valueLabel}
-        isProcessing={isProcessing}
+        isProcessing={processing}
       />
     </div>
   );
@@ -193,12 +226,13 @@ export function DashboardMetricCard({
       {cardContent}
 
       <DrawerContent className="flex h-[90vh] max-h-[90vh] flex-col overflow-hidden">
+        <DrawerTitle className="sr-only">{metric.name} Settings</DrawerTitle>
         <div className="min-h-0 w-full flex-1">
           <DashboardMetricDrawer
             dashboardChart={dashboardChart}
-            isProcessing={isProcessing}
+            isProcessing={processing}
             error={error}
-            isDeleting={pipeline.isDeleting}
+            isDeleting={deleteMutation.isPending}
             onRefresh={handleRefresh}
             onUpdateMetric={handleUpdateMetric}
             onDelete={handleDelete}

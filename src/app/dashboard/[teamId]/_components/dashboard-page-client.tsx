@@ -5,20 +5,11 @@ import { api } from "@/trpc/react";
 
 import { DashboardContent } from "./dashboard-content";
 import { DashboardSidebar } from "./dashboard-sidebar";
-import { PipelineStatusProvider } from "./pipeline-status-provider";
 
 interface DashboardPageClientProps {
   teamId: string;
 }
 
-/**
- * Dashboard page client component.
- *
- * Architecture:
- * - PipelineStatusProvider owns the dashboard query with conditional refetch
- * - DashboardContent consumes charts from context
- * - Simple, single source of truth
- */
 export function DashboardPageClient({ teamId }: DashboardPageClientProps) {
   const {
     data: integrations,
@@ -56,18 +47,16 @@ export function DashboardPageClient({ teamId }: DashboardPageClientProps) {
   }
 
   return (
-    <PipelineStatusProvider teamId={teamId}>
-      <div className="container mx-auto px-4 py-8 pt-24">
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold tracking-tight">KPIs</h1>
-          <p className="text-muted-foreground mt-2">
-            Visualize and monitor your key metrics in one place
-          </p>
-        </div>
-
-        <DashboardContent />
-        <DashboardSidebar teamId={teamId} initialIntegrations={integrations} />
+    <div className="container mx-auto px-4 py-8 pt-24">
+      <div className="mb-8">
+        <h1 className="text-3xl font-bold tracking-tight">KPIs</h1>
+        <p className="text-muted-foreground mt-2">
+          Visualize and monitor your key metrics in one place
+        </p>
       </div>
-    </PipelineStatusProvider>
+
+      <DashboardContent teamId={teamId} />
+      <DashboardSidebar teamId={teamId} initialIntegrations={integrations} />
+    </div>
   );
 }

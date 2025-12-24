@@ -4,7 +4,6 @@ import { useState } from "react";
 
 import { toast } from "sonner";
 
-import { usePipelineStatus } from "@/app/dashboard/[teamId]/_components/pipeline-status-provider";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Dialog,
@@ -16,6 +15,7 @@ import {
 } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import { api } from "@/trpc/react";
+import type { DashboardChartWithRelations } from "@/types/dashboard";
 
 export interface MetricCreateInput {
   templateId: string;
@@ -68,7 +68,6 @@ export function MetricDialogBase({
 }: MetricDialogBaseProps) {
   const [internalOpen, setInternalOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [isCreating, setIsCreating] = useState(false);
 
   const isControlled = controlledOpen !== undefined;
   const open = isControlled ? controlledOpen : internalOpen;
@@ -80,8 +79,7 @@ export function MetricDialogBase({
     }
   };
 
-  const pipeline = usePipelineStatus();
-
+  const utils = api.useUtils();
   const integrationQuery = api.integration.listWithStats.useQuery();
   const connection = integrationQuery.data?.active.find((int) =>
     connectionIdProp
@@ -89,26 +87,37 @@ export function MetricDialogBase({
       : int.providerId === integrationId,
   );
 
-  const handleSubmit = async (data: MetricCreateInput) => {
-    setError(null);
-    setIsCreating(true);
+  const createMutation = api.metric.create.useMutation({
+    onSuccess: (result) => {
+      const enrichedResult = {
+        ...result,
+        goalProgress: null,
+        valueLabel: null,
+        dataDescription: null,
+        metric: { ...result.metric, goal: null },
+      } as DashboardChartWithRelations;
 
-    try {
-      await pipeline.createMetric({
-        ...data,
-        teamId,
-      });
+      // Update cache for this team
+      if (teamId) {
+        utils.dashboard.getDashboardCharts.setData({ teamId }, (old) => {
+          if (!old) return [enrichedResult];
+          if (old.some((dc) => dc.id === result.id)) return old;
+          return [...old, enrichedResult];
+        });
+      }
 
-      toast.success("KPI created", {
-        description: "Building your chart...",
-      });
+      toast.success("KPI created", { description: "Building your chart..." });
       setOpen(false);
       onSuccess?.();
-    } catch {
+    },
+    onError: () => {
       toast.error("Failed to create KPI");
-    } finally {
-      setIsCreating(false);
-    }
+    },
+  });
+
+  const handleSubmit = async (data: MetricCreateInput) => {
+    setError(null);
+    await createMutation.mutateAsync({ ...data, teamId });
   };
 
   if (!connection) {
@@ -138,7 +147,7 @@ export function MetricDialogBase({
         {children({
           connection,
           onSubmit: handleSubmit,
-          isCreating,
+          isCreating: createMutation.isPending,
           error,
         })}
 

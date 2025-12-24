@@ -5,10 +5,11 @@ import { useState } from "react";
 import { ArrowLeft, Hash, Loader2, Percent } from "lucide-react";
 import { toast } from "sonner";
 
-import { usePipelineStatus } from "@/app/dashboard/[teamId]/_components/pipeline-status-provider";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
+import { api } from "@/trpc/react";
+import type { DashboardChartWithRelations } from "@/types/dashboard";
 
 type UnitType = "number" | "percentage";
 type Cadence = "daily" | "weekly" | "monthly";
@@ -70,24 +71,25 @@ export function ManualMetricContent({
   const [metricName, setMetricName] = useState("");
   const [unitType, setUnitType] = useState<UnitType | null>(null);
   const [cadence, setCadence] = useState<Cadence | null>(null);
-  const [isCreating, setIsCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const pipeline = usePipelineStatus();
+  const utils = api.useUtils();
 
-  const handleSubmit = async () => {
-    if (!metricName.trim() || !unitType || !cadence) return;
+  const createMutation = api.manualMetric.create.useMutation({
+    onSuccess: (result) => {
+      const enrichedResult = {
+        ...result,
+        goalProgress: null,
+        valueLabel: null,
+        dataDescription: null,
+        chartTransformer: null,
+        metric: { ...result.metric, goal: null },
+      } as DashboardChartWithRelations;
 
-    setIsCreating(true);
-    setError(null);
-
-    try {
-      await pipeline.createManualMetric({
-        name: metricName.trim(),
-        teamId,
-        unitType,
-        cadence,
-        description: `${unitType} metric tracked ${cadence}`,
+      utils.dashboard.getDashboardCharts.setData({ teamId }, (old) => {
+        if (!old) return [enrichedResult];
+        if (old.some((dc) => dc.id === result.id)) return old;
+        return [...old, enrichedResult];
       });
 
       toast.success("KPI created", {
@@ -96,12 +98,24 @@ export function ManualMetricContent({
 
       onClose?.();
       onSuccess?.();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to create KPI");
+    },
+    onError: (err) => {
+      setError(err.message);
       toast.error("Failed to create KPI");
-    } finally {
-      setIsCreating(false);
-    }
+    },
+  });
+
+  const handleSubmit = () => {
+    if (!metricName.trim() || !unitType || !cadence) return;
+    setError(null);
+
+    createMutation.mutate({
+      name: metricName.trim(),
+      teamId,
+      unitType,
+      cadence,
+      description: `${unitType} metric tracked ${cadence}`,
+    });
   };
 
   const canProceed = () => {
@@ -245,8 +259,11 @@ export function ManualMetricContent({
           <div />
         )}
 
-        <Button onClick={handleNext} disabled={!canProceed() || isCreating}>
-          {isCreating ? (
+        <Button
+          onClick={handleNext}
+          disabled={!canProceed() || createMutation.isPending}
+        >
+          {createMutation.isPending ? (
             <>
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
               Creating...
