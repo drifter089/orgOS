@@ -6,12 +6,13 @@ interface UseMetricMutationsOptions {
 }
 
 /**
- * Metric mutations with unified cache invalidation.
+ * Metric mutations with optimistic updates and cache invalidation.
  *
  * Cache Strategy:
- * - All mutations invalidate the dashboard query on success
- * - Delete uses optimistic update for immediate UI feedback
- * - Polling handles status updates during processing (no optimistic status needed)
+ * - Create: Optimistic card with "adding-metric" status → invalidate on success
+ * - Refresh/Regenerate: Optimistic status update for immediate feedback
+ * - Delete: Optimistic removal with rollback on error
+ * - Card-level polling handles progress updates during processing
  */
 export function useMetricMutations({ teamId }: UseMetricMutationsOptions = {}) {
   const utils = api.useUtils();
@@ -21,6 +22,68 @@ export function useMetricMutations({ teamId }: UseMetricMutationsOptions = {}) {
   };
 
   const create = api.metric.create.useMutation({
+    onMutate: async (variables) => {
+      if (!teamId) return;
+
+      await utils.dashboard.getDashboardCharts.cancel();
+      const previousData = utils.dashboard.getDashboardCharts.getData({
+        teamId,
+      });
+
+      // Create optimistic card with temp ID and "adding-metric" status
+      const tempId = `temp-${Date.now()}`;
+      const optimisticChart: DashboardChartWithRelations = {
+        id: tempId,
+        metricId: tempId,
+        organizationId: "temp",
+        chartType: "line",
+        chartConfig: null,
+        chartTransformer: null,
+        chartTransformerId: null,
+        goalProgress: null,
+        valueLabel: null,
+        dataDescription: null,
+        size: "medium",
+        position: 0,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        metric: {
+          id: tempId,
+          name: variables.name,
+          description: variables.description ?? null,
+          refreshStatus: "adding-metric",
+          lastError: null,
+          lastFetchedAt: null,
+          nextPollAt: null,
+          pollFrequency: "daily",
+          goal: null,
+          templateId: variables.templateId,
+          teamId: variables.teamId ?? null,
+          organizationId: "temp",
+          integrationId: null,
+          endpointConfig: null,
+          integration: null,
+          roles: [],
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        },
+      };
+
+      utils.dashboard.getDashboardCharts.setData({ teamId }, (old) =>
+        old ? [optimisticChart, ...old] : [optimisticChart],
+      );
+
+      return { previousData };
+    },
+    onError: (_error, _variables, context) => {
+      // Rollback on error
+      if (teamId && context?.previousData) {
+        utils.dashboard.getDashboardCharts.setData(
+          { teamId },
+          context.previousData,
+        );
+      }
+    },
     onSuccess: invalidateDashboard,
   });
 
@@ -66,11 +129,53 @@ export function useMetricMutations({ teamId }: UseMetricMutationsOptions = {}) {
   });
 
   const refresh = api.pipeline.refresh.useMutation({
-    onSuccess: invalidateDashboard,
+    onMutate: async ({ metricId }) => {
+      if (!teamId) return;
+
+      await utils.dashboard.getDashboardCharts.cancel();
+
+      // Optimistic update: set status to "fetching-api-data"
+      utils.dashboard.getDashboardCharts.setData({ teamId }, (old) =>
+        old?.map((dc) =>
+          dc.metric.id === metricId
+            ? {
+                ...dc,
+                metric: {
+                  ...dc.metric,
+                  refreshStatus: "fetching-api-data",
+                  lastError: null,
+                },
+              }
+            : dc,
+        ),
+      );
+    },
+    // No onSuccess invalidate - card polling handles completion
   });
 
   const regenerate = api.pipeline.regenerate.useMutation({
-    onSuccess: invalidateDashboard,
+    onMutate: async ({ metricId }) => {
+      if (!teamId) return;
+
+      await utils.dashboard.getDashboardCharts.cancel();
+
+      // Optimistic update: set status to indicate regeneration starting
+      utils.dashboard.getDashboardCharts.setData({ teamId }, (old) =>
+        old?.map((dc) =>
+          dc.metric.id === metricId
+            ? {
+                ...dc,
+                metric: {
+                  ...dc.metric,
+                  refreshStatus: "fetching-api-data",
+                  lastError: null,
+                },
+              }
+            : dc,
+        ),
+      );
+    },
+    // No onSuccess invalidate - card polling handles completion
   });
 
   return {

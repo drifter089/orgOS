@@ -15,6 +15,24 @@ import { runBackgroundTask } from "./pipeline";
 
 export const metricRouter = createTRPCRouter({
   // ===========================================================================
+  // Status Polling (lightweight endpoint for card-level polling)
+  // ===========================================================================
+
+  /**
+   * Lightweight status endpoint for card-level polling.
+   * Returns only the fields needed to display pipeline progress.
+   * Polled at 500ms by cards with active pipeline.
+   */
+  getStatus: workspaceProcedure
+    .input(z.object({ metricId: z.string() }))
+    .query(async ({ ctx, input }) => {
+      return ctx.db.metric.findUnique({
+        where: { id: input.metricId },
+        select: { id: true, refreshStatus: true, lastError: true },
+      });
+    }),
+
+  // ===========================================================================
   // CRUD Operations
   // ===========================================================================
 

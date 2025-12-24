@@ -716,7 +716,10 @@ export function DashboardMetricChart({
 
       <CardContent className="relative flex flex-1 flex-col overflow-hidden px-4 pt-0 pb-4">
         {hasChartData && (
-          <div key={chartKey} className="h-full w-full">
+          <div
+            key={chartKey}
+            className="animate-in fade-in h-full w-full duration-500"
+          >
             {renderChart()}
           </div>
         )}
