@@ -63,7 +63,17 @@ export function DashboardClient({
   );
 
   // Track previous processing state for completion detection
+  // Initialize with server data to handle metrics that start processing before first poll
   const prevProcessingRef = useRef<Set<string>>(new Set());
+  const initializedRef = useRef(false);
+
+  // Initialize ref with server processing IDs on first render with data
+  useEffect(() => {
+    if (!initializedRef.current && serverProcessingIds.size > 0) {
+      prevProcessingRef.current = new Set(serverProcessingIds);
+      initializedRef.current = true;
+    }
+  }, [serverProcessingIds]);
 
   // Detect completions and errors, then invalidate
   useEffect(() => {
@@ -74,7 +84,11 @@ export function DashboardClient({
 
     // Check each metric in batchProgress for completion
     for (const [metricId, status] of Object.entries(batchProgress)) {
-      const wasProcessing = prevProcessingRef.current.has(metricId);
+      // Consider a metric as "was processing" if it's in the ref OR in server data
+      // This handles new metrics added via optimistic updates
+      const wasProcessing =
+        prevProcessingRef.current.has(metricId) ||
+        serverProcessingIds.has(metricId);
 
       if (wasProcessing && !status.isProcessing) {
         if (status.error) {
@@ -99,14 +113,21 @@ export function DashboardClient({
     }
 
     // Update ref - track what batchProgress says is processing
+    // Also include any new metrics from serverProcessingIds that are still processing
     const nowProcessing = new Set<string>();
     for (const [metricId, status] of Object.entries(batchProgress)) {
       if (status.isProcessing) {
         nowProcessing.add(metricId);
       }
     }
+    // Add any server-side processing metrics not yet in batchProgress response
+    for (const metricId of serverProcessingIds) {
+      if (!batchProgress[metricId]) {
+        nowProcessing.add(metricId);
+      }
+    }
     prevProcessingRef.current = nowProcessing;
-  }, [batchProgress, teamId, utils]);
+  }, [batchProgress, teamId, utils, serverProcessingIds]);
 
   // Create lookup map for cards to access their pipeline status
   const pipelineStatusMap = useMemo(() => {

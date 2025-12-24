@@ -444,20 +444,23 @@ export async function refreshMetricAndCharts(
       return { success: false, error: transformResult.error };
     }
 
-    // Update charts with new data
-    const chartsWithTransformers = metric.dashboardCharts.filter(
-      (dc) => dc.chartTransformer,
-    );
-    const chartsWithoutTransformers = metric.dashboardCharts.filter(
-      (dc) => !dc.chartTransformer,
-    );
-
-    // For hard-refresh or new metrics, generate chart transformers for charts that don't have one
-    if (input.forceRegenerate && chartsWithoutTransformers.length > 0) {
+    // Handle chart transformers based on refresh type
+    if (input.forceRegenerate) {
+      // HARD REFRESH: Delete all chart transformers and regenerate from scratch
+      // This ensures charts reflect the new data structure
       await runner.run("generate-chart-transformer", async () => {
         const { createChartTransformer } = await import("./chart-generator");
 
-        for (const dc of chartsWithoutTransformers) {
+        // Delete all existing chart transformers for this metric's charts
+        const chartIds = metric.dashboardCharts.map((dc) => dc.id);
+        if (chartIds.length > 0) {
+          await db.chartTransformer.deleteMany({
+            where: { dashboardChartId: { in: chartIds } },
+          });
+        }
+
+        // Regenerate chart transformers for ALL charts
+        for (const dc of metric.dashboardCharts) {
           try {
             const cadence =
               (endpointConfig.cadence?.toUpperCase() as
@@ -479,45 +482,49 @@ export async function refreshMetricAndCharts(
           }
         }
       });
-    }
+    } else {
+      // SOFT REFRESH: Execute existing chart transformers with fresh data
+      const chartsWithTransformers = metric.dashboardCharts.filter(
+        (dc) => dc.chartTransformer,
+      );
 
-    // Execute existing chart transformers with fresh data
-    if (chartsWithTransformers.length > 0) {
-      await runner.run("execute-chart-transformer", async () => {
-        const freshDataPoints = await db.metricDataPoint.findMany({
-          where: { metricId: metric.id },
-          orderBy: { timestamp: "desc" },
-          take: 1000,
-        });
+      if (chartsWithTransformers.length > 0) {
+        await runner.run("execute-chart-transformer", async () => {
+          const freshDataPoints = await db.metricDataPoint.findMany({
+            where: { metricId: metric.id },
+            orderBy: { timestamp: "desc" },
+            take: 1000,
+          });
 
-        const dataPointsForChart: DataPoint[] = freshDataPoints.map((dp) => ({
-          timestamp: dp.timestamp,
-          value: dp.value,
-          dimensions: dp.dimensions as Record<string, unknown> | null,
-        }));
+          const dataPointsForChart: DataPoint[] = freshDataPoints.map((dp) => ({
+            timestamp: dp.timestamp,
+            value: dp.value,
+            dimensions: dp.dimensions as Record<string, unknown> | null,
+          }));
 
-        const { executeChartTransformerWithData } = await import(
-          "./chart-generator"
-        );
+          const { executeChartTransformerWithData } = await import(
+            "./chart-generator"
+          );
 
-        for (const dc of chartsWithTransformers) {
-          const transformer = dc.chartTransformer!;
-          try {
-            await executeChartTransformerWithData({
-              dashboardChartId: dc.id,
-              transformerCode: transformer.transformerCode,
-              chartType: transformer.chartType,
-              cadence: transformer.cadence,
-              dataPoints: dataPointsForChart,
-            });
-          } catch (chartError) {
-            console.error(
-              `[Pipeline] Chart transformer error for ${dc.id}:`,
-              chartError,
-            );
+          for (const dc of chartsWithTransformers) {
+            const transformer = dc.chartTransformer!;
+            try {
+              await executeChartTransformerWithData({
+                dashboardChartId: dc.id,
+                transformerCode: transformer.transformerCode,
+                chartType: transformer.chartType,
+                cadence: transformer.cadence,
+                dataPoints: dataPointsForChart,
+              });
+            } catch (chartError) {
+              console.error(
+                `[Pipeline] Chart transformer error for ${dc.id}:`,
+                chartError,
+              );
+            }
           }
-        }
-      });
+        });
+      }
     }
 
     await runner.complete();

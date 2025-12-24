@@ -97,13 +97,44 @@ export function DashboardMetricCard({
   });
 
   const regenerateChartMutation = api.pipeline.regenerateChartOnly.useMutation({
-    onSuccess: () => {
-      toast.success("Chart transformer regeneration started");
+    onMutate: () => {
+      // Set loading state immediately in cache
+      const updateFn = (
+        old: RouterOutputs["dashboard"]["getDashboardCharts"] | undefined,
+      ) =>
+        old?.map((dc) =>
+          dc.metric.id === metric.id
+            ? {
+                ...dc,
+                metric: {
+                  ...dc.metric,
+                  refreshStatus: "generating-chart-transformer",
+                },
+              }
+            : dc,
+        );
+      utils.dashboard.getDashboardCharts.setData(undefined, updateFn);
       if (teamId) {
-        void utils.dashboard.getDashboardCharts.invalidate({ teamId });
+        utils.dashboard.getDashboardCharts.setData({ teamId }, updateFn);
       }
     },
+    onSuccess: () => {
+      toast.success("Chart regeneration started");
+    },
     onError: (error) => {
+      // Clear loading state on error
+      const updateFn = (
+        old: RouterOutputs["dashboard"]["getDashboardCharts"] | undefined,
+      ) =>
+        old?.map((dc) =>
+          dc.metric.id === metric.id
+            ? { ...dc, metric: { ...dc.metric, refreshStatus: null } }
+            : dc,
+        );
+      utils.dashboard.getDashboardCharts.setData(undefined, updateFn);
+      if (teamId) {
+        utils.dashboard.getDashboardCharts.setData({ teamId }, updateFn);
+      }
       toast.error(`Failed: ${error.message}`);
     },
   });
@@ -296,6 +327,7 @@ export function DashboardMetricCard({
         goalProgress={dashboardMetric.goalProgress}
         valueLabel={dashboardMetric.valueLabel}
         isProcessing={isProcessing}
+        processingStep={pipelineStatus?.currentStep ?? metric.refreshStatus}
         isFetching={isFetching}
       />
     </div>

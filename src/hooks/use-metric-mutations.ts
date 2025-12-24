@@ -1,5 +1,3 @@
-import type { Prisma } from "@prisma/client";
-
 import { api } from "@/trpc/react";
 import type { DashboardChartWithRelations } from "@/types/dashboard";
 
@@ -7,298 +5,98 @@ interface UseMetricMutationsOptions {
   teamId?: string;
 }
 
+/**
+ * Metric mutations with simplified cache management.
+ *
+ * Philosophy:
+ * - Create: Invalidate cache on success, let server data drive UI
+ * - Refresh/Regenerate: Set loading state in cache, let polling handle updates
+ * - Delete: Optimistic update (instant feedback)
+ */
 export function useMetricMutations({ teamId }: UseMetricMutationsOptions = {}) {
   const utils = api.useUtils();
 
   /**
-   * Create metric with optimistic update
+   * Helper to invalidate dashboard cache with proper keys
+   * Returns a promise that resolves when invalidation completes
+   */
+  const invalidateDashboard = async () => {
+    // Invalidate all variants to ensure UI updates
+    // Must await to ensure refetch happens before dialog closes
+    await Promise.all([
+      utils.dashboard.getDashboardCharts.invalidate(),
+      teamId
+        ? utils.dashboard.getDashboardCharts.invalidate({ teamId })
+        : Promise.resolve(),
+    ]);
+  };
+
+  /**
+   * Helper to update a metric's refreshStatus in cache
+   * This provides immediate loading feedback
+   */
+  const setMetricProcessing = (metricId: string, status: string | null) => {
+    const updateFn = (old: DashboardChartWithRelations[] | undefined) =>
+      old?.map((dc) =>
+        dc.metric.id === metricId
+          ? { ...dc, metric: { ...dc.metric, refreshStatus: status } }
+          : dc,
+      );
+
+    utils.dashboard.getDashboardCharts.setData(undefined, updateFn);
+    if (teamId) {
+      utils.dashboard.getDashboardCharts.setData({ teamId }, updateFn);
+    }
+  };
+
+  /**
+   * Create metric - simple invalidation approach
+   * Server returns the real card with refreshStatus set, dashboard will show it
    */
   const create = api.metric.create.useMutation({
-    onMutate: async (variables) => {
-      const tempId = `temp-${Date.now()}`;
-
-      // Cancel in-flight queries to prevent race conditions
-      await utils.dashboard.getDashboardCharts.cancel();
-      if (teamId) {
-        await utils.dashboard.getDashboardCharts.cancel({ teamId });
-      }
-
-      // Build optimistic chart with minimal data
-      const optimisticChart: DashboardChartWithRelations = {
-        id: tempId,
-        organizationId: "",
-        metricId: tempId,
-        chartType: "bar",
-        chartConfig: {} as Prisma.JsonValue,
-        position: 9999,
-        size: "medium",
-        chartTransformerId: null,
-        chartTransformer: null,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-        metric: {
-          id: tempId,
-          name: variables.name,
-          description: variables.description ?? null,
-          organizationId: "",
-          integrationId: variables.connectionId,
-          templateId: variables.templateId,
-          endpointConfig: variables.endpointParams,
-          teamId: variables.teamId ?? null,
-          lastFetchedAt: null,
-          pollFrequency: "daily",
-          nextPollAt: null,
-          lastError: null,
-          refreshStatus: "fetching-api-data",
-          createdAt: new Date(),
-          updatedAt: new Date(),
-          integration: null,
-          roles: [],
-          goal: null,
-        },
-        goalProgress: null,
-        valueLabel: null,
-        dataDescription: null,
-      };
-
-      // Save previous data for rollback
-      const previousData = utils.dashboard.getDashboardCharts.getData();
-      const previousTeamData = teamId
-        ? utils.dashboard.getDashboardCharts.getData({ teamId })
-        : undefined;
-
-      // Add optimistic chart to cache
-      utils.dashboard.getDashboardCharts.setData(undefined, (old) =>
-        old ? [...old, optimisticChart] : [optimisticChart],
-      );
-
-      if (teamId) {
-        utils.dashboard.getDashboardCharts.setData({ teamId }, (old) =>
-          old ? [...old, optimisticChart] : [optimisticChart],
-        );
-      }
-
-      return { tempId, previousData, previousTeamData };
+    onSuccess: async () => {
+      // Invalidate and wait for refetch to complete
+      await invalidateDashboard();
     },
-
-    onSuccess: (realChart, _variables, context) => {
-      if (!context) return;
-
-      const enrichedChart: DashboardChartWithRelations = {
-        ...realChart,
-        metric: {
-          ...realChart.metric,
-          goal: null,
-          // Preserve refreshStatus for loading indicator (server sets "fetching-api-data")
-          refreshStatus: realChart.metric.refreshStatus ?? "fetching-api-data",
-        },
-        goalProgress: null,
-        valueLabel: null,
-        dataDescription: null,
-      };
-
-      // Swap temp chart with real chart
-      utils.dashboard.getDashboardCharts.setData(undefined, (old) =>
-        old?.map((chart) =>
-          chart.id === context.tempId ? enrichedChart : chart,
-        ),
-      );
-
-      if (teamId) {
-        utils.dashboard.getDashboardCharts.setData({ teamId }, (old) =>
-          old?.map((chart) =>
-            chart.id === context.tempId ? enrichedChart : chart,
-          ),
-        );
-      }
-    },
-
-    onError: (_error, _variables, context) => {
-      if (!context) return;
-
-      // Rollback to previous data
-      if (context.previousData !== undefined) {
-        utils.dashboard.getDashboardCharts.setData(
-          undefined,
-          context.previousData,
-        );
-      }
-      if (teamId && context.previousTeamData !== undefined) {
-        utils.dashboard.getDashboardCharts.setData(
-          { teamId },
-          context.previousTeamData,
-        );
-      }
-    },
-
-    // onSettled omitted - centralized dashboard polling handles cache updates
   });
 
   /**
-   * Create manual metric with optimistic update
+   * Create manual metric - simple invalidation approach
    */
   const createManual = api.manualMetric.create.useMutation({
-    onMutate: async (variables) => {
-      const tempId = `temp-${Date.now()}`;
-
-      // Cancel in-flight queries
-      await utils.dashboard.getDashboardCharts.cancel();
-      if (teamId) {
-        await utils.dashboard.getDashboardCharts.cancel({ teamId });
-      }
-
-      // Build optimistic chart for manual metric
-      const optimisticChart: DashboardChartWithRelations = {
-        id: tempId,
-        organizationId: "",
-        metricId: tempId,
-        chartType: "bar",
-        chartConfig: {} as Prisma.JsonValue,
-        position: 9999,
-        size: "medium",
-        chartTransformerId: null,
-        chartTransformer: null,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-        metric: {
-          id: tempId,
-          name: variables.name,
-          description: null,
-          organizationId: "",
-          integrationId: null,
-          templateId: "manual",
-          endpointConfig: {
-            type: "manual",
-            unitType: variables.unitType,
-            cadence: variables.cadence,
-          },
-          teamId: variables.teamId ?? null,
-          lastFetchedAt: null,
-          pollFrequency: "manual",
-          nextPollAt: null,
-          lastError: null,
-          refreshStatus: null,
-          createdAt: new Date(),
-          updatedAt: new Date(),
-          integration: null,
-          roles: [],
-          goal: null,
-        },
-        goalProgress: null,
-        valueLabel: variables.unitType === "percentage" ? "%" : null,
-        dataDescription: null,
-      };
-
-      // Save previous data for rollback
-      const previousData = utils.dashboard.getDashboardCharts.getData();
-      const previousTeamData = teamId
-        ? utils.dashboard.getDashboardCharts.getData({ teamId })
-        : undefined;
-
-      // Add optimistic chart to cache
-      utils.dashboard.getDashboardCharts.setData(undefined, (old) =>
-        old ? [...old, optimisticChart] : [optimisticChart],
-      );
-
-      if (teamId) {
-        utils.dashboard.getDashboardCharts.setData({ teamId }, (old) =>
-          old ? [...old, optimisticChart] : [optimisticChart],
-        );
-      }
-
-      return { tempId, previousData, previousTeamData };
-    },
-
-    onSuccess: (realChart, variables, context) => {
-      if (!context) return;
-
-      // Extend the returned chart with required fields for cache
-      const enrichedChart: DashboardChartWithRelations = {
-        ...realChart,
-        chartTransformer: null,
-        metric: { ...realChart.metric, goal: null },
-        goalProgress: null,
-        valueLabel: variables.unitType === "percentage" ? "%" : null,
-        dataDescription: null,
-      };
-
-      // Swap temp chart with real chart
-      utils.dashboard.getDashboardCharts.setData(undefined, (old) =>
-        old?.map((chart) =>
-          chart.id === context.tempId ? enrichedChart : chart,
-        ),
-      );
-
-      if (teamId) {
-        utils.dashboard.getDashboardCharts.setData({ teamId }, (old) =>
-          old?.map((chart) =>
-            chart.id === context.tempId ? enrichedChart : chart,
-          ),
-        );
-      }
-    },
-
-    onError: (_error, _variables, context) => {
-      if (!context) return;
-
-      // Rollback to previous data
-      if (context.previousData !== undefined) {
-        utils.dashboard.getDashboardCharts.setData(
-          undefined,
-          context.previousData,
-        );
-      }
-      if (teamId && context.previousTeamData !== undefined) {
-        utils.dashboard.getDashboardCharts.setData(
-          { teamId },
-          context.previousTeamData,
-        );
-      }
-    },
-
-    onSettled: () => {
-      // Targeted invalidation - only invalidate the team's dashboard
-      if (teamId) {
-        void utils.dashboard.getDashboardCharts.invalidate({ teamId });
-      }
+    onSuccess: async () => {
+      await invalidateDashboard();
     },
   });
 
   /**
-   * Delete metric with optimistic update
+   * Delete metric with optimistic update (instant feedback)
    */
   const deleteMutation = api.metric.delete.useMutation({
     onMutate: async (variables) => {
-      // Cancel in-flight queries
       await utils.dashboard.getDashboardCharts.cancel();
       if (teamId) {
         await utils.dashboard.getDashboardCharts.cancel({ teamId });
       }
 
-      // Save previous data for rollback
       const previousData = utils.dashboard.getDashboardCharts.getData();
       const previousTeamData = teamId
         ? utils.dashboard.getDashboardCharts.getData({ teamId })
         : undefined;
 
-      // Remove chart optimistically
-      utils.dashboard.getDashboardCharts.setData(undefined, (old) =>
-        old?.filter((chart) => chart.metric.id !== variables.id),
-      );
+      // Remove optimistically
+      const filterFn = (old: DashboardChartWithRelations[] | undefined) =>
+        old?.filter((chart) => chart.metric.id !== variables.id);
 
+      utils.dashboard.getDashboardCharts.setData(undefined, filterFn);
       if (teamId) {
-        utils.dashboard.getDashboardCharts.setData({ teamId }, (old) =>
-          old?.filter((chart) => chart.metric.id !== variables.id),
-        );
+        utils.dashboard.getDashboardCharts.setData({ teamId }, filterFn);
       }
 
       return { previousData, previousTeamData };
     },
-
     onError: (_error, _variables, context) => {
       if (!context) return;
-
-      // Rollback to previous data
       if (context.previousData !== undefined) {
         utils.dashboard.getDashboardCharts.setData(
           undefined,
@@ -312,26 +110,40 @@ export function useMetricMutations({ teamId }: UseMetricMutationsOptions = {}) {
         );
       }
     },
-
-    onSettled: () => {
-      // Targeted invalidation - only invalidate the team's dashboard
-      if (teamId) {
-        void utils.dashboard.getDashboardCharts.invalidate({ teamId });
-      }
+    onSettled: async () => {
+      await invalidateDashboard();
     },
   });
 
   /**
-   * Refresh metric (soft refresh - reuse transformers)
-   * Note: No onSuccess invalidation - centralized polling handles cache updates
+   * Refresh metric (soft refresh)
+   * Sets loading state immediately, polling handles completion
    */
-  const refresh = api.pipeline.refresh.useMutation();
+  const refresh = api.pipeline.refresh.useMutation({
+    onMutate: (variables) => {
+      // Show loading state immediately
+      setMetricProcessing(variables.metricId, "fetching-api-data");
+    },
+    onError: (_, variables) => {
+      // Clear loading state on error
+      setMetricProcessing(variables.metricId, null);
+    },
+  });
 
   /**
-   * Regenerate metric (hard refresh - delete & recreate)
-   * Note: No onSuccess invalidation - centralized polling handles cache updates
+   * Regenerate metric (hard refresh)
+   * Sets loading state immediately, polling handles completion
    */
-  const regenerate = api.pipeline.regenerate.useMutation();
+  const regenerate = api.pipeline.regenerate.useMutation({
+    onMutate: (variables) => {
+      // Show loading state immediately
+      setMetricProcessing(variables.metricId, "deleting-old-data");
+    },
+    onError: (_, variables) => {
+      // Clear loading state on error
+      setMetricProcessing(variables.metricId, null);
+    },
+  });
 
   return {
     create,

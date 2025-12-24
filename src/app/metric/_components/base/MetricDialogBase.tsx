@@ -88,6 +88,7 @@ export function MetricDialogBase({
   };
 
   const { create: createMutation } = useMetricMutations({ teamId });
+  const utils = api.useUtils();
 
   const integrationQuery = api.integration.listWithStats.useQuery();
   const connection = integrationQuery.data?.active.find((int) =>
@@ -100,19 +101,28 @@ export function MetricDialogBase({
     setError(null);
 
     try {
-      // Create the metric with optimistic update (handled by hook)
+      // Create the metric - wait for server response
       await createMutation.mutateAsync({
         ...data,
         teamId,
       });
 
-      // Close dialog immediately - optimistic card is already on dashboard
-      // The optimistic update already added the card with refreshStatus
-      // Dashboard centralized polling will handle status updates
+      // Explicitly invalidate cache to ensure new card shows
+      // This triggers a refetch which will include the new metric
+      await Promise.all([
+        utils.dashboard.getDashboardCharts.invalidate(),
+        teamId
+          ? utils.dashboard.getDashboardCharts.invalidate({ teamId })
+          : Promise.resolve(),
+      ]);
+
+      // Success! Close dialog
+      toast.success("KPI created", {
+        description: "Building your chart...",
+      });
       setOpen(false);
       onSuccess?.();
     } catch {
-      // Error handling and rollback handled by hook
       toast.error("Failed to create KPI");
     }
   };

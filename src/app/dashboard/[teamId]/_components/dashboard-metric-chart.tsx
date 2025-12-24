@@ -3,7 +3,14 @@
 import { useMemo } from "react";
 
 import type { MetricGoal, Role } from "@prisma/client";
-import { AlertTriangle, Info, Loader2, Target, User } from "lucide-react";
+import {
+  AlertTriangle,
+  BarChart3,
+  Info,
+  Loader2,
+  Target,
+  User,
+} from "lucide-react";
 import {
   Area,
   AreaChart,
@@ -43,6 +50,7 @@ import { type GoalProgress, calculateTargetDisplayValue } from "@/lib/goals";
 import { formatValue } from "@/lib/helpers/format-value";
 import { getUserName } from "@/lib/helpers/get-user-name";
 import { getLatestMetricValue } from "@/lib/metrics/get-latest-value";
+import { getStepDisplayName } from "@/lib/pipeline";
 import { getPlatformConfig } from "@/lib/platform-config";
 import { cn } from "@/lib/utils";
 import { api } from "@/trpc/react";
@@ -65,6 +73,8 @@ interface DashboardMetricChartProps {
   valueLabel?: string | null;
   /** Whether the metric is currently processing (from parent) */
   isProcessing?: boolean;
+  /** Current processing step name (e.g., "fetching-api-data") */
+  processingStep?: string | null;
   /** Whether the parent query is fetching updated data */
   isFetching?: boolean;
 }
@@ -81,6 +91,7 @@ export function DashboardMetricChart({
   goalProgress,
   valueLabel,
   isProcessing = false,
+  processingStep,
   isFetching = false,
 }: DashboardMetricChartProps) {
   const platformConfig = integrationId
@@ -711,31 +722,29 @@ export function DashboardMetricChart({
           </div>
         )}
 
-        {/* State 1: Actively processing pipeline */}
-        {!hasChartData && isProcessing && (
+        {/* State 1: Actively processing or fetching - combined for simpler UX */}
+        {!hasChartData && (isProcessing || isFetching) && (
           <div className="flex flex-1 items-center justify-center rounded-md border border-dashed p-4">
             <div className="text-center">
-              <Loader2 className="text-muted-foreground mx-auto h-6 w-6 animate-spin" />
-              <p className="text-muted-foreground mt-2 text-sm">
-                Processing...
-              </p>
+              <div className="bg-primary/10 mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full">
+                <BarChart3 className="text-primary h-6 w-6" />
+              </div>
+              <div className="flex items-center justify-center gap-2">
+                <Loader2 className="text-primary h-4 w-4 animate-spin" />
+                <p className="text-foreground text-sm font-medium">
+                  {isProcessing ? "Building your chart" : "Loading chart..."}
+                </p>
+              </div>
+              {isProcessing && processingStep && (
+                <p className="text-muted-foreground mt-1.5 text-xs">
+                  {getStepDisplayName(processingStep)}
+                </p>
+              )}
             </div>
           </div>
         )}
 
-        {/* State 2: Processing done, fetching updated data */}
-        {!hasChartData && !isProcessing && isFetching && (
-          <div className="flex flex-1 items-center justify-center rounded-md border border-dashed p-4">
-            <div className="text-center">
-              <Loader2 className="text-muted-foreground mx-auto h-6 w-6 animate-spin" />
-              <p className="text-muted-foreground mt-2 text-sm">
-                Loading data...
-              </p>
-            </div>
-          </div>
-        )}
-
-        {/* State 3: No processing, no fetching, genuinely no data */}
+        {/* State 2: No processing, no fetching, genuinely no data */}
         {!hasChartData && !isProcessing && !isFetching && (
           <div className="text-muted-foreground flex flex-1 items-center justify-center rounded-md border border-dashed p-4 text-center text-sm">
             {isIntegrationMetric
