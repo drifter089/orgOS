@@ -38,8 +38,8 @@ export type {
 interface DashboardMetricCardProps {
   /** Metric ID - required to find data in TanStack Query cache */
   metricId: string;
-  /** Team ID - required for cache query subscription */
-  teamId: string;
+  /** Team ID - required for cache query subscription. Can be undefined when dataOverride is provided. */
+  teamId?: string;
   /** When true, hides settings drawer and dev tool button (for public views) */
   readOnly?: boolean;
   /**
@@ -63,7 +63,7 @@ interface DashboardMetricCardProps {
  */
 export function DashboardMetricCard({
   metricId,
-  teamId,
+  teamId = "",
   readOnly = false,
   dataOverride,
 }: DashboardMetricCardProps) {
@@ -72,6 +72,7 @@ export function DashboardMetricCard({
   const utils = api.useUtils();
   const { confirm } = useConfirmation();
 
+  // Hook is disabled when teamId is empty (dataOverride should be provided in that case)
   const hookResult = useDashboardMetric(metricId, teamId);
 
   const dashboardChart = dataOverride ?? hookResult.dashboardChart;

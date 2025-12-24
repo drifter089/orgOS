@@ -48,9 +48,7 @@ export function useMetricStatusPolling(
 
   // Sync with parent data when it changes (e.g., after invalidation)
   useEffect(() => {
-    if (initialStatus !== null) {
-      setIsProcessing(true);
-    }
+    setIsProcessing(!!initialStatus);
   }, [initialStatus]);
 
   return {

@@ -25,17 +25,11 @@ export interface MetricPipelineStatus {
 /**
  * Hook to get live dashboard metric data from TanStack Query cache.
  *
- * This hook subscribes to the dashboard charts query, which is polled
- * every 2s when any metric is processing. Both card and drawer components
- * should use this hook to get reactive updates.
- *
- * Cache Strategy:
- * - TanStack Query: Polls every 2s during processing, disabled otherwise
- * - Prisma Accelerate: 60s TTL, invalidated after mutations via cache tags
- * - No race conditions: Mutations await cache invalidation before returning
+ * Query is disabled when metricId or teamId is falsy (use dataOverride instead).
+ * Card and drawer components use this hook for reactive updates.
  *
  * @param metricId - The metric ID to find in the cache
- * @param teamId - The team ID for the query (enables team-specific caching)
+ * @param teamId - The team ID for the query
  */
 export function useDashboardMetric(
   metricId: string,
@@ -49,15 +43,14 @@ export function useDashboardMetric(
   isFetching: boolean;
 } {
   const { data: dashboardCharts, isFetching } =
-    api.dashboard.getDashboardCharts.useQuery({ teamId });
+    api.dashboard.getDashboardCharts.useQuery(
+      { teamId },
+      { enabled: Boolean(metricId && teamId) },
+    );
 
   const dashboardChart = useMemo(() => {
     if (!dashboardCharts) return null;
-    return (
-      dashboardCharts.find((dc) => dc.metric.id === metricId) ??
-      dashboardCharts.find((dc) => dc.metricId === metricId) ??
-      null
-    );
+    return dashboardCharts.find((dc) => dc.metric.id === metricId) ?? null;
   }, [dashboardCharts, metricId]);
 
   const status = useMemo((): MetricPipelineStatus => {
