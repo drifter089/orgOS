@@ -74,6 +74,7 @@ export function usePipelineOperations({
 
   const [pollingMetricId, setPollingMetricId] = useState<string | null>(null);
   const pollingStartTimeRef = useRef<number | null>(null);
+  const isCompletingRef = useRef(false);
   const onCompleteRef = useRef(onComplete);
 
   useEffect(() => {
@@ -101,28 +102,41 @@ export function usePipelineOperations({
     if (!shouldPoll || !polledStatus) return;
 
     if (!polledStatus.refreshStatus) {
+      // Prevent multiple concurrent completions while awaiting cache invalidation
+      if (isCompletingRef.current) return;
+      isCompletingRef.current = true;
+
       const hasError = !!polledStatus.lastError;
 
-      setPollingMetricId(null);
-      pollingStartTimeRef.current = null;
+      // Invalidate cache BEFORE stopping polling to prevent stale data flash
+      const completePolling = async () => {
+        try {
+          if (teamId) {
+            await utils.dashboard.getDashboardCharts.invalidate({ teamId });
+          } else {
+            await utils.dashboard.getDashboardCharts.invalidate();
+          }
 
-      if (teamId) {
-        void utils.dashboard.getDashboardCharts.invalidate({ teamId });
-      } else {
-        void utils.dashboard.getDashboardCharts.invalidate();
-      }
+          setPollingMetricId(null);
+          pollingStartTimeRef.current = null;
 
-      onCompleteRef.current?.({
-        success: !hasError,
-        error: polledStatus.lastError ?? null,
-      });
+          onCompleteRef.current?.({
+            success: !hasError,
+            error: polledStatus.lastError ?? null,
+          });
 
-      if (hasError) {
-        toast.error("Pipeline failed", {
-          description: polledStatus.lastError,
-          duration: 10000,
-        });
-      }
+          if (hasError) {
+            toast.error("Pipeline failed", {
+              description: polledStatus.lastError,
+              duration: 10000,
+            });
+          }
+        } finally {
+          isCompletingRef.current = false;
+        }
+      };
+
+      void completePolling();
     }
   }, [polledStatus, shouldPoll, teamId, utils]);
 
@@ -157,11 +171,20 @@ export function usePipelineOperations({
   // Start Polling Helper
   // ---------------------------------------------------------------------------
 
-  const startPolling = useCallback((metricId: string) => {
-    if (isTempId(metricId)) return;
-    pollingStartTimeRef.current = Date.now();
-    setPollingMetricId(metricId);
-  }, []);
+  const startPolling = useCallback(
+    (metricId: string) => {
+      if (isTempId(metricId)) return;
+
+      isCompletingRef.current = false;
+
+      // Reset query cache to avoid stale data stopping polling immediately
+      void utils.metric.getStatus.reset({ metricId });
+
+      pollingStartTimeRef.current = Date.now();
+      setPollingMetricId(metricId);
+    },
+    [utils],
+  );
 
   // ---------------------------------------------------------------------------
   // Create Mutations
@@ -389,34 +412,94 @@ export function usePipelineOperations({
     api.pipeline.regenerateChartOnly.useMutation();
 
   // ---------------------------------------------------------------------------
-  // Pipeline Operation Wrappers (await + poll)
+  // Optimistic Update Helper
   // ---------------------------------------------------------------------------
 
   /**
-   * Refresh metric data (soft refresh - reuses transformers)
+   * Set refreshStatus optimistically in cache for immediate UI feedback.
+   * Returns previous data for potential rollback.
    */
+  const setOptimisticRefreshStatus = useCallback(
+    (metricId: string, status: string) => {
+      if (!teamId) return undefined;
+
+      const previousData = utils.dashboard.getDashboardCharts.getData({
+        teamId,
+      });
+
+      utils.dashboard.getDashboardCharts.setData({ teamId }, (old) =>
+        old?.map((dc) =>
+          dc.metric.id === metricId
+            ? {
+                ...dc,
+                metric: {
+                  ...dc.metric,
+                  refreshStatus: status,
+                  lastError: null,
+                },
+              }
+            : dc,
+        ),
+      );
+
+      return previousData;
+    },
+    [teamId, utils],
+  );
+
+  // ---------------------------------------------------------------------------
+  // Pipeline Operation Wrappers (await + poll)
+  // ---------------------------------------------------------------------------
+
+  /** Refresh metric data (soft refresh - reuses transformers) */
   const refresh = useCallback(
     async (metricId: string) => {
-      await refreshMutation.mutateAsync({ metricId });
-      startPolling(metricId);
+      const previousData = setOptimisticRefreshStatus(
+        metricId,
+        "fetching-api-data",
+      );
+
+      try {
+        await refreshMutation.mutateAsync({ metricId });
+        startPolling(metricId);
+      } catch (error) {
+        if (teamId && previousData) {
+          utils.dashboard.getDashboardCharts.setData({ teamId }, previousData);
+        }
+        throw error;
+      }
     },
-    [refreshMutation, startPolling],
+    [refreshMutation, startPolling, setOptimisticRefreshStatus, teamId, utils],
   );
 
-  /**
-   * Regenerate entire pipeline (hard refresh - recreates transformers)
-   */
+  /** Regenerate entire pipeline (hard refresh - recreates transformers) */
   const regenerate = useCallback(
     async (metricId: string) => {
-      await regenerateMutation.mutateAsync({ metricId });
-      startPolling(metricId);
+      const previousData = setOptimisticRefreshStatus(
+        metricId,
+        "deleting-old-data",
+      );
+
+      try {
+        await regenerateMutation.mutateAsync({ metricId });
+        startPolling(metricId);
+      } catch (error) {
+        if (teamId && previousData) {
+          utils.dashboard.getDashboardCharts.setData({ teamId }, previousData);
+        }
+        throw error;
+      }
     },
-    [regenerateMutation, startPolling],
+    [
+      regenerateMutation,
+      startPolling,
+      setOptimisticRefreshStatus,
+      teamId,
+      utils,
+    ],
   );
 
-  /**
-   * Regenerate chart only (keeps data, recreates chart transformer)
-   */
+  /** Regenerate chart only (keeps data, recreates chart transformer) */
   const regenerateChart = useCallback(
     async (
       metricId: string,
@@ -426,15 +509,33 @@ export function usePipelineOperations({
         selectedDimension?: string;
       },
     ) => {
-      await regenerateChartOnlyMutation.mutateAsync({
+      const previousData = setOptimisticRefreshStatus(
         metricId,
-        chartType: options.chartType,
-        cadence: options.cadence,
-        selectedDimension: options.selectedDimension,
-      });
-      startPolling(metricId);
+        "generating-chart-transformer",
+      );
+
+      try {
+        await regenerateChartOnlyMutation.mutateAsync({
+          metricId,
+          chartType: options.chartType,
+          cadence: options.cadence,
+          selectedDimension: options.selectedDimension,
+        });
+        startPolling(metricId);
+      } catch (error) {
+        if (teamId && previousData) {
+          utils.dashboard.getDashboardCharts.setData({ teamId }, previousData);
+        }
+        throw error;
+      }
     },
-    [regenerateChartOnlyMutation, startPolling],
+    [
+      regenerateChartOnlyMutation,
+      startPolling,
+      setOptimisticRefreshStatus,
+      teamId,
+      utils,
+    ],
   );
 
   // ---------------------------------------------------------------------------
