@@ -3,7 +3,17 @@
 import { useMemo } from "react";
 
 import type { MetricGoal, Role } from "@prisma/client";
-import { AlertTriangle, Info, Loader2, Target, User } from "lucide-react";
+import { format } from "date-fns";
+import {
+  AlertTriangle,
+  Calendar,
+  Clock,
+  Info,
+  Loader2,
+  Target,
+  User,
+} from "lucide-react";
+import { Link } from "next-transition-router";
 import {
   Area,
   AreaChart,
@@ -47,6 +57,20 @@ import type { ChartTransformResult } from "@/lib/metrics/transformer-types";
 import { getPlatformConfig } from "@/lib/platform-config";
 import { cn } from "@/lib/utils";
 import { api } from "@/trpc/react";
+
+/**
+ * Format time remaining based on cadence
+ * - DAILY or < 1 day: show hours (e.g., "8 hrs")
+ * - WEEKLY/MONTHLY: show days (e.g., "3 days")
+ */
+function formatTimeRemaining(goalProgress: GoalProgress): string {
+  if (goalProgress.cadence === "DAILY" || goalProgress.daysRemaining < 1) {
+    const hours = Math.max(0, Math.round(goalProgress.hoursRemaining));
+    return `${hours}h`;
+  }
+  const days = Math.max(0, Math.round(goalProgress.daysRemaining));
+  return `${days}d`;
+}
 
 interface DashboardMetricChartProps {
   title: string;
@@ -98,6 +122,13 @@ export function DashboardMetricChart({
       : null;
 
   const currentValue = getLatestMetricValue(chartTransform);
+
+  // Calculate time elapsed percentage for the goal period
+  const timeElapsedPercent = goalProgress
+    ? (goalProgress.daysElapsed /
+        (goalProgress.daysElapsed + goalProgress.daysRemaining)) *
+      100
+    : null;
 
   // Generate a stable key for chart re-renders (no JSON serialization)
   const chartKey = useMemo(() => {
@@ -617,7 +648,6 @@ export function DashboardMetricChart({
             <span className="text-2xl font-bold tracking-tight">
               {formatValue(currentValue.value)}
             </span>
-            {/* Show valueLabel from ChartTransformer (unified metadata) with override support */}
             <span className="text-muted-foreground text-xs">
               {chartTransform?.valueLabelOverride ??
                 chartTransform?.valueLabel ??
@@ -628,23 +658,67 @@ export function DashboardMetricChart({
             {goalTargetValue !== null && goalProgress && (
               <span className="text-muted-foreground ml-auto flex items-center gap-1 text-xs">
                 <Target className="text-destructive h-3 w-3" />
-                <span className="text-destructive">
+                <span className="text-destructive font-medium">
                   {formatValue(goalTargetValue)}
-                  {(chartTransform?.valueLabelOverride ??
-                    chartTransform?.valueLabel ??
-                    valueLabel) && (
-                    <span className="ml-0.5 text-[10px]">
-                      {chartTransform?.valueLabelOverride ??
-                        chartTransform?.valueLabel ??
-                        valueLabel}
-                    </span>
-                  )}
-                </span>
-                <span className="text-muted-foreground">
-                  ({Math.round(goalProgress.progressPercent)}%)
                 </span>
               </span>
             )}
+          </div>
+        )}
+
+        {goalProgress && (
+          <div className="flex items-center gap-4 text-[10px]">
+            <div className="flex items-center gap-1.5">
+              <Target className="text-muted-foreground h-3 w-3" />
+              <div className="bg-muted h-1.5 w-16 overflow-hidden rounded-full">
+                <div
+                  className={cn(
+                    "h-full transition-all duration-300",
+                    goalProgress.progressPercent >= 100
+                      ? "bg-green-500"
+                      : goalProgress.progressPercent >= 70
+                        ? "bg-primary"
+                        : "bg-amber-500",
+                  )}
+                  style={{
+                    width: `${Math.min(goalProgress.progressPercent, 100)}%`,
+                  }}
+                />
+              </div>
+              <span className="font-medium">
+                {Math.round(goalProgress.progressPercent)}%
+              </span>
+            </div>
+
+            {timeElapsedPercent !== null && (
+              <div className="flex items-center gap-1.5">
+                <Clock className="text-muted-foreground h-3 w-3" />
+                <div className="bg-muted h-1.5 w-16 overflow-hidden rounded-full">
+                  <div
+                    className="h-full bg-blue-500 transition-all duration-300"
+                    style={{ width: `${Math.min(timeElapsedPercent, 100)}%` }}
+                  />
+                </div>
+                <span className="text-muted-foreground">
+                  {formatTimeRemaining(goalProgress)} left
+                </span>
+              </div>
+            )}
+
+            <div className="text-muted-foreground ml-auto flex items-center gap-1">
+              <Calendar className="h-3 w-3" />
+              <span>
+                {format(new Date(goalProgress.periodStart), "MMM d")} -{" "}
+                {format(new Date(goalProgress.periodEnd), "MMM d")}
+              </span>
+            </div>
+          </div>
+        )}
+
+        {hasNoGoal && (
+          <div className="flex items-center gap-1.5 text-[10px]">
+            <AlertTriangle className="h-3 w-3 text-amber-500" />
+            <span className="text-amber-500">No goal set</span>
           </div>
         )}
 
@@ -656,11 +730,16 @@ export function DashboardMetricChart({
                 style={{ backgroundColor: primaryRole.color }}
               />
               <span className="font-medium">{primaryRole.title}</span>
-              {assignedUserName ? (
+              {assignedUserName && primaryRole.assignedUserId ? (
                 <>
                   <span>•</span>
                   <User className="h-2.5 w-2.5" />
-                  <span>{assignedUserName}</span>
+                  <Link
+                    href={`/member/${primaryRole.assignedUserId}`}
+                    className="hover:text-foreground hover:underline"
+                  >
+                    {assignedUserName}
+                  </Link>
                 </>
               ) : (
                 <span className="text-warning flex items-center gap-0.5">
@@ -675,19 +754,12 @@ export function DashboardMetricChart({
             </span>
           )}
 
-          {hasNoGoal && (
-            <span className="text-muted-foreground ml-auto flex items-center gap-1">
-              <AlertTriangle className="h-2.5 w-2.5 text-amber-500" />
-              <span className="text-amber-500">No goal</span>
+          {currentValue?.date && (
+            <span className="text-muted-foreground/70 ml-auto">
+              {currentValue.date}
             </span>
           )}
         </div>
-
-        {currentValue?.date && (
-          <p className="text-muted-foreground/70 text-[10px]">
-            {currentValue.date}
-          </p>
-        )}
       </CardHeader>
 
       <CardContent className="relative flex flex-1 flex-col overflow-hidden px-4 pt-0 pb-4">

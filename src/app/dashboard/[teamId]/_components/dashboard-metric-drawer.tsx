@@ -3,20 +3,9 @@
 import { useEffect, useState } from "react";
 
 import type { Cadence } from "@prisma/client";
-import { ClipboardCheck, Loader2, X } from "lucide-react";
-import { Link } from "next-transition-router";
 
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { DrawerClose } from "@/components/ui/drawer";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
 import { getLatestMetricValue } from "@/lib/metrics/get-latest-value";
 import type { ChartTransformResult } from "@/lib/metrics/transformer-types";
-import { getPlatformConfig } from "@/lib/platform-config";
 import { cn } from "@/lib/utils";
 import { api } from "@/trpc/react";
 import type { DashboardChartWithRelations } from "@/types/dashboard";
@@ -50,7 +39,7 @@ interface DashboardMetricDrawerProps {
 export function DashboardMetricDrawer({
   dashboardChart,
   isProcessing,
-  error,
+  error: _error,
   isDeleting,
   onRefresh,
   onUpdateMetric,
@@ -108,9 +97,6 @@ export function DashboardMetricDrawer({
     chartTransform?.chartData && chartTransform.chartData.length > 0
   );
   const currentValue = getLatestMetricValue(chartTransform ?? null);
-  const platformConfig = metric.integration?.providerId
-    ? getPlatformConfig(metric.integration.providerId)
-    : null;
 
   const handleApplyChanges = () => {
     onRegenerateChart(
@@ -127,64 +113,13 @@ export function DashboardMetricDrawer({
 
   return (
     <div className="grid h-full grid-cols-[50%_30%_20%] gap-0">
-      {/* Chart Column (50%) */}
       <div className="flex flex-col border-r">
-        {/* Header with Goal & Time Progress */}
-        <div className="flex items-center justify-between border-b px-6 py-4">
-          <div className="flex items-center gap-3">
-            <h2 className="text-lg font-semibold">{metric.name}</h2>
-            {platformConfig && (
-              <Badge
-                variant="secondary"
-                className={cn(platformConfig.bgColor, platformConfig.textColor)}
-              >
-                {platformConfig.name}
-              </Badge>
-            )}
-            {error && (
-              <Badge variant="destructive" className="text-xs">
-                Error
-              </Badge>
-            )}
-            {isProcessing && (
-              <Badge variant="outline" className="text-xs">
-                <Loader2 className="mr-1 h-3 w-3 animate-spin" />
-                Processing
-              </Badge>
-            )}
-          </div>
-          <div className="flex items-center gap-2">
-            {!isIntegrationMetric && (
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button variant="default" size="sm" asChild>
-                    <Link href={`/metric/check-in/${metricId}`}>
-                      <ClipboardCheck className="mr-1 h-4 w-4" />
-                      Check-in
-                    </Link>
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent side="bottom">
-                  <p className="text-xs">Add a new data point</p>
-                </TooltipContent>
-              </Tooltip>
-            )}
-            <DrawerClose asChild>
-              <Button variant="ghost" size="icon" className="h-8 w-8">
-                <X className="h-4 w-4" />
-              </Button>
-            </DrawerClose>
-          </div>
-        </div>
-
-        {/* Stats Bar with Goal & Time Progress */}
         <ChartStatsBar
           currentValue={currentValue}
           valueLabel={dashboardChart.valueLabel ?? null}
           goalProgress={goalProgress}
         />
 
-        {/* Chart */}
         <div className="flex-1 overflow-hidden p-4">
           <DashboardMetricChart
             title={chartTransform?.title ?? metric.name}
