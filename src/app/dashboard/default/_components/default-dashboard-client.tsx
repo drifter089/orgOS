@@ -62,7 +62,7 @@ export function DefaultDashboardClient() {
                 )}
                 <DashboardMetricCard
                   metricId={dc.metric.id}
-                  teamId={dc.metric.teamId ?? undefined}
+                  teamId={dc.metric.teamId ?? ""}
                   dataOverride={dc}
                   readOnly
                 />

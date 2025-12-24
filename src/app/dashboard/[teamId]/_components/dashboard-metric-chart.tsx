@@ -61,7 +61,8 @@ interface DashboardMetricChartProps {
   chartTransform: ChartTransformResult | null;
   hasChartData: boolean;
   isIntegrationMetric: boolean;
-  isPending: boolean;
+  /** Whether this is an optimistic/temp card awaiting server response */
+  isOptimistic: boolean;
   integrationId?: string | null;
   roles?: Role[];
   // Goal data from parent - eliminates N+1 query
@@ -83,7 +84,7 @@ export function DashboardMetricChart({
   chartTransform,
   hasChartData,
   isIntegrationMetric,
-  isPending,
+  isOptimistic,
   integrationId,
   roles = [],
   goal,
@@ -583,7 +584,7 @@ export function DashboardMetricChart({
     <Card
       className={cn(
         "flex h-[420px] flex-col transition-opacity duration-200",
-        isPending && "opacity-60",
+        isOptimistic && "opacity-60",
       )}
     >
       <CardHeader className="flex-shrink-0 space-y-0.5 px-5 pt-3 pb-1">
@@ -625,13 +626,13 @@ export function DashboardMetricChart({
               </Badge>
             )}
           </div>
-          {(isPending || isProcessing) && (
+          {(isOptimistic || isProcessing) && (
             <Badge
               variant="outline"
               className="text-muted-foreground shrink-0 text-[10px]"
             >
               <Loader2 className="mr-1 h-2.5 w-2.5 animate-spin" />
-              {isPending ? "Saving..." : "Processing..."}
+              {isOptimistic ? "Creating..." : "Processing..."}
             </Badge>
           )}
         </div>

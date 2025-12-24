@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import type { Cadence } from "@prisma/client";
 import { formatDistanceToNow } from "date-fns";
@@ -39,7 +39,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { useDashboardMetric } from "@/hooks/use-dashboard-metric";
+import { usePipelineStatus } from "@/hooks/use-pipeline-status";
 import { getDimensionDisplayLabel } from "@/lib/metrics/dimension-labels";
 import { getLatestMetricValue } from "@/lib/metrics/get-latest-value";
 import type { ChartTransformResult } from "@/lib/metrics/transformer-types";
@@ -77,11 +77,8 @@ interface DashboardMetricDrawerProps {
 /**
  * Drawer for viewing and editing metric settings.
  *
- * Uses useDashboardMetric hook to get live data from TanStack Query cache.
- * This ensures the drawer updates in real-time when:
- * - Pipeline status changes (processing → complete)
- * - Chart regeneration completes
- * - Data refresh finishes
+ * Uses usePipelineStatus hook for unified status tracking.
+ * Form state is initialized from cache and synced when data changes.
  */
 export function DashboardMetricDrawer({
   metricId,
@@ -93,7 +90,8 @@ export function DashboardMetricDrawer({
   onClose,
   onRegenerateChart,
 }: DashboardMetricDrawerProps) {
-  const { dashboardChart, status, isFetching } = useDashboardMetric(
+  // Unified status tracking
+  const { dashboardChart, status, isFetching } = usePipelineStatus(
     metricId,
     teamId,
   );
@@ -106,17 +104,14 @@ export function DashboardMetricDrawer({
   const chartTransformer = dashboardChart?.chartTransformer;
   const goalProgress = dashboardChart?.goalProgress ?? null;
 
-  // Local form state
-  const [name, setName] = useState(metric?.name ?? "");
-  const [selectedChartType, setSelectedChartType] = useState(
-    chartTransformer?.chartType ?? "bar",
-  );
-  const [selectedCadence, setSelectedCadence] = useState<Cadence>(
-    chartTransformer?.cadence ?? "WEEKLY",
-  );
-  const [selectedDimension, setSelectedDimension] = useState<string>(
-    chartTransformer?.selectedDimension ?? "value",
-  );
+  // Track if user is actively editing (to prevent overwriting their changes)
+  const isEditingRef = useRef(false);
+
+  // Local form state - initialized from cache data
+  const [name, setName] = useState("");
+  const [selectedChartType, setSelectedChartType] = useState("bar");
+  const [selectedCadence, setSelectedCadence] = useState<Cadence>("WEEKLY");
+  const [selectedDimension, setSelectedDimension] = useState<string>("value");
   const [forceRebuild, setForceRebuild] = useState(false);
 
   // Query for available dimensions
@@ -127,25 +122,17 @@ export function DashboardMetricDrawer({
       { enabled: isIntegrationMetric },
     );
 
-  // Sync form state when live data changes
+  // Sync form state when cache data changes (only if not actively editing)
   useEffect(() => {
-    if (metric?.name) setName(metric.name);
-  }, [metric?.name]);
+    if (!metric || !dashboardChart || isEditingRef.current) return;
 
-  useEffect(() => {
-    if (chartTransformer?.chartType)
-      setSelectedChartType(chartTransformer.chartType);
-  }, [chartTransformer?.chartType]);
-
-  useEffect(() => {
-    if (chartTransformer?.cadence) setSelectedCadence(chartTransformer.cadence);
-  }, [chartTransformer?.cadence]);
-
-  useEffect(() => {
+    setName(metric.name);
+    setSelectedChartType(chartTransformer?.chartType ?? "bar");
+    setSelectedCadence(chartTransformer?.cadence ?? "WEEKLY");
     setSelectedDimension(chartTransformer?.selectedDimension ?? "value");
-  }, [chartTransformer?.selectedDimension]);
+  }, [metric, dashboardChart, chartTransformer]);
 
-  // Derived state
+  // Derived state - compare current form values to cache
   const hasNameChanges = name !== (metric?.name ?? "");
   const hasChartChanges =
     selectedChartType !== (chartTransformer?.chartType ?? "bar") ||
@@ -160,7 +147,22 @@ export function DashboardMetricDrawer({
     ? getPlatformConfig(metric.integration.providerId)
     : null;
 
+  // ==========================================================================
   // Handlers
+  // ==========================================================================
+
+  const handleNameChange = (value: string) => {
+    isEditingRef.current = true;
+    setName(value);
+  };
+
+  const handleNameBlur = () => {
+    // Reset editing flag after a short delay to allow save to complete
+    setTimeout(() => {
+      isEditingRef.current = false;
+    }, 100);
+  };
+
   const handleSave = () => {
     if (hasNameChanges && name.trim()) {
       onUpdateMetric(name.trim(), metric?.description ?? "");
@@ -180,7 +182,10 @@ export function DashboardMetricDrawer({
     onClose();
   };
 
-  // Loading state when data isn't ready yet
+  // ==========================================================================
+  // Render
+  // ==========================================================================
+
   if (!dashboardChart || !metric) {
     return (
       <div className="flex h-full items-center justify-center">
@@ -376,7 +381,7 @@ export function DashboardMetricDrawer({
               chartTransform={chartTransform ?? null}
               hasChartData={hasChartData}
               isIntegrationMetric={isIntegrationMetric}
-              isPending={status.isPending}
+              isOptimistic={status.isOptimistic}
               integrationId={metric.integration?.providerId}
               roles={metric.roles ?? []}
               goal={metric.goal}
@@ -408,7 +413,8 @@ export function DashboardMetricDrawer({
                   <div className="flex gap-2">
                     <Input
                       value={name}
-                      onChange={(e) => setName(e.target.value)}
+                      onChange={(e) => handleNameChange(e.target.value)}
+                      onBlur={handleNameBlur}
                       className="h-9"
                     />
                     <Button
