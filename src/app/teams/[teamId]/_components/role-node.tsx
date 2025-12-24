@@ -11,6 +11,7 @@ import {
   TrendingUp,
   User,
 } from "lucide-react";
+import { Link } from "next-transition-router";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -288,7 +289,17 @@ function RoleNodeComponent({ data, selected, id }: NodeProps<RoleNode>) {
           {assignedUserName && (
             <div className="flex items-center gap-2 text-xs">
               <User className="text-muted-foreground h-3 w-3 shrink-0" />
-              <span className="truncate font-medium">{assignedUserName}</span>
+              {role?.assignedUserId ? (
+                <Link
+                  href={`/member/${role.assignedUserId}`}
+                  className="nodrag hover:text-primary truncate font-medium underline-offset-2 hover:underline"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  {assignedUserName}
+                </Link>
+              ) : (
+                <span className="truncate font-medium">{assignedUserName}</span>
+              )}
             </div>
           )}
         </div>
