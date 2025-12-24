@@ -177,7 +177,6 @@ export function DashboardMetricCard({
         chartTransform={chartTransform}
         hasChartData={hasChartData}
         isIntegrationMetric={isIntegrationMetric}
-        isOptimistic={false}
         integrationId={metric.integration?.providerId}
         roles={metric.roles ?? []}
         goal={metric.goal}
@@ -185,7 +184,6 @@ export function DashboardMetricCard({
         valueLabel={dashboardChart.valueLabel}
         isProcessing={status.isProcessing}
         processingStep={status.step}
-        isFetching={status.isProcessing}
       />
     </div>
   );
@@ -243,7 +241,6 @@ export function ReadOnlyMetricCard({
         chartTransform={chartTransform}
         hasChartData={hasChartData}
         isIntegrationMetric={!!metric.integration?.providerId}
-        isOptimistic={false}
         integrationId={metric.integration?.providerId}
         roles={metric.roles ?? []}
         goal={metric.goal}
@@ -251,7 +248,6 @@ export function ReadOnlyMetricCard({
         valueLabel={dashboardChart.valueLabel}
         isProcessing={!!metric.refreshStatus}
         processingStep={metric.refreshStatus}
-        isFetching={false}
       />
     </div>
   );
