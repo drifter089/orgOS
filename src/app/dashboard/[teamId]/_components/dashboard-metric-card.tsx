@@ -306,7 +306,7 @@ export function DashboardMetricCard({
           <DashboardMetricDrawer
             metricId={metric.id}
             teamId={teamId}
-            isDeleting={status.isPending || deleteMetricMutation.isPending}
+            isDeleting={deleteMetricMutation.isPending}
             onRefresh={handleRefresh}
             onUpdateMetric={handleUpdateMetric}
             onDelete={handleRemove}
