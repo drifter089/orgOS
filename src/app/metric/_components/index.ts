@@ -1,6 +1,6 @@
 // Base components
 export { MetricDialogBase, MetricTabsDisplay } from "./base";
-export type { ContentProps } from "./base";
+export type { ContentProps, DashboardChart } from "./base";
 
 // Integration-specific dialogs
 export { GitHubMetricDialog } from "./github";
