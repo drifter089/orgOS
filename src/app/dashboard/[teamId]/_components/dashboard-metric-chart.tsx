@@ -13,6 +13,7 @@ import {
   Target,
   User,
 } from "lucide-react";
+import { Link } from "next-transition-router";
 import {
   Area,
   AreaChart,
@@ -729,11 +730,16 @@ export function DashboardMetricChart({
                 style={{ backgroundColor: primaryRole.color }}
               />
               <span className="font-medium">{primaryRole.title}</span>
-              {assignedUserName ? (
+              {assignedUserName && primaryRole.assignedUserId ? (
                 <>
                   <span>•</span>
                   <User className="h-2.5 w-2.5" />
-                  <span>{assignedUserName}</span>
+                  <Link
+                    href={`/member/${primaryRole.assignedUserId}`}
+                    className="hover:text-foreground hover:underline"
+                  >
+                    {assignedUserName}
+                  </Link>
                 </>
               ) : (
                 <span className="text-warning flex items-center gap-0.5">
