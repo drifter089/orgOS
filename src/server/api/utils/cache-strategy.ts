@@ -157,23 +157,27 @@ export function cacheStrategyWithTags(
  * Must be called after mutations to ensure fresh data on next read.
  *
  * @example
- * await invalidateCacheByTags(ctx.db, [`team_${teamId}`]);
+ * const success = await invalidateCacheByTags(ctx.db, [`team_${teamId}`]);
+ * if (!success) console.warn("Cache invalidation failed");
  *
  * @param db - Prisma client with Accelerate extension
  * @param tags - Array of cache tags to invalidate
+ * @returns true if invalidation succeeded, false if it failed
  */
 export async function invalidateCacheByTags(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   db: any,
   tags: string[],
-): Promise<void> {
+): Promise<boolean> {
   try {
     // The db client is extended with Accelerate at runtime
     // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
     await db.$accelerate.invalidate({ tags });
+    return true;
   } catch (error) {
     // Log but don't throw - cache invalidation failure shouldn't break mutations
     // P6003 = rate limit exceeded
     console.error("[Cache] Invalidation failed:", error);
+    return false;
   }
 }
