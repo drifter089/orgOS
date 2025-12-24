@@ -99,6 +99,9 @@ export function PipelineStatusProvider({
   // Track completed metrics to show toast (prevent double toast)
   const completedRef = useRef<Set<string>>(new Set());
 
+  // Track timeout IDs for cleanup on unmount
+  const timeoutIdsRef = useRef<NodeJS.Timeout[]>([]);
+
   // ---------------------------------------------------------------------------
   // Auto-start polling for metrics that are already processing on mount
   // ---------------------------------------------------------------------------
@@ -132,6 +135,16 @@ export function PipelineStatusProvider({
   );
 
   // ---------------------------------------------------------------------------
+  // Cleanup timeouts on unmount
+  // ---------------------------------------------------------------------------
+  useEffect(() => {
+    return () => {
+      timeoutIdsRef.current.forEach((id) => clearTimeout(id));
+      timeoutIdsRef.current = [];
+    };
+  }, []);
+
+  // ---------------------------------------------------------------------------
   // Completion Detection
   // ---------------------------------------------------------------------------
   useEffect(() => {
@@ -155,17 +168,9 @@ export function PipelineStatusProvider({
     }
 
     if (completedIds.length > 0 || errorIds.length > 0) {
-      // Remove from polling set
-      setPollingMetricIds((prev) => {
-        const next = new Set(prev);
-        [...completedIds, ...errorIds].forEach((id) => next.delete(id));
-        return next;
-      });
+      const allIds = [...completedIds, ...errorIds];
 
-      // Invalidate to get fresh chart data
-      void utils.dashboard.getDashboardCharts.invalidate({ teamId });
-
-      // Show toasts
+      // Show toasts immediately
       if (completedIds.length > 0) {
         toast.success("Chart updated successfully");
       }
@@ -179,12 +184,26 @@ export function PipelineStatusProvider({
         });
       }
 
+      // Invalidate cache, then stop polling
+      void utils.dashboard.getDashboardCharts
+        .invalidate({ teamId })
+        .finally(() => {
+          setPollingMetricIds((prev) => {
+            const next = new Set(prev);
+            allIds.forEach((id) => next.delete(id));
+            return next;
+          });
+        });
+
       // Clear from completed ref after a delay to prevent re-triggering
-      setTimeout(() => {
-        [...completedIds, ...errorIds].forEach((id) =>
-          completedRef.current.delete(id),
+      const timeoutId = setTimeout(() => {
+        allIds.forEach((id) => completedRef.current.delete(id));
+        // Remove this timeout from tracking
+        timeoutIdsRef.current = timeoutIdsRef.current.filter(
+          (id) => id !== timeoutId,
         );
       }, 2000);
+      timeoutIdsRef.current.push(timeoutId);
     }
   }, [statusMap, teamId, utils]);
 
@@ -263,22 +282,27 @@ export function PipelineStatusProvider({
     },
   });
 
+  const stopPolling = useCallback((metricId: string) => {
+    setPollingMetricIds((prev) => {
+      const next = new Set(prev);
+      next.delete(metricId);
+      return next;
+    });
+  }, []);
+
   const refreshMutation = api.pipeline.refresh.useMutation({
-    onSuccess: (_, variables) => {
-      startPolling(variables.metricId);
-    },
+    onMutate: ({ metricId }) => startPolling(metricId),
+    onError: (_, { metricId }) => stopPolling(metricId),
   });
 
   const regenerateMutation = api.pipeline.regenerate.useMutation({
-    onSuccess: (_, variables) => {
-      startPolling(variables.metricId);
-    },
+    onMutate: ({ metricId }) => startPolling(metricId),
+    onError: (_, { metricId }) => stopPolling(metricId),
   });
 
   const regenerateChartMutation = api.pipeline.regenerateChartOnly.useMutation({
-    onSuccess: (_, variables) => {
-      startPolling(variables.metricId);
-    },
+    onMutate: ({ metricId }) => startPolling(metricId),
+    onError: (_, { metricId }) => stopPolling(metricId),
   });
 
   // ---------------------------------------------------------------------------

@@ -87,11 +87,18 @@ export function DashboardMetricCard({
   }, [metric.name, metricId, confirm, pipeline]);
 
   const handleUpdateMetric = useCallback(
-    (name: string, description: string) => {
-      void pipeline.updateMetric(metricId, {
-        name,
-        description: description || undefined,
-      });
+    async (name: string, description: string) => {
+      try {
+        await pipeline.updateMetric(metricId, {
+          name,
+          description: description || undefined,
+        });
+      } catch (error) {
+        console.error("Failed to update metric:", error);
+        toast.error("Failed to update metric", {
+          description: error instanceof Error ? error.message : "Unknown error",
+        });
+      }
     },
     [metricId, pipeline],
   );
