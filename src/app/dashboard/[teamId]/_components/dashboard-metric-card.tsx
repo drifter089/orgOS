@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/tooltip";
 import { useDashboardMetric } from "@/hooks/use-dashboard-metric";
 import { useMetricMutations } from "@/hooks/use-metric-mutations";
+import { useMetricStatusPolling } from "@/hooks/use-metric-status-polling";
 import { isDevMode } from "@/lib/dev-mode";
 import type { ChartTransformResult } from "@/lib/metrics/transformer-types";
 import { useConfirmation } from "@/providers/ConfirmationDialogProvider";
@@ -76,15 +77,34 @@ export function DashboardMetricCard({
   const dashboardChart = dataOverride ?? hookResult.dashboardChart;
   const isFetching = dataOverride ? false : hookResult.isFetching;
 
+  // Get initial status from cache
+  const initialStatus = dataOverride
+    ? dataOverride.metric.refreshStatus
+    : hookResult.status.processingStep;
+
+  // Use card-level polling for live status updates
+  const pollingResult = useMetricStatusPolling(metricId, initialStatus);
+
+  // Compute final status - polling takes precedence for processing state
   const status = dataOverride
     ? {
-        isProcessing: !!dataOverride.metric.refreshStatus,
-        processingStep: dataOverride.metric.refreshStatus,
-        hasError: !!dataOverride.metric.lastError,
-        lastError: dataOverride.metric.lastError,
+        isProcessing:
+          pollingResult.isProcessing || !!dataOverride.metric.refreshStatus,
+        processingStep:
+          pollingResult.refreshStatus ?? dataOverride.metric.refreshStatus,
+        hasError: !!pollingResult.lastError || !!dataOverride.metric.lastError,
+        lastError: pollingResult.lastError ?? dataOverride.metric.lastError,
         isPending: dataOverride.id.startsWith("temp-"),
       }
-    : hookResult.status;
+    : {
+        ...hookResult.status,
+        isProcessing:
+          pollingResult.isProcessing || hookResult.status.isProcessing,
+        processingStep:
+          pollingResult.refreshStatus ?? hookResult.status.processingStep,
+        hasError: !!pollingResult.lastError || hookResult.status.hasError,
+        lastError: pollingResult.lastError ?? hookResult.status.lastError,
+      };
 
   const {
     delete: deleteMetricMutation,

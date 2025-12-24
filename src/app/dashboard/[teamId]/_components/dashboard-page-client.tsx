@@ -16,26 +16,16 @@ interface DashboardPageClientProps {
  * Single source of truth for dashboard queries:
  * - Fetches getDashboardCharts once here
  * - Passes data down to DashboardClient (no duplicate queries)
- * - DashboardClient handles centralized polling for processing metrics
+ * - Individual cards handle their own status polling when processing
  */
 export function DashboardPageClient({ teamId }: DashboardPageClientProps) {
   // Single query for dashboard charts - data is hydrated from server prefetch
-  // refetchInterval: Poll every 2s when any metric is processing (catches completion)
+  // No polling here - individual cards poll their own status when processing
   const {
     data: dashboardCharts,
     isLoading: chartsLoading,
     isError: chartsError,
-  } = api.dashboard.getDashboardCharts.useQuery(
-    { teamId },
-    {
-      refetchInterval: (query) => {
-        const hasProcessing = query.state.data?.some(
-          (dc) => dc.metric.refreshStatus !== null,
-        );
-        return hasProcessing ? 2000 : false;
-      },
-    },
-  );
+  } = api.dashboard.getDashboardCharts.useQuery({ teamId });
 
   const {
     data: integrations,
