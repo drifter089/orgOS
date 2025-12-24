@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
+import { isTempMetricId } from "@/lib/utils/metric-id";
 import { api } from "@/trpc/react";
 
 /**
@@ -18,110 +19,176 @@ export interface MetricStatus {
   isOptimistic: boolean;
 }
 
+interface UseMetricStatusOptions {
+  /**
+   * Initial status from cached data (e.g., from getDashboardCharts).
+   * This allows the hook to know if polling should start immediately.
+   */
+  initialRefreshStatus?: string | null;
+  initialLastError?: string | null;
+  /**
+   * Callback fired when pipeline completes (success or error).
+   * Use this to show toast notifications or trigger side effects.
+   */
+  onComplete?: (result: { success: boolean; error: string | null }) => void;
+}
+
+// Polling configuration
+const POLLING_INTERVAL_MS = 500;
+const POLLING_TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes
+
 /**
- * Simple, reliable hook for tracking metric processing status.
+ * Hook for tracking metric processing status via polling.
  *
  * Design principles:
- * 1. Poll-first: When processing, poll directly - don't rely on cache
- * 2. Immediate feedback: startPolling() triggers polling right away
- * 3. Robust completion: Uses onSuccess callback, not useEffect comparison
- * 4. Cache sync: Invalidates dashboard cache on completion
+ * 1. No query subscriptions - parent passes cached data, we only poll
+ * 2. Immediate feedback via startPolling()
+ * 3. Timeout safety net to prevent infinite polling
+ * 4. Callback on completion for toast notifications
  *
  * @param metricId - The metric ID to track (can be temp-* for optimistic cards)
- * @param teamId - The team ID for cache invalidation
+ * @param options - Configuration options
  */
 export function useMetricStatus(
   metricId: string,
-  teamId: string,
+  options: UseMetricStatusOptions = {},
 ): {
   status: MetricStatus;
-  /** Call this when starting a mutation to immediately begin polling */
+  /** Call this immediately after starting a mutation to begin polling */
   startPolling: () => void;
-  /** Whether the status query is currently fetching */
-  isFetching: boolean;
+  /** Whether polling is currently active */
+  isPolling: boolean;
 } {
+  const { initialRefreshStatus, initialLastError, onComplete } = options;
   const utils = api.useUtils();
 
-  // Local state to force polling even before cache updates
-  const [isPollingActive, setIsPollingActive] = useState(false);
+  // Track polling state
+  const [isPollingActive, setIsPollingActive] = useState(
+    () => !!initialRefreshStatus,
+  );
+  // Immediate processing flag - set true when startPolling() called, before poll response
+  const [isPendingProcessing, setIsPendingProcessing] = useState(false);
+  const pollingStartTimeRef = useRef<number | null>(null);
+  const hasCompletedRef = useRef(false);
+  const onCompleteRef = useRef(onComplete);
 
-  // Track if we've invalidated to prevent double-invalidation
-  const hasInvalidatedRef = useRef(false);
+  // Keep onComplete ref updated
+  useEffect(() => {
+    onCompleteRef.current = onComplete;
+  }, [onComplete]);
 
   // Determine if this is an optimistic (temp) card
-  const isOptimistic = metricId.startsWith("temp-");
+  const isOptimistic = isTempMetricId(metricId);
 
-  // Get initial status from cache (if available)
-  const { data: dashboardCharts } = api.dashboard.getDashboardCharts.useQuery(
-    { teamId },
-    { enabled: Boolean(teamId) },
-  );
+  // Poll for live status updates (only when polling is active and not optimistic)
+  const shouldPoll = !isOptimistic && isPollingActive;
 
-  const cachedChart = dashboardCharts?.find((dc) => dc.metric.id === metricId);
-  const cachedRefreshStatus = cachedChart?.metric.refreshStatus ?? null;
-  const cachedLastError = cachedChart?.metric.lastError ?? null;
-
-  // Determine if we should poll:
-  // 1. Manual trigger via startPolling()
-  // 2. Cache shows processing status
-  // 3. NOT for optimistic cards (they don't exist on server yet)
-  const shouldPoll =
-    !isOptimistic && (isPollingActive || !!cachedRefreshStatus);
-
-  // Poll for live status updates with onSuccess handling
-  const { data: polledStatus, isFetching } = api.metric.getStatus.useQuery(
+  const { data: polledStatus } = api.metric.getStatus.useQuery(
     { metricId },
     {
       enabled: shouldPoll,
-      refetchInterval: shouldPoll ? 500 : false,
+      refetchInterval: shouldPoll ? POLLING_INTERVAL_MS : false,
       refetchOnWindowFocus: false,
       staleTime: 0,
     },
   );
 
-  // Use polled status when available (fresher), fall back to cache
+  // Use polled status when available, otherwise fall back to initial values
   const currentRefreshStatus =
-    polledStatus?.refreshStatus ?? cachedRefreshStatus;
-  const currentLastError = polledStatus?.lastError ?? cachedLastError;
-  const isProcessing = !!currentRefreshStatus;
+    polledStatus?.refreshStatus ?? initialRefreshStatus ?? null;
+  const currentLastError = polledStatus?.lastError ?? initialLastError ?? null;
 
-  // Detect completion via polling response (more reliable than useEffect comparison)
+  // Clear pending flag once we have a real poll response
   useEffect(() => {
-    // Only check when we're actively polling and get a response
+    if (polledStatus && isPendingProcessing) {
+      setIsPendingProcessing(false);
+    }
+  }, [polledStatus, isPendingProcessing]);
+
+  // isProcessing is true if:
+  // - We have a refreshStatus from poll or cache
+  // - OR we just called startPolling() and are waiting for first response
+  const isProcessing = !!currentRefreshStatus || isPendingProcessing;
+
+  // Handle polling timeout
+  useEffect(() => {
+    if (isPollingActive && !pollingStartTimeRef.current) {
+      pollingStartTimeRef.current = Date.now();
+    }
+
+    if (!isPollingActive) {
+      pollingStartTimeRef.current = null;
+    }
+  }, [isPollingActive]);
+
+  // Check for timeout during polling
+  useEffect(() => {
+    if (!isPollingActive || !pollingStartTimeRef.current) return;
+
+    const checkTimeout = () => {
+      if (
+        pollingStartTimeRef.current &&
+        Date.now() - pollingStartTimeRef.current > POLLING_TIMEOUT_MS
+      ) {
+        console.error(
+          `[useMetricStatus] Polling timeout for metric ${metricId}`,
+        );
+        setIsPollingActive(false);
+        setIsPendingProcessing(false);
+        pollingStartTimeRef.current = null;
+
+        // Notify about timeout
+        onCompleteRef.current?.({
+          success: false,
+          error: "Pipeline timed out. Please try again.",
+        });
+      }
+    };
+
+    const interval = setInterval(checkTimeout, 1000);
+    return () => clearInterval(interval);
+  }, [isPollingActive, metricId]);
+
+  // Detect completion via polling response
+  useEffect(() => {
     if (!shouldPoll || !polledStatus) return;
 
     // If polled status shows no longer processing, we're done
-    if (!polledStatus.refreshStatus && isPollingActive) {
-      // Stop polling
+    if (
+      !polledStatus.refreshStatus &&
+      isPollingActive &&
+      !hasCompletedRef.current
+    ) {
+      hasCompletedRef.current = true;
       setIsPollingActive(false);
+      setIsPendingProcessing(false);
+      pollingStartTimeRef.current = null;
 
-      // Invalidate cache to get fresh chart data (only once)
-      if (!hasInvalidatedRef.current) {
-        hasInvalidatedRef.current = true;
-        void utils.dashboard.getDashboardCharts.invalidate();
+      // Invalidate dashboard cache to get fresh chart data
+      void utils.dashboard.getDashboardCharts.invalidate();
 
-        // Reset flag after a delay to allow future invalidations
-        setTimeout(() => {
-          hasInvalidatedRef.current = false;
-        }, 1000);
-      }
+      // Notify about completion
+      const hasError = !!polledStatus.lastError;
+      onCompleteRef.current?.({
+        success: !hasError,
+        error: polledStatus.lastError ?? null,
+      });
+
+      // Reset completion flag after a short delay
+      setTimeout(() => {
+        hasCompletedRef.current = false;
+      }, 500);
     }
   }, [polledStatus, shouldPoll, isPollingActive, utils]);
 
-  // Also detect completion from cache (for when polling wasn't active)
-  useEffect(() => {
-    // If cache shows processing stopped but we weren't polling, still need to update
-    if (cachedRefreshStatus === null && isPollingActive) {
-      setIsPollingActive(false);
-    }
-  }, [cachedRefreshStatus, isPollingActive]);
-
   // Manual trigger to start polling immediately (called by mutations)
   const startPolling = useCallback(() => {
-    if (!isOptimistic) {
-      setIsPollingActive(true);
-      hasInvalidatedRef.current = false;
-    }
+    if (isOptimistic) return;
+
+    hasCompletedRef.current = false;
+    pollingStartTimeRef.current = Date.now();
+    setIsPendingProcessing(true); // Immediate loading state
+    setIsPollingActive(true);
   }, [isOptimistic]);
 
   // Build status object
@@ -144,6 +211,36 @@ export function useMetricStatus(
   return {
     status,
     startPolling,
-    isFetching,
+    isPolling: isPollingActive,
+  };
+}
+
+/**
+ * Derive MetricStatus from cached data (for read-only views).
+ * Use this when you have data from a query and don't need polling.
+ */
+export function deriveMetricStatus(data: {
+  id: string;
+  refreshStatus: string | null;
+  lastError: string | null;
+}): MetricStatus {
+  const isOptimistic = isTempMetricId(data.id);
+
+  if (isOptimistic) {
+    return {
+      isProcessing: true,
+      processingStep: "adding-metric",
+      hasError: false,
+      lastError: null,
+      isOptimistic: true,
+    };
+  }
+
+  return {
+    isProcessing: !!data.refreshStatus,
+    processingStep: data.refreshStatus,
+    hasError: !!data.lastError,
+    lastError: data.lastError,
+    isOptimistic: false,
   };
 }

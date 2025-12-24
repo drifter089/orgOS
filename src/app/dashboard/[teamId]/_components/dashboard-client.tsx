@@ -1,9 +1,5 @@
 "use client";
 
-import { useEffect, useRef } from "react";
-
-import { toast } from "sonner";
-
 import type { RouterOutputs } from "@/trpc/react";
 
 import { DashboardMetricCard } from "./dashboard-metric-card";
@@ -16,42 +12,15 @@ interface DashboardClientProps {
 }
 
 /**
- * Dashboard client - renders metric cards and handles completion detection.
+ * Dashboard client - renders metric cards.
  *
- * Cards use useMetricStatus hook internally for unified status tracking.
- * We just pass metricId and teamId - no data drilling needed.
+ * Cards handle their own status tracking via useMetricStatus hook.
+ * Completion detection and error toasts are handled in each card.
  */
 export function DashboardClient({
   teamId,
   dashboardCharts,
 }: DashboardClientProps) {
-  const prevChartsRef = useRef<DashboardMetrics | null>(null);
-
-  // Detect pipeline completion and show error toast if failed
-  useEffect(() => {
-    if (!prevChartsRef.current) {
-      prevChartsRef.current = dashboardCharts;
-      return;
-    }
-
-    for (const prevChart of prevChartsRef.current) {
-      const wasProcessing = !!prevChart.metric.refreshStatus;
-      if (!wasProcessing) continue;
-
-      const currentChart = dashboardCharts.find((c) => c.id === prevChart.id);
-      const isNowProcessing = !!currentChart?.metric.refreshStatus;
-
-      if (!isNowProcessing && currentChart?.metric.lastError) {
-        toast.error("Pipeline failed", {
-          description: currentChart.metric.lastError,
-          duration: 10000,
-        });
-      }
-    }
-
-    prevChartsRef.current = dashboardCharts;
-  }, [dashboardCharts]);
-
   return (
     <div className="space-y-6">
       {dashboardCharts.length > 0 && (

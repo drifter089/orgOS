@@ -1,5 +1,6 @@
 import type { Cadence } from "@prisma/client";
 
+import { createTempMetricId, isTempMetricId } from "@/lib/utils/metric-id";
 import { api } from "@/trpc/react";
 import type { DashboardChartWithRelations } from "@/types/dashboard";
 
@@ -24,17 +25,14 @@ export function useMetricMutations({ teamId }: UseMetricMutationsOptions = {}) {
   };
 
   // Helper to replace temp card with real data atomically (no flicker)
-  const replaceTempCardWithReal = (
-    realChart: DashboardChartWithRelations,
-    tempPrefix = "temp-",
-  ) => {
+  const replaceTempCardWithReal = (realChart: DashboardChartWithRelations) => {
     if (!teamId) return;
 
     utils.dashboard.getDashboardCharts.setData({ teamId }, (old) => {
       if (!old) return [realChart];
 
       // Find and replace the temp card with real data
-      const tempIndex = old.findIndex((dc) => dc.id.startsWith(tempPrefix));
+      const tempIndex = old.findIndex((dc) => isTempMetricId(dc.id));
       if (tempIndex === -1) {
         // No temp card found, prepend the real one
         return [realChart, ...old];
@@ -61,7 +59,7 @@ export function useMetricMutations({ teamId }: UseMetricMutationsOptions = {}) {
       });
 
       // Create optimistic card with temp ID
-      const tempId = `temp-${Date.now()}`;
+      const tempId = createTempMetricId();
       const optimisticChart: DashboardChartWithRelations = {
         id: tempId,
         metricId: tempId,
@@ -130,7 +128,7 @@ export function useMetricMutations({ teamId }: UseMetricMutationsOptions = {}) {
       });
 
       // Create optimistic card for manual metric
-      const tempId = `temp-${Date.now()}`;
+      const tempId = createTempMetricId();
       const optimisticChart: DashboardChartWithRelations = {
         id: tempId,
         metricId: tempId,
