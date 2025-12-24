@@ -705,7 +705,7 @@ export function DashboardMetricChart({
         {hasChartData && (
           <div
             key={chartKey}
-            className="animate-in fade-in h-full w-full duration-500"
+            className="animate-in fade-in zoom-in-95 h-full w-full duration-500 ease-out"
           >
             {renderChart()}
           </div>
@@ -713,7 +713,7 @@ export function DashboardMetricChart({
 
         {/* Processing state - show loading */}
         {!hasChartData && isProcessing && (
-          <div className="flex flex-1 items-center justify-center rounded-md border border-dashed p-4">
+          <div className="animate-in fade-in flex flex-1 items-center justify-center rounded-md border border-dashed p-4 duration-300">
             <div className="text-center">
               <div className="bg-primary/10 mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full">
                 <BarChart3 className="text-primary h-6 w-6" />
@@ -735,7 +735,7 @@ export function DashboardMetricChart({
 
         {/* No data state */}
         {!hasChartData && !isProcessing && (
-          <div className="text-muted-foreground flex flex-1 items-center justify-center rounded-md border border-dashed p-4 text-center text-sm">
+          <div className="text-muted-foreground animate-in fade-in flex flex-1 items-center justify-center rounded-md border border-dashed p-4 text-center text-sm duration-300">
             {isIntegrationMetric
               ? "No data available"
               : "Add data points via check-in to see chart"}
