@@ -125,11 +125,11 @@ export function DashboardMetricDrawer({
   };
 
   return (
-    <div className="grid h-full grid-cols-[1fr_280px_80px]">
-      {/* Chart Column (70%) */}
+    <div className="grid h-full grid-cols-[50%_30%_20%] gap-0">
+      {/* Chart Column (50%) */}
       <div className="flex flex-col border-r">
-        {/* Header */}
-        <div className="flex items-center justify-between border-b px-6 py-3">
+        {/* Header with Goal & Time Progress */}
+        <div className="flex items-center justify-between border-b px-6 py-4">
           <div className="flex items-center gap-3">
             <h2 className="text-lg font-semibold">{metric.name}</h2>
             {platformConfig && (
@@ -176,7 +176,7 @@ export function DashboardMetricDrawer({
           </div>
         </div>
 
-        {/* Stats Bar */}
+        {/* Stats Bar with Goal & Time Progress */}
         <ChartStatsBar
           currentValue={currentValue}
           valueLabel={dashboardChart.valueLabel ?? null}
@@ -201,8 +201,8 @@ export function DashboardMetricDrawer({
         </div>
       </div>
 
-      {/* Tab Content Column (20%) */}
-      <div className="relative overflow-hidden border-r">
+      {/* Tab Content Column (30%) */}
+      <div className="bg-muted/20 relative overflow-hidden border-r">
         {/* Goal Tab */}
         <div
           className={cn(

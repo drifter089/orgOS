@@ -192,8 +192,8 @@ export function DashboardMetricCard({
     <Drawer open={isDrawerOpen} onOpenChange={setIsDrawerOpen}>
       {cardContent}
 
-      <DrawerContent className="flex h-[96vh] max-h-[96vh] flex-col">
-        <div className="mx-auto min-h-0 w-full flex-1">
+      <DrawerContent className="flex h-[90vh] max-h-[90vh] flex-col overflow-hidden">
+        <div className="min-h-0 w-full flex-1">
           <DashboardMetricDrawer
             dashboardChart={dashboardChart}
             status={status}

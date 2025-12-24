@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 
-import { AlertTriangle, Check, Gauge, Loader2, Users } from "lucide-react";
+import { AlertTriangle, Gauge, Loader2, Users } from "lucide-react";
 import { toast } from "sonner";
 
 import {
@@ -95,110 +95,82 @@ export function RoleAssignment({
     setConfirmDialog(null);
   };
 
-  // Get the currently assigned role (if any)
-  const assignedRole = teamRoles?.find((r) => assignedRoleIds.includes(r.id));
-
   return (
     <>
       <div className="space-y-1">
-        <div className="flex items-center gap-1.5">
-          <Users className="text-muted-foreground h-3 w-3" />
-          <span className="text-muted-foreground text-[10px] font-medium tracking-wide uppercase">
-            Assign to Role
-          </span>
-          {assignedRoleIds.length > 0 && (
-            <Badge variant="secondary" className="ml-auto h-4 px-1 text-[10px]">
-              {assignedRoleIds.length}
-            </Badge>
-          )}
-        </div>
-
         {isLoadingRoles ? (
           <div className="flex items-center justify-center py-2">
             <Loader2 className="text-muted-foreground h-4 w-4 animate-spin" />
           </div>
         ) : !teamRoles || teamRoles.length === 0 ? (
-          <div className="text-muted-foreground rounded border border-dashed p-1.5 text-center text-[10px]">
-            No roles in this team
+          <div className="text-muted-foreground flex flex-col items-center rounded-lg border border-dashed p-4 text-center">
+            <Users className="text-muted-foreground mb-2 h-5 w-5" />
+            <span className="text-xs">No roles in this team</span>
           </div>
         ) : (
           <Select
-            value={assignedRole?.id ?? ""}
+            value=""
             onValueChange={handleRoleSelect}
             disabled={updateRoleMutation.isPending}
           >
-            <SelectTrigger className="h-auto min-h-[32px] py-1.5 text-xs">
-              <SelectValue placeholder="Select a role to assign">
-                {assignedRole && (
-                  <div className="flex items-center gap-1.5">
-                    <div
-                      className="h-2.5 w-2.5 shrink-0 rounded-full"
-                      style={{ backgroundColor: assignedRole.color }}
-                    />
-                    <span className="truncate font-medium">
-                      {assignedRole.title}
-                    </span>
-                    {assignedRole.assignedUserId && (
-                      <>
-                        <span className="text-muted-foreground">•</span>
-                        <span className="text-muted-foreground truncate">
-                          {getUserName(assignedRole.assignedUserId, members) ??
-                            "Assigned"}
-                        </span>
-                      </>
-                    )}
-                    <Check className="text-primary ml-auto h-3 w-3" />
-                  </div>
-                )}
-              </SelectValue>
+            <SelectTrigger className="h-9 text-sm">
+              <SelectValue placeholder="Select a role to add..." />
             </SelectTrigger>
             <SelectContent>
-              {teamRoles.map((role) => {
-                const userName = getUserName(role.assignedUserId, members);
-                const isAssigned = assignedRoleIds.includes(role.id);
-                const hasOtherMetric =
-                  role.metricId && role.metricId !== metricId;
+              {teamRoles
+                .filter((role) => !assignedRoleIds.includes(role.id))
+                .map((role) => {
+                  const userName = getUserName(role.assignedUserId, members);
+                  const hasOtherMetric =
+                    role.metricId && role.metricId !== metricId;
 
-                return (
-                  <SelectItem key={role.id} value={role.id} className="text-xs">
-                    <div className="flex items-center gap-2">
-                      <div
-                        className="h-2.5 w-2.5 shrink-0 rounded-full"
-                        style={{ backgroundColor: role.color }}
-                      />
-                      <span className="font-medium">{role.title}</span>
-                      {role.assignedUserId && (
-                        <>
-                          <span className="text-muted-foreground">•</span>
-                          <span className="text-muted-foreground truncate text-[10px]">
-                            {userName ?? "Assigned"}
-                          </span>
-                        </>
-                      )}
-                      {role.effortPoints && role.effortPoints > 0 && (
-                        <Badge
-                          variant="secondary"
-                          className="h-4 gap-0.5 px-1 text-[9px]"
-                        >
-                          <Gauge className="h-2.5 w-2.5" />
-                          {role.effortPoints}
-                        </Badge>
-                      )}
-                      {isAssigned && (
-                        <Check className="text-primary ml-auto h-3 w-3" />
-                      )}
-                      {hasOtherMetric && !isAssigned && (
-                        <Badge
-                          variant="outline"
-                          className="text-muted-foreground ml-auto h-4 px-1 text-[9px]"
-                        >
-                          Has metric
-                        </Badge>
-                      )}
-                    </div>
-                  </SelectItem>
-                );
-              })}
+                  return (
+                    <SelectItem
+                      key={role.id}
+                      value={role.id}
+                      className="text-xs"
+                    >
+                      <div className="flex items-center gap-2">
+                        <div
+                          className="h-2.5 w-2.5 shrink-0 rounded-full"
+                          style={{ backgroundColor: role.color }}
+                        />
+                        <span className="font-medium">{role.title}</span>
+                        {role.assignedUserId && (
+                          <>
+                            <span className="text-muted-foreground">•</span>
+                            <span className="text-muted-foreground truncate text-[10px]">
+                              {userName ?? "Assigned"}
+                            </span>
+                          </>
+                        )}
+                        {role.effortPoints && role.effortPoints > 0 && (
+                          <Badge
+                            variant="secondary"
+                            className="h-4 gap-0.5 px-1 text-[9px]"
+                          >
+                            <Gauge className="h-2.5 w-2.5" />
+                            {role.effortPoints}
+                          </Badge>
+                        )}
+                        {hasOtherMetric && (
+                          <Badge
+                            variant="outline"
+                            className="text-muted-foreground ml-auto h-4 px-1 text-[9px]"
+                          >
+                            Has metric
+                          </Badge>
+                        )}
+                      </div>
+                    </SelectItem>
+                  );
+                })}
+              {teamRoles.filter((role) => !assignedRoleIds.includes(role.id))
+                .length === 0 && (
+                <div className="text-muted-foreground px-2 py-4 text-center text-xs">
+                  All roles have been assigned
+                </div>
+              )}
             </SelectContent>
           </Select>
         )}
