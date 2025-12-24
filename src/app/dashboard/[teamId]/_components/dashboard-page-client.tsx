@@ -20,7 +20,7 @@ interface DashboardPageClientProps {
  */
 export function DashboardPageClient({ teamId }: DashboardPageClientProps) {
   // Single query for dashboard charts - data is hydrated from server prefetch
-  // refetchInterval: Poll every 3s when any metric is processing (catches completion)
+  // refetchInterval: Poll every 2s when any metric is processing (catches completion)
   const {
     data: dashboardCharts,
     isLoading: chartsLoading,
@@ -33,7 +33,7 @@ export function DashboardPageClient({ teamId }: DashboardPageClientProps) {
         const hasProcessing = query.state.data?.some(
           (dc) => dc.metric.refreshStatus !== null,
         );
-        return hasProcessing ? 3000 : false;
+        return hasProcessing ? 2000 : false;
       },
     },
   );

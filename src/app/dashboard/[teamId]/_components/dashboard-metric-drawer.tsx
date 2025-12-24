@@ -39,6 +39,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { usePipelineStatus } from "@/hooks/use-pipeline-status";
 import type { GoalProgress } from "@/lib/goals";
 import { getDimensionDisplayLabel } from "@/lib/metrics/dimension-labels";
 import { getLatestMetricValue } from "@/lib/metrics/get-latest-value";
@@ -69,7 +70,6 @@ interface DashboardMetricDrawerProps {
   lastError: string | null;
   goal: MetricGoal | null;
   goalProgress: GoalProgress | null;
-  isProcessing: boolean;
   isUpdating: boolean;
   isDeleting: boolean;
   onRegenerate: () => void;
@@ -102,7 +102,6 @@ export function DashboardMetricDrawer({
   lastError,
   goal,
   goalProgress,
-  isProcessing,
   isUpdating: _isUpdating,
   isDeleting,
   onRegenerate: _onRegenerate,
@@ -112,6 +111,9 @@ export function DashboardMetricDrawer({
   onClose: _onClose,
   onRegenerateChart,
 }: DashboardMetricDrawerProps) {
+  // Get pipeline status from query cache for independent tracking
+  const { isProcessing } = usePipelineStatus(metricId, teamId ?? undefined);
+
   const [name, setName] = useState(metricName);
   const [selectedChartType, setSelectedChartType] = useState(
     currentChartType ?? "bar",

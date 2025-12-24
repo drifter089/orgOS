@@ -21,7 +21,6 @@ import { useConfirmation } from "@/providers/ConfirmationDialogProvider";
 import type { RouterOutputs } from "@/trpc/react";
 import { api } from "@/trpc/react";
 
-import type { PipelineProgressData } from "./dashboard-client";
 import { DashboardMetricChart } from "./dashboard-metric-chart";
 import { DashboardMetricDrawer } from "./dashboard-metric-drawer";
 
@@ -45,8 +44,6 @@ interface DashboardMetricCardProps {
     valueLabel?: string | null;
     dataDescription?: string | null;
   };
-  /** Pipeline status from parent (centralized polling) */
-  pipelineStatus?: PipelineProgressData;
   /** Team ID for targeted cache invalidation (optional for non-dashboard contexts) */
   teamId?: string;
   /** When true, hides settings drawer and dev tool button (for public views) */
@@ -59,13 +56,11 @@ interface DashboardMetricCardProps {
  * Dashboard metric card component.
  *
  * Key simplifications:
- * - Receives pipelineStatus from parent (no internal polling)
- * - Single source of truth: metric.refreshStatus + pipelineStatus from parent
+ * - Single source of truth: metric.refreshStatus from server
  * - Targeted invalidation using teamId prop
  */
 export function DashboardMetricCard({
   dashboardMetric,
-  pipelineStatus,
   teamId: teamIdProp,
   readOnly = false,
   isFetching = false,
@@ -76,18 +71,14 @@ export function DashboardMetricCard({
   const { confirm } = useConfirmation();
 
   const { metric } = dashboardMetric;
-  // Use prop teamId or fallback to metric's teamId
   const teamId = teamIdProp ?? metric.teamId ?? undefined;
   const isPending = dashboardMetric.id.startsWith("temp-");
   const isIntegrationMetric = !!metric.integration?.providerId;
   const roles = metric.roles ?? [];
   const hasError = !!metric.lastError;
+  const isProcessing = !!metric.refreshStatus;
+  const processingStep = metric.refreshStatus;
 
-  // Derive loading state from server data only (single source of truth)
-  const isProcessing =
-    !!metric.refreshStatus || (pipelineStatus?.isProcessing ?? false);
-
-  // Mutations with targeted invalidation
   const {
     delete: deleteMetricMutation,
     refresh: refreshMetricMutation,
@@ -298,7 +289,7 @@ export function DashboardMetricCard({
         goalProgress={dashboardMetric.goalProgress}
         valueLabel={dashboardMetric.valueLabel}
         isProcessing={isProcessing}
-        processingStep={pipelineStatus?.currentStep ?? metric.refreshStatus}
+        processingStep={processingStep}
         isFetching={isFetching}
       />
     </div>
@@ -337,7 +328,6 @@ export function DashboardMetricCard({
             lastError={metric.lastError}
             goal={metric.goal}
             goalProgress={dashboardMetric.goalProgress ?? null}
-            isProcessing={isProcessing}
             isUpdating={updateMetricMutation.isPending}
             isDeleting={isPending || deleteMetricMutation.isPending}
             onRegenerate={handleRegenerate}

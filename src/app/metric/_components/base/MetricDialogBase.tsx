@@ -101,22 +101,34 @@ export function MetricDialogBase({
     setError(null);
 
     try {
-      // Create the metric - wait for server response
-      await createMutation.mutateAsync({
+      const dashboardChart = await createMutation.mutateAsync({
         ...data,
         teamId,
       });
 
-      // Explicitly invalidate cache to ensure new card shows
-      // This triggers a refetch which will include the new metric
-      await Promise.all([
-        utils.dashboard.getDashboardCharts.invalidate(),
-        teamId
-          ? utils.dashboard.getDashboardCharts.invalidate({ teamId })
-          : Promise.resolve(),
-      ]);
+      // Add missing fields for cache compatibility (null for new metrics)
+      const enrichedChart = {
+        ...dashboardChart,
+        metric: {
+          ...dashboardChart.metric,
+          goal: null,
+        },
+        goalProgress: null,
+        valueLabel: null,
+        dataDescription: null,
+      };
 
-      // Success! Close dialog
+      if (teamId) {
+        utils.dashboard.getDashboardCharts.setData({ teamId }, (old) => {
+          if (!old) return [enrichedChart];
+          return [...old, enrichedChart];
+        });
+      }
+      utils.dashboard.getDashboardCharts.setData(undefined, (old) => {
+        if (!old) return [enrichedChart];
+        return [...old, enrichedChart];
+      });
+
       toast.success("KPI created", {
         description: "Building your chart...",
       });
