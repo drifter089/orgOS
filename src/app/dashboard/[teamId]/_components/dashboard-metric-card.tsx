@@ -171,20 +171,6 @@ export function DashboardMetricCard({
     ],
   );
 
-  /**
-   * Regenerate chart via full pipeline regeneration
-   */
-  const handleRegenerate = useCallback(async () => {
-    try {
-      await regeneratePipelineMutation.mutateAsync({ metricId: metric.id });
-      toast.success("Chart regeneration started");
-    } catch (error) {
-      toast.error("Regeneration failed", {
-        description: error instanceof Error ? error.message : "Unknown error",
-      });
-    }
-  }, [metric.id, regeneratePipelineMutation]);
-
   const handleRemove = async () => {
     const confirmed = await confirm({
       title: "Delete metric",
@@ -328,9 +314,8 @@ export function DashboardMetricCard({
             lastError={metric.lastError}
             goal={metric.goal}
             goalProgress={dashboardMetric.goalProgress ?? null}
-            isUpdating={updateMetricMutation.isPending}
+            isProcessing={isProcessing}
             isDeleting={isPending || deleteMetricMutation.isPending}
-            onRegenerate={handleRegenerate}
             onRefresh={handleRefresh}
             onUpdateMetric={handleUpdateMetric}
             onDelete={handleRemove}

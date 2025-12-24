@@ -5,42 +5,25 @@ interface UseMetricMutationsOptions {
   teamId?: string;
 }
 
-/**
- * Metric mutations with unified cache management.
- *
- * All mutations invalidate cache on success, letting server data drive UI.
- * Polling handles progress tracking for processing metrics.
- */
+/** Metric mutations with unified cache invalidation. */
 export function useMetricMutations({ teamId }: UseMetricMutationsOptions = {}) {
   const utils = api.useUtils();
 
-  const invalidateDashboard = async () => {
-    await Promise.all([
-      utils.dashboard.getDashboardCharts.invalidate(),
-      teamId
-        ? utils.dashboard.getDashboardCharts.invalidate({ teamId })
-        : Promise.resolve(),
-    ]);
+  const invalidateDashboard = () => {
+    void utils.dashboard.getDashboardCharts.invalidate();
   };
 
   const create = api.metric.create.useMutation({
-    onSuccess: async () => {
-      await invalidateDashboard();
-    },
+    onSuccess: invalidateDashboard,
   });
 
   const createManual = api.manualMetric.create.useMutation({
-    onSuccess: async () => {
-      await invalidateDashboard();
-    },
+    onSuccess: invalidateDashboard,
   });
 
   const deleteMutation = api.metric.delete.useMutation({
     onMutate: async (variables) => {
       await utils.dashboard.getDashboardCharts.cancel();
-      if (teamId) {
-        await utils.dashboard.getDashboardCharts.cancel({ teamId });
-      }
 
       const previousData = utils.dashboard.getDashboardCharts.getData();
       const previousTeamData = teamId
@@ -72,21 +55,15 @@ export function useMetricMutations({ teamId }: UseMetricMutationsOptions = {}) {
         );
       }
     },
-    onSettled: async () => {
-      await invalidateDashboard();
-    },
+    onSettled: invalidateDashboard,
   });
 
   const refresh = api.pipeline.refresh.useMutation({
-    onSuccess: async () => {
-      await invalidateDashboard();
-    },
+    onSuccess: invalidateDashboard,
   });
 
   const regenerate = api.pipeline.regenerate.useMutation({
-    onSuccess: async () => {
-      await invalidateDashboard();
-    },
+    onSuccess: invalidateDashboard,
   });
 
   return {
