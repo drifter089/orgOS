@@ -1,9 +1,8 @@
 "use client";
 
-import { Users } from "lucide-react";
+import { Target, User, Users } from "lucide-react";
 
 import { RoleAssignment } from "@/components/metric/role-assignment";
-import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
 
 interface RoleTabContentProps {
@@ -27,8 +26,10 @@ export function RoleTabContent({
 }: RoleTabContentProps) {
   if (!teamId) {
     return (
-      <div className="flex h-full flex-col items-center justify-center p-4">
-        <Users className="text-muted-foreground mb-2 h-8 w-8" />
+      <div className="flex h-full flex-col items-center justify-center p-6">
+        <div className="bg-muted/50 mb-4 flex h-16 w-16 items-center justify-center rounded-full">
+          <Users className="text-muted-foreground h-8 w-8" />
+        </div>
         <p className="text-muted-foreground text-center text-sm">
           This metric is not linked to a team
         </p>
@@ -37,41 +38,57 @@ export function RoleTabContent({
   }
 
   return (
-    <div className="flex h-full flex-col p-4">
+    <div className="flex h-full flex-col overflow-y-auto p-4">
       <h3 className="mb-4 text-sm font-semibold">Assigned Roles</h3>
 
-      {/* Existing role labels */}
+      {/* Existing roles as cards */}
       {roles.length > 0 ? (
-        <div className="mb-4 flex flex-wrap gap-2">
+        <div className="mb-4 space-y-3">
           {roles.map((role) => (
-            <Badge
+            <div
               key={role.id}
-              variant="outline"
-              className="flex items-center gap-1.5 py-1"
-              style={{ borderColor: role.color }}
+              className="bg-background rounded-lg border p-3 shadow-sm"
+              style={{ borderLeftColor: role.color, borderLeftWidth: 3 }}
             >
-              <div
-                className="h-2 w-2 rounded-full"
-                style={{ backgroundColor: role.color }}
-              />
-              <span>{role.title}</span>
-              {role.assignedUserName && (
-                <span className="text-muted-foreground text-[10px]">
-                  {role.assignedUserName}
-                </span>
-              )}
-            </Badge>
+              <div className="flex items-start gap-3">
+                <div
+                  className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full"
+                  style={{ backgroundColor: `${role.color}20` }}
+                >
+                  <Target className="h-4 w-4" style={{ color: role.color }} />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="font-medium">{role.title}</div>
+                  {role.assignedUserName ? (
+                    <div className="text-muted-foreground mt-0.5 flex items-center gap-1 text-xs">
+                      <User className="h-3 w-3" />
+                      {role.assignedUserName}
+                    </div>
+                  ) : (
+                    <div className="text-muted-foreground mt-0.5 text-xs italic">
+                      Unassigned
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
           ))}
         </div>
       ) : (
-        <div className="text-muted-foreground mb-4 rounded-lg border border-dashed p-4 text-center text-sm">
-          No roles assigned yet
+        <div className="bg-muted/20 mb-4 flex flex-col items-center rounded-lg border border-dashed p-6 text-center">
+          <div className="bg-muted mb-3 flex h-12 w-12 items-center justify-center rounded-full">
+            <Users className="text-muted-foreground h-6 w-6" />
+          </div>
+          <p className="text-muted-foreground text-sm">No roles assigned yet</p>
+          <p className="text-muted-foreground mt-1 text-xs">
+            Use the dropdown below to assign roles
+          </p>
         </div>
       )}
 
       {/* Assign Role dropdown */}
       <div className="space-y-2">
-        <Label className="text-xs">Assign Role</Label>
+        <Label className="text-xs">Add Role</Label>
         <RoleAssignment
           metricId={metricId}
           metricName={metricName}
