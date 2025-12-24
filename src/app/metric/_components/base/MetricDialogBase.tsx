@@ -4,6 +4,7 @@ import { useState } from "react";
 
 import { toast } from "sonner";
 
+import { usePipelineStatus } from "@/app/dashboard/[teamId]/_components/pipeline-status-provider";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Dialog,
@@ -13,7 +14,6 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { usePipelineOperations } from "@/hooks/use-pipeline-operations";
 import { cn } from "@/lib/utils";
 import { api } from "@/trpc/react";
 
@@ -68,6 +68,7 @@ export function MetricDialogBase({
 }: MetricDialogBaseProps) {
   const [internalOpen, setInternalOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isCreating, setIsCreating] = useState(false);
 
   const isControlled = controlledOpen !== undefined;
   const open = isControlled ? controlledOpen : internalOpen;
@@ -79,7 +80,7 @@ export function MetricDialogBase({
     }
   };
 
-  const pipeline = usePipelineOperations({ teamId });
+  const pipeline = usePipelineStatus();
 
   const integrationQuery = api.integration.listWithStats.useQuery();
   const connection = integrationQuery.data?.active.find((int) =>
@@ -90,9 +91,10 @@ export function MetricDialogBase({
 
   const handleSubmit = async (data: MetricCreateInput) => {
     setError(null);
+    setIsCreating(true);
 
     try {
-      await pipeline.create.mutateAsync({
+      await pipeline.createMetric({
         ...data,
         teamId,
       });
@@ -104,6 +106,8 @@ export function MetricDialogBase({
       onSuccess?.();
     } catch {
       toast.error("Failed to create KPI");
+    } finally {
+      setIsCreating(false);
     }
   };
 
@@ -134,7 +138,7 @@ export function MetricDialogBase({
         {children({
           connection,
           onSubmit: handleSubmit,
-          isCreating: pipeline.isCreating,
+          isCreating,
           error,
         })}
 

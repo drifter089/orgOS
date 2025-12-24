@@ -5,6 +5,7 @@ import { api } from "@/trpc/react";
 
 import { DashboardClient } from "./dashboard-client";
 import { DashboardSidebar } from "./dashboard-sidebar";
+import { PipelineStatusProvider } from "./pipeline-status-provider";
 
 interface DashboardPageClientProps {
   teamId: string;
@@ -13,14 +14,13 @@ interface DashboardPageClientProps {
 /**
  * Dashboard page client component.
  *
- * Single source of truth for dashboard queries:
- * - Fetches getDashboardCharts once here
- * - Passes data down to DashboardClient (no duplicate queries)
- * - Individual cards handle their own status polling when processing
+ * Architecture:
+ * - Single getDashboardCharts query here
+ * - PipelineStatusProvider wraps both client and sidebar
+ * - Provider handles all status polling and mutations
+ * - Cards receive data as props (no duplicate queries)
  */
 export function DashboardPageClient({ teamId }: DashboardPageClientProps) {
-  // Single query for dashboard charts - data is hydrated from server prefetch
-  // No polling here - individual cards poll their own status when processing
   const {
     data: dashboardCharts,
     isLoading: chartsLoading,
@@ -33,7 +33,6 @@ export function DashboardPageClient({ teamId }: DashboardPageClientProps) {
     isError: integrationsError,
   } = api.integration.listWithStats.useQuery();
 
-  // Loading state
   if (chartsLoading || integrationsLoading) {
     return (
       <div className="container mx-auto px-4 py-8 pt-24">
@@ -50,7 +49,6 @@ export function DashboardPageClient({ teamId }: DashboardPageClientProps) {
     );
   }
 
-  // Error state
   if (chartsError || integrationsError || !dashboardCharts || !integrations) {
     return (
       <div className="container mx-auto px-4 py-8 pt-24">
@@ -65,16 +63,18 @@ export function DashboardPageClient({ teamId }: DashboardPageClientProps) {
   }
 
   return (
-    <div className="container mx-auto px-4 py-8 pt-24">
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold tracking-tight">KPIs</h1>
-        <p className="text-muted-foreground mt-2">
-          Visualize and monitor your key metrics in one place
-        </p>
-      </div>
+    <PipelineStatusProvider teamId={teamId} dashboardCharts={dashboardCharts}>
+      <div className="container mx-auto px-4 py-8 pt-24">
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold tracking-tight">KPIs</h1>
+          <p className="text-muted-foreground mt-2">
+            Visualize and monitor your key metrics in one place
+          </p>
+        </div>
 
-      <DashboardClient teamId={teamId} dashboardCharts={dashboardCharts} />
-      <DashboardSidebar teamId={teamId} initialIntegrations={integrations} />
-    </div>
+        <DashboardClient dashboardCharts={dashboardCharts} />
+        <DashboardSidebar teamId={teamId} initialIntegrations={integrations} />
+      </div>
+    </PipelineStatusProvider>
   );
 }

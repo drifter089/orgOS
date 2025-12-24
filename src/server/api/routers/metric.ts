@@ -21,7 +21,6 @@ export const metricRouter = createTRPCRouter({
   /**
    * Lightweight status endpoint for card-level polling.
    * Returns only the fields needed to display pipeline progress.
-   * Polled at 500ms by cards with active pipeline.
    */
   getStatus: workspaceProcedure
     .input(z.object({ metricId: z.string() }))
@@ -30,6 +29,32 @@ export const metricRouter = createTRPCRouter({
         where: { id: input.metricId },
         select: { id: true, refreshStatus: true, lastError: true },
       });
+    }),
+
+  /**
+   * Batch status endpoint for provider-level polling.
+   * Single query for all processing metrics - more efficient than N individual queries.
+   * Returns a map of metricId -> { refreshStatus, lastError }
+   */
+  getBatchStatus: workspaceProcedure
+    .input(z.object({ metricIds: z.array(z.string()) }))
+    .query(async ({ ctx, input }) => {
+      if (input.metricIds.length === 0) return {};
+
+      const metrics = await ctx.db.metric.findMany({
+        where: {
+          id: { in: input.metricIds },
+          organizationId: ctx.workspace.organizationId,
+        },
+        select: { id: true, refreshStatus: true, lastError: true },
+      });
+
+      return Object.fromEntries(
+        metrics.map((m) => [
+          m.id,
+          { refreshStatus: m.refreshStatus, lastError: m.lastError },
+        ]),
+      );
     }),
 
   // ===========================================================================
