@@ -8,7 +8,12 @@ import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Drawer, DrawerContent, DrawerTrigger } from "@/components/ui/drawer";
+import {
+  Drawer,
+  DrawerContent,
+  DrawerTitle,
+  DrawerTrigger,
+} from "@/components/ui/drawer";
 import {
   Tooltip,
   TooltipContent,
@@ -218,6 +223,7 @@ export function DashboardMetricCard({
       {cardContent}
 
       <DrawerContent className="flex h-[90vh] max-h-[90vh] flex-col overflow-hidden">
+        <DrawerTitle className="sr-only">{metric.name} Settings</DrawerTitle>
         <div className="min-h-0 w-full flex-1">
           <DashboardMetricDrawer
             dashboardChart={dashboardChart}
