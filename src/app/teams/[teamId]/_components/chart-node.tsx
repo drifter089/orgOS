@@ -4,7 +4,10 @@ import { memo } from "react";
 
 import { Handle, type Node, type NodeProps, Position } from "@xyflow/react";
 
-import { DashboardMetricCard } from "@/app/dashboard/[teamId]/_components/dashboard-metric-card";
+import {
+  DashboardMetricCard,
+  ReadOnlyMetricCard,
+} from "@/app/dashboard/[teamId]/_components/dashboard-metric-card";
 import { cn } from "@/lib/utils";
 import type { RouterOutputs } from "@/trpc/react";
 
@@ -113,12 +116,14 @@ function ChartNodeComponent({ data, selected }: NodeProps<ChartNode>) {
       />
 
       <div className="overflow-hidden rounded-lg">
-        <DashboardMetricCard
-          metricId={dashboardMetric.metric.id}
-          teamId={data.teamId}
-          dataOverride={dashboardMetric}
-          readOnly={data.readOnly}
-        />
+        {data.readOnly ? (
+          <ReadOnlyMetricCard dashboardChart={dashboardMetric} />
+        ) : (
+          <DashboardMetricCard
+            metricId={dashboardMetric.metric.id}
+            teamId={data.teamId}
+          />
+        )}
       </div>
     </div>
   );

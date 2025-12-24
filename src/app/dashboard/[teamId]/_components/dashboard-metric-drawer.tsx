@@ -39,7 +39,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import type { MetricStatus } from "@/hooks/use-metric-status";
+import type { PipelineStatus } from "@/hooks/use-pipeline-operations";
 import { getDimensionDisplayLabel } from "@/lib/metrics/dimension-labels";
 import { getLatestMetricValue } from "@/lib/metrics/get-latest-value";
 import type { ChartTransformResult } from "@/lib/metrics/transformer-types";
@@ -59,9 +59,9 @@ interface DashboardMetricDrawerProps {
   /** Dashboard chart data - passed from parent to avoid duplicate queries */
   dashboardChart: DashboardChartData;
   /** Status - passed from parent to avoid duplicate polling */
-  status: MetricStatus;
-  /** Whether the parent query is fetching */
-  isFetching: boolean;
+  status: PipelineStatus;
+  /** Whether the pipeline is currently polling for this metric */
+  isPolling: boolean;
   /** Whether delete mutation is pending */
   isDeleting: boolean;
   /** Callback to refresh/regenerate metric data */
@@ -89,7 +89,7 @@ interface DashboardMetricDrawerProps {
 export function DashboardMetricDrawer({
   dashboardChart,
   status,
-  isFetching,
+  isPolling,
   isDeleting,
   onRefresh,
   onUpdateMetric,
@@ -381,7 +381,7 @@ export function DashboardMetricDrawer({
               chartTransform={chartTransform ?? null}
               hasChartData={hasChartData}
               isIntegrationMetric={isIntegrationMetric}
-              isOptimistic={status.isOptimistic}
+              isOptimistic={false}
               integrationId={metric.integration?.providerId}
               roles={metric.roles ?? []}
               goal={metric.goal}
@@ -389,7 +389,7 @@ export function DashboardMetricDrawer({
               valueLabel={dashboardChart.valueLabel ?? null}
               isProcessing={status.isProcessing}
               processingStep={status.processingStep}
-              isFetching={isFetching}
+              isFetching={isPolling}
             />
           </div>
 

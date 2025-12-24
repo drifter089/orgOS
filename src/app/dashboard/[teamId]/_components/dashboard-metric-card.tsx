@@ -3,7 +3,7 @@
 import { useCallback, useState } from "react";
 
 import type { Cadence } from "@prisma/client";
-import { AlertCircle, Bug, Loader2, Settings } from "lucide-react";
+import { AlertCircle, Bug, Settings } from "lucide-react";
 import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
@@ -14,8 +14,11 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { useMetricMutations } from "@/hooks/use-metric-mutations";
-import { type MetricStatus, useMetricStatus } from "@/hooks/use-metric-status";
+import {
+  type PipelineStatus,
+  isTempId,
+  usePipelineOperations,
+} from "@/hooks/use-pipeline-operations";
 import { isDevMode } from "@/lib/dev-mode";
 import type { ChartTransformResult } from "@/lib/metrics/transformer-types";
 import { useConfirmation } from "@/providers/ConfirmationDialogProvider";
@@ -41,60 +44,58 @@ interface DashboardMetricCardProps {
   teamId: string;
   /** When true, hides settings drawer and dev tool button (for public views) */
   readOnly?: boolean;
-  /**
-   * Optional data override - use when data comes from a different query.
-   * When provided, derives status from this data instead of calling the hook.
-   * Useful for: public views, default dashboard, member cards, chart nodes.
-   */
-  dataOverride?: DashboardChartData;
 }
 
 /**
  * Dashboard metric card component.
  *
- * Uses useMetricStatus hook for status tracking.
- * Owns the status and passes it to drawer - no duplicate polling.
+ * Architecture:
+ * - Single query subscription to getDashboardCharts
+ * - Uses usePipelineOperations for all mutations and status tracking
+ * - Pipeline operations are awaited before polling starts (no race conditions)
  */
 export function DashboardMetricCard({
   metricId,
   teamId,
   readOnly = false,
-  dataOverride,
 }: DashboardMetricCardProps) {
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const { confirm } = useConfirmation();
 
-  // Status tracking - single source of truth
-  const { status, startPolling, isFetching } = useMetricStatus(
-    metricId,
-    teamId,
-  );
-
-  // Get chart data from cache
+  // Single query subscription
   const { data: dashboardCharts } = api.dashboard.getDashboardCharts.useQuery(
     { teamId },
-    { enabled: !dataOverride },
+    { enabled: Boolean(teamId) },
   );
-  const hookChart = dashboardCharts?.find((dc) => dc.metric.id === metricId);
 
-  // Use override if provided, otherwise use hook data
-  const dashboardChart = dataOverride ?? hookChart ?? null;
-
-  // For dataOverride, derive status from the override data (for read-only views)
-  const effectiveStatus: MetricStatus = dataOverride
-    ? {
-        isProcessing: !!dataOverride.metric.refreshStatus,
-        processingStep: dataOverride.metric.refreshStatus,
-        hasError: !!dataOverride.metric.lastError,
-        lastError: dataOverride.metric.lastError,
-        isOptimistic: dataOverride.id.startsWith("temp-"),
-      }
-    : status;
-
-  // All mutations
-  const mutations = useMetricMutations({ teamId });
-
+  const dashboardChart = dashboardCharts?.find(
+    (dc) => dc.metric.id === metricId,
+  );
   const metric = dashboardChart?.metric;
+
+  // Pipeline operations hook
+  const pipeline = usePipelineOperations({
+    teamId,
+    onComplete: useCallback(
+      (result: { success: boolean; error: string | null }) => {
+        if (result.success) {
+          toast.success("Chart updated successfully");
+        }
+        // Error toasts are handled in the hook
+      },
+      [],
+    ),
+  });
+
+  // Get current status
+  const status: PipelineStatus = pipeline.getStatus(
+    metricId,
+    metric?.refreshStatus,
+    metric?.lastError,
+  );
+
+  // Derived state
+  const isOptimistic = isTempId(metricId);
   const isIntegrationMetric = !!metric?.integration?.providerId;
   const roles = metric?.roles ?? [];
   const chartTransform = dashboardChart?.chartConfig as unknown as
@@ -105,6 +106,7 @@ export function DashboardMetricCard({
     chartTransform?.chartData && chartTransform.chartData.length > 0
   );
   const title = chartTransform?.title ?? metric?.name ?? "Loading...";
+  const isPollingThisCard = pipeline.isPolling(metricId);
 
   // ==========================================================================
   // Handlers
@@ -113,10 +115,11 @@ export function DashboardMetricCard({
   const handleRefresh = useCallback(
     async (forceRebuild = false) => {
       if (!metric) return;
+
       try {
         if (!isIntegrationMetric) {
-          await mutations.regenerate.mutateAsync({ metricId: metric.id });
-          startPolling(); // Start polling immediately
+          // Manual metrics - always regenerate
+          await pipeline.regenerate(metric.id);
           toast.success("Chart regeneration started");
           return;
         }
@@ -124,12 +127,10 @@ export function DashboardMetricCard({
         if (!metric.templateId || !metric.integration) return;
 
         if (forceRebuild) {
-          await mutations.regenerate.mutateAsync({ metricId: metric.id });
-          startPolling(); // Start polling immediately
+          await pipeline.regenerate(metric.id);
           toast.success("Pipeline regeneration started");
         } else {
-          await mutations.refresh.mutateAsync({ metricId: metric.id });
-          startPolling(); // Start polling immediately
+          await pipeline.refresh(metric.id);
           toast.success("Data refresh started");
         }
       } catch (error) {
@@ -142,11 +143,12 @@ export function DashboardMetricCard({
         );
       }
     },
-    [metric, isIntegrationMetric, mutations, startPolling],
+    [metric, isIntegrationMetric, pipeline],
   );
 
-  const handleRemove = useCallback(async () => {
+  const handleDelete = useCallback(async () => {
     if (!metric) return;
+
     const confirmed = await confirm({
       title: "Delete metric",
       description: `Are you sure you want to delete "${metric.name}"? This action cannot be undone.`,
@@ -155,51 +157,70 @@ export function DashboardMetricCard({
     });
 
     if (confirmed) {
-      mutations.delete.mutate({ id: metric.id });
+      pipeline.delete.mutate({ id: metric.id });
+      setIsDrawerOpen(false);
     }
-  }, [metric, confirm, mutations]);
+  }, [metric, confirm, pipeline]);
 
   const handleUpdateMetric = useCallback(
     (name: string, description: string) => {
       if (!metric) return;
-      mutations.update.mutate({
+      pipeline.update.mutate({
         id: metric.id,
         name,
         description: description || undefined,
       });
     },
-    [metric, mutations],
+    [metric, pipeline],
   );
 
   const handleRegenerateChart = useCallback(
-    (chartType: string, cadence: Cadence, selectedDimension?: string) => {
+    async (chartType: string, cadence: Cadence, selectedDimension?: string) => {
       if (!metric) return;
-      mutations.regenerateChartOnly.mutate({
-        metricId: metric.id,
-        chartType,
-        cadence,
-        selectedDimension,
-      });
-      startPolling(); // Start polling immediately
+
+      try {
+        await pipeline.regenerateChart(metric.id, {
+          chartType,
+          cadence,
+          selectedDimension,
+        });
+        toast.success("Chart regeneration started");
+      } catch (error) {
+        toast.error("Failed to regenerate chart", {
+          description: error instanceof Error ? error.message : "Unknown error",
+        });
+      }
     },
-    [metric, mutations, startPolling],
+    [metric, pipeline],
   );
 
   // ==========================================================================
   // Render
   // ==========================================================================
 
+  // Loading state for missing data (temp card or loading)
   if (!dashboardChart || !metric) {
     return (
-      <div className="bg-card flex h-[420px] items-center justify-center rounded-lg border">
-        <Loader2 className="text-muted-foreground h-8 w-8 animate-spin" />
-      </div>
+      <DashboardMetricChart
+        title="Creating metric..."
+        chartTransform={null}
+        hasChartData={false}
+        isIntegrationMetric={false}
+        isOptimistic={true}
+        roles={[]}
+        goal={null}
+        goalProgress={null}
+        valueLabel={null}
+        isProcessing={true}
+        processingStep="creating-metric"
+        isFetching={false}
+      />
     );
   }
 
   const cardContent = (
     <div className="relative">
-      {effectiveStatus.hasError && (
+      {status.hasError && !status.isProcessing && (
         <Tooltip>
           <TooltipTrigger asChild>
             <Badge
@@ -211,7 +232,7 @@ export function DashboardMetricCard({
             </Badge>
           </TooltipTrigger>
           <TooltipContent side="bottom" className="max-w-[300px]">
-            <p className="text-sm">{effectiveStatus.lastError}</p>
+            <p className="text-sm">{status.lastError}</p>
           </TooltipContent>
         </Tooltip>
       )}
@@ -253,15 +274,15 @@ export function DashboardMetricCard({
         chartTransform={chartTransform ?? null}
         hasChartData={hasChartData}
         isIntegrationMetric={isIntegrationMetric}
-        isOptimistic={effectiveStatus.isOptimistic}
+        isOptimistic={isOptimistic}
         integrationId={metric.integration?.providerId}
         roles={roles}
         goal={metric.goal}
         goalProgress={dashboardChart.goalProgress}
         valueLabel={dashboardChart.valueLabel}
-        isProcessing={effectiveStatus.isProcessing}
-        processingStep={effectiveStatus.processingStep}
-        isFetching={dataOverride ? false : isFetching}
+        isProcessing={status.isProcessing}
+        processingStep={status.processingStep}
+        isFetching={isPollingThisCard}
       />
     </div>
   );
@@ -278,17 +299,78 @@ export function DashboardMetricCard({
         <div className="mx-auto min-h-0 w-full flex-1">
           <DashboardMetricDrawer
             dashboardChart={dashboardChart}
-            status={effectiveStatus}
-            isFetching={isFetching}
-            isDeleting={mutations.delete.isPending}
+            status={status}
+            isPolling={isPollingThisCard}
+            isDeleting={pipeline.isDeleting}
             onRefresh={handleRefresh}
             onUpdateMetric={handleUpdateMetric}
-            onDelete={handleRemove}
+            onDelete={handleDelete}
             onClose={() => setIsDrawerOpen(false)}
             onRegenerateChart={handleRegenerateChart}
           />
         </div>
       </DrawerContent>
     </Drawer>
+  );
+}
+
+// =============================================================================
+// Read-Only Card Variant (for public views with dataOverride)
+// =============================================================================
+
+/**
+ * Read-only metric card for public views.
+ * No mutations, no polling, just displays data.
+ */
+export function ReadOnlyMetricCard({
+  dashboardChart,
+}: {
+  dashboardChart: DashboardChartData;
+}) {
+  const metric = dashboardChart.metric;
+  const chartTransform = dashboardChart.chartConfig as unknown as
+    | ChartTransformResult
+    | null
+    | undefined;
+  const hasChartData = !!(
+    chartTransform?.chartData && chartTransform.chartData.length > 0
+  );
+
+  // Derive status from data (no polling for read-only)
+  const status: PipelineStatus = {
+    isProcessing: !!metric.refreshStatus,
+    processingStep: metric.refreshStatus,
+    hasError: !!metric.lastError,
+    lastError: metric.lastError,
+  };
+
+  return (
+    <div className="relative">
+      {status.hasError && !status.isProcessing && (
+        <Badge
+          variant="destructive"
+          className="absolute top-4 left-3 z-10 h-6 gap-1 px-2"
+        >
+          <AlertCircle className="h-3 w-3" />
+          <span className="text-xs">Error</span>
+        </Badge>
+      )}
+
+      <DashboardMetricChart
+        title={chartTransform?.title ?? metric.name}
+        chartTransform={chartTransform ?? null}
+        hasChartData={hasChartData}
+        isIntegrationMetric={!!metric.integration?.providerId}
+        isOptimistic={false}
+        integrationId={metric.integration?.providerId}
+        roles={metric.roles ?? []}
+        goal={metric.goal}
+        goalProgress={dashboardChart.goalProgress}
+        valueLabel={dashboardChart.valueLabel}
+        isProcessing={status.isProcessing}
+        processingStep={status.processingStep}
+        isFetching={false}
+      />
+    </div>
   );
 }
