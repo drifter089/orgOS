@@ -102,8 +102,17 @@ export function PipelineStatusProvider({
   // Track recently created metrics (skip "Chart updated" toast for these)
   const recentlyCreatedRef = useRef<Set<string>>(new Set());
 
+  // Track metrics awaiting fresh data (completed processing, waiting for refetch)
+  // Map of metricId -> timestamp when added (for timeout)
+  const [awaitingDataMap, setAwaitingDataMap] = useState<Map<string, number>>(
+    () => new Map(),
+  );
+
   // Track timeout IDs for cleanup on unmount
   const timeoutIdsRef = useRef<NodeJS.Timeout[]>([]);
+
+  // Max time to wait for data before giving up (prevents infinite loading)
+  const AWAITING_DATA_TIMEOUT_MS = 10000;
 
   // ---------------------------------------------------------------------------
   // Auto-start polling for metrics that are already processing on mount
@@ -173,13 +182,18 @@ export function PipelineStatusProvider({
     if (completedIds.length > 0 || errorIds.length > 0) {
       const allIds = [...completedIds, ...errorIds];
 
-      // Skip completion toast for newly created metrics (already got "KPI created" toast)
-      const nonRecentlyCreated = completedIds.filter(
-        (id) => !recentlyCreatedRef.current.has(id),
-      );
-      if (nonRecentlyCreated.length > 0) {
-        toast.success("Chart updated successfully");
+      // Mark successful metrics as awaiting fresh data (keeps processing UI until data arrives)
+      // Error metrics don't need to wait for data
+      if (completedIds.length > 0) {
+        const now = Date.now();
+        setAwaitingDataMap((prev) => {
+          const next = new Map(prev);
+          completedIds.forEach((id) => next.set(id, now));
+          return next;
+        });
       }
+
+      // Show error toast immediately (no need to wait for data)
       if (errorIds.length > 0) {
         const errors = errorIds
           .map((id) => statusMap[id]?.lastError)
@@ -189,8 +203,9 @@ export function PipelineStatusProvider({
           duration: 10000,
         });
       }
+      // Success toast is deferred until data arrives (see awaitingDataIds effect)
 
-      // Invalidate cache, then stop polling
+      // Invalidate cache, then stop polling (but keep awaitingDataIds until data arrives)
       void utils.dashboard.getDashboardCharts
         .invalidate({ teamId })
         .finally(() => {
@@ -216,6 +231,105 @@ export function PipelineStatusProvider({
   }, [statusMap, teamId, utils]);
 
   // ---------------------------------------------------------------------------
+  // Periodic timeout check for awaiting metrics
+  // ---------------------------------------------------------------------------
+  useEffect(() => {
+    if (awaitingDataMap.size === 0) return;
+
+    // Check every 2 seconds for timeouts
+    const intervalId = setInterval(() => {
+      const now = Date.now();
+      const timedOutIds: string[] = [];
+
+      for (const [metricId, addedAt] of awaitingDataMap) {
+        if (now - addedAt > AWAITING_DATA_TIMEOUT_MS) {
+          timedOutIds.push(metricId);
+        }
+      }
+
+      if (timedOutIds.length > 0) {
+        console.info(
+          "[PipelineStatus] Timed out waiting for chart data:",
+          timedOutIds,
+        );
+        setAwaitingDataMap((prev) => {
+          const next = new Map(prev);
+          timedOutIds.forEach((id) => next.delete(id));
+          return next;
+        });
+      }
+    }, 2000);
+
+    return () => clearInterval(intervalId);
+  }, [awaitingDataMap, AWAITING_DATA_TIMEOUT_MS]);
+
+  // ---------------------------------------------------------------------------
+  // Detect when fresh data has arrived for awaiting metrics
+  // ---------------------------------------------------------------------------
+  useEffect(() => {
+    if (awaitingDataMap.size === 0) return;
+
+    const now = Date.now();
+    const idsToRemove: string[] = [];
+    const idsWithData: string[] = [];
+
+    for (const [metricId, addedAt] of awaitingDataMap) {
+      const chart = dashboardCharts.find((dc) => dc.metric.id === metricId);
+
+      // Case 1: Metric no longer exists (deleted while processing)
+      if (!chart) {
+        idsToRemove.push(metricId);
+        continue;
+      }
+
+      // Case 2: Chart has data - success!
+      const hasData =
+        chart.chartConfig &&
+        typeof chart.chartConfig === "object" &&
+        "chartData" in chart.chartConfig &&
+        Array.isArray(chart.chartConfig.chartData) &&
+        chart.chartConfig.chartData.length > 0;
+
+      if (hasData) {
+        idsWithData.push(metricId);
+        idsToRemove.push(metricId);
+        continue;
+      }
+
+      // Case 3: Chart exists with empty/null config but metric is done processing
+      // (processing succeeded but no data points were generated)
+      const metricDoneWithNoData =
+        !chart.metric.refreshStatus && !chart.metric.lastError;
+      if (metricDoneWithNoData) {
+        // Give a short grace period for cache to update, then give up
+        if (now - addedAt > AWAITING_DATA_TIMEOUT_MS / 2) {
+          idsToRemove.push(metricId);
+          continue;
+        }
+      }
+    }
+
+    // Show success toast for metrics that got data
+    if (idsWithData.length > 0) {
+      const nonRecentlyCreated = idsWithData.filter(
+        (id) => !recentlyCreatedRef.current.has(id),
+      );
+      if (nonRecentlyCreated.length > 0) {
+        toast.success("Chart updated successfully");
+      }
+    }
+
+    // Remove all processed IDs
+    if (idsToRemove.length > 0) {
+      setAwaitingDataMap((prev) => {
+        const next = new Map(prev);
+        idsToRemove.forEach((id) => next.delete(id));
+        return next;
+      });
+    }
+  }, [awaitingDataMap, dashboardCharts, AWAITING_DATA_TIMEOUT_MS]);
+
+  // ---------------------------------------------------------------------------
   // Start Polling
   // ---------------------------------------------------------------------------
   const startPolling = useCallback((metricId: string) => {
@@ -227,6 +341,16 @@ export function PipelineStatusProvider({
   // ---------------------------------------------------------------------------
   const getStatus = useCallback(
     (metricId: string): PipelineStatus => {
+      // If awaiting fresh data after completion, show "loading" state
+      // This prevents jitter between completion and data arrival
+      if (awaitingDataMap.has(metricId)) {
+        return {
+          isProcessing: true,
+          step: "loading-data",
+          error: null,
+        };
+      }
+
       // If we're polling this metric, use the polled status
       if (pollingMetricIds.has(metricId) && statusMap?.[metricId]) {
         const status = statusMap[metricId];
@@ -258,7 +382,7 @@ export function PipelineStatusProvider({
 
       return { isProcessing: false, step: null, error: null };
     },
-    [pollingMetricIds, statusMap, dashboardCharts],
+    [awaitingDataMap, pollingMetricIds, statusMap, dashboardCharts],
   );
 
   // ---------------------------------------------------------------------------
