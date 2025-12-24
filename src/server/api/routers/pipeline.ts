@@ -1,24 +1,7 @@
-/**
- * Pipeline Router
- *
- * Handles metric data pipeline operations with fire-and-forget pattern:
- * - refresh: Soft refresh (reuse transformers) - returns immediately
- * - regenerate: Hard refresh (delete & recreate) - returns immediately
- * - regenerateChartOnly: Regenerate chart transformer only (no data fetch)
- * - regenerateIngestionOnly: Regenerate ingestion transformer only
- * - getProgress: Poll endpoint for frontend status updates
- *
- * Fire-and-forget pattern:
- * 1. Set metric.refreshStatus = starting step
- * 2. Return immediately to frontend
- * 3. Run pipeline in background (NOT awaited)
- * 4. Frontend polls getProgress to show progress
- */
 import { Prisma } from "@prisma/client";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 
-import { getStepDisplayName } from "@/lib/pipeline";
 import { refreshMetricAndCharts } from "@/server/api/services/transformation";
 import { createChartTransformer } from "@/server/api/services/transformation/chart-generator";
 import { ingestMetricData } from "@/server/api/services/transformation/data-pipeline";
@@ -159,10 +142,7 @@ export async function runBackgroundTask(
 // ============================================================================
 
 export const pipelineRouter = createTRPCRouter({
-  /**
-   * Refresh metric (soft refresh - reuse transformers)
-   * FIRE-AND-FORGET: Returns immediately, frontend polls getProgress
-   */
+  /** Soft refresh - reuse existing transformers. */
   refresh: workspaceProcedure
     .input(z.object({ metricId: z.string() }))
     .mutation(async ({ ctx, input }) => {
@@ -184,10 +164,7 @@ export const pipelineRouter = createTRPCRouter({
       return { success: true, started: true };
     }),
 
-  /**
-   * Regenerate metric (hard refresh - delete & recreate)
-   * FIRE-AND-FORGET: Returns immediately, frontend polls getProgress
-   */
+  /** Hard refresh - delete and recreate transformers. */
   regenerate: workspaceProcedure
     .input(z.object({ metricId: z.string() }))
     .mutation(async ({ ctx, input }) => {
@@ -209,10 +186,7 @@ export const pipelineRouter = createTRPCRouter({
       return { success: true, started: true };
     }),
 
-  /**
-   * Regenerate ONLY the ingestion transformer
-   * FIRE-AND-FORGET: Returns immediately, frontend polls getProgress
-   */
+  /** Regenerate only the ingestion transformer. */
   regenerateIngestionOnly: workspaceProcedure
     .input(z.object({ metricId: z.string() }))
     .mutation(async ({ ctx, input }) => {
@@ -256,10 +230,7 @@ export const pipelineRouter = createTRPCRouter({
       return { success: true, started: true };
     }),
 
-  /**
-   * Regenerate ONLY the chart transformer
-   * FIRE-AND-FORGET: Returns immediately, frontend polls getProgress
-   */
+  /** Regenerate only the chart transformer. */
   regenerateChartOnly: workspaceProcedure
     .input(
       z.object({
@@ -313,131 +284,6 @@ export const pipelineRouter = createTRPCRouter({
       });
 
       return { success: true, started: true };
-    }),
-
-  /**
-   * Get pipeline progress for multiple metrics (batch endpoint for centralized polling)
-   * Returns progress for all requested metrics in one request
-   */
-  getBatchProgress: workspaceProcedure
-    .input(z.object({ metricIds: z.array(z.string()) }))
-    .query(async ({ ctx, input }) => {
-      if (input.metricIds.length === 0) {
-        return {} as Record<
-          string,
-          {
-            isProcessing: boolean;
-            currentStep: string | null;
-            error: string | null;
-          }
-        >;
-      }
-
-      // Verify all metrics belong to the organization
-      const metrics = await ctx.db.metric.findMany({
-        where: {
-          id: { in: input.metricIds },
-          organizationId: ctx.workspace.organizationId,
-        },
-        select: { id: true, refreshStatus: true, lastError: true },
-      });
-
-      const result: Record<
-        string,
-        {
-          isProcessing: boolean;
-          currentStep: string | null;
-          error: string | null;
-        }
-      > = {};
-
-      for (const metric of metrics) {
-        result[metric.id] = {
-          isProcessing: !!metric.refreshStatus,
-          currentStep: metric.refreshStatus,
-          error: metric.lastError,
-        };
-      }
-
-      return result;
-    }),
-
-  /**
-   * Get pipeline progress for frontend polling
-   */
-  getProgress: workspaceProcedure
-    .input(z.object({ metricId: z.string() }))
-    .query(async ({ ctx, input }) => {
-      await getMetricAndVerifyAccess(
-        ctx.db,
-        input.metricId,
-        ctx.workspace.organizationId,
-      );
-
-      const metric = await ctx.db.metric.findUnique({
-        where: { id: input.metricId },
-        select: { refreshStatus: true, lastError: true },
-      });
-
-      if (!metric?.refreshStatus) {
-        return {
-          isProcessing: false,
-          currentStep: null,
-          completedSteps: [] as Array<{
-            step: string;
-            displayName: string;
-            status: "completed" | "failed";
-            durationMs?: number;
-          }>,
-          error: metric?.lastError ?? null,
-        };
-      }
-
-      // Query recent pipeline step logs (last 5 minutes)
-      const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
-      const stepLogs = await ctx.db.metricApiLog.findMany({
-        where: {
-          metricId: input.metricId,
-          endpoint: { startsWith: "pipeline-step:" },
-          fetchedAt: { gte: fiveMinutesAgo },
-        },
-        orderBy: { fetchedAt: "asc" },
-        select: { endpoint: true, fetchedAt: true },
-      });
-
-      const completedSteps: Array<{
-        step: string;
-        displayName: string;
-        status: "completed" | "failed";
-        durationMs?: number;
-      }> = [];
-
-      for (let i = 0; i < stepLogs.length; i++) {
-        const log = stepLogs[i]!;
-        if (!log.endpoint) continue;
-        const stepName = log.endpoint.replace("pipeline-step:", "");
-
-        if (stepName === metric.refreshStatus) continue;
-
-        const nextLog = stepLogs[i + 1];
-        const durationMs = nextLog
-          ? nextLog.fetchedAt.getTime() - log.fetchedAt.getTime()
-          : undefined;
-
-        completedSteps.push({
-          step: stepName,
-          displayName: getStepDisplayName(stepName),
-          status: "completed",
-          durationMs,
-        });
-      }
-
-      return {
-        isProcessing: true,
-        currentStep: metric.refreshStatus,
-        completedSteps,
-        error: null,
-      };
     }),
 
   /**
