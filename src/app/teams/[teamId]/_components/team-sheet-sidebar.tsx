@@ -3,17 +3,8 @@
 import { useState } from "react";
 
 import * as SheetPrimitive from "@radix-ui/react-dialog";
-import {
-  ChevronDown,
-  ChevronRight,
-  ExternalLink,
-  Loader2,
-  Mail,
-  Trash2,
-} from "lucide-react";
-import { Link } from "next-transition-router";
+import { Loader2, Trash2 } from "lucide-react";
 
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Sheet } from "@/components/ui/sheet";
@@ -68,63 +59,6 @@ interface TeamSheetSidebarProps {
   teamName: string;
   teamDescription?: string | null;
   roleCount: number;
-}
-
-interface MemberProps {
-  id: string;
-  email: string;
-  firstName: string | null;
-  lastName: string | null;
-}
-
-function MemberCard({
-  member,
-  roleCount,
-}: {
-  member: MemberProps;
-  roleCount: number;
-}) {
-  const initials =
-    member.firstName && member.lastName
-      ? `${member.firstName[0]}${member.lastName[0]}`.toUpperCase()
-      : (member.email?.[0]?.toUpperCase() ?? "U");
-
-  const userName =
-    member.firstName && member.lastName
-      ? `${member.firstName} ${member.lastName}`
-      : (member.email ?? "Member");
-
-  return (
-    <Link href={`/member/${member.id}`}>
-      <div className="bg-card hover:bg-accent/50 group flex cursor-pointer items-center justify-between gap-3 rounded-lg border p-3 shadow-sm transition-colors hover:shadow">
-        <div className="flex min-w-0 flex-1 items-center gap-3 overflow-hidden">
-          <Avatar className="group-hover:ring-primary/20 h-9 w-9 flex-shrink-0 transition-all group-hover:ring-2">
-            <AvatarFallback className="bg-primary/10 text-primary text-xs font-medium">
-              {initials}
-            </AvatarFallback>
-          </Avatar>
-          <div className="min-w-0 flex-1">
-            <p className="group-hover:text-primary truncate text-sm leading-tight font-medium transition-colors">
-              {userName}
-            </p>
-            <div className="text-muted-foreground mt-0.5 flex items-center gap-1.5 text-xs">
-              <Mail className="h-3 w-3 flex-shrink-0" />
-              <span className="truncate">{member.email ?? "No email"}</span>
-            </div>
-          </div>
-        </div>
-        <div className="flex flex-shrink-0 items-center gap-2">
-          <Badge
-            variant="secondary"
-            className="min-w-[2rem] justify-center text-xs font-semibold"
-          >
-            {roleCount}
-          </Badge>
-          <ExternalLink className="text-muted-foreground h-4 w-4 opacity-0 transition-opacity group-hover:opacity-100" />
-        </div>
-      </div>
-    </Link>
-  );
 }
 
 function RolesList({
@@ -271,14 +205,8 @@ export function TeamSheetSidebar({
 }: TeamSheetSidebarProps) {
   // Closed by default to allow data prefetching
   const [isOpen, setIsOpen] = useState(false);
-  const [teamMembersExpanded, setTeamMembersExpanded] = useState(false);
   const [selectedRoleId, setSelectedRoleId] = useState<string | null>(null);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
-
-  const { data: members, isLoading: membersLoading } =
-    api.organization.getMembers.useQuery();
-
-  const { data: teamRoles } = api.role.getByTeamId.useQuery({ teamId });
   const nodes = useTeamStore((state) => state.nodes);
 
   const handleRoleClick = (roleId: string) => {
@@ -294,16 +222,6 @@ export function TeamSheetSidebar({
     selectedRoleId && selectedNode
       ? { roleId: selectedRoleId, nodeId: selectedNode.id }
       : null;
-
-  const roleCountByUser = (teamRoles ?? []).reduce(
-    (acc, role) => {
-      if (role.assignedUserId) {
-        acc[role.assignedUserId] = (acc[role.assignedUserId] ?? 0) + 1;
-      }
-      return acc;
-    },
-    {} as Record<string, number>,
-  );
 
   return (
     <>
@@ -351,67 +269,6 @@ export function TeamSheetSidebar({
                   Roles
                 </h3>
                 <RolesList teamId={teamId} onRoleClick={handleRoleClick} />
-              </div>
-
-              {/* Organization Members */}
-              <div>
-                <div className="mb-2 flex items-center justify-between">
-                  <h3 className="text-muted-foreground text-xs font-semibold tracking-wider uppercase">
-                    Team Members
-                  </h3>
-                  <div className="flex items-center gap-2">
-                    {members && (
-                      <Badge
-                        variant="secondary"
-                        className="text-xs font-semibold"
-                      >
-                        {members.length}
-                      </Badge>
-                    )}
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-6 w-6"
-                      onClick={() =>
-                        setTeamMembersExpanded(!teamMembersExpanded)
-                      }
-                      aria-label={
-                        teamMembersExpanded
-                          ? "Collapse team members"
-                          : "Expand team members"
-                      }
-                    >
-                      {teamMembersExpanded ? (
-                        <ChevronDown className="h-4 w-4" />
-                      ) : (
-                        <ChevronRight className="h-4 w-4" />
-                      )}
-                    </Button>
-                  </div>
-                </div>
-                {teamMembersExpanded && (
-                  <div className="space-y-2">
-                    {membersLoading ? (
-                      <>
-                        {[1, 2, 3].map((i) => (
-                          <Skeleton key={i} className="h-16 w-full" />
-                        ))}
-                      </>
-                    ) : !members || members.length === 0 ? (
-                      <div className="text-muted-foreground flex flex-col items-center justify-center rounded-lg border border-dashed py-6 text-center">
-                        <p className="text-xs">No members found</p>
-                      </div>
-                    ) : (
-                      members.map((member) => (
-                        <MemberCard
-                          key={member.id}
-                          member={member}
-                          roleCount={roleCountByUser[member.id] ?? 0}
-                        />
-                      ))
-                    )}
-                  </div>
-                )}
               </div>
             </div>
           </div>
