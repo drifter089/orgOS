@@ -121,10 +121,7 @@ export default async function TeamPage({
 
   return (
     <HydrateClient>
-      <PipelineStatusProvider
-        teamId={team.id}
-        dashboardCharts={dashboardCharts}
-      >
+      <PipelineStatusProvider teamId={team.id}>
         <TeamStoreProvider
           teamId={team.id}
           teamName={team.name}

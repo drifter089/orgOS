@@ -30,11 +30,11 @@ import {
   RoleTabContent,
   SettingsTabContent,
 } from "./drawer";
-import type { PipelineStatus } from "./pipeline-status-provider";
 
 interface DashboardMetricDrawerProps {
   dashboardChart: DashboardChartWithRelations;
-  status: PipelineStatus;
+  isProcessing: boolean;
+  error: string | null;
   isDeleting: boolean;
   onRefresh: (forceRebuild?: boolean) => void;
   onUpdateMetric: (name: string, description: string) => void;
@@ -49,7 +49,8 @@ interface DashboardMetricDrawerProps {
 
 export function DashboardMetricDrawer({
   dashboardChart,
-  status,
+  isProcessing,
+  error,
   isDeleting,
   onRefresh,
   onUpdateMetric,
@@ -90,12 +91,12 @@ export function DashboardMetricDrawer({
 
   // Sync form state when props change
   useEffect(() => {
-    if (!status.isProcessing) {
+    if (!isProcessing) {
       setSelectedChartType(chartTransformer?.chartType ?? "bar");
       setSelectedCadence(chartTransformer?.cadence ?? "WEEKLY");
       setSelectedDimension(chartTransformer?.selectedDimension ?? "value");
     }
-  }, [chartTransformer, status.isProcessing]);
+  }, [chartTransformer, isProcessing]);
 
   // Derived state
   const hasChartChanges =
@@ -140,12 +141,12 @@ export function DashboardMetricDrawer({
                 {platformConfig.name}
               </Badge>
             )}
-            {status.error && (
+            {error && (
               <Badge variant="destructive" className="text-xs">
                 Error
               </Badge>
             )}
-            {status.isProcessing && (
+            {isProcessing && (
               <Badge variant="outline" className="text-xs">
                 <Loader2 className="mr-1 h-3 w-3 animate-spin" />
                 Processing
@@ -195,8 +196,7 @@ export function DashboardMetricDrawer({
             goal={metric.goal}
             goalProgress={goalProgress}
             valueLabel={dashboardChart.valueLabel ?? null}
-            isProcessing={status.isProcessing}
-            processingStep={status.step}
+            isProcessing={isProcessing}
           />
         </div>
       </div>
@@ -268,7 +268,7 @@ export function DashboardMetricDrawer({
             isIntegrationMetric={isIntegrationMetric}
             valueLabel={dashboardChart.valueLabel ?? null}
             hasChartChanges={hasChartChanges}
-            isProcessing={status.isProcessing}
+            isProcessing={isProcessing}
             isDeleting={isDeleting}
             lastFetchedAt={metric.lastFetchedAt}
             onApplyChanges={handleApplyChanges}

@@ -3,14 +3,7 @@
 import { useMemo } from "react";
 
 import type { MetricGoal, Role } from "@prisma/client";
-import {
-  AlertTriangle,
-  BarChart3,
-  Info,
-  Loader2,
-  Target,
-  User,
-} from "lucide-react";
+import { AlertTriangle, Info, Loader2, Target, User } from "lucide-react";
 import {
   Area,
   AreaChart,
@@ -51,7 +44,6 @@ import { formatValue } from "@/lib/helpers/format-value";
 import { getUserName } from "@/lib/helpers/get-user-name";
 import { getLatestMetricValue } from "@/lib/metrics/get-latest-value";
 import type { ChartTransformResult } from "@/lib/metrics/transformer-types";
-import { getStepDisplayName } from "@/lib/pipeline";
 import { getPlatformConfig } from "@/lib/platform-config";
 import { cn } from "@/lib/utils";
 import { api } from "@/trpc/react";
@@ -68,8 +60,6 @@ interface DashboardMetricChartProps {
   valueLabel?: string | null;
   /** Whether the metric is currently processing */
   isProcessing?: boolean;
-  /** Current processing step name (e.g., "fetching-api-data") */
-  processingStep?: string | null;
 }
 
 export function DashboardMetricChart({
@@ -83,7 +73,6 @@ export function DashboardMetricChart({
   goalProgress,
   valueLabel,
   isProcessing = false,
-  processingStep,
 }: DashboardMetricChartProps) {
   const platformConfig = integrationId
     ? getPlatformConfig(integrationId)
@@ -716,19 +705,11 @@ export function DashboardMetricChart({
           <div className="animate-in fade-in flex flex-1 items-center justify-center rounded-md border border-dashed p-4 duration-300">
             <div className="text-center">
               <div className="bg-primary/10 mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full">
-                <BarChart3 className="text-primary h-6 w-6" />
+                <Loader2 className="text-primary h-6 w-6 animate-spin" />
               </div>
-              <div className="flex items-center justify-center gap-2">
-                <Loader2 className="text-primary h-4 w-4 animate-spin" />
-                <p className="text-foreground text-sm font-medium">
-                  Building your chart
-                </p>
-              </div>
-              {processingStep && (
-                <p className="text-muted-foreground mt-1.5 text-xs">
-                  {getStepDisplayName(processingStep)}
-                </p>
-              )}
+              <p className="text-muted-foreground text-sm">
+                Building your chart...
+              </p>
             </div>
           </div>
         )}
