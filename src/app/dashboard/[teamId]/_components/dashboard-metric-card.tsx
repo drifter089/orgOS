@@ -15,7 +15,11 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { useMetricMutations } from "@/hooks/use-metric-mutations";
-import { type MetricStatus, useMetricStatus } from "@/hooks/use-metric-status";
+import {
+  type MetricStatus,
+  deriveMetricStatus,
+  useMetricStatus,
+} from "@/hooks/use-metric-status";
 import { isDevMode } from "@/lib/dev-mode";
 import type { ChartTransformResult } from "@/lib/metrics/transformer-types";
 import { useConfirmation } from "@/providers/ConfirmationDialogProvider";
@@ -43,7 +47,7 @@ interface DashboardMetricCardProps {
   readOnly?: boolean;
   /**
    * Optional data override - use when data comes from a different query.
-   * When provided, derives status from this data instead of calling the hook.
+   * When provided, derives status from this data instead of using the hook.
    * Useful for: public views, default dashboard, member cards, chart nodes.
    */
   dataOverride?: DashboardChartData;
@@ -52,8 +56,11 @@ interface DashboardMetricCardProps {
 /**
  * Dashboard metric card component.
  *
- * Uses useMetricStatus hook for status tracking.
- * Owns the status and passes it to drawer - no duplicate polling.
+ * Architecture:
+ * - Single query subscription to getDashboardCharts
+ * - Passes initial status to useMetricStatus (no duplicate subscription)
+ * - useMetricStatus handles polling when processing
+ * - Completion callback handles error toasts (consolidated)
  */
 export function DashboardMetricCard({
   metricId,
@@ -64,37 +71,47 @@ export function DashboardMetricCard({
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const { confirm } = useConfirmation();
 
-  // Status tracking - single source of truth
-  const { status, startPolling, isFetching } = useMetricStatus(
-    metricId,
-    teamId,
-  );
+  // Single query subscription - only when no dataOverride
+  const { data: dashboardCharts, isFetching: isQueryFetching } =
+    api.dashboard.getDashboardCharts.useQuery(
+      { teamId },
+      { enabled: !dataOverride && Boolean(teamId) },
+    );
 
-  // Get chart data from cache
-  const { data: dashboardCharts } = api.dashboard.getDashboardCharts.useQuery(
-    { teamId },
-    { enabled: !dataOverride },
-  );
   const hookChart = dashboardCharts?.find((dc) => dc.metric.id === metricId);
-
-  // Use override if provided, otherwise use hook data
   const dashboardChart = dataOverride ?? hookChart ?? null;
+  const metric = dashboardChart?.metric;
 
-  // For dataOverride, derive status from the override data (for read-only views)
+  // Status tracking with initial values from cache
+  // Only use polling hook when not using dataOverride (read-only views don't poll)
+  const { status, startPolling, isPolling } = useMetricStatus(metricId, {
+    initialRefreshStatus: metric?.refreshStatus ?? null,
+    initialLastError: metric?.lastError ?? null,
+    onComplete: useCallback(
+      (result: { success: boolean; error: string | null }) => {
+        if (!result.success && result.error) {
+          toast.error("Pipeline failed", {
+            description: result.error,
+            duration: 10000,
+          });
+        }
+      },
+      [],
+    ),
+  });
+
+  // For dataOverride (read-only views), derive status directly from data
   const effectiveStatus: MetricStatus = dataOverride
-    ? {
-        isProcessing: !!dataOverride.metric.refreshStatus,
-        processingStep: dataOverride.metric.refreshStatus,
-        hasError: !!dataOverride.metric.lastError,
+    ? deriveMetricStatus({
+        id: dataOverride.id,
+        refreshStatus: dataOverride.metric.refreshStatus,
         lastError: dataOverride.metric.lastError,
-        isOptimistic: dataOverride.id.startsWith("temp-"),
-      }
+      })
     : status;
 
   // All mutations
   const mutations = useMetricMutations({ teamId });
 
-  const metric = dashboardChart?.metric;
   const isIntegrationMetric = !!metric?.integration?.providerId;
   const roles = metric?.roles ?? [];
   const chartTransform = dashboardChart?.chartConfig as unknown as
@@ -106,6 +123,9 @@ export function DashboardMetricCard({
   );
   const title = chartTransform?.title ?? metric?.name ?? "Loading...";
 
+  // Combine fetching states: query fetching OR polling active
+  const isFetching = isQueryFetching || isPolling;
+
   // ==========================================================================
   // Handlers
   // ==========================================================================
@@ -116,7 +136,7 @@ export function DashboardMetricCard({
       try {
         if (!isIntegrationMetric) {
           await mutations.regenerate.mutateAsync({ metricId: metric.id });
-          startPolling(); // Start polling immediately
+          startPolling();
           toast.success("Chart regeneration started");
           return;
         }
@@ -125,11 +145,11 @@ export function DashboardMetricCard({
 
         if (forceRebuild) {
           await mutations.regenerate.mutateAsync({ metricId: metric.id });
-          startPolling(); // Start polling immediately
+          startPolling();
           toast.success("Pipeline regeneration started");
         } else {
           await mutations.refresh.mutateAsync({ metricId: metric.id });
-          startPolling(); // Start polling immediately
+          startPolling();
           toast.success("Data refresh started");
         }
       } catch (error) {
@@ -180,7 +200,7 @@ export function DashboardMetricCard({
         cadence,
         selectedDimension,
       });
-      startPolling(); // Start polling immediately
+      startPolling();
     },
     [metric, mutations, startPolling],
   );
