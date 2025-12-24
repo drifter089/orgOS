@@ -6,6 +6,16 @@
  */
 
 export const PIPELINE_STEPS = {
+  // Frontend-only states (not stored in DB)
+  processing: {
+    displayName: "Processing...",
+    shortName: "Processing...",
+  },
+  "loading-data": {
+    displayName: "Loading chart data...",
+    shortName: "Loading chart...",
+  },
+  // Actual pipeline steps
   "adding-metric": {
     displayName: "Adding metric...",
     shortName: "Adding metric...",

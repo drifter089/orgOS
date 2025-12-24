@@ -3,43 +3,17 @@
 import { useEffect, useState } from "react";
 
 import type { Cadence } from "@prisma/client";
-import { formatDistanceToNow } from "date-fns";
-import {
-  BarChart3,
-  Check,
-  ClipboardCheck,
-  Clock,
-  Loader2,
-  RefreshCw,
-  Trash2,
-  TrendingUp,
-  X,
-} from "lucide-react";
+import { ClipboardCheck, Loader2, X } from "lucide-react";
 import { Link } from "next-transition-router";
 
-import { GoalEditor } from "@/components/metric/goal-editor";
-import { GoalProgressDisplay } from "@/components/metric/goal-progress-display";
-import { RoleAssignment } from "@/components/metric/role-assignment";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { DrawerClose } from "@/components/ui/drawer";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Switch } from "@/components/ui/switch";
-import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { getDimensionDisplayLabel } from "@/lib/metrics/dimension-labels";
 import { getLatestMetricValue } from "@/lib/metrics/get-latest-value";
 import type { ChartTransformResult } from "@/lib/metrics/transformer-types";
 import { getPlatformConfig } from "@/lib/platform-config";
@@ -48,9 +22,15 @@ import { api } from "@/trpc/react";
 import type { DashboardChartWithRelations } from "@/types/dashboard";
 
 import { DashboardMetricChart } from "./dashboard-metric-chart";
+import {
+  ChartStatsBar,
+  type DrawerTab,
+  DrawerTabButtons,
+  GoalTabContent,
+  RoleTabContent,
+  SettingsTabContent,
+} from "./drawer";
 import type { PipelineStatus } from "./pipeline-status-provider";
-
-const CADENCE_OPTIONS: Cadence[] = ["DAILY", "WEEKLY", "MONTHLY"];
 
 interface DashboardMetricDrawerProps {
   dashboardChart: DashboardChartWithRelations;
@@ -67,10 +47,6 @@ interface DashboardMetricDrawerProps {
   ) => void;
 }
 
-/**
- * Drawer for viewing and editing metric settings.
- * Receives data and callbacks from parent card.
- */
 export function DashboardMetricDrawer({
   dashboardChart,
   status,
@@ -90,8 +66,10 @@ export function DashboardMetricDrawer({
   const chartTransformer = dashboardChart.chartTransformer;
   const goalProgress = dashboardChart.goalProgress ?? null;
 
-  // Local form state - initialized from props
-  const [name, setName] = useState(metric.name);
+  // Tab state
+  const [activeTab, setActiveTab] = useState<DrawerTab>("goal");
+
+  // Chart settings state
   const [selectedChartType, setSelectedChartType] = useState(
     chartTransformer?.chartType ?? "bar",
   );
@@ -101,10 +79,6 @@ export function DashboardMetricDrawer({
   const [selectedDimension, setSelectedDimension] = useState<string>(
     chartTransformer?.selectedDimension ?? "value",
   );
-  const [forceRebuild, setForceRebuild] = useState(false);
-
-  // Track if user has made unsaved changes (prevents overwriting during cache updates)
-  const [hasUnsavedNameChange, setHasUnsavedNameChange] = useState(false);
 
   // Query for available dimensions
   const isIntegrationMetric = !!metric.integration?.providerId;
@@ -114,34 +88,16 @@ export function DashboardMetricDrawer({
       { enabled: isIntegrationMetric },
     );
 
-  // Sync form state when props change (only if no unsaved changes)
-  // This runs when cache is invalidated and new data arrives
+  // Sync form state when props change
   useEffect(() => {
-    if (!hasUnsavedNameChange) {
-      setName(metric.name);
-    }
-    // Only sync chart settings if user hasn't made changes
-    // This prevents overwriting user's in-progress selections during cache updates
-    const serverChartType = chartTransformer?.chartType ?? "bar";
-    const serverCadence = chartTransformer?.cadence ?? "WEEKLY";
-    const serverDimension = chartTransformer?.selectedDimension ?? "value";
-
-    // If current selections match what user started with, sync to new values
-    // This handles the case where pipeline completes and we want fresh data
     if (!status.isProcessing) {
-      setSelectedChartType(serverChartType);
-      setSelectedCadence(serverCadence);
-      setSelectedDimension(serverDimension);
+      setSelectedChartType(chartTransformer?.chartType ?? "bar");
+      setSelectedCadence(chartTransformer?.cadence ?? "WEEKLY");
+      setSelectedDimension(chartTransformer?.selectedDimension ?? "value");
     }
-  }, [
-    metric.name,
-    chartTransformer,
-    hasUnsavedNameChange,
-    status.isProcessing,
-  ]);
+  }, [chartTransformer, status.isProcessing]);
 
-  // Derived state - compare current form values to props
-  const hasNameChanges = name !== metric.name;
+  // Derived state
   const hasChartChanges =
     selectedChartType !== (chartTransformer?.chartType ?? "bar") ||
     selectedCadence !== (chartTransformer?.cadence ?? "WEEKLY") ||
@@ -154,22 +110,6 @@ export function DashboardMetricDrawer({
   const platformConfig = metric.integration?.providerId
     ? getPlatformConfig(metric.integration.providerId)
     : null;
-
-  // ==========================================================================
-  // Handlers
-  // ==========================================================================
-
-  const handleNameChange = (value: string) => {
-    setHasUnsavedNameChange(true);
-    setName(value);
-  };
-
-  const handleSave = () => {
-    if (hasNameChanges && name.trim()) {
-      onUpdateMetric(name.trim(), metric.description ?? "");
-    }
-    setHasUnsavedNameChange(false);
-  };
 
   const handleApplyChanges = () => {
     onRegenerateChart(
@@ -184,306 +124,163 @@ export function DashboardMetricDrawer({
     onClose();
   };
 
-  // ==========================================================================
-  // Render
-  // ==========================================================================
-
   return (
-    <div className="flex h-full flex-col">
-      {/* Header */}
-      <div className="flex items-center justify-between border-b px-8 py-4">
-        <div className="flex items-center gap-3">
-          <h2 className="text-xl font-semibold">{metric.name}</h2>
-          {platformConfig && (
-            <Badge
-              variant="secondary"
-              className={cn(platformConfig.bgColor, platformConfig.textColor)}
-            >
-              {platformConfig.name}
-            </Badge>
-          )}
-          {status.error && (
-            <Badge variant="destructive" className="text-xs">
-              Error
-            </Badge>
-          )}
-          {status.isProcessing && (
-            <Badge variant="outline" className="text-xs">
-              <Loader2 className="mr-1 h-3 w-3 animate-spin" />
-              Processing
-            </Badge>
-          )}
-        </div>
-        <div className="flex items-center gap-3">
-          {isIntegrationMetric ? (
-            <>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => onRefresh(forceRebuild)}
-                disabled={status.isProcessing}
+    <div className="grid h-full grid-cols-[1fr_280px_80px]">
+      {/* Chart Column (70%) */}
+      <div className="flex flex-col border-r">
+        {/* Header */}
+        <div className="flex items-center justify-between border-b px-6 py-3">
+          <div className="flex items-center gap-3">
+            <h2 className="text-lg font-semibold">{metric.name}</h2>
+            {platformConfig && (
+              <Badge
+                variant="secondary"
+                className={cn(platformConfig.bgColor, platformConfig.textColor)}
               >
-                <RefreshCw
-                  className={cn(
-                    "mr-2 h-4 w-4",
-                    status.isProcessing && "animate-spin",
-                  )}
-                />
-                {forceRebuild ? "Hard Refresh" : "Refresh"}
-              </Button>
+                {platformConfig.name}
+              </Badge>
+            )}
+            {status.error && (
+              <Badge variant="destructive" className="text-xs">
+                Error
+              </Badge>
+            )}
+            {status.isProcessing && (
+              <Badge variant="outline" className="text-xs">
+                <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                Processing
+              </Badge>
+            )}
+          </div>
+          <div className="flex items-center gap-2">
+            {!isIntegrationMetric && (
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <div className="flex items-center gap-2">
-                    <Switch
-                      id="force-rebuild"
-                      checked={forceRebuild}
-                      onCheckedChange={setForceRebuild}
-                      disabled={status.isProcessing}
-                    />
-                    <Label
-                      htmlFor="force-rebuild"
-                      className="text-muted-foreground cursor-pointer text-xs"
-                    >
-                      Hard
-                    </Label>
-                  </div>
+                  <Button variant="default" size="sm" asChild>
+                    <Link href={`/metric/check-in/${metricId}`}>
+                      <ClipboardCheck className="mr-1 h-4 w-4" />
+                      Check-in
+                    </Link>
+                  </Button>
                 </TooltipTrigger>
                 <TooltipContent side="bottom">
-                  <p className="text-xs">
-                    Hard refresh: Regenerates entire data pipeline (data +
-                    chart)
-                  </p>
+                  <p className="text-xs">Add a new data point</p>
                 </TooltipContent>
               </Tooltip>
-            </>
-          ) : (
-            <>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => onRefresh(true)}
-                disabled={status.isProcessing}
-              >
-                <RefreshCw
-                  className={cn(
-                    "mr-2 h-4 w-4",
-                    status.isProcessing && "animate-spin",
-                  )}
-                />
-                Regenerate
+            )}
+            <DrawerClose asChild>
+              <Button variant="ghost" size="icon" className="h-8 w-8">
+                <X className="h-4 w-4" />
               </Button>
-              <Button variant="default" size="sm" asChild>
-                <Link href={`/metric/check-in/${metricId}`}>
-                  <ClipboardCheck className="mr-2 h-4 w-4" />
-                  Check-in
-                </Link>
-              </Button>
-            </>
-          )}
-          <DrawerClose asChild>
-            <Button variant="ghost" size="icon" className="h-8 w-8">
-              <X className="h-4 w-4" />
-            </Button>
-          </DrawerClose>
+            </DrawerClose>
+          </div>
         </div>
-      </div>
 
-      {/* Content */}
-      <div className="flex-1 overflow-y-auto">
-        <div className="space-y-6 px-8 py-6">
-          {/* Chart Configuration */}
-          <div className="bg-muted/30 space-y-4 rounded-lg border p-4">
-            <div className="flex flex-wrap items-center gap-4">
-              <ToggleGroup
-                type="single"
-                value={selectedChartType}
-                onValueChange={(v) => v && setSelectedChartType(v)}
-                size="sm"
-              >
-                <ToggleGroupItem value="bar" aria-label="Bar Chart">
-                  <BarChart3 className="h-4 w-4" />
-                </ToggleGroupItem>
-                <ToggleGroupItem value="line" aria-label="Line Chart">
-                  <TrendingUp className="h-4 w-4" />
-                </ToggleGroupItem>
-              </ToggleGroup>
-              <ToggleGroup
-                type="single"
-                value={selectedCadence}
-                onValueChange={(v) => v && setSelectedCadence(v as Cadence)}
-                size="sm"
-              >
-                {CADENCE_OPTIONS.map((c) => (
-                  <ToggleGroupItem key={c} value={c} className="text-xs">
-                    {c.charAt(0) + c.slice(1).toLowerCase()}
-                  </ToggleGroupItem>
-                ))}
-              </ToggleGroup>
-              {isIntegrationMetric &&
-                (isDimensionsLoading ? (
-                  <div className="flex h-8 w-[140px] items-center justify-center rounded-md border">
-                    <Loader2 className="text-muted-foreground h-4 w-4 animate-spin" />
-                  </div>
-                ) : availableDimensions && availableDimensions.length > 0 ? (
-                  <Select
-                    value={selectedDimension}
-                    onValueChange={setSelectedDimension}
-                  >
-                    <SelectTrigger className="h-8 w-[140px]">
-                      <SelectValue placeholder="Track" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="value">
-                        {dashboardChart.valueLabel ?? "Primary Value"}
-                      </SelectItem>
-                      {availableDimensions.map((dim) => (
-                        <SelectItem key={dim} value={dim}>
-                          {getDimensionDisplayLabel(dim)}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                ) : null)}
-              {metric.lastFetchedAt && (
-                <span className="text-muted-foreground ml-auto flex items-center gap-1.5 text-xs">
-                  <Clock className="h-3 w-3" />
-                  {formatDistanceToNow(new Date(metric.lastFetchedAt), {
-                    addSuffix: true,
-                  })}
-                </span>
-              )}
-            </div>
-            <Button
-              size="sm"
-              onClick={handleApplyChanges}
-              disabled={status.isProcessing || !hasChartChanges}
-              className="w-full"
-            >
-              {status.isProcessing ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              ) : (
-                <BarChart3 className="mr-2 h-4 w-4" />
-              )}
-              Apply Changes
-            </Button>
-          </div>
+        {/* Stats Bar */}
+        <ChartStatsBar
+          currentValue={currentValue}
+          valueLabel={dashboardChart.valueLabel ?? null}
+          goalProgress={goalProgress}
+        />
 
-          {/* Chart Preview */}
-          <div className="h-[400px]">
-            <DashboardMetricChart
-              title={chartTransform?.title ?? metric.name}
-              chartTransform={chartTransform ?? null}
-              hasChartData={hasChartData}
-              isIntegrationMetric={isIntegrationMetric}
-              integrationId={metric.integration?.providerId}
-              roles={metric.roles ?? []}
-              goal={metric.goal}
-              goalProgress={goalProgress}
-              valueLabel={dashboardChart.valueLabel ?? null}
-              isProcessing={status.isProcessing}
-              processingStep={status.step}
-            />
-          </div>
-
-          {/* Goal Progress */}
-          <GoalProgressDisplay
-            currentValue={currentValue}
-            valueLabel={dashboardChart.valueLabel ?? null}
+        {/* Chart */}
+        <div className="flex-1 overflow-hidden p-4">
+          <DashboardMetricChart
+            title={chartTransform?.title ?? metric.name}
+            chartTransform={chartTransform ?? null}
+            hasChartData={hasChartData}
+            isIntegrationMetric={isIntegrationMetric}
+            integrationId={metric.integration?.providerId}
+            roles={metric.roles ?? []}
             goal={metric.goal}
             goalProgress={goalProgress}
-            isLoading={status.isProcessing}
-            lastFetchedAt={metric.lastFetchedAt}
-            chartUpdatedAt={chartTransformer?.updatedAt ?? null}
+            valueLabel={dashboardChart.valueLabel ?? null}
+            isProcessing={status.isProcessing}
+            processingStep={status.step}
           />
-
-          {/* Settings */}
-          <div className="border-t pt-6">
-            <div className="grid gap-8 md:grid-cols-2">
-              <div className="space-y-6">
-                <div className="space-y-2">
-                  <Label className="text-sm font-medium">Metric Name</Label>
-                  <div className="flex gap-2">
-                    <Input
-                      value={name}
-                      onChange={(e) => handleNameChange(e.target.value)}
-                      className="h-9"
-                    />
-                    <Button
-                      size="icon"
-                      variant="outline"
-                      className="h-9 w-9 shrink-0"
-                      onClick={handleSave}
-                      disabled={!hasNameChanges || !name.trim()}
-                    >
-                      <Check className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </div>
-
-                {chartTransform?.dataKeys &&
-                  chartTransform.dataKeys.length > 0 && (
-                    <div className="space-y-2">
-                      <Label className="text-muted-foreground text-sm">
-                        Tracked Fields
-                      </Label>
-                      <div className="flex flex-wrap gap-1.5">
-                        {chartTransform.dataKeys.map((key) => (
-                          <Badge key={key} variant="secondary">
-                            {chartTransform.chartConfig?.[key]?.label ?? key}
-                          </Badge>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-              </div>
-
-              {metric.teamId && (
-                <div className="space-y-6">
-                  <div className="space-y-2">
-                    <Label className="text-sm font-medium">Goal</Label>
-                    <GoalEditor
-                      metricId={metricId}
-                      initialGoal={metric.goal}
-                      cadence={chartTransformer?.cadence}
-                      compact={true}
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label className="text-sm font-medium">
-                      Assigned to Role
-                    </Label>
-                    <RoleAssignment
-                      metricId={metricId}
-                      metricName={metric.name}
-                      teamId={metric.teamId}
-                      assignedRoleIds={(metric.roles ?? []).map((r) => r.id)}
-                    />
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
         </div>
       </div>
 
-      {/* Footer */}
-      <div className="border-t px-8 py-3">
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={handleDelete}
-          disabled={isDeleting}
-          className="text-destructive hover:text-destructive hover:bg-destructive/10"
-        >
-          {isDeleting ? (
-            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-          ) : (
-            <Trash2 className="mr-2 h-4 w-4" />
+      {/* Tab Content Column (20%) */}
+      <div className="relative overflow-hidden border-r">
+        {/* Goal Tab */}
+        <div
+          className={cn(
+            "absolute inset-0 transition-opacity duration-200",
+            activeTab === "goal"
+              ? "opacity-100"
+              : "pointer-events-none opacity-0",
           )}
-          Delete Metric
-        </Button>
+        >
+          <GoalTabContent
+            metricId={metricId}
+            goal={metric.goal}
+            goalProgress={goalProgress}
+            currentValue={currentValue}
+            valueLabel={dashboardChart.valueLabel ?? null}
+            cadence={chartTransformer?.cadence}
+          />
+        </div>
+
+        {/* Role Tab */}
+        <div
+          className={cn(
+            "absolute inset-0 transition-opacity duration-200",
+            activeTab === "role"
+              ? "opacity-100"
+              : "pointer-events-none opacity-0",
+          )}
+        >
+          <RoleTabContent
+            metricId={metricId}
+            metricName={metric.name}
+            teamId={metric.teamId}
+            roles={(metric.roles ?? []).map((r) => ({
+              id: r.id,
+              title: r.title,
+              color: r.color,
+              assignedUserId: r.assignedUserId,
+              assignedUserName: r.assignedUserName,
+            }))}
+          />
+        </div>
+
+        {/* Settings Tab */}
+        <div
+          className={cn(
+            "absolute inset-0 transition-opacity duration-200",
+            activeTab === "settings"
+              ? "opacity-100"
+              : "pointer-events-none opacity-0",
+          )}
+        >
+          <SettingsTabContent
+            metricName={metric.name}
+            metricDescription={metric.description}
+            selectedChartType={selectedChartType}
+            setSelectedChartType={setSelectedChartType}
+            selectedCadence={selectedCadence}
+            setSelectedCadence={setSelectedCadence}
+            selectedDimension={selectedDimension}
+            setSelectedDimension={setSelectedDimension}
+            availableDimensions={availableDimensions}
+            isDimensionsLoading={isDimensionsLoading}
+            isIntegrationMetric={isIntegrationMetric}
+            valueLabel={dashboardChart.valueLabel ?? null}
+            hasChartChanges={hasChartChanges}
+            isProcessing={status.isProcessing}
+            isDeleting={isDeleting}
+            lastFetchedAt={metric.lastFetchedAt}
+            onApplyChanges={handleApplyChanges}
+            onRefresh={onRefresh}
+            onDelete={handleDelete}
+            onUpdateMetric={onUpdateMetric}
+          />
+        </div>
       </div>
+
+      {/* Tab Buttons Column (10%) */}
+      <DrawerTabButtons activeTab={activeTab} onTabChange={setActiveTab} />
     </div>
   );
 }
