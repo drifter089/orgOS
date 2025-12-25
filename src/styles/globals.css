@@ -106,6 +106,7 @@
   --accent-foreground: oklch(0.3211 0 0);
   --destructive: oklch(0.5594 0.19 25.8625);
   --destructive-foreground: oklch(1 0 0);
+  --goal: oklch(0.6477 0.1529 160.8015);
   --border: oklch(0.8576 0 0);
   --input: oklch(0.9067 0 0);
   --ring: oklch(0.4891 0 0);
@@ -174,6 +175,7 @@
   --accent-foreground: oklch(0.8853 0 0);
   --destructive: oklch(0.6591 0.153 22.1703);
   --destructive-foreground: oklch(1 0 0);
+  --goal: oklch(0.6477 0.1529 160.8015);
   --border: oklch(0.329 0 0);
   --input: oklch(0.3092 0 0);
   --ring: oklch(0.7058 0 0);
@@ -658,4 +660,15 @@
 /* Show grab cursor only when actively dragging */
 .react-flow__node.dragging {
   cursor: grabbing;
+}
+
+/* Goal line animation for charts */
+@keyframes goal-line-march {
+  to {
+    stroke-dashoffset: -12;
+  }
+}
+
+.goal-line-animated {
+  animation: goal-line-march 0.8s linear infinite;
 }

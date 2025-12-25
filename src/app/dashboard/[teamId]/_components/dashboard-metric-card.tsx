@@ -241,7 +241,7 @@ export function DashboardMetricCard({
     <Drawer open={isDrawerOpen} onOpenChange={setIsDrawerOpen}>
       {cardContent}
 
-      <DrawerContent className="flex h-[70vh] max-h-[70vh] flex-col overflow-hidden">
+      <DrawerContent className="flex h-[60vh] max-h-[60vh] flex-col overflow-hidden">
         <DrawerHeader className="flex flex-row items-center justify-between border-b px-6 py-4">
           <div className="flex items-center gap-3">
             <DrawerTitle className="text-lg font-semibold">

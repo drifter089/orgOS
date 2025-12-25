@@ -4,15 +4,7 @@ import { useMemo } from "react";
 
 import type { MetricGoal, Role } from "@prisma/client";
 import { format } from "date-fns";
-import {
-  AlertTriangle,
-  Calendar,
-  Clock,
-  Info,
-  Loader2,
-  Target,
-  User,
-} from "lucide-react";
+import { Calendar, Clock, Info, Loader2, Target, User } from "lucide-react";
 import { Link } from "next-transition-router";
 import {
   Area,
@@ -229,21 +221,6 @@ export function DashboardMetricChart({
                   : undefined
               }
             />
-            {goalTargetValue !== null && (
-              <ReferenceLine
-                y={goalTargetValue}
-                stroke="hsl(var(--destructive))"
-                strokeDasharray="8 4"
-                strokeWidth={2.5}
-                label={{
-                  value: `Target: ${formatValue(goalTargetValue)}`,
-                  position: "insideTopRight",
-                  fill: "hsl(var(--destructive))",
-                  fontSize: 11,
-                  fontWeight: 600,
-                }}
-              />
-            )}
             {showTooltip && (
               <ChartTooltip
                 cursor={false}
@@ -281,6 +258,22 @@ export function DashboardMetricChart({
                 animationBegin={index * 100}
               />
             ))}
+            {goalTargetValue !== null && (
+              <ReferenceLine
+                y={goalTargetValue}
+                stroke="oklch(var(--goal))"
+                strokeDasharray="6 3"
+                strokeWidth={2}
+                className="goal-line-animated"
+                label={{
+                  value: `Goal: ${formatValue(goalTargetValue)}`,
+                  position: "insideTopLeft",
+                  fill: "oklch(var(--goal))",
+                  fontSize: 11,
+                  fontWeight: 700,
+                }}
+              />
+            )}
             {showLegend && <ChartLegend content={<ChartLegendContent />} />}
           </AreaChart>
         </ChartContainer>
@@ -327,21 +320,6 @@ export function DashboardMetricChart({
                   : undefined
               }
             />
-            {goalTargetValue !== null && (
-              <ReferenceLine
-                y={goalTargetValue}
-                stroke="hsl(var(--destructive))"
-                strokeDasharray="8 4"
-                strokeWidth={2.5}
-                label={{
-                  value: `Target: ${formatValue(goalTargetValue)}`,
-                  position: "insideTopRight",
-                  fill: "hsl(var(--destructive))",
-                  fontSize: 11,
-                  fontWeight: 600,
-                }}
-              />
-            )}
             {showTooltip && (
               <ChartTooltip
                 cursor={false}
@@ -361,6 +339,22 @@ export function DashboardMetricChart({
                 animationBegin={index * 80}
               />
             ))}
+            {goalTargetValue !== null && (
+              <ReferenceLine
+                y={goalTargetValue}
+                stroke="oklch(var(--goal))"
+                strokeDasharray="6 3"
+                strokeWidth={2}
+                className="goal-line-animated"
+                label={{
+                  value: `Goal: ${formatValue(goalTargetValue)}`,
+                  position: "insideTopLeft",
+                  fill: "oklch(var(--goal))",
+                  fontSize: 11,
+                  fontWeight: 700,
+                }}
+              />
+            )}
             {showLegend && <ChartLegend content={<ChartLegendContent />} />}
           </BarChart>
         </ChartContainer>
@@ -552,21 +546,6 @@ export function DashboardMetricChart({
             }
           />
           <YAxis tickLine={false} axisLine={false} tickMargin={8} />
-          {goalTargetValue !== null && (
-            <ReferenceLine
-              y={goalTargetValue}
-              stroke="hsl(var(--destructive))"
-              strokeDasharray="8 4"
-              strokeWidth={2.5}
-              label={{
-                value: `Target: ${formatValue(goalTargetValue)}`,
-                position: "insideTopRight",
-                fill: "hsl(var(--destructive))",
-                fontSize: 11,
-                fontWeight: 600,
-              }}
-            />
-          )}
           {showTooltip && (
             <ChartTooltip
               cursor={false}
@@ -585,6 +564,22 @@ export function DashboardMetricChart({
               animationBegin={index * 80}
             />
           ))}
+          {goalTargetValue !== null && (
+            <ReferenceLine
+              y={goalTargetValue}
+              stroke="oklch(var(--goal))"
+              strokeDasharray="6 3"
+              strokeWidth={2}
+              className="goal-line-animated"
+              label={{
+                value: `Goal: ${formatValue(goalTargetValue)}`,
+                position: "insideTopLeft",
+                fill: "oklch(var(--goal))",
+                fontSize: 11,
+                fontWeight: 700,
+              }}
+            />
+          )}
           {showLegend && <ChartLegend content={<ChartLegendContent />} />}
         </BarChart>
       </ChartContainer>
@@ -656,9 +651,12 @@ export function DashboardMetricChart({
                 ""}
             </span>
             {goalTargetValue !== null && goalProgress && (
-              <span className="text-muted-foreground ml-auto flex items-center gap-1 text-xs">
-                <Target className="text-destructive h-3 w-3" />
-                <span className="text-destructive font-medium">
+              <span
+                className="ml-auto flex items-center gap-1 text-xs"
+                style={{ color: "oklch(var(--goal))" }}
+              >
+                <Target className="h-3 w-3" />
+                <span className="font-medium">
                   {formatValue(goalTargetValue)}
                 </span>
               </span>
@@ -716,9 +714,9 @@ export function DashboardMetricChart({
         )}
 
         {hasNoGoal && (
-          <div className="flex items-center gap-1.5 text-[10px]">
-            <AlertTriangle className="h-3 w-3 text-amber-500" />
-            <span className="text-amber-500">No goal set</span>
+          <div className="text-muted-foreground/60 flex items-center gap-1.5 text-[10px]">
+            <Target className="h-3 w-3" />
+            <span>No goal</span>
           </div>
         )}
 
@@ -742,15 +740,15 @@ export function DashboardMetricChart({
                   </Link>
                 </>
               ) : (
-                <span className="text-warning flex items-center gap-0.5">
-                  <AlertTriangle className="h-2.5 w-2.5 text-amber-500" />
+                <span className="text-muted-foreground/50 flex items-center gap-0.5">
+                  <User className="h-2.5 w-2.5" />
                 </span>
               )}
             </span>
           ) : (
-            <span className="text-muted-foreground flex items-center gap-1">
-              <AlertTriangle className="h-2.5 w-2.5 text-amber-500" />
-              <span className="text-amber-500">No role</span>
+            <span className="text-muted-foreground/60 flex items-center gap-1">
+              <div className="bg-muted-foreground/30 h-2 w-2 rounded-full" />
+              <span>No role</span>
             </span>
           )}
 
