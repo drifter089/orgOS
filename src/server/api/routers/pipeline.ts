@@ -157,6 +157,12 @@ export const pipelineRouter = createTRPCRouter({
         where: { id: input.metricId },
         data: { refreshStatus: "fetching-api-data", lastError: null },
       });
+
+      // Invalidate Prisma cache so processing status is visible on client refetch
+      const cacheTags = [`dashboard_org_${ctx.workspace.organizationId}`];
+      if (metric.teamId) cacheTags.push(`dashboard_team_${metric.teamId}`);
+      await invalidateCacheByTags(ctx.db, cacheTags);
+
       void runBackgroundTask({
         metricId: input.metricId,
         type: "soft-refresh",
@@ -179,6 +185,12 @@ export const pipelineRouter = createTRPCRouter({
         where: { id: input.metricId },
         data: { refreshStatus: "deleting-old-data", lastError: null },
       });
+
+      // Invalidate Prisma cache so processing status is visible on client refetch
+      const cacheTags = [`dashboard_org_${ctx.workspace.organizationId}`];
+      if (metric.teamId) cacheTags.push(`dashboard_team_${metric.teamId}`);
+      await invalidateCacheByTags(ctx.db, cacheTags);
+
       void runBackgroundTask({
         metricId: input.metricId,
         type: "hard-refresh",
@@ -217,6 +229,11 @@ export const pipelineRouter = createTRPCRouter({
         where: { id: input.metricId },
         data: { refreshStatus: "deleting-old-transformer", lastError: null },
       });
+
+      // Invalidate Prisma cache so processing status is visible on client refetch
+      const cacheTags = [`dashboard_org_${ctx.workspace.organizationId}`];
+      if (metric.teamId) cacheTags.push(`dashboard_team_${metric.teamId}`);
+      await invalidateCacheByTags(ctx.db, cacheTags);
 
       void runBackgroundTask({
         metricId: input.metricId,
@@ -271,6 +288,11 @@ export const pipelineRouter = createTRPCRouter({
         where: { id: input.metricId },
         data: { refreshStatus: "deleting-old-transformer", lastError: null },
       });
+
+      // Invalidate Prisma cache so processing status is visible on client refetch
+      const cacheTags = [`dashboard_org_${ctx.workspace.organizationId}`];
+      if (metric.teamId) cacheTags.push(`dashboard_team_${metric.teamId}`);
+      await invalidateCacheByTags(ctx.db, cacheTags);
 
       void runBackgroundTask({
         metricId: input.metricId,
