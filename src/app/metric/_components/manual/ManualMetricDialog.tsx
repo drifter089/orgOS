@@ -42,7 +42,10 @@ export function ManualMetricDialog({
       {trigger && <DialogTrigger asChild>{trigger}</DialogTrigger>}
       <DialogContent className="sm:max-w-[480px]">
         <DialogHeader>
-          <DialogTitle className="sr-only">Create Manual Metric</DialogTitle>
+          <DialogTitle>Create Manual KPI</DialogTitle>
+          <p className="text-muted-foreground text-sm">
+            Track metrics that you update manually on a regular cadence
+          </p>
         </DialogHeader>
         <ManualMetricContent
           teamId={teamId}
