@@ -251,14 +251,14 @@ export function DashboardMetricChart({
             {goalTargetValue !== null && (
               <ReferenceLine
                 y={goalTargetValue}
-                stroke="oklch(var(--goal))"
+                stroke="var(--goal)"
                 strokeDasharray="6 3"
                 strokeWidth={2}
                 className="goal-line-animated"
                 label={{
                   value: `Goal: ${formatValue(goalTargetValue)}`,
                   position: "insideTopLeft",
-                  fill: "oklch(var(--goal))",
+                  fill: "var(--goal)",
                   fontSize: 11,
                   fontWeight: 700,
                 }}
@@ -332,14 +332,14 @@ export function DashboardMetricChart({
             {goalTargetValue !== null && (
               <ReferenceLine
                 y={goalTargetValue}
-                stroke="oklch(var(--goal))"
+                stroke="var(--goal)"
                 strokeDasharray="6 3"
                 strokeWidth={2}
                 className="goal-line-animated"
                 label={{
                   value: `Goal: ${formatValue(goalTargetValue)}`,
                   position: "insideTopLeft",
-                  fill: "oklch(var(--goal))",
+                  fill: "var(--goal)",
                   fontSize: 11,
                   fontWeight: 700,
                 }}
@@ -557,14 +557,14 @@ export function DashboardMetricChart({
           {goalTargetValue !== null && (
             <ReferenceLine
               y={goalTargetValue}
-              stroke="oklch(var(--goal))"
+              stroke="var(--goal)"
               strokeDasharray="6 3"
               strokeWidth={2}
               className="goal-line-animated"
               label={{
                 value: `Goal: ${formatValue(goalTargetValue)}`,
                 position: "insideTopLeft",
-                fill: "oklch(var(--goal))",
+                fill: "var(--goal)",
                 fontSize: 11,
                 fontWeight: 700,
               }}
@@ -643,7 +643,7 @@ export function DashboardMetricChart({
             {goalTargetValue !== null && goalProgress && (
               <span
                 className="ml-auto flex items-center gap-1 text-xs"
-                style={{ color: "oklch(var(--goal))" }}
+                style={{ color: "var(--goal)" }}
               >
                 <Target className="h-3 w-3" />
                 <span className="font-medium">
