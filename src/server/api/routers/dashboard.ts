@@ -9,6 +9,7 @@ import {
   invalidateCacheByTags,
 } from "@/server/api/utils/cache-strategy";
 import { enrichChartsWithGoalProgress } from "@/server/api/utils/enrich-charts-with-goal-progress";
+import { enrichChartRolesWithUserNames } from "@/server/api/utils/organization-members";
 
 export const dashboardRouter = createTRPCRouter({
   /**
@@ -46,7 +47,14 @@ export const dashboardRouter = createTRPCRouter({
       ]),
     });
 
-    return enrichChartsWithGoalProgress(dashboardCharts, ctx.db);
+    // Enrich roles with missing assignedUserName
+    const chartsWithUserNames = await enrichChartRolesWithUserNames(
+      dashboardCharts,
+      ctx.workspace.organizationId,
+      ctx.workspace.directory?.id,
+    );
+
+    return enrichChartsWithGoalProgress(chartsWithUserNames, ctx.db);
   }),
 
   getDashboardCharts: workspaceProcedure
@@ -87,7 +95,14 @@ export const dashboardRouter = createTRPCRouter({
         ...cacheStrategyWithTags(dashboardCache, cacheTags),
       });
 
-      return enrichChartsWithGoalProgress(dashboardCharts, ctx.db);
+      // Enrich roles with missing assignedUserName
+      const chartsWithUserNames = await enrichChartRolesWithUserNames(
+        dashboardCharts,
+        ctx.workspace.organizationId,
+        ctx.workspace.directory?.id,
+      );
+
+      return enrichChartsWithGoalProgress(chartsWithUserNames, ctx.db);
     }),
 
   /**

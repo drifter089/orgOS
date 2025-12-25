@@ -126,3 +126,77 @@ export async function getOrganizationDirectoryId(
     return null;
   }
 }
+
+/** Role with optional assignedUserName for enrichment */
+type RoleWithUser = {
+  assignedUserId: string | null;
+  assignedUserName: string | null;
+};
+
+/**
+ * Enriches roles with missing assignedUserName.
+ * Only fetches members if needed. Used by dashboard and public-view routers.
+ */
+export async function enrichRolesWithUserNames<T extends RoleWithUser>(
+  roles: T[],
+  organizationId: string,
+  directoryId?: string | null,
+): Promise<T[]> {
+  const needsEnrichment = roles.some(
+    (r) => r.assignedUserId && !r.assignedUserName,
+  );
+  if (!needsEnrichment) return roles;
+
+  const members = await fetchOrganizationMembers(organizationId, directoryId);
+  const nameMap = buildMemberNameMap(members);
+
+  return roles.map((role) => {
+    if (role.assignedUserId && !role.assignedUserName) {
+      return {
+        ...role,
+        assignedUserName:
+          nameMap.get(role.assignedUserId) ??
+          `User ${role.assignedUserId.substring(0, 8)}`,
+      };
+    }
+    return role;
+  });
+}
+
+/**
+ * Enriches dashboard charts' roles with missing assignedUserName.
+ * Fetches members once for all charts. Used by dashboard router.
+ */
+export async function enrichChartRolesWithUserNames<
+  T extends { metric: { roles: RoleWithUser[] } },
+>(
+  charts: T[],
+  organizationId: string,
+  directoryId?: string | null,
+): Promise<T[]> {
+  const allRoles = charts.flatMap((c) => c.metric.roles);
+  const needsEnrichment = allRoles.some(
+    (r) => r.assignedUserId && !r.assignedUserName,
+  );
+  if (!needsEnrichment) return charts;
+
+  const members = await fetchOrganizationMembers(organizationId, directoryId);
+  const nameMap = buildMemberNameMap(members);
+
+  return charts.map((chart) => ({
+    ...chart,
+    metric: {
+      ...chart.metric,
+      roles: chart.metric.roles.map((role) =>
+        role.assignedUserId && !role.assignedUserName
+          ? {
+              ...role,
+              assignedUserName:
+                nameMap.get(role.assignedUserId) ??
+                `User ${role.assignedUserId.substring(0, 8)}`,
+            }
+          : role,
+      ),
+    },
+  }));
+}
