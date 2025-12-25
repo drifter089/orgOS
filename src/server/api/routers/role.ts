@@ -1,3 +1,4 @@
+import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 
 import { createTRPCRouter, workspaceProcedure } from "@/server/api/trpc";
@@ -161,6 +162,23 @@ export const roleRouter = createTRPCRouter({
 
       if (Object.prototype.hasOwnProperty.call(input, "effortPoints")) {
         data.effortPoints = input.effortPoints ?? null;
+      }
+
+      // Validate max 3 roles per metric
+      if (input.metricId) {
+        const existingRolesCount = await ctx.db.role.count({
+          where: {
+            metricId: input.metricId,
+            id: { not: input.id },
+          },
+        });
+
+        if (existingRolesCount >= 3) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "A metric can have at most 3 roles assigned",
+          });
+        }
       }
 
       const role = await ctx.db.role.update({
