@@ -25,6 +25,11 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import {
+  type SelectionRange,
+  columnToLetter,
+  selectionToA1Notation,
+} from "@/lib/integrations/google-sheets-utils";
 import { api } from "@/trpc/react";
 
 import type { ContentProps } from "../base/MetricDialogBase";
@@ -35,39 +40,7 @@ function extractSpreadsheetId(url: string): string | null {
   return match?.[1] ?? null;
 }
 
-// Convert column index to letter (0 -> A, 1 -> B, etc.)
-function columnToLetter(col: number): string {
-  let letter = "";
-  let temp = col;
-  while (temp >= 0) {
-    letter = String.fromCharCode((temp % 26) + 65) + letter;
-    temp = Math.floor(temp / 26) - 1;
-  }
-  return letter;
-}
-
-// Convert selection to A1 notation
-function selectionToA1Notation(
-  sheetName: string,
-  startRow: number,
-  startCol: number,
-  endRow: number,
-  endCol: number,
-): string {
-  const startColLetter = columnToLetter(startCol);
-  const endColLetter = columnToLetter(endCol);
-  // Rows are 1-indexed in A1 notation
-  return `${sheetName}!${startColLetter}${startRow + 1}:${endColLetter}${endRow + 1}`;
-}
-
 const TEMPLATE_ID = "gsheets-data";
-
-interface SelectionRange {
-  startRow: number;
-  startCol: number;
-  endRow: number;
-  endCol: number;
-}
 
 export function GoogleSheetsMetricContent({
   connection,

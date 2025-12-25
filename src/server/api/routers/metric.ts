@@ -285,6 +285,78 @@ export const metricRouter = createTRPCRouter({
       return { success: true };
     }),
 
+  /**
+   * Update endpointConfig and regenerate the metric pipeline.
+   * Used for editing Google Sheets range selection after initial creation.
+   * Deletes old data points and transformers, then runs a hard refresh.
+   */
+  updateEndpointConfigAndRegenerate: workspaceProcedure
+    .input(
+      z.object({
+        metricId: z.string(),
+        endpointConfig: z.record(z.string()),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      // Verify metric belongs to user's organization
+      const metric = await getMetricAndVerifyAccess(
+        ctx.db,
+        input.metricId,
+        ctx.workspace.organizationId,
+      );
+
+      // Get dashboard chart for transformer deletion
+      const dashboardChart = await ctx.db.dashboardChart.findFirst({
+        where: { metricId: input.metricId },
+        select: { id: true },
+      });
+
+      // Delete old data points and transformers in transaction
+      await ctx.db.$transaction(async (tx) => {
+        // Delete old data points
+        await tx.metricDataPoint.deleteMany({
+          where: { metricId: input.metricId },
+        });
+
+        // Delete old data ingestion transformer
+        await tx.dataIngestionTransformer.deleteMany({
+          where: { templateId: input.metricId },
+        });
+
+        // Delete old chart transformer
+        if (dashboardChart) {
+          await tx.chartTransformer.deleteMany({
+            where: { dashboardChartId: dashboardChart.id },
+          });
+        }
+
+        // Update metric with new endpointConfig and set processing status
+        await tx.metric.update({
+          where: { id: input.metricId },
+          data: {
+            endpointConfig: input.endpointConfig,
+            refreshStatus: "fetching-api-data",
+            lastError: null,
+          },
+        });
+      });
+
+      // Invalidate cache so frontend sees processing status
+      const cacheTags = [`dashboard_org_${ctx.workspace.organizationId}`];
+      if (metric.teamId) cacheTags.push(`dashboard_team_${metric.teamId}`);
+      await invalidateCacheByTags(ctx.db, cacheTags);
+
+      // Trigger pipeline regeneration in background
+      void runBackgroundTask({
+        metricId: input.metricId,
+        type: "hard-refresh",
+        organizationId: ctx.workspace.organizationId,
+        teamId: metric.teamId ?? undefined,
+      });
+
+      return { success: true };
+    }),
+
   // ===========================================================================
   // Integration Data Fetching (Single Query for dropdowns AND raw data)
   // ===========================================================================

@@ -9,6 +9,7 @@ import {
   ClipboardCheck,
   Info,
   Loader2,
+  Pencil,
   Settings,
   X,
 } from "lucide-react";
@@ -52,6 +53,7 @@ export function DashboardMetricCard({
   teamId,
 }: DashboardMetricCardProps) {
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  const [isEditMode, setIsEditMode] = useState(false);
   const { confirm } = useConfirmation();
   const utils = api.useUtils();
   const { isProcessing, getError } = useDashboardCharts(teamId);
@@ -62,6 +64,7 @@ export function DashboardMetricCard({
   const error = getError(metricId);
 
   const isIntegrationMetric = !!metric.integration?.providerId;
+  const isGoogleSheets = metric.templateId?.startsWith("gsheets-") ?? false;
   const chartTransform =
     dashboardChart.chartConfig as ChartTransformResult | null;
   const hasChartData = !!chartTransform?.chartData?.length;
@@ -119,6 +122,18 @@ export function DashboardMetricCard({
       toast.error("Update failed", { description: err.message }),
   });
 
+  const updateConfigMutation =
+    api.metric.updateEndpointConfigAndRegenerate.useMutation({
+      onMutate: () => setOptimisticProcessing(metricId),
+      onSuccess: () => {
+        setIsEditMode(false);
+        toast.success("Range updated, refreshing data...");
+        void utils.dashboard.getDashboardCharts.invalidate({ teamId });
+      },
+      onError: (err) =>
+        toast.error("Update failed", { description: err.message }),
+    });
+
   // ---------------------------------------------------------------------------
   // Handlers
   // ---------------------------------------------------------------------------
@@ -169,6 +184,28 @@ export function DashboardMetricCard({
     },
     [metricId, regenerateChartMutation],
   );
+
+  const handleUpdateConfig = useCallback(
+    (newDataRange: string) => {
+      const currentConfig = metric.endpointConfig as Record<string, string>;
+      updateConfigMutation.mutate({
+        metricId,
+        endpointConfig: {
+          ...currentConfig,
+          DATA_RANGE: newDataRange,
+        },
+      });
+    },
+    [metricId, metric.endpointConfig, updateConfigMutation],
+  );
+
+  // Reset edit mode when drawer closes
+  const handleDrawerOpenChange = useCallback((open: boolean) => {
+    setIsDrawerOpen(open);
+    if (!open) {
+      setIsEditMode(false);
+    }
+  }, []);
 
   // ---------------------------------------------------------------------------
   // Render
@@ -238,7 +275,7 @@ export function DashboardMetricCard({
   );
 
   return (
-    <Drawer open={isDrawerOpen} onOpenChange={setIsDrawerOpen}>
+    <Drawer open={isDrawerOpen} onOpenChange={handleDrawerOpenChange}>
       {cardContent}
 
       <DrawerContent className="flex h-[60vh] max-h-[60vh] flex-col overflow-hidden">
@@ -301,6 +338,16 @@ export function DashboardMetricCard({
                 </TooltipContent>
               </Tooltip>
             )}
+            {isGoogleSheets && !isEditMode && !processing && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setIsEditMode(true)}
+              >
+                <Pencil className="mr-1 h-4 w-4" />
+                Edit Range
+              </Button>
+            )}
             <DrawerClose asChild>
               <Button
                 variant="ghost"
@@ -325,6 +372,10 @@ export function DashboardMetricCard({
             onDelete={handleDelete}
             onClose={() => setIsDrawerOpen(false)}
             onRegenerateChart={handleRegenerateChart}
+            isEditMode={isEditMode}
+            onExitEditMode={() => setIsEditMode(false)}
+            onUpdateConfig={handleUpdateConfig}
+            isUpdatingConfig={updateConfigMutation.isPending}
           />
         </div>
       </DrawerContent>
