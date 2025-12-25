@@ -27,7 +27,7 @@ export function RoleTabContent({
   if (!teamId) {
     return (
       <div className="flex h-full flex-col items-center justify-center p-6">
-        <div className="bg-muted/50 mb-4 flex h-16 w-16 items-center justify-center rounded-full">
+        <div className="bg-muted/50 mb-4 flex h-16 w-16 items-center justify-center">
           <Users className="text-muted-foreground h-8 w-8" />
         </div>
         <p className="text-muted-foreground text-center text-sm">
@@ -38,8 +38,14 @@ export function RoleTabContent({
   }
 
   return (
-    <div className="flex h-full flex-col overflow-y-auto p-4">
-      <h3 className="mb-4 text-sm font-semibold">Assigned Roles</h3>
+    <div className="flex h-full flex-col overflow-y-auto p-5">
+      <div className="mb-5">
+        <h3 className="text-base font-semibold">Assigned Roles</h3>
+        <p className="text-muted-foreground mt-1 text-xs leading-relaxed">
+          Assign team roles responsible for this metric. Each role can have a
+          member accountable for tracking progress.
+        </p>
+      </div>
 
       {/* Existing roles as cards */}
       {roles.length > 0 ? (
@@ -47,12 +53,12 @@ export function RoleTabContent({
           {roles.map((role) => (
             <div
               key={role.id}
-              className="bg-background rounded-lg border p-3 shadow-sm"
+              className="bg-background border p-3 shadow-sm"
               style={{ borderLeftColor: role.color, borderLeftWidth: 3 }}
             >
               <div className="flex items-start gap-3">
                 <div
-                  className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full"
+                  className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center"
                   style={{ backgroundColor: `${role.color}20` }}
                 >
                   <Target className="h-4 w-4" style={{ color: role.color }} />
@@ -75,8 +81,8 @@ export function RoleTabContent({
           ))}
         </div>
       ) : (
-        <div className="bg-muted/20 mb-4 flex flex-col items-center rounded-lg border border-dashed p-6 text-center">
-          <div className="bg-muted mb-3 flex h-12 w-12 items-center justify-center rounded-full">
+        <div className="bg-muted/20 mb-4 flex flex-col items-center border border-dashed p-6 text-center">
+          <div className="bg-muted mb-3 flex h-12 w-12 items-center justify-center">
             <Users className="text-muted-foreground h-6 w-6" />
           </div>
           <p className="text-muted-foreground text-sm">No roles assigned yet</p>

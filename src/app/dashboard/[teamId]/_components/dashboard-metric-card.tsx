@@ -242,7 +242,7 @@ export function DashboardMetricCard({
       {cardContent}
 
       <DrawerContent className="flex h-[60vh] max-h-[60vh] flex-col overflow-hidden">
-        <DrawerHeader className="flex flex-row items-center justify-between border-b px-6 py-4">
+        <DrawerHeader className="relative flex flex-row items-center justify-between border-b px-6 py-4">
           <div className="flex items-center gap-3">
             <DrawerTitle className="text-lg font-semibold">
               {metric.name}
@@ -285,7 +285,7 @@ export function DashboardMetricCard({
               </Badge>
             )}
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-3">
             {!isIntegrationMetric && (
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -302,8 +302,13 @@ export function DashboardMetricCard({
               </Tooltip>
             )}
             <DrawerClose asChild>
-              <Button variant="ghost" size="icon" className="h-8 w-8">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="hover:bg-muted h-9 w-9 transition-colors"
+              >
                 <X className="h-4 w-4" />
+                <span className="sr-only">Close</span>
               </Button>
             </DrawerClose>
           </div>

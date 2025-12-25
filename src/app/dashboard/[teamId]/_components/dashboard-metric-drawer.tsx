@@ -12,7 +12,6 @@ import type { DashboardChartWithRelations } from "@/types/dashboard";
 
 import { DashboardMetricChart } from "./dashboard-metric-chart";
 import {
-  ChartStatsBar,
   type DrawerTab,
   DrawerTabButtons,
   GoalTabContent,
@@ -112,30 +111,11 @@ export function DashboardMetricDrawer({
   };
 
   return (
-    <div className="grid h-full grid-cols-[50%_30%_20%] gap-0">
-      <div className="flex flex-col border-r">
-        <ChartStatsBar
-          currentValue={currentValue}
-          valueLabel={dashboardChart.valueLabel ?? null}
-        />
+    <div className="grid h-full grid-cols-[auto_1fr_1.2fr] gap-0">
+      {/* Tab Buttons Column */}
+      <DrawerTabButtons activeTab={activeTab} onTabChange={setActiveTab} />
 
-        <div className="flex-1 overflow-hidden p-4">
-          <DashboardMetricChart
-            title={chartTransform?.title ?? metric.name}
-            chartTransform={chartTransform ?? null}
-            hasChartData={hasChartData}
-            isIntegrationMetric={isIntegrationMetric}
-            integrationId={metric.integration?.providerId}
-            roles={metric.roles ?? []}
-            goal={metric.goal}
-            goalProgress={goalProgress}
-            valueLabel={dashboardChart.valueLabel ?? null}
-            isProcessing={isProcessing}
-          />
-        </div>
-      </div>
-
-      {/* Tab Content Column (30%) */}
+      {/* Tab Content Column */}
       <div className="bg-muted/20 relative overflow-hidden border-r">
         {/* Goal Tab */}
         <div
@@ -213,8 +193,23 @@ export function DashboardMetricDrawer({
         </div>
       </div>
 
-      {/* Tab Buttons Column (10%) */}
-      <DrawerTabButtons activeTab={activeTab} onTabChange={setActiveTab} />
+      {/* Chart Column */}
+      <div className="flex flex-col border-l">
+        <div className="flex-1 overflow-hidden p-4">
+          <DashboardMetricChart
+            title={chartTransform?.title ?? metric.name}
+            chartTransform={chartTransform ?? null}
+            hasChartData={hasChartData}
+            isIntegrationMetric={isIntegrationMetric}
+            integrationId={metric.integration?.providerId}
+            roles={metric.roles ?? []}
+            goal={metric.goal}
+            goalProgress={goalProgress}
+            valueLabel={dashboardChart.valueLabel ?? null}
+            isProcessing={isProcessing}
+          />
+        </div>
+      </div>
     </div>
   );
 }
