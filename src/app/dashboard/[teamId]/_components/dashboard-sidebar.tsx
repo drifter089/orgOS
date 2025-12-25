@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useState } from "react";
 
-import type { Cadence } from "@prisma/client";
 import {
   Check,
   Eye,
@@ -13,7 +12,6 @@ import {
   Plus,
   Settings,
 } from "lucide-react";
-import { toast } from "sonner";
 
 import {
   AddPlatformButton,
@@ -32,7 +30,6 @@ import {
 import type { ChartDragData } from "@/app/teams/[teamId]/hooks/use-chart-drag-drop";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Drawer, DrawerContent, DrawerTitle } from "@/components/ui/drawer";
 import { Separator } from "@/components/ui/separator";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import {
@@ -42,11 +39,10 @@ import {
 } from "@/components/ui/tooltip";
 import { getPlatformConfig } from "@/lib/platform-config";
 import { cn } from "@/lib/utils";
-import { useConfirmation } from "@/providers/ConfirmationDialogProvider";
-import { type RouterOutputs, api } from "@/trpc/react";
+import type { RouterOutputs } from "@/trpc/react";
 
-import { DashboardMetricDrawer } from "./dashboard-metric-drawer";
 import { DashboardSheetEdgeTrigger } from "./dashboard-sheet-edge-trigger";
+import { MetricSettingsDrawer } from "./metric-settings-drawer";
 
 type IntegrationsWithStats = RouterOutputs["integration"]["listWithStats"];
 
@@ -75,172 +71,91 @@ function SidebarMetricCard({
   onDragStart,
   onDragEnd,
 }: SidebarMetricCardProps) {
-  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
-  const { confirm } = useConfirmation();
-  const utils = api.useUtils();
-
   const metric = dashboardChart.metric;
-  const metricId = metric.id;
   const isProcessing = !!metric.refreshStatus;
   const isOnCanvas = chartNodesOnCanvas?.has(dashboardChart.id);
   const canDrag = enableDragDrop && !isProcessing;
   const isCurrentlyDragging = isDragging;
-  const isIntegrationMetric = !!metric.integration?.providerId;
-
-  const setOptimisticProcessing = useCallback(
-    (id: string) => {
-      utils.dashboard.getDashboardCharts.setData({ teamId }, (old) =>
-        old?.map((dc) =>
-          dc.metric.id === id
-            ? { ...dc, metric: { ...dc.metric, refreshStatus: "processing" } }
-            : dc,
-        ),
-      );
-    },
-    [utils, teamId],
-  );
-
-  const refreshMutation = api.pipeline.refresh.useMutation({
-    onMutate: () => setOptimisticProcessing(metricId),
-    onSuccess: () => utils.dashboard.getDashboardCharts.invalidate({ teamId }),
-    onError: (err) =>
-      toast.error("Refresh failed", { description: err.message }),
-  });
-
-  const regenerateMutation = api.pipeline.regenerate.useMutation({
-    onMutate: () => setOptimisticProcessing(metricId),
-    onSuccess: () => utils.dashboard.getDashboardCharts.invalidate({ teamId }),
-    onError: (err) =>
-      toast.error("Regenerate failed", { description: err.message }),
-  });
-
-  const regenerateChartMutation = api.pipeline.regenerateChartOnly.useMutation({
-    onMutate: () => setOptimisticProcessing(metricId),
-    onSuccess: () => utils.dashboard.getDashboardCharts.invalidate({ teamId }),
-    onError: (err) =>
-      toast.error("Chart update failed", { description: err.message }),
-  });
-
-  const deleteMutation = api.metric.delete.useMutation({
-    onSuccess: () => utils.dashboard.getDashboardCharts.invalidate({ teamId }),
-    onError: (err) =>
-      toast.error("Delete failed", { description: err.message }),
-  });
-
-  const updateMutation = api.metric.update.useMutation({
-    onSuccess: () => utils.dashboard.getDashboardCharts.invalidate({ teamId }),
-    onError: (err) =>
-      toast.error("Update failed", { description: err.message }),
-  });
-
-  // Handlers
-  const handleRefresh = useCallback(
-    (forceRebuild = false) => {
-      if (!isIntegrationMetric || forceRebuild) {
-        regenerateMutation.mutate({ metricId });
-      } else {
-        refreshMutation.mutate({ metricId });
-      }
-    },
-    [metricId, isIntegrationMetric, refreshMutation, regenerateMutation],
-  );
-
-  const handleDelete = useCallback(async () => {
-    const confirmed = await confirm({
-      title: "Delete metric",
-      description: `Are you sure you want to delete "${metric.name}"? This action cannot be undone.`,
-      confirmText: "Delete",
-      variant: "destructive",
-    });
-
-    if (confirmed) {
-      deleteMutation.mutate({ id: metricId });
-      setIsDrawerOpen(false);
-    }
-  }, [metric.name, metricId, confirm, deleteMutation]);
-
-  const handleUpdateMetric = useCallback(
-    (name: string, description: string) => {
-      updateMutation.mutate({
-        id: metricId,
-        name,
-        description: description || undefined,
-      });
-    },
-    [metricId, updateMutation],
-  );
-
-  const handleRegenerateChart = useCallback(
-    (chartType: string, cadence: Cadence, selectedDimension?: string) => {
-      regenerateChartMutation.mutate({
-        metricId,
-        chartType,
-        cadence,
-        selectedDimension,
-      });
-    },
-    [metricId, regenerateChartMutation],
-  );
 
   return (
-    <>
+    <div
+      draggable={canDrag ? true : undefined}
+      onDragStart={(e) => {
+        e.stopPropagation();
+        if (canDrag) {
+          onDragStart(e, dashboardChart);
+        }
+      }}
+      onDragEnd={onDragEnd}
+      className={cn(
+        "group hover:bg-accent/50 relative flex items-center gap-3 rounded-lg border p-3",
+        isProcessing && "opacity-70",
+        canDrag && "cursor-grab active:cursor-grabbing",
+        isCurrentlyDragging && "border-primary opacity-50",
+        isOnCanvas && "border-primary/50 bg-primary/5",
+      )}
+    >
+      {/* Drag handle indicator */}
+      {enableDragDrop &&
+        (canDrag ? (
+          <GripVertical className="text-muted-foreground/50 group-hover:text-muted-foreground h-4 w-4 shrink-0 transition-colors" />
+        ) : (
+          <div className="h-4 w-4 shrink-0" />
+        ))}
+
       <div
-        draggable={canDrag ? true : undefined}
-        onDragStart={(e) => {
-          e.stopPropagation();
-          if (canDrag) {
-            onDragStart(e, dashboardChart);
-          }
-        }}
-        onDragEnd={onDragEnd}
         className={cn(
-          "group hover:bg-accent/50 relative flex items-center gap-3 rounded-lg border p-3",
-          isProcessing && "opacity-70",
-          canDrag && "cursor-grab active:cursor-grabbing",
-          isCurrentlyDragging && "border-primary opacity-50",
-          isOnCanvas && "border-primary/50 bg-primary/5",
+          "h-8 w-1 rounded-full",
+          getPlatformConfig(metric.integration?.providerId ?? "manual").bgColor,
         )}
-      >
-        {/* Drag handle indicator */}
-        {enableDragDrop &&
-          (canDrag ? (
-            <GripVertical className="text-muted-foreground/50 group-hover:text-muted-foreground h-4 w-4 shrink-0 transition-colors" />
-          ) : (
-            <div className="h-4 w-4 shrink-0" />
-          ))}
-
-        <div
-          className={cn(
-            "h-8 w-1 rounded-full",
-            getPlatformConfig(metric.integration?.providerId ?? "manual")
-              .bgColor,
+      />
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center gap-2">
+          <p className="truncate text-sm font-medium">{metric.name}</p>
+          {isProcessing && (
+            <Badge variant="secondary" className="shrink-0 text-xs">
+              <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+              Processing
+            </Badge>
           )}
-        />
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2">
-            <p className="truncate text-sm font-medium">{metric.name}</p>
-            {isProcessing && (
-              <Badge variant="secondary" className="shrink-0 text-xs">
-                <Loader2 className="mr-1 h-3 w-3 animate-spin" />
-                Processing
-              </Badge>
-            )}
-            {isOnCanvas && (
-              <Badge
-                variant="outline"
-                className="border-primary/30 text-primary shrink-0 text-xs"
-              >
-                <Check className="mr-1 h-3 w-3" />
-                On canvas
-              </Badge>
-            )}
-          </div>
-          <p className="text-muted-foreground text-xs capitalize">
-            {metric.integration?.providerId ?? "manual"}
-          </p>
+          {isOnCanvas && (
+            <Badge
+              variant="outline"
+              className="border-primary/30 text-primary shrink-0 text-xs"
+            >
+              <Check className="mr-1 h-3 w-3" />
+              On canvas
+            </Badge>
+          )}
         </div>
+        <p className="text-muted-foreground text-xs capitalize">
+          {metric.integration?.providerId ?? "manual"}
+        </p>
+      </div>
 
-        {/* Settings button */}
+      {/* Settings button - opens unified drawer */}
+      <MetricSettingsDrawer
+        dashboardChart={dashboardChart}
+        teamId={teamId}
+        trigger={
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7 shrink-0 opacity-0 transition-opacity group-hover:opacity-100"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <Settings className="h-4 w-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="left">Settings</TooltipContent>
+          </Tooltip>
+        }
+      />
+
+      {/* Eye toggle button - only when drag-drop is enabled */}
+      {enableDragDrop && onToggleChartVisibility && (
         <Tooltip>
           <TooltipTrigger asChild>
             <Button
@@ -249,61 +164,22 @@ function SidebarMetricCard({
               className="h-7 w-7 shrink-0 opacity-0 transition-opacity group-hover:opacity-100"
               onClick={(e) => {
                 e.stopPropagation();
-                setIsDrawerOpen(true);
+                onToggleChartVisibility(dashboardChart);
               }}
             >
-              <Settings className="h-4 w-4" />
+              {isOnCanvas ? (
+                <EyeOff className="h-4 w-4" />
+              ) : (
+                <Eye className="h-4 w-4" />
+              )}
             </Button>
           </TooltipTrigger>
-          <TooltipContent side="left">Settings</TooltipContent>
+          <TooltipContent side="left">
+            {isOnCanvas ? "Remove from canvas" : "Add to canvas"}
+          </TooltipContent>
         </Tooltip>
-
-        {/* Eye toggle button - only when drag-drop is enabled */}
-        {enableDragDrop && onToggleChartVisibility && (
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-7 w-7 shrink-0 opacity-0 transition-opacity group-hover:opacity-100"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onToggleChartVisibility(dashboardChart);
-                }}
-              >
-                {isOnCanvas ? (
-                  <EyeOff className="h-4 w-4" />
-                ) : (
-                  <Eye className="h-4 w-4" />
-                )}
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent side="left">
-              {isOnCanvas ? "Remove from canvas" : "Add to canvas"}
-            </TooltipContent>
-          </Tooltip>
-        )}
-      </div>
-
-      {/* Settings Drawer */}
-      <Drawer open={isDrawerOpen} onOpenChange={setIsDrawerOpen}>
-        <DrawerContent className="flex h-[90vh] max-h-[90vh] flex-col overflow-hidden">
-          <DrawerTitle className="sr-only">{metric.name} Settings</DrawerTitle>
-          <div className="min-h-0 w-full flex-1">
-            <DashboardMetricDrawer
-              dashboardChartId={dashboardChart.id}
-              teamId={teamId}
-              isDeleting={deleteMutation.isPending}
-              onRefresh={handleRefresh}
-              onUpdateMetric={handleUpdateMetric}
-              onDelete={handleDelete}
-              onClose={() => setIsDrawerOpen(false)}
-              onRegenerateChart={handleRegenerateChart}
-            />
-          </div>
-        </DrawerContent>
-      </Drawer>
-    </>
+      )}
+    </div>
   );
 }
 

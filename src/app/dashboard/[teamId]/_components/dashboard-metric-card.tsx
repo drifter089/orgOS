@@ -1,30 +1,9 @@
 "use client";
 
-import { useCallback, useState } from "react";
-
-import type { Cadence } from "@prisma/client";
-import {
-  AlertCircle,
-  Bug,
-  ClipboardCheck,
-  Info,
-  Loader2,
-  Settings,
-  X,
-} from "lucide-react";
-import { Link } from "next-transition-router";
-import { toast } from "sonner";
+import { AlertCircle, Bug, Settings } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-  Drawer,
-  DrawerClose,
-  DrawerContent,
-  DrawerHeader,
-  DrawerTitle,
-  DrawerTrigger,
-} from "@/components/ui/drawer";
 import {
   Tooltip,
   TooltipContent,
@@ -32,14 +11,10 @@ import {
 } from "@/components/ui/tooltip";
 import { isDevMode } from "@/lib/dev-mode";
 import type { ChartTransformResult } from "@/lib/metrics/transformer-types";
-import { getPlatformConfig } from "@/lib/platform-config";
-import { cn } from "@/lib/utils";
-import { useConfirmation } from "@/providers/ConfirmationDialogProvider";
-import { api } from "@/trpc/react";
 import type { DashboardChartWithRelations } from "@/types/dashboard";
 
 import { DashboardMetricChart } from "./dashboard-metric-chart";
-import { DashboardMetricDrawer } from "./dashboard-metric-drawer";
+import { MetricSettingsDrawer } from "./metric-settings-drawer";
 import { useDashboardCharts } from "./use-dashboard-charts";
 
 interface DashboardMetricCardProps {
@@ -51,9 +26,6 @@ export function DashboardMetricCard({
   dashboardChart,
   teamId,
 }: DashboardMetricCardProps) {
-  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
-  const { confirm } = useConfirmation();
-  const utils = api.useUtils();
   const { isProcessing, getError } = useDashboardCharts(teamId);
 
   const metric = dashboardChart.metric;
@@ -66,114 +38,8 @@ export function DashboardMetricCard({
     dashboardChart.chartConfig as ChartTransformResult | null;
   const hasChartData = !!chartTransform?.chartData?.length;
   const title = chartTransform?.title ?? metric.name;
-  const platformConfig = metric.integration?.providerId
-    ? getPlatformConfig(metric.integration.providerId)
-    : null;
 
-  // ---------------------------------------------------------------------------
-  // Mutations with optimistic updates
-  // ---------------------------------------------------------------------------
-  const setOptimisticProcessing = useCallback(
-    (id: string) => {
-      utils.dashboard.getDashboardCharts.setData({ teamId }, (old) =>
-        old?.map((dc) =>
-          dc.metric.id === id
-            ? { ...dc, metric: { ...dc.metric, refreshStatus: "processing" } }
-            : dc,
-        ),
-      );
-    },
-    [utils, teamId],
-  );
-
-  const refreshMutation = api.pipeline.refresh.useMutation({
-    onMutate: () => setOptimisticProcessing(metricId),
-    onSuccess: () => utils.dashboard.getDashboardCharts.invalidate({ teamId }),
-    onError: (err) =>
-      toast.error("Refresh failed", { description: err.message }),
-  });
-
-  const regenerateMutation = api.pipeline.regenerate.useMutation({
-    onMutate: () => setOptimisticProcessing(metricId),
-    onSuccess: () => utils.dashboard.getDashboardCharts.invalidate({ teamId }),
-    onError: (err) =>
-      toast.error("Regenerate failed", { description: err.message }),
-  });
-
-  const regenerateChartMutation = api.pipeline.regenerateChartOnly.useMutation({
-    onMutate: () => setOptimisticProcessing(metricId),
-    onSuccess: () => utils.dashboard.getDashboardCharts.invalidate({ teamId }),
-    onError: (err) =>
-      toast.error("Chart update failed", { description: err.message }),
-  });
-
-  const deleteMutation = api.metric.delete.useMutation({
-    onSuccess: () => utils.dashboard.getDashboardCharts.invalidate({ teamId }),
-    onError: (err) =>
-      toast.error("Delete failed", { description: err.message }),
-  });
-
-  const updateMutation = api.metric.update.useMutation({
-    onSuccess: () => utils.dashboard.getDashboardCharts.invalidate({ teamId }),
-    onError: (err) =>
-      toast.error("Update failed", { description: err.message }),
-  });
-
-  // ---------------------------------------------------------------------------
-  // Handlers
-  // ---------------------------------------------------------------------------
-  const handleRefresh = useCallback(
-    (forceRebuild = false) => {
-      if (!isIntegrationMetric || forceRebuild) {
-        regenerateMutation.mutate({ metricId });
-      } else {
-        refreshMutation.mutate({ metricId });
-      }
-    },
-    [metricId, isIntegrationMetric, refreshMutation, regenerateMutation],
-  );
-
-  const handleDelete = useCallback(async () => {
-    const confirmed = await confirm({
-      title: "Delete metric",
-      description: `Are you sure you want to delete "${metric.name}"? This action cannot be undone.`,
-      confirmText: "Delete",
-      variant: "destructive",
-    });
-
-    if (confirmed) {
-      deleteMutation.mutate({ id: metricId });
-      setIsDrawerOpen(false);
-    }
-  }, [metric.name, metricId, confirm, deleteMutation]);
-
-  const handleUpdateMetric = useCallback(
-    (name: string, description: string) => {
-      updateMutation.mutate({
-        id: metricId,
-        name,
-        description: description || undefined,
-      });
-    },
-    [metricId, updateMutation],
-  );
-
-  const handleRegenerateChart = useCallback(
-    (chartType: string, cadence: Cadence, selectedDimension?: string) => {
-      regenerateChartMutation.mutate({
-        metricId,
-        chartType,
-        cadence,
-        selectedDimension,
-      });
-    },
-    [metricId, regenerateChartMutation],
-  );
-
-  // ---------------------------------------------------------------------------
-  // Render
-  // ---------------------------------------------------------------------------
-  const cardContent = (
+  return (
     <div className="relative">
       {error && !processing && (
         <Tooltip>
@@ -192,15 +58,19 @@ export function DashboardMetricCard({
         </Tooltip>
       )}
 
-      <DrawerTrigger asChild>
-        <Button
-          variant="ghost"
-          size="icon"
-          className="absolute top-2 right-2 z-10 h-7 w-7"
-        >
-          <Settings className="h-4 w-4" />
-        </Button>
-      </DrawerTrigger>
+      <MetricSettingsDrawer
+        dashboardChart={dashboardChart}
+        teamId={teamId}
+        trigger={
+          <Button
+            variant="ghost"
+            size="icon"
+            className="absolute top-2 right-2 z-10 h-7 w-7"
+          >
+            <Settings className="h-4 w-4" />
+          </Button>
+        }
+      />
 
       {isDevMode() && (
         <Tooltip>
@@ -235,99 +105,6 @@ export function DashboardMetricCard({
         isProcessing={processing}
       />
     </div>
-  );
-
-  return (
-    <Drawer open={isDrawerOpen} onOpenChange={setIsDrawerOpen}>
-      {cardContent}
-
-      <DrawerContent className="flex h-[60vh] max-h-[60vh] flex-col overflow-hidden">
-        <DrawerHeader className="relative flex flex-row items-center justify-between border-b px-6 py-4">
-          <div className="flex items-center gap-3">
-            <DrawerTitle className="text-lg font-semibold">
-              {metric.name}
-            </DrawerTitle>
-            {chartTransform && (
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <button
-                    type="button"
-                    className="text-muted-foreground/60 hover:text-muted-foreground shrink-0 transition-colors"
-                  >
-                    <Info className="h-4 w-4" />
-                  </button>
-                </TooltipTrigger>
-                <TooltipContent side="bottom" className="max-w-[280px]">
-                  <p className="text-xs">
-                    {chartTransform.description ??
-                      `Showing ${chartTransform.chartType} chart with ${chartTransform.dataKeys?.join(", ") ?? "data"}`}
-                  </p>
-                </TooltipContent>
-              </Tooltip>
-            )}
-            {platformConfig && (
-              <Badge
-                variant="secondary"
-                className={cn(platformConfig.bgColor, platformConfig.textColor)}
-              >
-                {platformConfig.name}
-              </Badge>
-            )}
-            {error && (
-              <Badge variant="destructive" className="text-xs">
-                Error
-              </Badge>
-            )}
-            {processing && (
-              <Badge variant="outline" className="text-xs">
-                <Loader2 className="mr-1 h-3 w-3 animate-spin" />
-                Processing
-              </Badge>
-            )}
-          </div>
-          <div className="flex items-center gap-3">
-            {!isIntegrationMetric && (
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button variant="default" size="sm" asChild>
-                    <Link href={`/metric/check-in/${metricId}`}>
-                      <ClipboardCheck className="mr-1 h-4 w-4" />
-                      Check-in
-                    </Link>
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent side="bottom">
-                  <p className="text-xs">Add a new data point</p>
-                </TooltipContent>
-              </Tooltip>
-            )}
-            <DrawerClose asChild>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="hover:bg-muted h-9 w-9 transition-colors"
-              >
-                <X className="h-4 w-4" />
-                <span className="sr-only">Close</span>
-              </Button>
-            </DrawerClose>
-          </div>
-        </DrawerHeader>
-
-        <div className="min-h-0 w-full flex-1">
-          <DashboardMetricDrawer
-            dashboardChartId={dashboardChart.id}
-            teamId={teamId}
-            isDeleting={deleteMutation.isPending}
-            onRefresh={handleRefresh}
-            onUpdateMetric={handleUpdateMetric}
-            onDelete={handleDelete}
-            onClose={() => setIsDrawerOpen(false)}
-            onRegenerateChart={handleRegenerateChart}
-          />
-        </div>
-      </DrawerContent>
-    </Drawer>
   );
 }
 
