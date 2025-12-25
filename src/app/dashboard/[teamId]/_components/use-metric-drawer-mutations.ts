@@ -61,7 +61,10 @@ export function useMetricDrawerMutations({
   });
 
   const deleteMutation = api.metric.delete.useMutation({
-    onSuccess: () => utils.dashboard.getDashboardCharts.invalidate({ teamId }),
+    onSuccess: () => {
+      void utils.dashboard.getDashboardCharts.invalidate({ teamId });
+      void utils.role.getByTeamId.invalidate({ teamId });
+    },
     onError: (err) =>
       toast.error("Delete failed", { description: err.message }),
   });
