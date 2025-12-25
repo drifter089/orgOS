@@ -9,8 +9,7 @@ import {
 } from "@/server/api/utils/cache-strategy";
 import { enrichChartsWithGoalProgress } from "@/server/api/utils/enrich-charts-with-goal-progress";
 import {
-  buildMemberNameMap,
-  fetchOrganizationMembers,
+  enrichRolesWithUserNames,
   getOrganizationDirectoryId,
 } from "@/server/api/utils/organization-members";
 
@@ -53,31 +52,13 @@ export const publicViewRouter = createTRPCRouter({
         });
       }
 
-      // Enrich roles with missing assignedUserName using same logic as private view
-      const rolesNeedingEnrichment = team.roles.some(
-        (role) => role.assignedUserId && !role.assignedUserName,
-      );
-
-      if (!rolesNeedingEnrichment) {
-        return team;
-      }
-
+      // Enrich roles with missing assignedUserName
       const directoryId = await getOrganizationDirectoryId(team.organizationId);
-      const members = await fetchOrganizationMembers(
+      const enrichedRoles = await enrichRolesWithUserNames(
+        team.roles,
         team.organizationId,
         directoryId,
       );
-      const memberNameMap = buildMemberNameMap(members);
-
-      const enrichedRoles = team.roles.map((role) => {
-        if (role.assignedUserId && !role.assignedUserName) {
-          const userName =
-            memberNameMap.get(role.assignedUserId) ??
-            `User ${role.assignedUserId.substring(0, 8)}`;
-          return { ...role, assignedUserName: userName };
-        }
-        return role;
-      });
 
       return { ...team, roles: enrichedRoles };
     }),
