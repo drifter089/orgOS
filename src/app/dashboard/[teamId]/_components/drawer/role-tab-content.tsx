@@ -1,8 +1,12 @@
 "use client";
 
-import { Target, User, Users } from "lucide-react";
+import { useState } from "react";
+
+import { Pencil, Target, User, Users } from "lucide-react";
 
 import { RoleAssignment } from "@/components/metric/role-assignment";
+import { RoleEditDialog } from "@/components/role/role-edit-dialog";
+import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 
 interface RoleTabContentProps {
@@ -24,6 +28,8 @@ export function RoleTabContent({
   teamId,
   roles,
 }: RoleTabContentProps) {
+  const [editingRoleId, setEditingRoleId] = useState<string | null>(null);
+
   if (!teamId) {
     return (
       <div className="flex h-full flex-col items-center justify-center p-6">
@@ -53,7 +59,7 @@ export function RoleTabContent({
           {roles.map((role) => (
             <div
               key={role.id}
-              className="bg-background border p-3 shadow-sm"
+              className="bg-background group border p-3 shadow-sm"
               style={{ borderLeftColor: role.color, borderLeftWidth: 3 }}
             >
               <div className="flex items-start gap-3">
@@ -76,6 +82,14 @@ export function RoleTabContent({
                     </div>
                   )}
                 </div>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-7 w-7 opacity-0 transition-opacity group-hover:opacity-100"
+                  onClick={() => setEditingRoleId(role.id)}
+                >
+                  <Pencil className="h-3.5 w-3.5" />
+                </Button>
               </div>
             </div>
           ))}
@@ -102,6 +116,17 @@ export function RoleTabContent({
           assignedRoleIds={roles.map((r) => r.id)}
         />
       </div>
+
+      {editingRoleId && (
+        <RoleEditDialog
+          teamId={teamId}
+          roleId={editingRoleId}
+          open={!!editingRoleId}
+          onOpenChange={(open) => {
+            if (!open) setEditingRoleId(null);
+          }}
+        />
+      )}
     </div>
   );
 }

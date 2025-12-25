@@ -8,6 +8,28 @@ import type { RouterOutputs } from "@/trpc/react";
 type DashboardChart = RouterOutputs["dashboard"]["getDashboardCharts"][number];
 
 /**
+ * Helper to get user's display name from the organization members cache.
+ * Returns null if user not found.
+ */
+function getAssignedUserName(
+  members: Array<{
+    id: string;
+    firstName: string | null;
+    lastName: string | null;
+    email: string;
+  }>,
+  userId: string | null | undefined,
+): string | null {
+  if (!userId) return null;
+  const member = members.find((m) => m.id === userId);
+  if (!member) return null;
+  return (
+    [member.firstName, member.lastName].filter(Boolean).join(" ") ||
+    member.email
+  );
+}
+
+/**
  * Shared hook for role updates with optimistic updates on both caches.
  * Use this everywhere role-metric assignment happens:
  * - Role dialog (use-update-role.tsx)
@@ -40,6 +62,16 @@ export function useOptimisticRoleUpdate(teamId: string) {
         ? metrics?.find((m) => m.id === newMetricId)
         : null;
 
+      // Get members for name lookup when assignedUserId changes
+      const members = utils.organization.getMembers.getData() ?? [];
+      const assignedUserIdProvided = "assignedUserId" in variables;
+      const newAssignedUserId: string | null = assignedUserIdProvided
+        ? (variables.assignedUserId ?? null)
+        : (updatedRole?.assignedUserId ?? null);
+      const newAssignedUserName: string | null = assignedUserIdProvided
+        ? getAssignedUserName(members, newAssignedUserId)
+        : (updatedRole?.assignedUserName ?? null);
+
       // Update role cache
       utils.role.getByTeamId.setData({ teamId }, (old) =>
         old?.map((role) =>
@@ -53,7 +85,8 @@ export function useOptimisticRoleUpdate(teamId: string) {
                 metricId: metricIdProvided
                   ? (variables.metricId ?? null)
                   : role.metricId,
-                assignedUserId: variables.assignedUserId ?? role.assignedUserId,
+                assignedUserId: newAssignedUserId,
+                assignedUserName: newAssignedUserName,
                 color: variables.color ?? role.color,
                 metric: metricIdProvided
                   ? selectedMetric
@@ -75,18 +108,22 @@ export function useOptimisticRoleUpdate(teamId: string) {
         // newMetricId is guaranteed to be string | null here (not undefined) because metricIdProvided is true
         const roleForDashboard = {
           id: updatedRole.id,
-          title: updatedRole.title,
-          color: updatedRole.color,
+          title: variables.title ?? updatedRole.title,
+          color: variables.color ?? updatedRole.color,
           teamId: updatedRole.teamId,
           createdAt: updatedRole.createdAt,
           updatedAt: updatedRole.updatedAt,
-          purpose: updatedRole.purpose,
-          accountabilities: updatedRole.accountabilities,
+          purpose: variables.purpose ?? updatedRole.purpose,
+          accountabilities:
+            variables.accountabilities ?? updatedRole.accountabilities,
           metricId: newMetricId ?? null,
           nodeId: updatedRole.nodeId,
-          assignedUserId: updatedRole.assignedUserId,
-          effortPoints: updatedRole.effortPoints,
-          assignedUserName: updatedRole.assignedUserName,
+          assignedUserId: newAssignedUserId,
+          effortPoints:
+            variables.effortPoints !== undefined
+              ? variables.effortPoints
+              : updatedRole.effortPoints,
+          assignedUserName: newAssignedUserName,
         };
 
         utils.dashboard.getDashboardCharts.setData({ teamId }, (old) => {
@@ -109,6 +146,40 @@ export function useOptimisticRoleUpdate(teamId: string) {
                 metric: {
                   ...chart.metric,
                   roles: [...chart.metric.roles, roleForDashboard],
+                },
+              };
+            }
+            return chart;
+          });
+        });
+      } else if (updatedRole?.metricId) {
+        // Update role in-place on dashboard cache (no metric change)
+        utils.dashboard.getDashboardCharts.setData({ teamId }, (old) => {
+          if (!old) return old;
+          return old.map((chart: DashboardChart) => {
+            if (chart.metricId === updatedRole.metricId) {
+              return {
+                ...chart,
+                metric: {
+                  ...chart.metric,
+                  roles: chart.metric.roles.map((r) =>
+                    r.id === variables.id
+                      ? {
+                          ...r,
+                          title: variables.title ?? r.title,
+                          purpose: variables.purpose ?? r.purpose,
+                          accountabilities:
+                            variables.accountabilities ?? r.accountabilities,
+                          color: variables.color ?? r.color,
+                          assignedUserId: newAssignedUserId,
+                          assignedUserName: newAssignedUserName,
+                          effortPoints:
+                            variables.effortPoints !== undefined
+                              ? variables.effortPoints
+                              : r.effortPoints,
+                        }
+                      : r,
+                  ),
                 },
               };
             }
