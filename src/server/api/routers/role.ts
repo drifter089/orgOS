@@ -83,6 +83,19 @@ export const roleRouter = createTRPCRouter({
         await validateUserAssignable(ctx.workspace, input.assignedUserId);
       }
 
+      if (input.metricId) {
+        const existingRolesCount = await ctx.db.role.count({
+          where: { metricId: input.metricId },
+        });
+
+        if (existingRolesCount >= 3) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "A metric can have at most 3 roles assigned",
+          });
+        }
+      }
+
       const assignedUserName = await getUserDisplayName(input.assignedUserId);
 
       const role = await ctx.db.role.create({

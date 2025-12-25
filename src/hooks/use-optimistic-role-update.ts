@@ -44,7 +44,8 @@ export function useOptimisticRoleUpdate(teamId: string) {
                 ...role,
                 title: variables.title ?? role.title,
                 purpose: variables.purpose ?? role.purpose,
-                accountabilities: variables.accountabilities ?? null,
+                accountabilities:
+                  variables.accountabilities ?? role.accountabilities,
                 metricId: newMetricId ?? null,
                 assignedUserId: variables.assignedUserId ?? role.assignedUserId,
                 color: variables.color ?? role.color,
