@@ -112,6 +112,33 @@ export function DashboardMetricChart({
       100
     : null;
 
+  // Calculate data availability percentage (where latest data point falls in goal period)
+  const dataAvailabilityPercent = useMemo(() => {
+    if (!goalProgress || !chartTransform?.chartData?.length) return null;
+
+    const { chartData, xAxisKey } = chartTransform;
+    const latestData = chartData[chartData.length - 1];
+    if (!latestData) return null;
+
+    const dateValue = latestData[xAxisKey];
+    if (!dateValue || typeof dateValue !== "string") return null;
+    if (!dateValue.includes("-") || isNaN(Date.parse(dateValue))) return null;
+
+    const latestDataDate = new Date(dateValue);
+    const periodStart = new Date(goalProgress.periodStart);
+    const periodEnd = new Date(goalProgress.periodEnd);
+
+    // If data is before period start, return 0
+    if (latestDataDate < periodStart) return 0;
+    // If data is after period end, return 100
+    if (latestDataDate > periodEnd) return 100;
+
+    const totalMs = periodEnd.getTime() - periodStart.getTime();
+    const elapsedMs = latestDataDate.getTime() - periodStart.getTime();
+
+    return (elapsedMs / totalMs) * 100;
+  }, [goalProgress, chartTransform]);
+
   // Generate a stable key for chart re-renders (no JSON serialization)
   const chartKey = useMemo(() => {
     if (!chartTransform?.chartData?.length) return "empty";
@@ -681,12 +708,36 @@ export function DashboardMetricChart({
             {timeElapsedPercent !== null && (
               <div className="flex items-center gap-1.5">
                 <Clock className="text-muted-foreground h-3 w-3" />
-                <div className="bg-muted h-1.5 w-16 overflow-hidden rounded-full">
-                  <div
-                    className="h-full bg-blue-500 transition-all duration-300"
-                    style={{ width: `${Math.min(timeElapsedPercent, 100)}%` }}
-                  />
-                </div>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <div className="relative h-1.5 w-16">
+                      <div className="bg-muted absolute inset-0 overflow-hidden rounded-full">
+                        <div
+                          className="h-full bg-blue-500 transition-all duration-300"
+                          style={{
+                            width: `${Math.min(timeElapsedPercent, 100)}%`,
+                          }}
+                        />
+                      </div>
+                      {dataAvailabilityPercent !== null && (
+                        <div
+                          className="absolute -top-0.5 h-2.5 w-0.5 rounded-full bg-amber-500 shadow-sm"
+                          style={{
+                            left: `${Math.min(dataAvailabilityPercent, 100)}%`,
+                          }}
+                        />
+                      )}
+                    </div>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom" className="text-xs">
+                    <p>Time elapsed: {Math.round(timeElapsedPercent)}%</p>
+                    {dataAvailabilityPercent !== null && (
+                      <p className="text-amber-500">
+                        Data up to: {currentValue?.date ?? "unknown"}
+                      </p>
+                    )}
+                  </TooltipContent>
+                </Tooltip>
                 <span className="text-muted-foreground">
                   {formatTimeRemaining(goalProgress)} left
                 </span>
