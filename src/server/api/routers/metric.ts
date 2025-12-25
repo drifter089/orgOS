@@ -260,17 +260,7 @@ export const metricRouter = createTRPCRouter({
         });
       }
 
-      const rolesUsingMetric = await ctx.db.role.count({
-        where: { metricId: input.id },
-      });
-
-      if (rolesUsingMetric > 0) {
-        throw new TRPCError({
-          code: "BAD_REQUEST",
-          message: `Cannot delete metric. It is used by ${rolesUsingMetric} role(s).`,
-        });
-      }
-
+      // Roles with this metric will have metricId set to null (onDelete: SetNull)
       await ctx.db.metric.delete({
         where: { id: input.id },
       });

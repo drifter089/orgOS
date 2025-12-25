@@ -77,7 +77,7 @@ model Role {
     color          String   @default("#3b82f6") // Hex color
 
     team           Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
-    metric         Metric?  @relation(fields: [metricId], references: [id])
+    metric         Metric?  @relation(fields: [metricId], references: [id], onDelete: SetNull)
 
     createdAt      DateTime @default(now())
     updatedAt      DateTime @updatedAt
