@@ -250,38 +250,38 @@ export function PlatformsDialog({
           </Button>
         )}
       </DialogTrigger>
-      <DialogContent className="max-w-4xl">
+      <DialogContent className="max-w-6xl">
         <DialogHeader>
           <div className="flex items-center justify-between">
             <div>
-              <DialogTitle>Platforms & KPIs</DialogTitle>
+              <DialogTitle className="text-xl">Platforms & KPIs</DialogTitle>
               <DialogDescription>
                 Connect platforms and create KPIs for your dashboard
               </DialogDescription>
             </div>
-            <Button onClick={handleConnect} disabled={isConnecting}>
+            <Button onClick={handleConnect} disabled={isConnecting} size="lg">
               {isConnecting ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                <Loader2 className="mr-2 h-5 w-5 animate-spin" />
               ) : (
-                <Plus className="mr-2 h-4 w-4" />
+                <Plus className="mr-2 h-5 w-5" />
               )}
               {isConnecting ? "Connecting..." : "Platform"}
             </Button>
           </div>
         </DialogHeader>
 
-        <ScrollArea className="max-h-[70vh]">
-          <div className="space-y-4 pr-4">
+        <ScrollArea className="max-h-[75vh]">
+          <div className="space-y-6 py-4 pr-4">
             {connectedIntegrations.length === 0 ? (
-              <div className="text-muted-foreground rounded-lg border border-dashed py-12 text-center">
-                <p className="text-sm">No platforms connected yet</p>
-                <p className="text-muted-foreground/70 mt-1 text-xs">
+              <div className="text-muted-foreground rounded-xl border-2 border-dashed py-16 text-center">
+                <p className="text-base">No platforms connected yet</p>
+                <p className="text-muted-foreground/70 mt-2 text-sm">
                   Click &quot;+ Platform&quot; above to connect your first
                   integration
                 </p>
               </div>
             ) : (
-              <div className="grid grid-cols-4 gap-4">
+              <div className="grid grid-cols-3 gap-6">
                 {connectedIntegrations.map((integration) => {
                   const config = getPlatformConfig(integration.providerId);
                   const MetricDialog = METRIC_DIALOGS[integration.providerId];
@@ -326,14 +326,14 @@ export function PlatformsDialog({
 
                         <div
                           className={cn(
-                            "flex h-full w-full flex-col items-center justify-center rounded-xl border-2",
+                            "flex h-full w-full flex-col items-center justify-center rounded-xl border",
                             config.bgColor,
                           )}
                         >
-                          <div className="relative h-12 w-12">
+                          <div className="relative h-16 w-16">
                             {config.useLucideIcon ? (
                               <FileSpreadsheet
-                                className={cn("h-12 w-12", config.textColor)}
+                                className={cn("h-16 w-16", config.textColor)}
                               />
                             ) : (
                               <Image
@@ -379,10 +379,10 @@ export function PlatformsDialog({
                           trigger={
                             <Button
                               variant="outline"
-                              size="default"
+                              size="sm"
                               className="hover:bg-accent w-full shadow-sm transition-all hover:shadow-md"
                             >
-                              <Plus className="mr-2 h-4 w-4" />
+                              <Plus className="mr-1.5 h-3.5 w-3.5" />
                               Add KPI
                             </Button>
                           }
@@ -402,12 +402,12 @@ export function PlatformsDialog({
                   <div className="relative aspect-square">
                     <div
                       className={cn(
-                        "flex h-full w-full flex-col items-center justify-center rounded-xl border-2",
+                        "flex h-full w-full flex-col items-center justify-center rounded-xl border",
                         "bg-stone-200 dark:bg-stone-700",
                       )}
                     >
-                      <div className="relative h-12 w-12">
-                        <FileSpreadsheet className="h-12 w-12 text-stone-700 dark:text-stone-200" />
+                      <div className="relative h-16 w-16">
+                        <FileSpreadsheet className="h-16 w-16 text-stone-700 dark:text-stone-200" />
                       </div>
                       <p className="mt-3 text-sm font-medium text-stone-700 dark:text-stone-200">
                         Manual
@@ -420,10 +420,10 @@ export function PlatformsDialog({
                     trigger={
                       <Button
                         variant="outline"
-                        size="default"
+                        size="sm"
                         className="hover:bg-accent w-full shadow-sm transition-all hover:shadow-md"
                       >
-                        <Plus className="mr-2 h-4 w-4" />
+                        <Plus className="mr-1.5 h-3.5 w-3.5" />
                         Add KPI
                       </Button>
                     }
