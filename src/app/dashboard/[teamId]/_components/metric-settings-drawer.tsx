@@ -2,7 +2,14 @@
 
 import { useState } from "react";
 
-import { ClipboardCheck, Info, Loader2, X } from "lucide-react";
+import {
+  ClipboardCheck,
+  Info,
+  Loader2,
+  RefreshCw,
+  Trash2,
+  X,
+} from "lucide-react";
 import { Link } from "next-transition-router";
 
 import { Badge } from "@/components/ui/badge";
@@ -15,6 +22,7 @@ import {
   DrawerTitle,
   DrawerTrigger,
 } from "@/components/ui/drawer";
+import { Switch } from "@/components/ui/switch";
 import {
   Tooltip,
   TooltipContent,
@@ -41,6 +49,7 @@ export function MetricSettingsDrawer({
   trigger,
 }: MetricSettingsDrawerProps) {
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  const [forceRebuild, setForceRebuild] = useState(false);
   const { isProcessing, getError } = useDashboardCharts(teamId);
 
   const metric = dashboardChart.metric;
@@ -117,7 +126,7 @@ export function MetricSettingsDrawer({
               </Badge>
             )}
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
             {!isIntegrationMetric && (
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -133,13 +142,82 @@ export function MetricSettingsDrawer({
                 </TooltipContent>
               </Tooltip>
             )}
+
+            <div className="bg-border mx-1 h-6 w-px" />
+
+            {/* Refresh/Rebuild Button with Toggle */}
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-8 gap-2 border px-2 transition-all duration-150 hover:scale-[1.02] hover:shadow-sm active:scale-[0.98]"
+                  onClick={() => handleRefresh(forceRebuild)}
+                  disabled={processing}
+                >
+                  <RefreshCw
+                    className={cn("h-3.5 w-3.5", processing && "animate-spin")}
+                  />
+                  <span className="text-xs">
+                    {forceRebuild ? "Rebuild" : "Refresh"}
+                  </span>
+                  <div
+                    className="flex items-center gap-1.5 border-l pl-2"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <Switch
+                      checked={forceRebuild}
+                      onCheckedChange={setForceRebuild}
+                      className="h-4 w-7 data-[state=checked]:bg-amber-500"
+                    />
+                  </div>
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom" className="max-w-[200px]">
+                <p className="text-xs">
+                  {forceRebuild
+                    ? "Rebuild: Re-fetch and regenerate chart from scratch"
+                    : "Refresh: Fetch latest data"}
+                </p>
+                <p className="text-muted-foreground mt-1 text-[10px]">
+                  Toggle to switch modes
+                </p>
+              </TooltipContent>
+            </Tooltip>
+
+            {/* Delete Button */}
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="hover:border-destructive/50 hover:bg-destructive/10 hover:text-destructive h-8 w-8 border transition-all duration-150 hover:scale-[1.02] hover:shadow-sm active:scale-[0.98]"
+                  onClick={handleDelete}
+                  disabled={isDeleting}
+                >
+                  {isDeleting ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <Trash2 className="h-3.5 w-3.5" />
+                  )}
+                  <span className="sr-only">Delete metric</span>
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom">
+                <p className="text-xs">Delete metric</p>
+              </TooltipContent>
+            </Tooltip>
+
+            <div className="bg-border mx-1 h-6 w-px" />
+
+            {/* Close Button */}
             <DrawerClose asChild>
               <Button
-                variant="ghost"
+                variant="outline"
                 size="icon"
-                className="hover:bg-muted h-9 w-9 transition-colors"
+                className="h-8 w-8 border transition-all duration-150 hover:scale-[1.02] hover:shadow-sm active:scale-[0.98]"
               >
-                <X className="h-4 w-4" />
+                <X className="h-3.5 w-3.5" />
                 <span className="sr-only">Close</span>
               </Button>
             </DrawerClose>
@@ -150,10 +228,7 @@ export function MetricSettingsDrawer({
           <DashboardMetricDrawer
             dashboardChartId={dashboardChart.id}
             teamId={teamId}
-            isDeleting={isDeleting}
-            onRefresh={handleRefresh}
             onUpdateMetric={handleUpdateMetric}
-            onDelete={handleDelete}
             onClose={() => setIsDrawerOpen(false)}
             onRegenerateChart={handleRegenerateChart}
           />

@@ -3,15 +3,7 @@
 import { useEffect, useState } from "react";
 
 import type { Cadence } from "@prisma/client";
-import { formatDistanceToNow } from "date-fns";
-import {
-  BarChart3,
-  Check,
-  Loader2,
-  RefreshCw,
-  Trash2,
-  TrendingUp,
-} from "lucide-react";
+import { BarChart3, Check, Loader2, TrendingUp } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -26,7 +18,6 @@ import {
 } from "@/components/ui/select";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { getDimensionDisplayLabel } from "@/lib/metrics/dimension-labels";
-import { cn } from "@/lib/utils";
 
 const CADENCE_OPTIONS: Cadence[] = ["DAILY", "WEEKLY", "MONTHLY"];
 
@@ -45,11 +36,7 @@ interface SettingsTabContentProps {
   valueLabel: string | null;
   hasChartChanges: boolean;
   isProcessing: boolean;
-  isDeleting: boolean;
-  lastFetchedAt: Date | null;
   onApplyChanges: () => void;
-  onRefresh: (forceRebuild?: boolean) => void;
-  onDelete: () => void;
   onUpdateMetric: (name: string, description: string) => void;
 }
 
@@ -68,11 +55,7 @@ export function SettingsTabContent({
   valueLabel,
   hasChartChanges,
   isProcessing,
-  isDeleting,
-  lastFetchedAt,
   onApplyChanges,
-  onRefresh,
-  onDelete,
   onUpdateMetric,
 }: SettingsTabContentProps) {
   const [name, setName] = useState(metricName);
@@ -98,12 +81,11 @@ export function SettingsTabContent({
   };
 
   return (
-    <div className="flex h-full flex-col overflow-y-auto p-5">
+    <div className="flex h-full flex-col p-5">
       <div className="mb-5">
         <h3 className="text-base font-semibold">Settings</h3>
         <p className="text-muted-foreground mt-1 text-xs leading-relaxed">
-          Configure how this metric is displayed, set the cadence for tracking,
-          refresh data, or remove the metric.
+          Configure how this metric is displayed and set the tracking cadence.
         </p>
       </div>
 
@@ -227,63 +209,6 @@ export function SettingsTabContent({
           )}
           Apply Changes
         </Button>
-
-        {/* Refresh Controls */}
-        <div className="space-y-2">
-          <Label className="text-xs">Data Refresh</Label>
-          <div className="grid grid-cols-2 gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => onRefresh(false)}
-              disabled={isProcessing}
-              className="transition-all duration-200 active:scale-[0.98]"
-            >
-              <RefreshCw
-                className={cn("mr-1 h-3 w-3", isProcessing && "animate-spin")}
-              />
-              Refresh
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => onRefresh(true)}
-              disabled={isProcessing}
-              className="transition-all duration-200 active:scale-[0.98]"
-            >
-              <RefreshCw
-                className={cn("mr-1 h-3 w-3", isProcessing && "animate-spin")}
-              />
-              Rebuild
-            </Button>
-          </div>
-          {lastFetchedAt && (
-            <div className="text-muted-foreground text-[10px]">
-              Last fetched{" "}
-              {formatDistanceToNow(new Date(lastFetchedAt), {
-                addSuffix: true,
-              })}
-            </div>
-          )}
-        </div>
-
-        {/* Delete Metric */}
-        <div className="border-t pt-4">
-          <Button
-            variant="destructive"
-            size="sm"
-            onClick={onDelete}
-            disabled={isDeleting}
-            className="w-full transition-all duration-200 active:scale-[0.98]"
-          >
-            {isDeleting ? (
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            ) : (
-              <Trash2 className="mr-2 h-4 w-4" />
-            )}
-            Delete Metric
-          </Button>
-        </div>
       </div>
     </div>
   );
