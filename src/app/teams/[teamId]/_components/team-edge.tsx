@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useRef } from "react";
+import { useCallback, useId, useRef } from "react";
 
 import {
   BaseEdge,
@@ -35,10 +35,10 @@ export function TeamEdge({
   source,
   target,
   style = {},
-  markerEnd,
   selected,
   data,
 }: EdgeProps<TeamEdge>) {
+  const markerId = useId();
   const sourceNode = useInternalNode(source);
   const targetNode = useInternalNode(target);
 
@@ -157,12 +157,31 @@ export function TeamEdge({
 
   return (
     <>
+      {/* Arrow marker definition with theme-aware color */}
+      <defs>
+        <marker
+          id={markerId}
+          viewBox="0 0 10 10"
+          refX="10"
+          refY="5"
+          markerWidth="5"
+          markerHeight="5"
+          orient="auto-start-reverse"
+        >
+          <path
+            d="M 0 0 L 10 5 L 0 10 z"
+            fill="hsl(var(--muted-foreground))"
+          />
+        </marker>
+      </defs>
+
       <BaseEdge
         id={id}
         path={edgePath}
-        markerEnd={markerEnd}
+        markerEnd={`url(#${markerId})`}
         style={{
           ...style,
+          stroke: "hsl(var(--muted-foreground))",
           strokeWidth: selected ? 2 : 1.5,
           pointerEvents: "auto",
         }}
