@@ -8,24 +8,13 @@ import {
   EyeOff,
   GripVertical,
   Loader2,
-  PenLine,
-  Plus,
   Settings,
 } from "lucide-react";
 
-import {
-  AddPlatformButton,
-  IntegrationGrid,
-} from "@/app/integration/_components";
+import { PlatformsDialog } from "@/app/integration/_components";
 import {
   type DashboardChart,
-  GitHubMetricDialog,
-  GoogleSheetsMetricDialog,
-  LinearMetricDialog,
-  ManualMetricDialog,
   MetricTabsDisplay,
-  PostHogMetricDialog,
-  YouTubeMetricDialog,
 } from "@/app/metric/_components";
 import type { ChartDragData } from "@/app/teams/[teamId]/hooks/use-chart-drag-drop";
 import { Badge } from "@/components/ui/badge";
@@ -292,59 +281,15 @@ export function DashboardSidebar({
             </div>
 
             <div className="[&::-webkit-scrollbar-thumb]:bg-border/40 hover:[&::-webkit-scrollbar-thumb]:bg-border/60 flex-1 space-y-6 overflow-y-auto px-6 py-4 [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-track]:bg-transparent">
-              {/* Add Platform + Integration Grid */}
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
                   <h3 className="font-semibold">Platforms</h3>
-                  <AddPlatformButton onConnectionSuccess={onMetricCreated} />
+                  <PlatformsDialog
+                    teamId={teamId}
+                    initialIntegrations={initialIntegrations}
+                    onMetricCreated={onMetricCreated}
+                  />
                 </div>
-
-                <IntegrationGrid
-                  initialData={initialIntegrations}
-                  gridCols={3}
-                  size="sm"
-                  showMetricDialogs={true}
-                  onMetricCreated={onMetricCreated}
-                  teamId={teamId}
-                  MetricDialogs={{
-                    github: GitHubMetricDialog,
-                    posthog: PostHogMetricDialog,
-                    youtube: YouTubeMetricDialog,
-                    "google-sheet": GoogleSheetsMetricDialog,
-                    linear: LinearMetricDialog,
-                  }}
-                  extraCards={
-                    <div className="flex flex-col gap-2">
-                      <div className="group relative aspect-square">
-                        <div
-                          className={cn(
-                            "flex h-full w-full flex-col items-center justify-center rounded-lg border",
-                            "bg-stone-200 dark:bg-stone-700",
-                          )}
-                        >
-                          <PenLine className="h-10 w-10 text-stone-700 dark:text-stone-200" />
-                          <p className="mt-2 text-xs font-medium text-stone-700 dark:text-stone-200">
-                            Manual
-                          </p>
-                        </div>
-                      </div>
-                      <ManualMetricDialog
-                        teamId={teamId}
-                        onSuccess={onMetricCreated}
-                        trigger={
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="hover:bg-accent w-full shadow-sm transition-all hover:shadow-md"
-                          >
-                            <Plus className="mr-1.5 h-3.5 w-3.5" />
-                            Add KPI
-                          </Button>
-                        }
-                      />
-                    </div>
-                  }
-                />
               </div>
 
               <Separator />
