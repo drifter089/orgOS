@@ -23,10 +23,7 @@ import {
 interface DashboardMetricDrawerProps {
   dashboardChartId: string;
   teamId: string;
-  isDeleting: boolean;
-  onRefresh: (forceRebuild?: boolean) => void;
   onUpdateMetric: (name: string, description: string) => void;
-  onDelete: () => void;
   onClose: () => void;
   onRegenerateChart: (
     chartType: string,
@@ -38,10 +35,7 @@ interface DashboardMetricDrawerProps {
 export function DashboardMetricDrawer({
   dashboardChartId,
   teamId,
-  isDeleting,
-  onRefresh,
   onUpdateMetric,
-  onDelete,
   onClose,
   onRegenerateChart,
 }: DashboardMetricDrawerProps) {
@@ -144,11 +138,6 @@ export function DashboardMetricDrawer({
     );
   };
 
-  const handleDelete = () => {
-    onDelete();
-    onClose();
-  };
-
   return (
     <div className="grid h-full grid-cols-[auto_1fr_1.2fr] gap-0">
       {/* Tab Buttons Column */}
@@ -159,10 +148,10 @@ export function DashboardMetricDrawer({
         {/* Goal Tab */}
         <div
           className={cn(
-            "absolute inset-0 transition-opacity duration-200",
+            "absolute inset-0 transition-all duration-200 ease-out",
             activeTab === "goal"
-              ? "opacity-100"
-              : "pointer-events-none opacity-0",
+              ? "translate-y-0 opacity-100"
+              : "pointer-events-none translate-y-2 opacity-0",
           )}
         >
           <GoalTabContent
@@ -180,10 +169,10 @@ export function DashboardMetricDrawer({
         {/* Role Tab */}
         <div
           className={cn(
-            "absolute inset-0 transition-opacity duration-200",
+            "absolute inset-0 transition-all duration-200 ease-out",
             activeTab === "role"
-              ? "opacity-100"
-              : "pointer-events-none opacity-0",
+              ? "translate-y-0 opacity-100"
+              : "pointer-events-none translate-y-2 opacity-0",
           )}
         >
           <RoleTabContent
@@ -203,10 +192,10 @@ export function DashboardMetricDrawer({
         {/* Settings Tab */}
         <div
           className={cn(
-            "absolute inset-0 transition-opacity duration-200",
+            "absolute inset-0 transition-all duration-200 ease-out",
             activeTab === "settings"
-              ? "opacity-100"
-              : "pointer-events-none opacity-0",
+              ? "translate-y-0 opacity-100"
+              : "pointer-events-none translate-y-2 opacity-0",
           )}
         >
           <SettingsTabContent
@@ -224,11 +213,7 @@ export function DashboardMetricDrawer({
             valueLabel={dashboardChart.valueLabel ?? null}
             hasChartChanges={hasChartChanges}
             isProcessing={isProcessing}
-            isDeleting={isDeleting}
-            lastFetchedAt={metric.lastFetchedAt}
             onApplyChanges={handleApplyChanges}
-            onRefresh={onRefresh}
-            onDelete={handleDelete}
             onUpdateMetric={onUpdateMetric}
           />
         </div>
