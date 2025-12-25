@@ -71,16 +71,17 @@ export function MetricTabsDisplay({
     <Tabs defaultValue="all" className={className}>
       <TabsList
         className={cn(
-          "flex h-auto flex-wrap gap-2 bg-transparent p-0",
+          "grid h-auto grid-cols-3 gap-2 bg-transparent p-0",
           tabsListClassName,
         )}
       >
         <TabsTrigger
           value="all"
           className={cn(
-            "h-auto rounded-full border bg-muted/50 px-3 py-1.5 text-xs font-medium shadow-sm transition-all",
-            "hover:bg-muted hover:shadow-md",
-            "data-[state=active]:border-primary data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md",
+            "bg-muted/50 h-10 rounded-none border px-3 py-2 text-xs font-medium shadow-sm",
+            "transition-all duration-150 ease-in-out",
+            "hover:bg-accent hover:-translate-y-0.5 hover:shadow-md",
+            "data-[state=active]:border-primary data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:ring-primary/20 data-[state=active]:shadow-lg data-[state=active]:ring-2",
             tabTriggerClassName,
           )}
         >
@@ -94,9 +95,10 @@ export function MetricTabsDisplay({
             key={tab.id}
             value={tab.id}
             className={cn(
-              "h-auto rounded-full border bg-muted/50 px-3 py-1.5 text-xs font-medium capitalize shadow-sm transition-all",
-              "hover:bg-muted hover:shadow-md",
-              "data-[state=active]:border-primary data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md",
+              "bg-muted/50 h-10 rounded-none border px-3 py-2 text-xs font-medium capitalize shadow-sm",
+              "transition-all duration-150 ease-in-out",
+              "hover:bg-accent hover:-translate-y-0.5 hover:shadow-md",
+              "data-[state=active]:border-primary data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:ring-primary/20 data-[state=active]:shadow-lg data-[state=active]:ring-2",
               tabTriggerClassName,
             )}
           >
