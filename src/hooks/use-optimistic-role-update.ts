@@ -100,7 +100,17 @@ export function useOptimisticRoleUpdate(teamId: string) {
       return { previousRoles, previousDashboard };
     },
 
-    onSuccess: () => {
+    onSuccess: (updatedRole) => {
+      // Immediately update role cache with server response
+      // This ensures correct data even before Prisma Accelerate cache propagates
+      utils.role.getByTeamId.setData({ teamId }, (old) => {
+        if (!old) return [updatedRole];
+        return old.map((role) =>
+          role.id === updatedRole.id ? updatedRole : role,
+        );
+      });
+
+      // Invalidate for background refresh
       void utils.role.getByTeamId.invalidate({ teamId });
       void utils.dashboard.getDashboardCharts.invalidate({ teamId });
     },
