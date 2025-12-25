@@ -5,14 +5,7 @@ import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 
 import Nango from "@nangohq/frontend";
-import {
-  Check,
-  FileSpreadsheet,
-  Loader2,
-  Pencil,
-  Plus,
-  Trash2,
-} from "lucide-react";
+import { FileSpreadsheet, Loader2, Pencil, Plus, Trash2 } from "lucide-react";
 
 import {
   GitHubMetricDialog,
@@ -22,7 +15,6 @@ import {
   PostHogMetricDialog,
   YouTubeMetricDialog,
 } from "@/app/metric/_components";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -34,7 +26,6 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Separator } from "@/components/ui/separator";
 import { getPlatformConfig } from "@/lib/platform-config";
 import { cn } from "@/lib/utils";
 import { useConfirmation } from "@/providers/ConfirmationDialogProvider";
@@ -42,14 +33,6 @@ import type { RouterOutputs } from "@/trpc/react";
 import { api } from "@/trpc/react";
 
 type IntegrationsWithStats = RouterOutputs["integration"]["listWithStats"];
-
-const AVAILABLE_PLATFORMS = [
-  { id: "github", name: "GitHub" },
-  { id: "posthog", name: "PostHog" },
-  { id: "youtube", name: "YouTube" },
-  { id: "google-sheet", name: "Google Sheets" },
-  { id: "linear", name: "Linear" },
-] as const;
 
 const METRIC_DIALOGS: Record<
   string,
@@ -81,9 +64,6 @@ export function PlatformsDialog({
   trigger,
 }: PlatformsDialogProps) {
   const [isOpen, setIsOpen] = useState(false);
-  const [connectingPlatform, setConnectingPlatform] = useState<string | null>(
-    null,
-  );
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editValue, setEditValue] = useState("");
   const pollingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -96,10 +76,7 @@ export function PlatformsDialog({
   });
 
   const connectedIntegrations = data?.active ?? [];
-
-  const connectedProviderIds = new Set(
-    connectedIntegrations.map((i) => i.providerId),
-  );
+  const [isConnecting, setIsConnecting] = useState(false);
 
   useEffect(() => {
     return () => {
@@ -126,13 +103,13 @@ export function PlatformsDialog({
             (integration) => integration.connectionId === connectionId,
           )
         ) {
-          setConnectingPlatform(null);
+          setIsConnecting(false);
           onMetricCreated?.();
           return;
         }
 
         if (attempts >= maxAttempts) {
-          setConnectingPlatform(null);
+          setIsConnecting(false);
           return;
         }
 
@@ -140,16 +117,16 @@ export function PlatformsDialog({
           void poll();
         }, interval);
       } catch {
-        setConnectingPlatform(null);
+        setIsConnecting(false);
       }
     };
 
     await poll();
   };
 
-  const handleConnectPlatform = async (platformId: string) => {
+  const handleConnect = async () => {
     try {
-      setConnectingPlatform(platformId);
+      setIsConnecting(true);
 
       const response = await fetch("/api/nango/session", { method: "POST" });
       if (!response.ok) {
@@ -166,13 +143,13 @@ export function PlatformsDialog({
           if (event.type === "connect") {
             void pollForIntegration(event.payload.connectionId);
           } else if (event.type === "close") {
-            setConnectingPlatform(null);
+            setIsConnecting(false);
           }
         },
       });
     } catch (error) {
       console.error("Connection error:", error);
-      setConnectingPlatform(null);
+      setIsConnecting(false);
     }
   };
 
@@ -269,248 +246,191 @@ export function PlatformsDialog({
         {trigger ?? (
           <Button variant="outline">
             <Plus className="mr-2 h-4 w-4" />
-            Platforms
+            KPI
           </Button>
         )}
       </DialogTrigger>
-      <DialogContent className="max-w-2xl">
+      <DialogContent className="max-w-4xl">
         <DialogHeader>
-          <DialogTitle>Platforms & KPIs</DialogTitle>
-          <DialogDescription>
-            Connect platforms to track metrics and create KPIs for your
-            dashboard
-          </DialogDescription>
+          <div className="flex items-center justify-between">
+            <div>
+              <DialogTitle>Platforms & KPIs</DialogTitle>
+              <DialogDescription>
+                Connect platforms and create KPIs for your dashboard
+              </DialogDescription>
+            </div>
+            <Button onClick={handleConnect} disabled={isConnecting}>
+              {isConnecting ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <Plus className="mr-2 h-4 w-4" />
+              )}
+              {isConnecting ? "Connecting..." : "Platform"}
+            </Button>
+          </div>
         </DialogHeader>
 
-        <ScrollArea className="max-h-[60vh]">
-          <div className="space-y-6 pr-4">
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <h3 className="text-sm font-medium">Available Platforms</h3>
+        <ScrollArea className="max-h-[70vh]">
+          <div className="space-y-4 pr-4">
+            {connectedIntegrations.length === 0 ? (
+              <div className="text-muted-foreground rounded-lg border border-dashed py-12 text-center">
+                <p className="text-sm">No platforms connected yet</p>
+                <p className="text-muted-foreground/70 mt-1 text-xs">
+                  Click &quot;+ Platform&quot; above to connect your first
+                  integration
+                </p>
               </div>
-              <div className="grid grid-cols-5 gap-3">
-                {AVAILABLE_PLATFORMS.map((platform) => {
-                  const config = getPlatformConfig(platform.id);
-                  const isConnected = connectedProviderIds.has(platform.id);
-                  const isConnecting = connectingPlatform === platform.id;
+            ) : (
+              <div className="grid grid-cols-4 gap-4">
+                {connectedIntegrations.map((integration) => {
+                  const config = getPlatformConfig(integration.providerId);
+                  const MetricDialog = METRIC_DIALOGS[integration.providerId];
 
                   return (
-                    <button
-                      key={platform.id}
-                      onClick={() => handleConnectPlatform(platform.id)}
-                      disabled={isConnecting}
-                      className={cn(
-                        "group relative flex flex-col items-center gap-2 rounded-lg border p-3 transition-all",
-                        "hover:border-primary/50 hover:shadow-md",
-                        isConnected && "border-green-500/50 bg-green-500/5",
-                      )}
+                    <div
+                      key={integration.id}
+                      className="group flex flex-col gap-3"
+                      onMouseEnter={() =>
+                        handleIntegrationHover(
+                          integration.providerId,
+                          integration.connectionId,
+                        )
+                      }
                     >
-                      <div
-                        className={cn(
-                          "flex h-10 w-10 items-center justify-center rounded-lg",
-                          config.bgColor,
-                        )}
-                      >
-                        {config.useLucideIcon ? (
-                          <FileSpreadsheet
-                            className={cn("h-5 w-5", config.textColor)}
-                          />
-                        ) : (
-                          <div className="relative h-5 w-5">
-                            <Image
-                              src={config.logo!}
-                              alt={config.name}
-                              fill
-                              className="object-contain"
-                              unoptimized
-                            />
-                          </div>
-                        )}
-                      </div>
-                      <span className="text-xs font-medium">{config.name}</span>
-                      {isConnected && (
-                        <Badge
-                          variant="secondary"
-                          className="absolute -top-1 -right-1 h-5 w-5 rounded-full p-0"
+                      <div className="relative aspect-square">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() =>
+                            handleRevoke(integration.connectionId, config.name)
+                          }
+                          disabled={revokeMutation.isPending}
+                          className="absolute top-2 right-2 z-10 h-8 w-8 opacity-0 transition-opacity group-hover:opacity-100"
                         >
-                          <Check className="h-3 w-3" />
-                        </Badge>
-                      )}
-                      {isConnecting && (
-                        <div className="bg-background/80 absolute inset-0 flex items-center justify-center rounded-lg">
-                          <Loader2 className="h-5 w-5 animate-spin" />
-                        </div>
-                      )}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
+                          <Trash2 className="h-4 w-4 text-red-600" />
+                        </Button>
 
-            <Separator />
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() =>
+                            startEditing(
+                              integration.connectionId,
+                              integration.displayName,
+                            )
+                          }
+                          className="absolute top-2 left-2 z-10 h-8 w-8 opacity-0 transition-opacity group-hover:opacity-100"
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </Button>
 
-            <div className="space-y-3">
-              <h3 className="text-sm font-medium">Connected Integrations</h3>
-
-              {connectedIntegrations.length === 0 ? (
-                <div className="text-muted-foreground rounded-lg border border-dashed py-8 text-center text-sm">
-                  No platforms connected yet. Click a platform above to connect.
-                </div>
-              ) : (
-                <div className="grid grid-cols-3 gap-3">
-                  {connectedIntegrations.map((integration) => {
-                    const config = getPlatformConfig(integration.providerId);
-                    const MetricDialog = METRIC_DIALOGS[integration.providerId];
-
-                    return (
-                      <div
-                        key={integration.id}
-                        className="group flex flex-col gap-2"
-                        onMouseEnter={() =>
-                          handleIntegrationHover(
-                            integration.providerId,
-                            integration.connectionId,
-                          )
-                        }
-                      >
-                        <div className="relative aspect-square">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() =>
-                              handleRevoke(
-                                integration.connectionId,
-                                config.name,
-                              )
-                            }
-                            disabled={revokeMutation.isPending}
-                            className="absolute top-1 right-1 z-10 h-7 w-7 opacity-0 transition-opacity group-hover:opacity-100"
-                          >
-                            <Trash2 className="h-3.5 w-3.5 text-red-600" />
-                          </Button>
-
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() =>
-                              startEditing(
-                                integration.connectionId,
-                                integration.displayName,
-                              )
-                            }
-                            className="absolute top-1 left-1 z-10 h-7 w-7 opacity-0 transition-opacity group-hover:opacity-100"
-                          >
-                            <Pencil className="h-3.5 w-3.5" />
-                          </Button>
-
-                          <div
-                            className={cn(
-                              "flex h-full w-full flex-col items-center justify-center rounded-lg border",
-                              config.bgColor,
-                            )}
-                          >
-                            <div className="relative h-8 w-8">
-                              {config.useLucideIcon ? (
-                                <FileSpreadsheet
-                                  className={cn("h-8 w-8", config.textColor)}
-                                />
-                              ) : (
-                                <Image
-                                  src={config.logo!}
-                                  alt={`${config.name} logo`}
-                                  fill
-                                  className="object-contain"
-                                  unoptimized
-                                />
-                              )}
-                            </div>
-                            {editingId === integration.connectionId ? (
-                              <Input
-                                autoFocus
-                                value={editValue}
-                                onChange={(e) => setEditValue(e.target.value)}
-                                onBlur={() =>
-                                  handleSaveName(integration.connectionId)
-                                }
-                                onKeyDown={(e) => {
-                                  if (e.key === "Enter")
-                                    handleSaveName(integration.connectionId);
-                                  if (e.key === "Escape") setEditingId(null);
-                                }}
-                                placeholder={config.name}
-                                className="mt-2 h-6 w-[90%] text-center text-xs"
+                        <div
+                          className={cn(
+                            "flex h-full w-full flex-col items-center justify-center rounded-xl border-2",
+                            config.bgColor,
+                          )}
+                        >
+                          <div className="relative h-12 w-12">
+                            {config.useLucideIcon ? (
+                              <FileSpreadsheet
+                                className={cn("h-12 w-12", config.textColor)}
                               />
                             ) : (
-                              <p
-                                className={cn(
-                                  "mt-2 text-xs font-medium",
-                                  config.textColor,
-                                )}
-                              >
-                                {integration.displayName ?? config.name}
-                              </p>
+                              <Image
+                                src={config.logo!}
+                                alt={`${config.name} logo`}
+                                fill
+                                className="object-contain"
+                                unoptimized
+                              />
                             )}
                           </div>
+                          {editingId === integration.connectionId ? (
+                            <Input
+                              autoFocus
+                              value={editValue}
+                              onChange={(e) => setEditValue(e.target.value)}
+                              onBlur={() =>
+                                handleSaveName(integration.connectionId)
+                              }
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter")
+                                  handleSaveName(integration.connectionId);
+                                if (e.key === "Escape") setEditingId(null);
+                              }}
+                              placeholder={config.name}
+                              className="mt-3 h-7 w-[90%] text-center text-sm"
+                            />
+                          ) : (
+                            <p
+                              className={cn(
+                                "mt-3 text-sm font-medium",
+                                config.textColor,
+                              )}
+                            >
+                              {integration.displayName ?? config.name}
+                            </p>
+                          )}
                         </div>
-
-                        {MetricDialog && (
-                          <MetricDialog
-                            trigger={
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                className="hover:bg-accent w-full shadow-sm transition-all hover:shadow-md"
-                              >
-                                <Plus className="mr-1.5 h-3 w-3" />
-                                Add KPI
-                              </Button>
-                            }
-                            teamId={teamId}
-                            connectionId={integration.connectionId}
-                            onSuccess={() => {
-                              void refetch();
-                              onMetricCreated?.();
-                            }}
-                          />
-                        )}
                       </div>
-                    );
-                  })}
 
-                  <div className="flex flex-col gap-2">
-                    <div className="relative aspect-square">
-                      <div
-                        className={cn(
-                          "flex h-full w-full flex-col items-center justify-center rounded-lg border",
-                          "bg-stone-200 dark:bg-stone-700",
-                        )}
-                      >
-                        <div className="relative h-8 w-8">
-                          <FileSpreadsheet className="h-8 w-8 text-stone-700 dark:text-stone-200" />
-                        </div>
-                        <p className="mt-2 text-xs font-medium text-stone-700 dark:text-stone-200">
-                          Manual
-                        </p>
-                      </div>
+                      {MetricDialog && (
+                        <MetricDialog
+                          trigger={
+                            <Button
+                              variant="outline"
+                              size="default"
+                              className="hover:bg-accent w-full shadow-sm transition-all hover:shadow-md"
+                            >
+                              <Plus className="mr-2 h-4 w-4" />
+                              Add KPI
+                            </Button>
+                          }
+                          teamId={teamId}
+                          connectionId={integration.connectionId}
+                          onSuccess={() => {
+                            void refetch();
+                            onMetricCreated?.();
+                          }}
+                        />
+                      )}
                     </div>
-                    <ManualMetricDialog
-                      teamId={teamId}
-                      onSuccess={onMetricCreated}
-                      trigger={
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="hover:bg-accent w-full shadow-sm transition-all hover:shadow-md"
-                        >
-                          <Plus className="mr-1.5 h-3 w-3" />
-                          Add KPI
-                        </Button>
-                      }
-                    />
+                  );
+                })}
+
+                <div className="flex flex-col gap-3">
+                  <div className="relative aspect-square">
+                    <div
+                      className={cn(
+                        "flex h-full w-full flex-col items-center justify-center rounded-xl border-2",
+                        "bg-stone-200 dark:bg-stone-700",
+                      )}
+                    >
+                      <div className="relative h-12 w-12">
+                        <FileSpreadsheet className="h-12 w-12 text-stone-700 dark:text-stone-200" />
+                      </div>
+                      <p className="mt-3 text-sm font-medium text-stone-700 dark:text-stone-200">
+                        Manual
+                      </p>
+                    </div>
                   </div>
+                  <ManualMetricDialog
+                    teamId={teamId}
+                    onSuccess={onMetricCreated}
+                    trigger={
+                      <Button
+                        variant="outline"
+                        size="default"
+                        className="hover:bg-accent w-full shadow-sm transition-all hover:shadow-md"
+                      >
+                        <Plus className="mr-2 h-4 w-4" />
+                        Add KPI
+                      </Button>
+                    }
+                  />
                 </div>
-              )}
-            </div>
+              </div>
+            )}
           </div>
         </ScrollArea>
       </DialogContent>
