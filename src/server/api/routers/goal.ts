@@ -19,7 +19,6 @@ import type {
 } from "@/lib/metrics/transformer-types";
 import { createTRPCRouter, workspaceProcedure } from "@/server/api/trpc";
 import { getMetricAndVerifyAccess } from "@/server/api/utils/authorization";
-import { invalidateCacheByTags } from "@/server/api/utils/cache-strategy";
 
 export const goalRouter = createTRPCRouter({
   /**
@@ -183,7 +182,7 @@ export const goalRouter = createTRPCRouter({
     )
     .mutation(async ({ ctx, input }) => {
       // Verify metric belongs to org
-      const metric = await getMetricAndVerifyAccess(
+      await getMetricAndVerifyAccess(
         ctx.db,
         input.metricId,
         ctx.workspace.organizationId,
@@ -238,14 +237,47 @@ export const goalRouter = createTRPCRouter({
         },
       });
 
-      // Invalidate dashboard cache
-      const cacheTags = [`dashboard_org_${ctx.workspace.organizationId}`];
-      if (metric.teamId) {
-        cacheTags.push(`dashboard_team_${metric.teamId}`);
-      }
-      await invalidateCacheByTags(ctx.db, cacheTags);
+      // Calculate goalProgress for client cache update
+      // (Avoids full dashboard refetch - client uses setData with this response)
+      const dashboardChart = await ctx.db.dashboardChart.findFirst({
+        where: { metricId: input.metricId },
+        select: {
+          chartConfig: true,
+          chartTransformer: {
+            select: { cadence: true, selectedDimension: true },
+          },
+        },
+      });
 
-      return goal;
+      let goalProgress = null;
+      if (dashboardChart?.chartTransformer?.cadence) {
+        const chartConfig =
+          dashboardChart.chartConfig as unknown as ChartConfig;
+        const goalInput: GoalInput = {
+          goalType: goal.goalType,
+          targetValue: goal.targetValue,
+          baselineValue: goal.baselineValue,
+          baselineTimestamp: goal.baselineTimestamp,
+          onTrackThreshold: goal.onTrackThreshold,
+        };
+        const chartData: ChartDataForGoal = {
+          chartData: chartConfig?.chartData ?? [],
+          xAxisKey: chartConfig?.xAxisKey ?? "date",
+          dataKeys: chartConfig?.dataKeys ?? [],
+          selectedDimension: dashboardChart.chartTransformer.selectedDimension,
+        };
+        goalProgress = calculateGoalProgress(
+          goalInput,
+          dashboardChart.chartTransformer.cadence,
+          chartData,
+        );
+      }
+
+      // Note: We do NOT invalidate dashboard cache here.
+      // Client will use setData with this response to update only the affected chart.
+      // This avoids refetching all dashboard charts when only goal changed.
+
+      return { goal, goalProgress };
     }),
 
   /**
@@ -255,7 +287,7 @@ export const goalRouter = createTRPCRouter({
     .input(z.object({ metricId: z.string() }))
     .mutation(async ({ ctx, input }) => {
       // Verify metric belongs to org
-      const metric = await getMetricAndVerifyAccess(
+      await getMetricAndVerifyAccess(
         ctx.db,
         input.metricId,
         ctx.workspace.organizationId,
@@ -265,13 +297,10 @@ export const goalRouter = createTRPCRouter({
         where: { metricId: input.metricId },
       });
 
-      // Invalidate dashboard cache
-      const cacheTags = [`dashboard_org_${ctx.workspace.organizationId}`];
-      if (metric.teamId) {
-        cacheTags.push(`dashboard_team_${metric.teamId}`);
-      }
-      await invalidateCacheByTags(ctx.db, cacheTags);
+      // Note: We do NOT invalidate dashboard cache here.
+      // Client will use setData to remove goal from the affected chart.
+      // This avoids refetching all dashboard charts when only goal was deleted.
 
-      return { success: true };
+      return { success: true, metricId: input.metricId };
     }),
 });

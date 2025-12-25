@@ -114,8 +114,11 @@ export const roleRouter = createTRPCRouter({
         include: { metric: metricInclude },
       });
 
-      // Invalidate Prisma Accelerate cache for this team
-      await invalidateCacheByTags(ctx.db, [`team_${input.teamId}`]);
+      // Invalidate Prisma Accelerate cache for this team and dashboard
+      await invalidateCacheByTags(ctx.db, [
+        `team_${input.teamId}`,
+        `dashboard_team_${input.teamId}`,
+      ]);
 
       return role;
     }),
@@ -200,8 +203,11 @@ export const roleRouter = createTRPCRouter({
         include: { metric: metricInclude, team: true },
       });
 
-      // Invalidate Prisma Accelerate cache for this team
-      await invalidateCacheByTags(ctx.db, [`team_${role.teamId}`]);
+      // Invalidate Prisma Accelerate cache for this team and dashboard
+      await invalidateCacheByTags(ctx.db, [
+        `team_${role.teamId}`,
+        `dashboard_team_${role.teamId}`,
+      ]);
 
       return role;
     }),
@@ -218,8 +224,11 @@ export const roleRouter = createTRPCRouter({
       );
       await ctx.db.role.delete({ where: { id: input.id } });
 
-      // Invalidate Prisma Accelerate cache for this team
-      await invalidateCacheByTags(ctx.db, [`team_${role.teamId}`]);
+      // Invalidate Prisma Accelerate cache for this team and dashboard
+      await invalidateCacheByTags(ctx.db, [
+        `team_${role.teamId}`,
+        `dashboard_team_${role.teamId}`,
+      ]);
 
       return { success: true };
     }),

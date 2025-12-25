@@ -10,12 +10,13 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Skeleton } from "@/components/ui/skeleton";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { useOptimisticGoalUpdate } from "@/hooks/use-optimistic-goal-update";
 import { type GoalProgress, calculateTargetDisplayValue } from "@/lib/goals";
 import { formatCadence } from "@/lib/helpers/format-cadence";
 import { formatValue } from "@/lib/helpers/format-value";
 import { cn } from "@/lib/utils";
-import { api } from "@/trpc/react";
 
 /**
  * Format time remaining based on cadence
@@ -33,20 +34,25 @@ function formatTimeRemaining(goalProgress: GoalProgress): string {
 
 interface GoalTabContentProps {
   metricId: string;
+  teamId: string;
   goal: MetricGoal | null;
   goalProgress: GoalProgress | null;
   currentValue: { value: number; label?: string; date?: string } | null;
   valueLabel: string | null;
   cadence: Cadence | null | undefined;
+  /** True when chart data is being recalculated (pipeline running) */
+  isProcessing?: boolean;
 }
 
 export function GoalTabContent({
   metricId,
+  teamId,
   goal,
   goalProgress,
   currentValue,
   valueLabel,
   cadence,
+  isProcessing = false,
 }: GoalTabContentProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [goalType, setGoalType] = useState<GoalType>(
@@ -56,26 +62,12 @@ export function GoalTabContent({
     goal?.targetValue?.toString() ?? "",
   );
 
-  const utils = api.useUtils();
+  // Use optimistic goal update hook - updates cache directly, no invalidation
+  const { upsertGoal, deleteGoal, isUpserting, isDeleting, isPending } =
+    useOptimisticGoalUpdate(teamId, metricId);
 
-  const upsertGoalMutation = api.goal.upsert.useMutation({
-    onSuccess: async () => {
-      toast.success("Goal saved");
-      setIsEditing(false);
-      await utils.goal.get.invalidate({ metricId });
-      await utils.dashboard.getDashboardCharts.invalidate();
-    },
-    onError: (err) => toast.error(err.message),
-  });
-
-  const deleteGoalMutation = api.goal.delete.useMutation({
-    onSuccess: async () => {
-      toast.success("Goal deleted");
-      await utils.goal.get.invalidate({ metricId });
-      await utils.dashboard.getDashboardCharts.invalidate();
-    },
-    onError: (err) => toast.error(err.message),
-  });
+  // Show skeleton when goal data is being recalculated
+  const isRecalculating = isProcessing || isPending;
 
   const handleSaveGoal = () => {
     const value = parseFloat(targetValue);
@@ -83,7 +75,8 @@ export function GoalTabContent({
       toast.error("Please enter a valid positive number");
       return;
     }
-    upsertGoalMutation.mutate({ metricId, goalType, targetValue: value });
+    upsertGoal(goalType, value);
+    setIsEditing(false);
   };
 
   const handleEditGoal = () => {
@@ -102,6 +95,50 @@ export function GoalTabContent({
           goal.baselineValue ?? goalProgress.baselineValue,
         )
       : null;
+
+  // Loading skeleton when goal data is being recalculated
+  if (isRecalculating && goal) {
+    return (
+      <div className="flex h-full flex-col overflow-y-auto p-5">
+        <div className="mb-5">
+          <h3 className="text-base font-semibold">Goal Progress</h3>
+          <p className="text-muted-foreground mt-1 text-xs">Updating...</p>
+        </div>
+        <div className="space-y-4">
+          {/* Progress skeleton */}
+          <div className="bg-background border p-4 text-center shadow-sm">
+            <Skeleton className="mx-auto mb-1 h-10 w-24" />
+            <Skeleton className="mx-auto h-3 w-20" />
+            <div className="mt-3">
+              <Skeleton className="h-2.5 w-full" />
+            </div>
+          </div>
+          {/* Time elapsed skeleton */}
+          <div className="bg-background border p-3 shadow-sm">
+            <div className="flex items-center justify-between">
+              <Skeleton className="h-3 w-20" />
+              <Skeleton className="h-3 w-24" />
+            </div>
+            <div className="mt-2 space-y-1">
+              <Skeleton className="h-2 w-full" />
+              <Skeleton className="h-3 w-16" />
+            </div>
+          </div>
+          {/* Current/Target skeleton */}
+          <div className="grid grid-cols-2 gap-3">
+            <div className="bg-background border p-3 shadow-sm">
+              <Skeleton className="mb-1 h-3 w-12" />
+              <Skeleton className="h-6 w-16" />
+            </div>
+            <div className="bg-background border p-3 shadow-sm">
+              <Skeleton className="mb-1 h-3 w-12" />
+              <Skeleton className="h-6 w-16" />
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   // Editing Mode
   if (isEditing || !goal) {
@@ -193,12 +230,10 @@ export function GoalTabContent({
             <Button
               size="sm"
               onClick={handleSaveGoal}
-              disabled={upsertGoalMutation.isPending || !targetValue}
+              disabled={isUpserting || !targetValue}
               className="flex-1 transition-all duration-200 active:scale-[0.98]"
             >
-              {upsertGoalMutation.isPending && (
-                <Loader2 className="mr-1 h-3 w-3 animate-spin" />
-              )}
+              {isUpserting && <Loader2 className="mr-1 h-3 w-3 animate-spin" />}
               Save Goal
             </Button>
           </div>
@@ -278,7 +313,7 @@ export function GoalTabContent({
             <div className="mt-2 space-y-1">
               <div className="bg-muted h-2 w-full overflow-hidden">
                 <div
-                  className="h-full bg-chart-2 transition-all duration-300"
+                  className="bg-chart-2 h-full transition-all duration-300"
                   style={{
                     width: `${Math.min(
                       (goalProgress.daysElapsed /
@@ -333,11 +368,11 @@ export function GoalTabContent({
         <Button
           variant="outline"
           size="sm"
-          onClick={() => deleteGoalMutation.mutate({ metricId })}
-          disabled={deleteGoalMutation.isPending}
+          onClick={deleteGoal}
+          disabled={isDeleting}
           className="text-destructive hover:text-destructive hover:bg-destructive/10 border-destructive/30 mt-2 w-full transition-all duration-200 active:scale-[0.98]"
         >
-          {deleteGoalMutation.isPending ? (
+          {isDeleting ? (
             <Loader2 className="mr-1 h-3 w-3 animate-spin" />
           ) : (
             <Trash2 className="mr-1 h-3 w-3" />

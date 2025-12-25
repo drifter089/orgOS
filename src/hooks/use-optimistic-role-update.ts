@@ -110,22 +110,8 @@ export function useOptimisticRoleUpdate(teamId: string) {
         );
       });
 
-      // Update dashboard cache with server response (exclude relations for type safety)
-      const roleForCache = {
-        id: updatedRole.id,
-        title: updatedRole.title,
-        color: updatedRole.color,
-        teamId: updatedRole.teamId,
-        createdAt: updatedRole.createdAt,
-        updatedAt: updatedRole.updatedAt,
-        purpose: updatedRole.purpose,
-        accountabilities: updatedRole.accountabilities,
-        metricId: updatedRole.metricId,
-        nodeId: updatedRole.nodeId,
-        assignedUserId: updatedRole.assignedUserId,
-        effortPoints: updatedRole.effortPoints,
-        assignedUserName: updatedRole.assignedUserName,
-      };
+      // Destructure to exclude relations - dashboard cache expects plain Role type
+      const { metric: _metric, team: _team, ...roleForCache } = updatedRole;
 
       utils.dashboard.getDashboardCharts.setData({ teamId }, (old) => {
         if (!old) return old;
@@ -163,9 +149,12 @@ export function useOptimisticRoleUpdate(teamId: string) {
         });
       });
 
-      // Invalidate for background refresh
-      void utils.role.getByTeamId.invalidate({ teamId });
-      void utils.dashboard.getDashboardCharts.invalidate({ teamId });
+      // Delayed invalidation for eventual consistency
+      // Wait for Prisma Accelerate cache propagation before background refresh
+      setTimeout(() => {
+        void utils.role.getByTeamId.invalidate({ teamId });
+        void utils.dashboard.getDashboardCharts.invalidate({ teamId });
+      }, 5000);
     },
 
     onError: (error, _vars, context) => {

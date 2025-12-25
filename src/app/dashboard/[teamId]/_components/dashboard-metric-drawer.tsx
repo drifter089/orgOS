@@ -167,11 +167,13 @@ export function DashboardMetricDrawer({
         >
           <GoalTabContent
             metricId={metric.id}
+            teamId={teamId}
             goal={metric.goal}
             goalProgress={goalProgress}
             currentValue={currentValue}
             valueLabel={dashboardChart.valueLabel ?? null}
             cadence={chartTransformer?.cadence}
+            isProcessing={isProcessing}
           />
         </div>
 
