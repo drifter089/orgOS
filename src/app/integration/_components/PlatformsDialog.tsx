@@ -250,8 +250,8 @@ export function PlatformsDialog({
           </Button>
         )}
       </DialogTrigger>
-      <DialogContent className="max-w-6xl">
-        <DialogHeader>
+      <DialogContent className="max-w-6xl p-8">
+        <DialogHeader className="pb-4">
           <div className="flex items-center justify-between">
             <div>
               <DialogTitle className="text-xl">Platforms & KPIs</DialogTitle>
@@ -270,8 +270,8 @@ export function PlatformsDialog({
           </div>
         </DialogHeader>
 
-        <ScrollArea className="max-h-[75vh]">
-          <div className="space-y-6 py-4 pr-4">
+        <ScrollArea className="max-h-[70vh]">
+          <div className="space-y-6 py-6 pr-6">
             {connectedIntegrations.length === 0 ? (
               <div className="text-muted-foreground rounded-xl border-2 border-dashed py-16 text-center">
                 <p className="text-base">No platforms connected yet</p>
