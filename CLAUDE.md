@@ -189,6 +189,27 @@ Canvas changes → markDirty() → Debounce 2s → serializeNodes/Edges → tRPC
                                     beforeunload: sendBeacon fallback
 ```
 
+### Cache Pipeline: Role Mutations
+
+Two cache layers: TanStack Query (client) and Prisma Accelerate (server).
+
+```
+User updates role
+  → onMutate: Optimistic update (instant UI feedback)
+  → Server mutation runs
+  → onSuccess:
+      1. setData(updatedRole)  ← Critical: use server response
+      2. invalidate()          ← Background refresh
+  → onError: Rollback to previousData
+```
+
+**Why `setData` before `invalidate`?** Prisma Accelerate cache may not propagate immediately. If we only call `invalidate()`, the refetch might return stale data. Setting cache with server response ensures correct data.
+
+Key files:
+
+- `src/hooks/use-optimistic-role-update.ts` - Shared hook for all role mutations
+- `src/app/teams/[teamId]/hooks/use-update-role.tsx` - Canvas-specific wrapper (adds markDirty)
+
 ### Canvas Library (`src/lib/canvas/`)
 
 Reusable patterns for React Flow canvases:
@@ -238,6 +259,35 @@ Poll frequencies: `frequent` (15m), `hourly`, `daily`, `weekly`, `manual`
 2. Add metric dialog in `src/app/metric/_components/[provider]/`
 3. Create `[Provider]MetricDialog.tsx` + `[Provider]MetricContent.tsx`
 4. Register in `src/app/metric/_components/index.ts`
+
+## Dashboard KPI Page
+
+The dashboard (`/dashboard/[teamId]`) displays metric charts with role assignments.
+
+### Cache Pipeline: Dashboard Charts
+
+Uses `dashboard.getDashboardCharts` query which includes nested role data.
+
+```
+Role-metric assignment changes
+  → onMutate: Update both role + dashboard caches optimistically
+  → Server mutation
+  → onSuccess:
+      1. setData for role cache (server response)
+      2. invalidate both role + dashboard caches
+```
+
+Role assignments appear in two places:
+
+- **Role cache**: `role.getByTeamId` - role has `metricId` field
+- **Dashboard cache**: `dashboard.getDashboardCharts` - chart.metric.roles array
+
+When linking/unlinking roles to metrics, both caches must be updated for consistent UI.
+
+Key files:
+
+- `src/hooks/use-optimistic-role-update.ts` - Updates both caches
+- `src/components/metric/role-assignment.tsx` - Role assignment UI in metric drawer
 
 ## Environment Variables
 

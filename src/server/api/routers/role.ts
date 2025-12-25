@@ -1,3 +1,4 @@
+import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 
 import { createTRPCRouter, workspaceProcedure } from "@/server/api/trpc";
@@ -82,6 +83,19 @@ export const roleRouter = createTRPCRouter({
         await validateUserAssignable(ctx.workspace, input.assignedUserId);
       }
 
+      if (input.metricId) {
+        const existingRolesCount = await ctx.db.role.count({
+          where: { metricId: input.metricId },
+        });
+
+        if (existingRolesCount >= 3) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "A metric can have at most 3 roles assigned",
+          });
+        }
+      }
+
       const assignedUserName = await getUserDisplayName(input.assignedUserId);
 
       const role = await ctx.db.role.create({
@@ -100,8 +114,11 @@ export const roleRouter = createTRPCRouter({
         include: { metric: metricInclude },
       });
 
-      // Invalidate Prisma Accelerate cache for this team
-      await invalidateCacheByTags(ctx.db, [`team_${input.teamId}`]);
+      // Invalidate Prisma Accelerate cache for this team and dashboard
+      await invalidateCacheByTags(ctx.db, [
+        `team_${input.teamId}`,
+        `dashboard_team_${input.teamId}`,
+      ]);
 
       return role;
     }),
@@ -163,14 +180,34 @@ export const roleRouter = createTRPCRouter({
         data.effortPoints = input.effortPoints ?? null;
       }
 
+      // Validate max 3 roles per metric
+      if (input.metricId) {
+        const existingRolesCount = await ctx.db.role.count({
+          where: {
+            metricId: input.metricId,
+            id: { not: input.id },
+          },
+        });
+
+        if (existingRolesCount >= 3) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "A metric can have at most 3 roles assigned",
+          });
+        }
+      }
+
       const role = await ctx.db.role.update({
         where: { id: input.id },
         data,
         include: { metric: metricInclude, team: true },
       });
 
-      // Invalidate Prisma Accelerate cache for this team
-      await invalidateCacheByTags(ctx.db, [`team_${role.teamId}`]);
+      // Invalidate Prisma Accelerate cache for this team and dashboard
+      await invalidateCacheByTags(ctx.db, [
+        `team_${role.teamId}`,
+        `dashboard_team_${role.teamId}`,
+      ]);
 
       return role;
     }),
@@ -187,8 +224,11 @@ export const roleRouter = createTRPCRouter({
       );
       await ctx.db.role.delete({ where: { id: input.id } });
 
-      // Invalidate Prisma Accelerate cache for this team
-      await invalidateCacheByTags(ctx.db, [`team_${role.teamId}`]);
+      // Invalidate Prisma Accelerate cache for this team and dashboard
+      await invalidateCacheByTags(ctx.db, [
+        `team_${role.teamId}`,
+        `dashboard_team_${role.teamId}`,
+      ]);
 
       return { success: true };
     }),

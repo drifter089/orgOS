@@ -4,8 +4,7 @@ import { useMemo } from "react";
 
 import type { MetricGoal, Role } from "@prisma/client";
 import { format } from "date-fns";
-import { Calendar, Clock, Info, Loader2, Target, User } from "lucide-react";
-import { Link } from "next-transition-router";
+import { Calendar, Clock, Info, Loader2, Target } from "lucide-react";
 import {
   Area,
   AreaChart,
@@ -43,12 +42,10 @@ import {
 } from "@/components/ui/tooltip";
 import { type GoalProgress, calculateTargetDisplayValue } from "@/lib/goals";
 import { formatValue } from "@/lib/helpers/format-value";
-import { getUserName } from "@/lib/helpers/get-user-name";
 import { getLatestMetricValue } from "@/lib/metrics/get-latest-value";
 import type { ChartTransformResult } from "@/lib/metrics/transformer-types";
 import { getPlatformConfig } from "@/lib/platform-config";
 import { cn } from "@/lib/utils";
-import { api } from "@/trpc/react";
 
 /**
  * Format time remaining based on cadence
@@ -92,13 +89,6 @@ export function DashboardMetricChart({
 }: DashboardMetricChartProps) {
   const platformConfig = integrationId
     ? getPlatformConfig(integrationId)
-    : null;
-
-  const { data: members } = api.organization.getMembers.useQuery();
-
-  const primaryRole = roles[0];
-  const assignedUserName = primaryRole
-    ? getUserName(primaryRole.assignedUserId, members)
     : null;
 
   const hasNoGoal = !goal;
@@ -721,30 +711,18 @@ export function DashboardMetricChart({
         )}
 
         <div className="flex items-center gap-2 text-[10px]">
-          {primaryRole ? (
-            <span className="text-muted-foreground flex items-center gap-1">
-              <div
-                className="h-2 w-2 rounded-full"
-                style={{ backgroundColor: primaryRole.color }}
-              />
-              <span className="font-medium">{primaryRole.title}</span>
-              {assignedUserName && primaryRole.assignedUserId ? (
-                <>
-                  <span>•</span>
-                  <User className="h-2.5 w-2.5" />
-                  <Link
-                    href={`/member/${primaryRole.assignedUserId}`}
-                    className="hover:text-foreground hover:underline"
-                  >
-                    {assignedUserName}
-                  </Link>
-                </>
-              ) : (
-                <span className="text-muted-foreground/50 flex items-center gap-0.5">
-                  <User className="h-2.5 w-2.5" />
+          {roles.length > 0 ? (
+            <div className="text-muted-foreground flex items-center gap-2">
+              {roles.slice(0, 3).map((role) => (
+                <span key={role.id} className="flex items-center gap-1">
+                  <div
+                    className="h-2 w-2 rounded-full"
+                    style={{ backgroundColor: role.color }}
+                  />
+                  <span className="font-medium">{role.title}</span>
                 </span>
-              )}
-            </span>
+              ))}
+            </div>
           ) : (
             <span className="text-muted-foreground/60 flex items-center gap-1">
               <div className="bg-muted-foreground/30 h-2 w-2 rounded-full" />
