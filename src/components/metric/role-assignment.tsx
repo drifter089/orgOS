@@ -23,11 +23,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { useOptimisticRoleUpdate } from "@/hooks/use-optimistic-role-update";
 import { getUserName } from "@/lib/helpers/get-user-name";
 import { api } from "@/trpc/react";
-
-const MAX_ROLES_PER_METRIC = 3;
 
 interface RoleAssignmentProps {
   metricId: string;
@@ -53,15 +50,22 @@ export function RoleAssignment({
     existingMetricName: string;
   } | null>(null);
 
+  const utils = api.useUtils();
   const { data: members } = api.organization.getMembers.useQuery();
 
   // Fetch all roles in the team
   const { data: teamRoles, isLoading: isLoadingRoles } =
     api.role.getByTeamId.useQuery({ teamId });
 
-  const updateRole = useOptimisticRoleUpdate(teamId);
-
-  const isAtLimit = assignedRoleIds.length >= MAX_ROLES_PER_METRIC;
+  const updateRoleMutation = api.role.update.useMutation({
+    onSuccess: () => {
+      toast.success("Metric assigned to role");
+      void utils.role.getByTeamId.invalidate({ teamId });
+      void utils.dashboard.getDashboardCharts.invalidate();
+      onAssign?.();
+    },
+    onError: (err) => toast.error(err.message),
+  });
 
   const handleRoleSelect = (roleId: string) => {
     if (!teamRoles) return;
@@ -82,28 +86,12 @@ export function RoleAssignment({
     }
 
     // If role doesn't have a metric or has this metric, just assign
-    updateRole.mutate(
-      { id: roleId, metricId },
-      {
-        onSuccess: () => {
-          toast.success("Metric assigned to role");
-          onAssign?.();
-        },
-      },
-    );
+    updateRoleMutation.mutate({ id: roleId, metricId });
   };
 
   const handleConfirmReplace = () => {
     if (!confirmDialog) return;
-    updateRole.mutate(
-      { id: confirmDialog.roleId, metricId },
-      {
-        onSuccess: () => {
-          toast.success("Metric assigned to role");
-          onAssign?.();
-        },
-      },
-    );
+    updateRoleMutation.mutate({ id: confirmDialog.roleId, metricId });
     setConfirmDialog(null);
   };
 
@@ -119,16 +107,11 @@ export function RoleAssignment({
             <Users className="text-muted-foreground mb-2 h-5 w-5" />
             <span className="text-xs">No roles in this team</span>
           </div>
-        ) : isAtLimit ? (
-          <div className="text-muted-foreground flex items-center gap-2 rounded-md border border-dashed px-3 py-2 text-xs">
-            <Users className="h-4 w-4" />
-            <span>Maximum {MAX_ROLES_PER_METRIC} roles per metric reached</span>
-          </div>
         ) : (
           <Select
             value=""
             onValueChange={handleRoleSelect}
-            disabled={updateRole.isPending}
+            disabled={updateRoleMutation.isPending}
           >
             <SelectTrigger className="h-9 text-sm">
               <SelectValue placeholder="Select a role to add..." />
