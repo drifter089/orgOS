@@ -14,12 +14,6 @@ import {
 import { Link } from "next-transition-router";
 
 import { Button } from "@/components/ui/button";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
 import { stripHtml } from "@/lib/html-utils";
 import { getLatestMetricValue } from "@/lib/metrics/get-latest-value";
 import type { ChartTransformResult } from "@/lib/metrics/transformer-types";
@@ -243,21 +237,10 @@ function RoleNodeComponent({ data, selected, id }: NodeProps<RoleNode>) {
 
       {/* Body */}
       <div className="flex min-h-0 flex-1 flex-col gap-1.5 overflow-hidden px-4 py-2">
-        {/* Purpose */}
-        <TooltipProvider>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <p className="text-muted-foreground line-clamp-2 text-xs">
-                {truncatedPurpose}
-              </p>
-            </TooltipTrigger>
-            {plainPurpose.length > 100 && (
-              <TooltipContent className="max-w-xs">
-                <p className="text-xs">{plainPurpose}</p>
-              </TooltipContent>
-            )}
-          </Tooltip>
-        </TooltipProvider>
+        {/* Purpose - full text available in settings dialog */}
+        <p className="text-muted-foreground line-clamp-2 text-xs">
+          {truncatedPurpose}
+        </p>
 
         {/* Metric & Assigned User - at bottom */}
         <div className="mt-auto space-y-1">
