@@ -88,6 +88,9 @@ export function useMetricDrawerMutations({
   );
 
   const handleDelete = useCallback(async () => {
+    // Close the drawer first, then show confirmation dialog
+    onClose();
+
     const confirmed = await confirm({
       title: "Delete metric",
       description: `Are you sure you want to delete "${metricName}"? This action cannot be undone.`,
@@ -97,7 +100,6 @@ export function useMetricDrawerMutations({
 
     if (confirmed) {
       deleteMutation.mutate({ id: metricId });
-      onClose();
     }
   }, [metricName, metricId, confirm, deleteMutation, onClose]);
 
