@@ -85,7 +85,7 @@ export function KpiEdge({
           x2={tx}
           y2={ty}
         >
-          <stop offset="0%" stopColor="hsl(var(--primary))" stopOpacity="0.3">
+          <stop offset="0%" stopColor="#a78bfa" stopOpacity="0.3">
             <animate
               attributeName="stop-opacity"
               values="0.3;0.8;0.3"
@@ -93,7 +93,7 @@ export function KpiEdge({
               repeatCount="indefinite"
             />
           </stop>
-          <stop offset="50%" stopColor="hsl(var(--primary))" stopOpacity="1">
+          <stop offset="50%" stopColor="#a78bfa" stopOpacity="1">
             <animate
               attributeName="offset"
               values="0.3;0.5;0.7;0.5;0.3"
@@ -101,7 +101,7 @@ export function KpiEdge({
               repeatCount="indefinite"
             />
           </stop>
-          <stop offset="100%" stopColor="hsl(var(--primary))" stopOpacity="0.3">
+          <stop offset="100%" stopColor="#a78bfa" stopOpacity="0.3">
             <animate
               attributeName="stop-opacity"
               values="0.3;0.8;0.3"
@@ -120,7 +120,7 @@ export function KpiEdge({
           markerHeight="6"
           orient="auto-start-reverse"
         >
-          <path d="M 0 0 L 10 5 L 0 10 z" fill="hsl(var(--primary))" />
+          <path d="M 0 0 L 10 5 L 0 10 z" fill="#a78bfa" />
         </marker>
       </defs>
 
@@ -129,7 +129,7 @@ export function KpiEdge({
         id={`${id}-glow`}
         path={edgePath}
         style={{
-          stroke: "hsl(var(--primary))",
+          stroke: "#a78bfa",
           strokeWidth: selected ? 8 : 6,
           strokeOpacity: 0.2,
           filter: "blur(4px)",
