@@ -136,7 +136,7 @@ export function DashboardAreaChart({
                 }
               />
             )}
-            {dataKeys.map((key) => (
+            {dataKeys.map((key, index) => (
               <Area
                 key={key}
                 dataKey={key}
@@ -144,6 +144,10 @@ export function DashboardAreaChart({
                 fill={`url(#fill${key})`}
                 stroke={`var(--color-${key})`}
                 stackId={stacked ? "a" : undefined}
+                isAnimationActive={true}
+                animationDuration={800}
+                animationEasing="ease-out"
+                animationBegin={index * 100}
               />
             ))}
             {showLegend && <ChartLegend content={<ChartLegendContent />} />}

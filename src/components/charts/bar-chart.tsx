@@ -84,13 +84,17 @@ export function DashboardBarChart({
                 content={<ChartTooltipContent indicator="dashed" />}
               />
             )}
-            {dataKeys.map((key) => (
+            {dataKeys.map((key, index) => (
               <Bar
                 key={key}
                 dataKey={key}
                 fill={`var(--color-${key})`}
                 radius={4}
                 stackId={stacked ? "a" : undefined}
+                isAnimationActive={true}
+                animationDuration={600}
+                animationEasing="ease-out"
+                animationBegin={index * 80}
               />
             ))}
             {showLegend && <ChartLegend content={<ChartLegendContent />} />}

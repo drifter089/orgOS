@@ -793,7 +793,7 @@ export function DashboardMetricChart({
         {hasChartData && (
           <div
             key={chartKey}
-            className="animate-in fade-in zoom-in-95 h-full w-full duration-500 ease-out"
+            className="animate-in fade-in h-full w-full duration-300"
           >
             {renderChart()}
           </div>
