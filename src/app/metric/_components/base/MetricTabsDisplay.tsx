@@ -71,14 +71,16 @@ export function MetricTabsDisplay({
     <Tabs defaultValue="all" className={className}>
       <TabsList
         className={cn(
-          "flex h-auto flex-wrap gap-1.5 bg-transparent p-0",
+          "flex h-auto flex-wrap gap-2 bg-transparent p-0",
           tabsListClassName,
         )}
       >
         <TabsTrigger
           value="all"
           className={cn(
-            "data-[state=active]:bg-primary data-[state=active]:text-primary-foreground h-auto rounded-md border px-2.5 py-1.5 text-xs",
+            "h-auto rounded-full border bg-muted/50 px-3 py-1.5 text-xs font-medium shadow-sm transition-all",
+            "hover:bg-muted hover:shadow-md",
+            "data-[state=active]:border-primary data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md",
             tabTriggerClassName,
           )}
         >
@@ -92,7 +94,9 @@ export function MetricTabsDisplay({
             key={tab.id}
             value={tab.id}
             className={cn(
-              "data-[state=active]:bg-primary data-[state=active]:text-primary-foreground h-auto rounded-md border px-2.5 py-1.5 text-xs capitalize",
+              "h-auto rounded-full border bg-muted/50 px-3 py-1.5 text-xs font-medium capitalize shadow-sm transition-all",
+              "hover:bg-muted hover:shadow-md",
+              "data-[state=active]:border-primary data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md",
               tabTriggerClassName,
             )}
           >

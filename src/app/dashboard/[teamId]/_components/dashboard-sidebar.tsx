@@ -439,7 +439,7 @@ export function DashboardSidebar({
                     linear: LinearMetricDialog,
                   }}
                   extraCards={
-                    <div className="space-y-3">
+                    <div className="flex flex-col gap-2">
                       <div className="group relative aspect-square">
                         <div
                           className={cn(
@@ -460,10 +460,10 @@ export function DashboardSidebar({
                           <Button
                             variant="outline"
                             size="sm"
-                            className="w-full"
+                            className="w-full shadow-sm transition-all hover:shadow-md hover:bg-accent"
                           >
-                            <Plus className="mr-2 h-4 w-4" />
-                            KPI
+                            <Plus className="mr-1.5 h-3.5 w-3.5" />
+                            Add KPI
                           </Button>
                         }
                       />
