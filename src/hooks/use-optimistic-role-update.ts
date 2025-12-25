@@ -29,7 +29,11 @@ export function useOptimisticRoleUpdate(teamId: string) {
 
       const updatedRole = previousRoles?.find((r) => r.id === variables.id);
       const oldMetricId = updatedRole?.metricId;
-      const newMetricId = variables.metricId;
+      // Only use new metricId if explicitly provided, otherwise keep existing
+      const metricIdProvided = "metricId" in variables;
+      const newMetricId = metricIdProvided
+        ? (variables.metricId ?? null)
+        : updatedRole?.metricId;
 
       const metrics = utils.metric.getByTeamId.getData({ teamId });
       const selectedMetric = newMetricId
@@ -46,12 +50,16 @@ export function useOptimisticRoleUpdate(teamId: string) {
                 purpose: variables.purpose ?? role.purpose,
                 accountabilities:
                   variables.accountabilities ?? role.accountabilities,
-                metricId: newMetricId ?? null,
+                metricId: metricIdProvided
+                  ? (variables.metricId ?? null)
+                  : role.metricId,
                 assignedUserId: variables.assignedUserId ?? role.assignedUserId,
                 color: variables.color ?? role.color,
-                metric: selectedMetric
-                  ? { ...selectedMetric, dashboardCharts: [] }
-                  : null,
+                metric: metricIdProvided
+                  ? selectedMetric
+                    ? { ...selectedMetric, dashboardCharts: [] }
+                    : null
+                  : role.metric,
                 effortPoints:
                   variables.effortPoints !== undefined
                     ? variables.effortPoints
@@ -62,7 +70,25 @@ export function useOptimisticRoleUpdate(teamId: string) {
       );
 
       // Update dashboard cache - move role between metrics
-      if (oldMetricId !== newMetricId && updatedRole) {
+      if (metricIdProvided && oldMetricId !== newMetricId && updatedRole) {
+        // Create plain role object for dashboard cache (strip metric relation)
+        // newMetricId is guaranteed to be string | null here (not undefined) because metricIdProvided is true
+        const roleForDashboard = {
+          id: updatedRole.id,
+          title: updatedRole.title,
+          color: updatedRole.color,
+          teamId: updatedRole.teamId,
+          createdAt: updatedRole.createdAt,
+          updatedAt: updatedRole.updatedAt,
+          purpose: updatedRole.purpose,
+          accountabilities: updatedRole.accountabilities,
+          metricId: newMetricId ?? null,
+          nodeId: updatedRole.nodeId,
+          assignedUserId: updatedRole.assignedUserId,
+          effortPoints: updatedRole.effortPoints,
+          assignedUserName: updatedRole.assignedUserName,
+        };
+
         utils.dashboard.getDashboardCharts.setData({ teamId }, (old) => {
           if (!old) return old;
           return old.map((chart: DashboardChart) => {
@@ -82,13 +108,7 @@ export function useOptimisticRoleUpdate(teamId: string) {
                 ...chart,
                 metric: {
                   ...chart.metric,
-                  roles: [
-                    ...chart.metric.roles,
-                    {
-                      ...updatedRole,
-                      metricId: newMetricId,
-                    },
-                  ],
+                  roles: [...chart.metric.roles, roleForDashboard],
                 },
               };
             }

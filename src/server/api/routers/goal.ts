@@ -19,6 +19,7 @@ import type {
 } from "@/lib/metrics/transformer-types";
 import { createTRPCRouter, workspaceProcedure } from "@/server/api/trpc";
 import { getMetricAndVerifyAccess } from "@/server/api/utils/authorization";
+import { invalidateCacheByTags } from "@/server/api/utils/cache-strategy";
 
 export const goalRouter = createTRPCRouter({
   /**
@@ -246,13 +247,28 @@ export const goalRouter = createTRPCRouter({
           chartTransformer: {
             select: { cadence: true, selectedDimension: true },
           },
+          metric: {
+            select: { integrationId: true, endpointConfig: true, teamId: true },
+          },
         },
       });
 
+      // Derive cadence - handle manual metrics that store cadence in endpointConfig
+      const isManualMetric = dashboardChart?.metric?.integrationId === null;
+      const rawManualCadence = (
+        dashboardChart?.metric?.endpointConfig as { cadence?: string } | null
+      )?.cadence;
+      const manualCadence = rawManualCadence
+        ? (rawManualCadence.toUpperCase() as "DAILY" | "WEEKLY" | "MONTHLY")
+        : null;
+      const cadence = isManualMetric
+        ? manualCadence
+        : (dashboardChart?.chartTransformer?.cadence ?? null);
+
       let goalProgress = null;
-      if (dashboardChart?.chartTransformer?.cadence) {
+      if (cadence) {
         const chartConfig =
-          dashboardChart.chartConfig as unknown as ChartConfig;
+          dashboardChart?.chartConfig as unknown as ChartConfig;
         const goalInput: GoalInput = {
           goalType: goal.goalType,
           targetValue: goal.targetValue,
@@ -264,18 +280,19 @@ export const goalRouter = createTRPCRouter({
           chartData: chartConfig?.chartData ?? [],
           xAxisKey: chartConfig?.xAxisKey ?? "date",
           dataKeys: chartConfig?.dataKeys ?? [],
-          selectedDimension: dashboardChart.chartTransformer.selectedDimension,
+          selectedDimension:
+            dashboardChart?.chartTransformer?.selectedDimension,
         };
-        goalProgress = calculateGoalProgress(
-          goalInput,
-          dashboardChart.chartTransformer.cadence,
-          chartData,
-        );
+        goalProgress = calculateGoalProgress(goalInput, cadence, chartData);
       }
 
-      // Note: We do NOT invalidate dashboard cache here.
-      // Client will use setData with this response to update only the affected chart.
-      // This avoids refetching all dashboard charts when only goal changed.
+      // Invalidate Prisma Accelerate cache for other clients
+      // (Current client uses setData with this response - no TanStack Query invalidation needed)
+      if (dashboardChart?.metric?.teamId) {
+        await invalidateCacheByTags(ctx.db, [
+          `dashboard_team_${dashboardChart.metric.teamId}`,
+        ]);
+      }
 
       return { goal, goalProgress };
     }),
@@ -286,8 +303,8 @@ export const goalRouter = createTRPCRouter({
   delete: workspaceProcedure
     .input(z.object({ metricId: z.string() }))
     .mutation(async ({ ctx, input }) => {
-      // Verify metric belongs to org
-      await getMetricAndVerifyAccess(
+      // Verify metric belongs to org and get teamId for cache invalidation
+      const metric = await getMetricAndVerifyAccess(
         ctx.db,
         input.metricId,
         ctx.workspace.organizationId,
@@ -297,9 +314,13 @@ export const goalRouter = createTRPCRouter({
         where: { metricId: input.metricId },
       });
 
-      // Note: We do NOT invalidate dashboard cache here.
-      // Client will use setData to remove goal from the affected chart.
-      // This avoids refetching all dashboard charts when only goal was deleted.
+      // Invalidate Prisma Accelerate cache for other clients
+      // (Current client uses setData - no TanStack Query invalidation needed)
+      if (metric.teamId) {
+        await invalidateCacheByTags(ctx.db, [
+          `dashboard_team_${metric.teamId}`,
+        ]);
+      }
 
       return { success: true, metricId: input.metricId };
     }),
