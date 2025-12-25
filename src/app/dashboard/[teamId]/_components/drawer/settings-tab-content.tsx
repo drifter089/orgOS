@@ -12,6 +12,7 @@ import {
   Trash2,
   TrendingUp,
 } from "lucide-react";
+import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -91,13 +92,20 @@ export function SettingsTabContent({
   const handleSaveName = () => {
     if (name.trim() && name !== metricName) {
       onUpdateMetric(name.trim(), metricDescription ?? "");
+      toast.success("Metric name updated");
     }
     setHasNameChanges(false);
   };
 
   return (
-    <div className="flex h-full flex-col overflow-y-auto p-4">
-      <h3 className="mb-4 text-sm font-semibold">Settings</h3>
+    <div className="flex h-full flex-col overflow-y-auto p-5">
+      <div className="mb-5">
+        <h3 className="text-base font-semibold">Settings</h3>
+        <p className="text-muted-foreground mt-1 text-xs leading-relaxed">
+          Configure how this metric is displayed, set the cadence for tracking,
+          refresh data, or remove the metric.
+        </p>
+      </div>
 
       <div className="space-y-5">
         {/* Metric Name */}
@@ -175,7 +183,7 @@ export function SettingsTabContent({
           <div className="space-y-2">
             <Label className="text-xs">Dimension</Label>
             {isDimensionsLoading ? (
-              <div className="flex h-8 items-center justify-center rounded-md border">
+              <div className="flex h-8 items-center justify-center border">
                 <Loader2 className="text-muted-foreground h-4 w-4 animate-spin" />
               </div>
             ) : availableDimensions && availableDimensions.length > 0 ? (
@@ -198,7 +206,7 @@ export function SettingsTabContent({
                 </SelectContent>
               </Select>
             ) : (
-              <div className="text-muted-foreground h-8 rounded-md border px-3 py-1.5 text-sm">
+              <div className="text-muted-foreground h-8 border px-3 py-1.5 text-sm">
                 No dimensions available
               </div>
             )}
@@ -210,7 +218,7 @@ export function SettingsTabContent({
           size="sm"
           onClick={onApplyChanges}
           disabled={isProcessing || !hasChartChanges}
-          className="w-full"
+          className="w-full transition-all duration-200 active:scale-[0.98]"
         >
           {isProcessing ? (
             <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -229,6 +237,7 @@ export function SettingsTabContent({
               size="sm"
               onClick={() => onRefresh(false)}
               disabled={isProcessing}
+              className="transition-all duration-200 active:scale-[0.98]"
             >
               <RefreshCw
                 className={cn("mr-1 h-3 w-3", isProcessing && "animate-spin")}
@@ -240,11 +249,12 @@ export function SettingsTabContent({
               size="sm"
               onClick={() => onRefresh(true)}
               disabled={isProcessing}
+              className="transition-all duration-200 active:scale-[0.98]"
             >
               <RefreshCw
                 className={cn("mr-1 h-3 w-3", isProcessing && "animate-spin")}
               />
-              Hard
+              Rebuild
             </Button>
           </div>
           {lastFetchedAt && (
@@ -264,7 +274,7 @@ export function SettingsTabContent({
             size="sm"
             onClick={onDelete}
             disabled={isDeleting}
-            className="w-full"
+            className="w-full transition-all duration-200 active:scale-[0.98]"
           >
             {isDeleting ? (
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
