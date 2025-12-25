@@ -162,7 +162,7 @@ export function IntegrationGrid({
   const iconSize = size === "sm" ? "h-10 w-10" : "h-16 w-16";
 
   return (
-    <div className={cn("grid gap-3", gridClasses[gridCols])}>
+    <div className={cn("grid gap-4", gridClasses[gridCols])}>
       {integrations.map((integration) => {
         const config = getPlatformConfig(integration.providerId);
         const MetricDialog = MetricDialogs?.[integration.providerId];
@@ -170,7 +170,7 @@ export function IntegrationGrid({
         return (
           <div
             key={integration.id}
-            className="space-y-3"
+            className="flex flex-col gap-2"
             onMouseEnter={() =>
               handleIntegrationHover(
                 integration.providerId,
@@ -273,9 +273,13 @@ export function IntegrationGrid({
             {showMetricDialogs && MetricDialog && (
               <MetricDialog
                 trigger={
-                  <Button variant="outline" size="sm" className="w-full">
-                    <Plus className="mr-2 h-4 w-4" />
-                    KPI
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="w-full shadow-sm transition-all hover:shadow-md hover:bg-accent"
+                  >
+                    <Plus className="mr-1.5 h-3.5 w-3.5" />
+                    Add KPI
                   </Button>
                 }
                 teamId={teamId}
