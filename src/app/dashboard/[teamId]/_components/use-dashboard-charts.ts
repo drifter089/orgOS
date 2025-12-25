@@ -9,6 +9,8 @@ interface UseDashboardChartsReturn {
   charts: DashboardChartWithRelations[];
   isLoading: boolean;
   isError: boolean;
+  /** True when query is refetching (goal progress being recalculated) */
+  isRefreshing: boolean;
   isProcessing: (metricId: string) => boolean;
   getError: (metricId: string) => string | null;
 }
@@ -22,6 +24,7 @@ export function useDashboardCharts(teamId: string): UseDashboardChartsReturn {
     data: charts = [],
     isLoading,
     isError,
+    isFetching,
   } = api.dashboard.getDashboardCharts.useQuery(
     { teamId },
     {
@@ -34,6 +37,9 @@ export function useDashboardCharts(teamId: string): UseDashboardChartsReturn {
       },
     },
   );
+
+  // isRefreshing = refetching with existing data (not initial load)
+  const isRefreshing = isFetching && !isLoading;
 
   const isProcessing = useCallback(
     (metricId: string): boolean => {
@@ -52,5 +58,5 @@ export function useDashboardCharts(teamId: string): UseDashboardChartsReturn {
     [charts],
   );
 
-  return { charts, isLoading, isError, isProcessing, getError };
+  return { charts, isLoading, isError, isRefreshing, isProcessing, getError };
 }

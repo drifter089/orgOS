@@ -36,6 +36,7 @@ import {
   ChartTooltip,
   ChartTooltipContent,
 } from "@/components/ui/chart";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   Tooltip,
   TooltipContent,
@@ -76,6 +77,8 @@ interface DashboardMetricChartProps {
   valueLabel?: string | null;
   /** Whether the metric is currently processing */
   isProcessing?: boolean;
+  /** True when dashboard data is refetching (goal progress being recalculated) */
+  isRefreshing?: boolean;
 }
 
 export function DashboardMetricChart({
@@ -89,6 +92,7 @@ export function DashboardMetricChart({
   goalProgress,
   valueLabel,
   isProcessing = false,
+  isRefreshing = false,
 }: DashboardMetricChartProps) {
   const platformConfig = integrationId
     ? getPlatformConfig(integrationId)
@@ -650,7 +654,15 @@ export function DashboardMetricChart({
                 chartTransform?.dataKeys?.[0] ??
                 ""}
             </span>
-            {goalTargetValue !== null && goalProgress && (
+            {/* Goal target loading skeleton */}
+            {isRefreshing && goal && (
+              <span className="ml-auto flex items-center gap-1 text-xs">
+                <Target className="text-muted-foreground h-3 w-3" />
+                <Skeleton className="h-4 w-12" />
+              </span>
+            )}
+            {/* Goal target display */}
+            {!isRefreshing && goalTargetValue !== null && goalProgress && (
               <span
                 className="ml-auto flex items-center gap-1 text-xs"
                 style={{ color: "oklch(var(--goal))" }}
@@ -664,7 +676,28 @@ export function DashboardMetricChart({
           </div>
         )}
 
-        {goalProgress && (
+        {/* Goal progress loading skeleton */}
+        {isRefreshing && goal && (
+          <div className="flex items-center gap-4 text-[10px]">
+            <div className="flex items-center gap-1.5">
+              <Target className="text-muted-foreground h-3 w-3" />
+              <Skeleton className="h-1.5 w-16 rounded-full" />
+              <Skeleton className="h-3 w-8" />
+            </div>
+            <div className="flex items-center gap-1.5">
+              <Clock className="text-muted-foreground h-3 w-3" />
+              <Skeleton className="h-1.5 w-16 rounded-full" />
+              <Skeleton className="h-3 w-10" />
+            </div>
+            <div className="ml-auto flex items-center gap-1">
+              <Calendar className="text-muted-foreground h-3 w-3" />
+              <Skeleton className="h-3 w-24" />
+            </div>
+          </div>
+        )}
+
+        {/* Goal progress display */}
+        {!isRefreshing && goalProgress && (
           <div className="flex items-center gap-4 text-[10px]">
             <div className="flex items-center gap-1.5">
               <Target className="text-muted-foreground h-3 w-3" />
@@ -713,7 +746,7 @@ export function DashboardMetricChart({
           </div>
         )}
 
-        {hasNoGoal && (
+        {!isRefreshing && hasNoGoal && (
           <div className="text-muted-foreground/60 flex items-center gap-1.5 text-[10px]">
             <Target className="h-3 w-3" />
             <span>No goal</span>

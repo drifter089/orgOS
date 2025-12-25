@@ -22,6 +22,8 @@ import {
 interface DashboardMetricDrawerProps {
   dashboardChart: DashboardChartWithRelations;
   isProcessing: boolean;
+  /** True when dashboard data is refetching (goal progress being recalculated) */
+  isRefreshing?: boolean;
   error: string | null;
   isDeleting: boolean;
   onRefresh: (forceRebuild?: boolean) => void;
@@ -38,6 +40,7 @@ interface DashboardMetricDrawerProps {
 export function DashboardMetricDrawer({
   dashboardChart,
   isProcessing,
+  isRefreshing = false,
   error: _error,
   isDeleting,
   onRefresh,
@@ -133,6 +136,7 @@ export function DashboardMetricDrawer({
             currentValue={currentValue}
             valueLabel={dashboardChart.valueLabel ?? null}
             cadence={chartTransformer?.cadence}
+            isRefreshing={isRefreshing}
           />
         </div>
 
@@ -207,6 +211,7 @@ export function DashboardMetricDrawer({
             goalProgress={goalProgress}
             valueLabel={dashboardChart.valueLabel ?? null}
             isProcessing={isProcessing}
+            isRefreshing={isRefreshing}
           />
         </div>
       </div>

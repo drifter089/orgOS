@@ -54,7 +54,7 @@ export function DashboardMetricCard({
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const { confirm } = useConfirmation();
   const utils = api.useUtils();
-  const { isProcessing, getError } = useDashboardCharts(teamId);
+  const { isProcessing, getError, isRefreshing } = useDashboardCharts(teamId);
 
   const metric = dashboardChart.metric;
   const metricId = metric.id;
@@ -318,6 +318,7 @@ export function DashboardMetricCard({
           <DashboardMetricDrawer
             dashboardChart={dashboardChart}
             isProcessing={processing}
+            isRefreshing={isRefreshing}
             error={error}
             isDeleting={deleteMutation.isPending}
             onRefresh={handleRefresh}

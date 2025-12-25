@@ -10,6 +10,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Skeleton } from "@/components/ui/skeleton";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { type GoalProgress, calculateTargetDisplayValue } from "@/lib/goals";
 import { formatCadence } from "@/lib/helpers/format-cadence";
@@ -38,6 +39,8 @@ interface GoalTabContentProps {
   currentValue: { value: number; label?: string; date?: string } | null;
   valueLabel: string | null;
   cadence: Cadence | null | undefined;
+  /** True when dashboard data is refetching (goal progress being recalculated) */
+  isRefreshing?: boolean;
 }
 
 export function GoalTabContent({
@@ -47,6 +50,7 @@ export function GoalTabContent({
   currentValue,
   valueLabel,
   cadence,
+  isRefreshing = false,
 }: GoalTabContentProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [goalType, setGoalType] = useState<GoalType>(
@@ -207,6 +211,55 @@ export function GoalTabContent({
     );
   }
 
+  // Loading state - show skeleton while goal data is refreshing
+  if (isRefreshing && goal) {
+    return (
+      <div className="flex h-full flex-col overflow-y-auto p-5">
+        <div className="mb-5">
+          <h3 className="text-base font-semibold">Goal Progress</h3>
+          <p className="text-muted-foreground mt-1 text-xs leading-relaxed">
+            Updating...
+          </p>
+        </div>
+
+        <div className="space-y-4">
+          {/* Progress Percentage Skeleton */}
+          <div className="bg-background border p-4 text-center shadow-sm">
+            <Skeleton className="mx-auto mb-1 h-10 w-24" />
+            <Skeleton className="mx-auto h-3 w-20" />
+            <div className="mt-3">
+              <Skeleton className="h-2.5 w-full" />
+            </div>
+          </div>
+
+          {/* Time Elapsed Skeleton */}
+          <div className="bg-background border p-3 shadow-sm">
+            <div className="flex items-center justify-between">
+              <Skeleton className="h-3 w-20" />
+              <Skeleton className="h-3 w-24" />
+            </div>
+            <div className="mt-2 space-y-1">
+              <Skeleton className="h-2 w-full" />
+              <Skeleton className="h-3 w-16" />
+            </div>
+          </div>
+
+          {/* Current / Target Skeleton */}
+          <div className="grid grid-cols-2 gap-3">
+            <div className="bg-background border p-3 shadow-sm">
+              <Skeleton className="mb-1 h-3 w-12" />
+              <Skeleton className="h-6 w-16" />
+            </div>
+            <div className="bg-background border p-3 shadow-sm">
+              <Skeleton className="mb-1 h-3 w-12" />
+              <Skeleton className="h-6 w-16" />
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   // Display Mode
   return (
     <div className="flex h-full flex-col overflow-y-auto p-5">
@@ -278,7 +331,7 @@ export function GoalTabContent({
             <div className="mt-2 space-y-1">
               <div className="bg-muted h-2 w-full overflow-hidden">
                 <div
-                  className="h-full bg-chart-2 transition-all duration-300"
+                  className="bg-chart-2 h-full transition-all duration-300"
                   style={{
                     width: `${Math.min(
                       (goalProgress.daysElapsed /
