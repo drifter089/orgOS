@@ -2,9 +2,7 @@
 
 import { useCallback, useEffect, useRef } from "react";
 
-import { toast } from "sonner";
-
-import { api } from "@/trpc/react";
+import { useOptimisticRoleUpdate } from "@/hooks/use-optimistic-role-update";
 
 import { useTeamStore } from "../store/team-store";
 import { type KpiEdgeData } from "../types/canvas";
@@ -15,12 +13,16 @@ import { type KpiEdgeData } from "../types/canvas";
  * - Assigning metric to role when KPI edge is created
  * - Unassigning metric from role when KPI edge is deleted
  * - Tracking pending mutations to prevent duplicates
+ *
+ * IMPORTANT: When a chart node is hidden (removed from canvas), the edge is removed
+ * but we DON'T unlink the role-metric relationship. Only unlink when user explicitly
+ * deletes the edge while both nodes still exist on the canvas.
  */
 export function useRoleMetricSync() {
   const teamId = useTeamStore((state) => state.teamId);
   const edges = useTeamStore((state) => state.edges);
+  const nodes = useTeamStore((state) => state.nodes);
   const isInitialized = useTeamStore((state) => state.isInitialized);
-  const utils = api.useUtils();
 
   // Track pending mutations to prevent duplicates
   const pendingMutations = useRef(new Map<string, boolean>());
@@ -28,25 +30,21 @@ export function useRoleMetricSync() {
   // Track previous edges to detect additions/removals
   const prevEdgesRef = useRef<typeof edges>([]);
 
-  const updateRole = api.role.update.useMutation({
-    onSuccess: () => {
-      void utils.role.getByTeamId.invalidate({ teamId });
-      void utils.dashboard.getDashboardCharts.invalidate({ teamId });
-    },
-    onError: (error) => {
-      toast.error(`Failed to sync metric assignment: ${error.message}`);
-    },
-    onSettled: (_data, _error, variables) => {
-      pendingMutations.current.delete(variables.id);
-    },
-  });
+  const updateRole = useOptimisticRoleUpdate(teamId);
 
   const assignMetricToRole = useCallback(
     (roleId: string, metricId: string) => {
       if (pendingMutations.current.get(roleId)) return;
       pendingMutations.current.set(roleId, true);
 
-      updateRole.mutate({ id: roleId, metricId });
+      updateRole.mutate(
+        { id: roleId, metricId },
+        {
+          onSettled: () => {
+            pendingMutations.current.delete(roleId);
+          },
+        },
+      );
     },
     [updateRole],
   );
@@ -57,7 +55,14 @@ export function useRoleMetricSync() {
       pendingMutations.current.set(roleId, true);
 
       // Pass undefined to trigger metricId update; backend converts to null
-      updateRole.mutate({ id: roleId, metricId: undefined });
+      updateRole.mutate(
+        { id: roleId, metricId: undefined },
+        {
+          onSettled: () => {
+            pendingMutations.current.delete(roleId);
+          },
+        },
+      );
     },
     [updateRole],
   );
@@ -95,15 +100,22 @@ export function useRoleMetricSync() {
     }
 
     // Unassign metrics for removed edges
+    // Only unlink if BOTH nodes still exist (user manually deleted edge)
+    // If a node was removed (chart hidden), don't unlink - the edge regenerates on re-add
     for (const edge of removedKpiEdges) {
       const data = edge.data as KpiEdgeData | undefined;
       if (data?.roleId) {
-        unassignMetricFromRole(data.roleId);
+        const sourceExists = nodes.some((n) => n.id === edge.source);
+        const targetExists = nodes.some((n) => n.id === edge.target);
+
+        if (sourceExists && targetExists) {
+          unassignMetricFromRole(data.roleId);
+        }
       }
     }
 
     prevEdgesRef.current = currentEdges;
-  }, [edges, isInitialized, assignMetricToRole, unassignMetricFromRole]);
+  }, [edges, nodes, isInitialized, assignMetricToRole, unassignMetricFromRole]);
 
   return {
     assignMetricToRole,
