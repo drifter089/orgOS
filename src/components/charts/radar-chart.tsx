@@ -48,7 +48,7 @@ export function DashboardRadarChart({
             )}
             <PolarAngleAxis dataKey={xAxisKey} />
             <PolarGrid />
-            {dataKeys.map((key) => (
+            {dataKeys.map((key, index) => (
               <Radar
                 key={key}
                 dataKey={key}
@@ -58,6 +58,10 @@ export function DashboardRadarChart({
                   r: 4,
                   fillOpacity: 1,
                 }}
+                isAnimationActive={true}
+                animationDuration={800}
+                animationEasing="ease-out"
+                animationBegin={index * 100}
               />
             ))}
             {showLegend && <ChartLegend content={<ChartLegendContent />} />}

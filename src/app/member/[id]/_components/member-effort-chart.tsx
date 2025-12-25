@@ -83,6 +83,9 @@ export function MemberEffortChart({
               innerRadius={50}
               outerRadius={85}
               strokeWidth={2}
+              isAnimationActive={true}
+              animationDuration={800}
+              animationEasing="ease-out"
             >
               {chartData.map((entry, index) => (
                 <Cell

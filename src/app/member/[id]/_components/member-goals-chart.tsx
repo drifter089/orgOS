@@ -85,6 +85,9 @@ export function MemberGoalsChart({ goalsData }: MemberGoalsChartProps) {
                 r: 4,
                 fillOpacity: 1,
               }}
+              isAnimationActive={true}
+              animationDuration={800}
+              animationEasing="ease-out"
             />
           </RadarChart>
         </ChartContainer>

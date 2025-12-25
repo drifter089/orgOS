@@ -50,7 +50,12 @@ export function DashboardRadialChart({
               />
             )}
             <PolarGrid gridType="circle" />
-            <RadialBar dataKey={dataKey}>
+            <RadialBar
+              dataKey={dataKey}
+              isAnimationActive={true}
+              animationDuration={1000}
+              animationEasing="ease-out"
+            >
               {centerLabel && (
                 <Label
                   content={({ viewBox }) => {

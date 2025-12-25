@@ -59,6 +59,9 @@ export function DashboardPieChart({
               innerRadius={60}
               outerRadius={100}
               strokeWidth={2}
+              isAnimationActive={true}
+              animationDuration={800}
+              animationEasing="ease-out"
             >
               {chartData.map((entry, index) => (
                 <Cell
