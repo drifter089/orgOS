@@ -117,7 +117,6 @@ export function DashboardMetricDrawer({
         <ChartStatsBar
           currentValue={currentValue}
           valueLabel={dashboardChart.valueLabel ?? null}
-          goalProgress={goalProgress}
         />
 
         <div className="flex-1 overflow-hidden p-4">
