@@ -15,6 +15,7 @@ import { DashboardMetricChart } from "./dashboard-metric-chart";
 import {
   type DrawerTab,
   DrawerTabButtons,
+  GSheetsRangeEditor,
   GoalTabContent,
   RoleTabContent,
   SettingsTabContent,
@@ -33,6 +34,11 @@ interface DashboardMetricDrawerProps {
     cadence: Cadence,
     selectedDimension?: string,
   ) => void;
+  // Edit mode props (for Google Sheets)
+  isEditMode?: boolean;
+  onExitEditMode?: () => void;
+  onUpdateConfig?: (newDataRange: string) => void;
+  isUpdatingConfig?: boolean;
 }
 
 export function DashboardMetricDrawer({
@@ -44,6 +50,10 @@ export function DashboardMetricDrawer({
   onDelete,
   onClose,
   onRegenerateChart,
+  isEditMode = false,
+  onExitEditMode,
+  onUpdateConfig,
+  isUpdatingConfig = false,
 }: DashboardMetricDrawerProps) {
   // Subscribe to cache directly - drawer re-renders when cache changes
   const { data: dashboardChart, isLoading } =
@@ -237,18 +247,39 @@ export function DashboardMetricDrawer({
       {/* Chart Column */}
       <div className="flex flex-col border-l">
         <div className="flex-1 overflow-hidden p-4">
-          <DashboardMetricChart
-            title={chartTransform?.title ?? metric.name}
-            chartTransform={chartTransform ?? null}
-            hasChartData={hasChartData}
-            isIntegrationMetric={isIntegrationMetric}
-            integrationId={metric.integration?.providerId}
-            roles={metric.roles ?? []}
-            goal={metric.goal}
-            goalProgress={goalProgress}
-            valueLabel={dashboardChart.valueLabel ?? null}
-            isProcessing={isProcessing}
-          />
+          {isEditMode && onExitEditMode && onUpdateConfig ? (
+            <GSheetsRangeEditor
+              connectionId={metric.integration?.connectionId ?? ""}
+              spreadsheetId={
+                (metric.endpointConfig as Record<string, string>)
+                  ?.SPREADSHEET_ID ?? ""
+              }
+              sheetName={
+                (metric.endpointConfig as Record<string, string>)?.SHEET_NAME ??
+                ""
+              }
+              currentRange={
+                (metric.endpointConfig as Record<string, string>)?.DATA_RANGE ??
+                ""
+              }
+              onSave={onUpdateConfig}
+              onCancel={onExitEditMode}
+              isSaving={isUpdatingConfig}
+            />
+          ) : (
+            <DashboardMetricChart
+              title={chartTransform?.title ?? metric.name}
+              chartTransform={chartTransform ?? null}
+              hasChartData={hasChartData}
+              isIntegrationMetric={isIntegrationMetric}
+              integrationId={metric.integration?.providerId}
+              roles={metric.roles ?? []}
+              goal={metric.goal}
+              goalProgress={goalProgress}
+              valueLabel={dashboardChart.valueLabel ?? null}
+              isProcessing={isProcessing}
+            />
+          )}
         </div>
       </div>
     </div>
