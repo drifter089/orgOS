@@ -221,21 +221,6 @@ export function DashboardMetricChart({
                   : undefined
               }
             />
-            {goalTargetValue !== null && (
-              <ReferenceLine
-                y={goalTargetValue}
-                stroke="hsl(var(--destructive))"
-                strokeDasharray="8 4"
-                strokeWidth={2.5}
-                label={{
-                  value: `Target: ${formatValue(goalTargetValue)}`,
-                  position: "insideTopRight",
-                  fill: "hsl(var(--destructive))",
-                  fontSize: 11,
-                  fontWeight: 600,
-                }}
-              />
-            )}
             {showTooltip && (
               <ChartTooltip
                 cursor={false}
@@ -273,6 +258,22 @@ export function DashboardMetricChart({
                 animationBegin={index * 100}
               />
             ))}
+            {goalTargetValue !== null && (
+              <ReferenceLine
+                y={goalTargetValue}
+                stroke="oklch(var(--goal))"
+                strokeDasharray="6 3"
+                strokeWidth={2}
+                className="goal-line-animated"
+                label={{
+                  value: `Goal: ${formatValue(goalTargetValue)}`,
+                  position: "insideTopLeft",
+                  fill: "oklch(var(--goal))",
+                  fontSize: 11,
+                  fontWeight: 700,
+                }}
+              />
+            )}
             {showLegend && <ChartLegend content={<ChartLegendContent />} />}
           </AreaChart>
         </ChartContainer>
@@ -319,21 +320,6 @@ export function DashboardMetricChart({
                   : undefined
               }
             />
-            {goalTargetValue !== null && (
-              <ReferenceLine
-                y={goalTargetValue}
-                stroke="hsl(var(--destructive))"
-                strokeDasharray="8 4"
-                strokeWidth={2.5}
-                label={{
-                  value: `Target: ${formatValue(goalTargetValue)}`,
-                  position: "insideTopRight",
-                  fill: "hsl(var(--destructive))",
-                  fontSize: 11,
-                  fontWeight: 600,
-                }}
-              />
-            )}
             {showTooltip && (
               <ChartTooltip
                 cursor={false}
@@ -353,6 +339,22 @@ export function DashboardMetricChart({
                 animationBegin={index * 80}
               />
             ))}
+            {goalTargetValue !== null && (
+              <ReferenceLine
+                y={goalTargetValue}
+                stroke="oklch(var(--goal))"
+                strokeDasharray="6 3"
+                strokeWidth={2}
+                className="goal-line-animated"
+                label={{
+                  value: `Goal: ${formatValue(goalTargetValue)}`,
+                  position: "insideTopLeft",
+                  fill: "oklch(var(--goal))",
+                  fontSize: 11,
+                  fontWeight: 700,
+                }}
+              />
+            )}
             {showLegend && <ChartLegend content={<ChartLegendContent />} />}
           </BarChart>
         </ChartContainer>
@@ -544,21 +546,6 @@ export function DashboardMetricChart({
             }
           />
           <YAxis tickLine={false} axisLine={false} tickMargin={8} />
-          {goalTargetValue !== null && (
-            <ReferenceLine
-              y={goalTargetValue}
-              stroke="hsl(var(--destructive))"
-              strokeDasharray="8 4"
-              strokeWidth={2.5}
-              label={{
-                value: `Target: ${formatValue(goalTargetValue)}`,
-                position: "insideTopRight",
-                fill: "hsl(var(--destructive))",
-                fontSize: 11,
-                fontWeight: 600,
-              }}
-            />
-          )}
           {showTooltip && (
             <ChartTooltip
               cursor={false}
@@ -577,6 +564,22 @@ export function DashboardMetricChart({
               animationBegin={index * 80}
             />
           ))}
+          {goalTargetValue !== null && (
+            <ReferenceLine
+              y={goalTargetValue}
+              stroke="oklch(var(--goal))"
+              strokeDasharray="6 3"
+              strokeWidth={2}
+              className="goal-line-animated"
+              label={{
+                value: `Goal: ${formatValue(goalTargetValue)}`,
+                position: "insideTopLeft",
+                fill: "oklch(var(--goal))",
+                fontSize: 11,
+                fontWeight: 700,
+              }}
+            />
+          )}
           {showLegend && <ChartLegend content={<ChartLegendContent />} />}
         </BarChart>
       </ChartContainer>
@@ -648,9 +651,12 @@ export function DashboardMetricChart({
                 ""}
             </span>
             {goalTargetValue !== null && goalProgress && (
-              <span className="text-muted-foreground ml-auto flex items-center gap-1 text-xs">
-                <Target className="text-destructive h-3 w-3" />
-                <span className="text-destructive font-medium">
+              <span
+                className="ml-auto flex items-center gap-1 text-xs"
+                style={{ color: "oklch(var(--goal))" }}
+              >
+                <Target className="h-3 w-3" />
+                <span className="font-medium">
                   {formatValue(goalTargetValue)}
                 </span>
               </span>
