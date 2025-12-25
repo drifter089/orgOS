@@ -316,9 +316,8 @@ export function DashboardMetricCard({
 
         <div className="min-h-0 w-full flex-1">
           <DashboardMetricDrawer
-            dashboardChart={dashboardChart}
-            isProcessing={processing}
-            error={error}
+            dashboardChartId={dashboardChart.id}
+            teamId={teamId}
             isDeleting={deleteMutation.isPending}
             onRefresh={handleRefresh}
             onUpdateMetric={handleUpdateMetric}

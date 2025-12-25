@@ -291,9 +291,8 @@ function SidebarMetricCard({
           <DrawerTitle className="sr-only">{metric.name} Settings</DrawerTitle>
           <div className="min-h-0 w-full flex-1">
             <DashboardMetricDrawer
-              dashboardChart={dashboardChart}
-              isProcessing={isProcessing}
-              error={metric.lastError ?? null}
+              dashboardChartId={dashboardChart.id}
+              teamId={teamId}
               isDeleting={deleteMutation.isPending}
               onRefresh={handleRefresh}
               onUpdateMetric={handleUpdateMetric}
@@ -460,7 +459,7 @@ export function DashboardSidebar({
                           <Button
                             variant="outline"
                             size="sm"
-                            className="w-full shadow-sm transition-all hover:shadow-md hover:bg-accent"
+                            className="hover:bg-accent w-full shadow-sm transition-all hover:shadow-md"
                           >
                             <Plus className="mr-1.5 h-3.5 w-3.5" />
                             Add KPI

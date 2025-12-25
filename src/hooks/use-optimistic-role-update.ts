@@ -110,6 +110,59 @@ export function useOptimisticRoleUpdate(teamId: string) {
         );
       });
 
+      // Update dashboard cache with server response (exclude relations for type safety)
+      const roleForCache = {
+        id: updatedRole.id,
+        title: updatedRole.title,
+        color: updatedRole.color,
+        teamId: updatedRole.teamId,
+        createdAt: updatedRole.createdAt,
+        updatedAt: updatedRole.updatedAt,
+        purpose: updatedRole.purpose,
+        accountabilities: updatedRole.accountabilities,
+        metricId: updatedRole.metricId,
+        nodeId: updatedRole.nodeId,
+        assignedUserId: updatedRole.assignedUserId,
+        effortPoints: updatedRole.effortPoints,
+        assignedUserName: updatedRole.assignedUserName,
+      };
+
+      utils.dashboard.getDashboardCharts.setData({ teamId }, (old) => {
+        if (!old) return old;
+        return old.map((chart) => {
+          // Add/update role to target metric
+          if (chart.metricId === updatedRole.metricId) {
+            const roleExists = chart.metric.roles.some(
+              (r) => r.id === updatedRole.id,
+            );
+            return {
+              ...chart,
+              metric: {
+                ...chart.metric,
+                roles: roleExists
+                  ? chart.metric.roles.map((r) =>
+                      r.id === updatedRole.id ? roleForCache : r,
+                    )
+                  : [...chart.metric.roles, roleForCache],
+              },
+            };
+          }
+          // Remove role from old metric if it was moved
+          if (chart.metric.roles.some((r) => r.id === updatedRole.id)) {
+            return {
+              ...chart,
+              metric: {
+                ...chart.metric,
+                roles: chart.metric.roles.filter(
+                  (r) => r.id !== updatedRole.id,
+                ),
+              },
+            };
+          }
+          return chart;
+        });
+      });
+
       // Invalidate for background refresh
       void utils.role.getByTeamId.invalidate({ teamId });
       void utils.dashboard.getDashboardCharts.invalidate({ teamId });

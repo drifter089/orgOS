@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 import type { Cadence } from "@prisma/client";
+import { Loader2 } from "lucide-react";
 
 import { getLatestMetricValue } from "@/lib/metrics/get-latest-value";
 import type { ChartTransformResult } from "@/lib/metrics/transformer-types";
@@ -20,9 +21,8 @@ import {
 } from "./drawer";
 
 interface DashboardMetricDrawerProps {
-  dashboardChart: DashboardChartWithRelations;
-  isProcessing: boolean;
-  error: string | null;
+  dashboardChartId: string;
+  teamId: string;
   isDeleting: boolean;
   onRefresh: (forceRebuild?: boolean) => void;
   onUpdateMetric: (name: string, description: string) => void;
@@ -36,9 +36,8 @@ interface DashboardMetricDrawerProps {
 }
 
 export function DashboardMetricDrawer({
-  dashboardChart,
-  isProcessing,
-  error: _error,
+  dashboardChartId,
+  teamId,
   isDeleting,
   onRefresh,
   onUpdateMetric,
@@ -46,14 +45,30 @@ export function DashboardMetricDrawer({
   onClose,
   onRegenerateChart,
 }: DashboardMetricDrawerProps) {
-  const metric = dashboardChart.metric;
-  const metricId = metric.id;
-  const chartTransform = dashboardChart.chartConfig as
+  // Subscribe to cache directly - drawer re-renders when cache changes
+  const { data: dashboardChart, isLoading } =
+    api.dashboard.getDashboardCharts.useQuery(
+      { teamId },
+      {
+        select: useCallback(
+          (charts: DashboardChartWithRelations[]) =>
+            charts.find((c) => c.id === dashboardChartId),
+          [dashboardChartId],
+        ),
+      },
+    );
+
+  // Derive processing/error state from cache data
+  const isProcessing = !!dashboardChart?.metric.refreshStatus;
+
+  const metric = dashboardChart?.metric;
+  const metricId = metric?.id;
+  const chartTransform = dashboardChart?.chartConfig as
     | ChartTransformResult
     | null
     | undefined;
-  const chartTransformer = dashboardChart.chartTransformer;
-  const goalProgress = dashboardChart.goalProgress ?? null;
+  const chartTransformer = dashboardChart?.chartTransformer;
+  const goalProgress = dashboardChart?.goalProgress ?? null;
 
   // Tab state
   const [activeTab, setActiveTab] = useState<DrawerTab>("goal");
@@ -70,21 +85,45 @@ export function DashboardMetricDrawer({
   );
 
   // Query for available dimensions
-  const isIntegrationMetric = !!metric.integration?.providerId;
+  const isIntegrationMetric = !!metric?.integration?.providerId;
   const { data: availableDimensions, isLoading: isDimensionsLoading } =
     api.pipeline.getAvailableDimensions.useQuery(
-      { metricId },
-      { enabled: isIntegrationMetric },
+      { metricId: metricId! },
+      { enabled: isIntegrationMetric && !!metricId },
     );
 
-  // Sync form state when props change
+  // Sync form state when cache data changes
   useEffect(() => {
-    if (!isProcessing) {
-      setSelectedChartType(chartTransformer?.chartType ?? "bar");
-      setSelectedCadence(chartTransformer?.cadence ?? "WEEKLY");
-      setSelectedDimension(chartTransformer?.selectedDimension ?? "value");
+    if (!isProcessing && chartTransformer) {
+      setSelectedChartType(chartTransformer.chartType ?? "bar");
+      setSelectedCadence(chartTransformer.cadence ?? "WEEKLY");
+      setSelectedDimension(chartTransformer.selectedDimension ?? "value");
     }
   }, [chartTransformer, isProcessing]);
+
+  // Loading state - should rarely show since parent already has cache data
+  if (isLoading) {
+    return (
+      <div className="flex h-full items-center justify-center">
+        <Loader2 className="text-muted-foreground h-8 w-8 animate-spin" />
+      </div>
+    );
+  }
+
+  // Not found state - chart was deleted or cache cleared
+  if (!dashboardChart || !metric) {
+    return (
+      <div className="flex h-full flex-col items-center justify-center gap-4">
+        <p className="text-muted-foreground">Chart not found</p>
+        <button
+          onClick={onClose}
+          className="text-primary text-sm hover:underline"
+        >
+          Close drawer
+        </button>
+      </div>
+    );
+  }
 
   // Derived state
   const hasChartChanges =
@@ -127,7 +166,7 @@ export function DashboardMetricDrawer({
           )}
         >
           <GoalTabContent
-            metricId={metricId}
+            metricId={metric.id}
             goal={metric.goal}
             goalProgress={goalProgress}
             currentValue={currentValue}
@@ -146,7 +185,7 @@ export function DashboardMetricDrawer({
           )}
         >
           <RoleTabContent
-            metricId={metricId}
+            metricId={metric.id}
             metricName={metric.name}
             teamId={metric.teamId}
             roles={(metric.roles ?? []).map((r) => ({
