@@ -17,6 +17,8 @@ import { Badge } from "@/components/ui/badge";
 import {
   type ChartConfig,
   ChartContainer,
+  ChartLegend,
+  ChartLegendContent,
   ChartTooltip,
 } from "@/components/ui/chart";
 import type { GoalProgress } from "@/lib/goals";
@@ -43,6 +45,7 @@ interface GoalData {
   projectedEndValue: number | null;
   valueLabel: string | null;
   latestDataTimestamp: Date | null;
+  selectedDimension: string | null;
 }
 
 interface MemberGoalsChartProps {
@@ -148,6 +151,7 @@ interface GoalTooltipProps {
       projectedEndValue: number | null;
       valueLabel: string | null;
       latestDataTimestamp: Date | null;
+      selectedDimension: string | null;
     };
   }>;
 }
@@ -179,6 +183,7 @@ function GoalTooltipContent({ active, payload }: GoalTooltipProps) {
           </div>
           <span className="text-muted-foreground text-[10px]">
             {formatCadence(data.cadence)} Goal
+            {data.selectedDimension && ` · ${data.selectedDimension}`}
           </span>
         </div>
         <Badge variant={statusConfig.variant} className="gap-1 text-[10px]">
@@ -440,6 +445,7 @@ export function MemberGoalsChart({ goalsData }: MemberGoalsChartProps) {
     projectedEndValue: goal.projectedEndValue,
     valueLabel: goal.valueLabel,
     latestDataTimestamp: goal.latestDataTimestamp,
+    selectedDimension: goal.selectedDimension,
   }));
 
   const chartConfig = {
@@ -482,6 +488,7 @@ export function MemberGoalsChart({ goalsData }: MemberGoalsChartProps) {
                 fillOpacity: 1,
               }}
             />
+            <ChartLegend content={<ChartLegendContent />} />
           </RadarChart>
         </ChartContainer>
       </div>

@@ -85,12 +85,12 @@ export function MemberCard({ member, dashboardCharts }: MemberCardProps) {
         };
       }) ?? [];
 
-  const radarChartConfig: ChartConfig = {
+  const radarChartConfig = {
     progress: {
-      label: "Progress",
-      color: "hsl(var(--primary))",
+      label: "Goal Progress %",
+      color: "var(--chart-1)",
     },
-  };
+  } satisfies ChartConfig;
 
   return (
     <Card className="p-6">
@@ -184,9 +184,9 @@ export function MemberCard({ member, dashboardCharts }: MemberCardProps) {
                     chartConfig={radarChartConfig}
                     xAxisKey="goal"
                     dataKeys={["progress"]}
-                    showLegend={false}
+                    showLegend={true}
                     showTooltip={true}
-                    className="h-[280px] w-full"
+                    className="aspect-square max-h-[280px]"
                   />
                 ) : (
                   <div className="text-muted-foreground flex flex-1 items-center justify-center text-sm">
