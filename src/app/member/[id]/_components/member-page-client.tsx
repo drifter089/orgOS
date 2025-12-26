@@ -191,6 +191,7 @@ export function MemberPageClient({
         projectedEndValue: gp.projectedEndValue,
         valueLabel: chart.valueLabel,
         latestDataTimestamp: chart.latestDataTimestamp,
+        selectedDimension: chart.chartTransformer?.selectedDimension ?? null,
       };
     });
 

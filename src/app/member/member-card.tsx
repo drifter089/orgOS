@@ -4,7 +4,11 @@ import Link from "next/link";
 
 import { ArrowRight } from "lucide-react";
 
-import { MetricPieChart, MetricRadarChart } from "@/components/charts";
+import {
+  type GoalData,
+  GoalsRadarChart,
+  MetricPieChart,
+} from "@/components/charts";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -67,7 +71,7 @@ export function MemberCard({ member, dashboardCharts }: MemberCardProps) {
     return acc;
   }, {} as ChartConfig);
 
-  const goalsData =
+  const goalsData: GoalData[] =
     roles
       ?.filter((role) => {
         if (!role.metricId) return false;
@@ -76,21 +80,29 @@ export function MemberCard({ member, dashboardCharts }: MemberCardProps) {
       })
       .map((role) => {
         const chart = chartsByMetricId.get(role.metricId!)!;
+        const gp = chart.goalProgress!;
         return {
-          goal: chart.metric.name ?? role.metric?.name ?? "Unknown",
-          progress: Math.max(
-            0,
-            Math.min(100, chart.goalProgress!.progressPercent),
-          ),
+          goalName: chart.metric.name ?? role.metric?.name ?? "Unknown",
+          progressPercent: gp.progressPercent,
+          expectedProgressPercent: gp.expectedProgressPercent,
+          status: gp.status,
+          daysElapsed: gp.daysElapsed,
+          daysTotal: gp.daysTotal,
+          daysRemaining: gp.daysRemaining,
+          hoursRemaining: gp.hoursRemaining,
+          currentValue: gp.currentValue,
+          targetValue: gp.targetDisplayValue,
+          baselineValue: gp.baselineValue,
+          cadence: gp.cadence,
+          periodStart: gp.periodStart,
+          periodEnd: gp.periodEnd,
+          trend: gp.trend,
+          projectedEndValue: gp.projectedEndValue,
+          valueLabel: chart.valueLabel,
+          latestDataTimestamp: chart.latestDataTimestamp,
+          selectedDimension: chart.chartTransformer?.selectedDimension ?? null,
         };
       }) ?? [];
-
-  const radarChartConfig: ChartConfig = {
-    progress: {
-      label: "Progress",
-      color: "hsl(var(--primary))",
-    },
-  };
 
   return (
     <Card className="p-6">
@@ -174,26 +186,11 @@ export function MemberCard({ member, dashboardCharts }: MemberCardProps) {
                 )}
               </div>
 
-              <div className="border-border/40 flex h-[320px] flex-col rounded-md border p-4">
-                <span className="text-muted-foreground mb-2 text-xs font-medium tracking-wider uppercase">
-                  Goals Progress
-                </span>
-                {goalsData.length > 0 ? (
-                  <MetricRadarChart
-                    chartData={goalsData}
-                    chartConfig={radarChartConfig}
-                    xAxisKey="goal"
-                    dataKeys={["progress"]}
-                    showLegend={false}
-                    showTooltip={true}
-                    className="h-[280px] w-full"
-                  />
-                ) : (
-                  <div className="text-muted-foreground flex flex-1 items-center justify-center text-sm">
-                    No goals data
-                  </div>
-                )}
-              </div>
+              <GoalsRadarChart
+                goalsData={goalsData}
+                showHeader={false}
+                className="h-[320px] rounded-md"
+              />
             </>
           )}
         </div>
