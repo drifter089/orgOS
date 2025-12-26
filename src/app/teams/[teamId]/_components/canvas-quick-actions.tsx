@@ -1,14 +1,9 @@
 "use client";
 
-import { Briefcase, Gauge, Plus } from "lucide-react";
+import { Briefcase, Plus, Target } from "lucide-react";
 
 import { PlatformsDialog } from "@/app/integration/_components";
 import { Button } from "@/components/ui/button";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
 import type { RouterOutputs } from "@/trpc/react";
 
 import { RoleDialog } from "./role-dialog";
@@ -29,18 +24,11 @@ export function CanvasQuickActions({
       <RoleDialog
         teamId={teamId}
         trigger={
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button size="lg" className="gap-2 shadow-lg hover:shadow-xl">
-                <Plus className="h-4 w-4" />
-                <Briefcase className="h-4 w-4" />
-                <span className="text-sm font-medium">Role</span>
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent side="right">
-              <p>Add a new role to the canvas</p>
-            </TooltipContent>
-          </Tooltip>
+          <Button size="lg" className="gap-2 shadow-lg hover:shadow-xl">
+            <Plus className="h-4 w-4" />
+            <Briefcase className="h-4 w-4" />
+            <span className="text-sm font-medium">Role</span>
+          </Button>
         }
       />
 
@@ -48,18 +36,11 @@ export function CanvasQuickActions({
         teamId={teamId}
         initialIntegrations={initialIntegrations}
         trigger={
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button size="lg" className="gap-2 shadow-lg hover:shadow-xl">
-                <Plus className="h-4 w-4" />
-                <Gauge className="h-4 w-4" />
-                <span className="text-sm font-medium">KPI</span>
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent side="right">
-              <p>Add a new KPI</p>
-            </TooltipContent>
-          </Tooltip>
+          <Button size="lg" className="gap-2 shadow-lg hover:shadow-xl">
+            <Plus className="h-4 w-4" />
+            <Target className="h-4 w-4" />
+            <span className="text-sm font-medium">KPI</span>
+          </Button>
         }
       />
     </div>

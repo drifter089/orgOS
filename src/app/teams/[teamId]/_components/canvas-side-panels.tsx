@@ -8,7 +8,6 @@ import {
   ChevronLeft,
   ChevronRight,
   ExternalLink,
-  Gauge,
   Loader2,
   Target,
   Trash2,
@@ -352,7 +351,8 @@ function RightSideToggleButtons({
         }
       >
         <Users className="h-4 w-4" />
-        <span className="text-sm font-medium">{memberCount}</span>
+        <span className="text-sm font-medium">Members</span>
+        <span className="text-sm font-medium">({memberCount})</span>
         {activePanel === "members" ? (
           <ChevronRight className="h-4 w-4" />
         ) : (
@@ -376,7 +376,8 @@ function RightSideToggleButtons({
         }
       >
         <Briefcase className="h-4 w-4" />
-        <span className="text-sm font-medium">{roleCount}</span>
+        <span className="text-sm font-medium">Roles</span>
+        <span className="text-sm font-medium">({roleCount})</span>
         {activePanel === "roles" ? (
           <ChevronRight className="h-4 w-4" />
         ) : (
@@ -399,7 +400,7 @@ function RightSideToggleButtons({
           activePanel === "kpis" ? "Close KPIs sidebar" : "Open KPIs sidebar"
         }
       >
-        <Gauge className="h-4 w-4" />
+        <Target className="h-4 w-4" />
         <span className="text-sm font-medium">KPIs</span>
         {activePanel === "kpis" ? (
           <ChevronRight className="h-4 w-4" />
