@@ -47,6 +47,24 @@ import type { ChartTransformResult } from "@/lib/metrics/transformer-types";
 import { getPlatformConfig } from "@/lib/platform-config";
 import { cn } from "@/lib/utils";
 
+function formatAxisLabel(value: string | number): string {
+  const strValue = String(value);
+  if (strValue.includes("-") && !isNaN(Date.parse(strValue))) {
+    const date = new Date(strValue);
+    return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+  }
+  if (strValue.length > 12) {
+    return strValue.slice(0, 10) + "…";
+  }
+  return strValue;
+}
+
+function formatYAxisLabel(value: number): string {
+  if (value >= 1000000) return `${(value / 1000000).toFixed(1)}M`;
+  if (value >= 1000) return `${(value / 1000).toFixed(1)}K`;
+  return String(value);
+}
+
 /**
  * Format time remaining based on cadence
  * - DAILY or < 1 day: show hours (e.g., "8 hrs")
@@ -163,14 +181,30 @@ export function DashboardMetricChart({
       chartType,
     } = chartTransform;
 
+    const hasLongLabels = chartData.some((d) => {
+      const rawLabel = d[xAxisKey];
+      const label =
+        typeof rawLabel === "string" || typeof rawLabel === "number"
+          ? String(rawLabel)
+          : "";
+      return label.length > 8;
+    });
+
     // Render Area/Line Chart
     if (chartType === "line" || chartType === "area") {
       return (
         <ChartContainer
           config={chartConfig}
-          className="aspect-auto h-[220px] w-full"
+          className={
+            hasLongLabels
+              ? "aspect-auto h-[240px] w-full"
+              : "aspect-auto h-[220px] w-full"
+          }
         >
-          <AreaChart data={chartData}>
+          <AreaChart
+            data={chartData}
+            margin={hasLongLabels ? { bottom: 30 } : undefined}
+          >
             <defs>
               {dataKeys.map((key) => (
                 <linearGradient
@@ -201,23 +235,17 @@ export function DashboardMetricChart({
               axisLine={false}
               tickMargin={8}
               minTickGap={32}
-              tickFormatter={(value: string | number) => {
-                const strValue = String(value);
-                if (strValue.includes("-") && !isNaN(Date.parse(strValue))) {
-                  const date = new Date(strValue);
-                  return date.toLocaleDateString("en-US", {
-                    month: "short",
-                    day: "numeric",
-                  });
-                }
-                return strValue.slice(0, 10);
-              }}
+              angle={hasLongLabels ? -35 : 0}
+              textAnchor={hasLongLabels ? "end" : "middle"}
+              height={hasLongLabels ? 50 : 30}
+              tickFormatter={formatAxisLabel}
+              tick={{ fontSize: 11 }}
               label={
                 xAxisLabel
                   ? {
                       value: xAxisLabel,
                       position: "insideBottom",
-                      offset: -5,
+                      offset: hasLongLabels ? -25 : -5,
                       className: "fill-muted-foreground text-xs",
                     }
                   : undefined
@@ -227,6 +255,9 @@ export function DashboardMetricChart({
               tickLine={false}
               axisLine={false}
               tickMargin={8}
+              width={45}
+              tick={{ fontSize: 11 }}
+              tickFormatter={formatYAxisLabel}
               label={
                 yAxisLabel
                   ? {
@@ -300,23 +331,33 @@ export function DashboardMetricChart({
     // Render Bar Chart
     if (chartType === "bar") {
       return (
-        <ChartContainer config={chartConfig} className="h-[220px] w-full">
-          <BarChart accessibilityLayer data={chartData}>
+        <ChartContainer
+          config={chartConfig}
+          className={hasLongLabels ? "h-[240px] w-full" : "h-[220px] w-full"}
+        >
+          <BarChart
+            accessibilityLayer
+            data={chartData}
+            margin={hasLongLabels ? { bottom: 30 } : undefined}
+          >
             <CartesianGrid vertical={false} />
             <XAxis
               dataKey={xAxisKey}
               tickLine={false}
-              tickMargin={10}
+              tickMargin={hasLongLabels ? 8 : 10}
               axisLine={false}
-              tickFormatter={(value: string | number) =>
-                String(value).slice(0, 10)
-              }
+              angle={hasLongLabels ? -35 : 0}
+              textAnchor={hasLongLabels ? "end" : "middle"}
+              height={hasLongLabels ? 50 : 30}
+              interval={0}
+              tickFormatter={formatAxisLabel}
+              tick={{ fontSize: 11 }}
               label={
                 xAxisLabel
                   ? {
                       value: xAxisLabel,
                       position: "insideBottom",
-                      offset: -5,
+                      offset: hasLongLabels ? -25 : -5,
                       className: "fill-muted-foreground text-xs",
                     }
                   : undefined
@@ -326,6 +367,9 @@ export function DashboardMetricChart({
               tickLine={false}
               axisLine={false}
               tickMargin={8}
+              width={45}
+              tick={{ fontSize: 11 }}
+              tickFormatter={formatYAxisLabel}
               label={
                 yAxisLabel
                   ? {
@@ -550,19 +594,36 @@ export function DashboardMetricChart({
 
     // Default to Bar Chart
     return (
-      <ChartContainer config={chartConfig} className="h-[220px] w-full">
-        <BarChart accessibilityLayer data={chartData}>
+      <ChartContainer
+        config={chartConfig}
+        className={hasLongLabels ? "h-[240px] w-full" : "h-[220px] w-full"}
+      >
+        <BarChart
+          accessibilityLayer
+          data={chartData}
+          margin={hasLongLabels ? { bottom: 30 } : undefined}
+        >
           <CartesianGrid vertical={false} />
           <XAxis
             dataKey={xAxisKey}
             tickLine={false}
-            tickMargin={10}
+            tickMargin={hasLongLabels ? 8 : 10}
             axisLine={false}
-            tickFormatter={(value: string | number) =>
-              String(value).slice(0, 10)
-            }
+            angle={hasLongLabels ? -35 : 0}
+            textAnchor={hasLongLabels ? "end" : "middle"}
+            height={hasLongLabels ? 50 : 30}
+            interval={0}
+            tickFormatter={formatAxisLabel}
+            tick={{ fontSize: 11 }}
           />
-          <YAxis tickLine={false} axisLine={false} tickMargin={8} />
+          <YAxis
+            tickLine={false}
+            axisLine={false}
+            tickMargin={8}
+            width={45}
+            tick={{ fontSize: 11 }}
+            tickFormatter={formatYAxisLabel}
+          />
           {showTooltip && (
             <ChartTooltip
               cursor={false}

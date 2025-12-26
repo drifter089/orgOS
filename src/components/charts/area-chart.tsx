@@ -19,6 +19,18 @@ import {
 
 import type { ChartComponentProps } from "./types";
 
+function formatAxisLabel(value: string | number): string {
+  const strValue = String(value);
+  if (strValue.includes("-") && !isNaN(Date.parse(strValue))) {
+    const date = new Date(strValue);
+    return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+  }
+  if (strValue.length > 12) {
+    return strValue.slice(0, 10) + "…";
+  }
+  return strValue;
+}
+
 export function DashboardAreaChart({
   chartData,
   chartConfig,
@@ -32,6 +44,15 @@ export function DashboardAreaChart({
   showTooltip = true,
   stacked = true,
 }: ChartComponentProps) {
+  const hasLongLabels = chartData.some((d) => {
+    const rawLabel = d[xAxisKey];
+    const label =
+      typeof rawLabel === "string" || typeof rawLabel === "number"
+        ? String(rawLabel)
+        : "";
+    return label.length > 8;
+  });
+
   return (
     <Card>
       <CardHeader className="pb-2">
@@ -43,9 +64,16 @@ export function DashboardAreaChart({
       <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6">
         <ChartContainer
           config={chartConfig}
-          className="aspect-auto h-[250px] w-full"
+          className={
+            hasLongLabels
+              ? "aspect-auto h-[280px] w-full"
+              : "aspect-auto h-[250px] w-full"
+          }
         >
-          <AreaChart data={chartData}>
+          <AreaChart
+            data={chartData}
+            margin={hasLongLabels ? { bottom: 40 } : undefined}
+          >
             <defs>
               {dataKeys.map((key) => (
                 <linearGradient
@@ -74,25 +102,19 @@ export function DashboardAreaChart({
               dataKey={xAxisKey}
               tickLine={false}
               axisLine={false}
-              tickMargin={8}
+              tickMargin={hasLongLabels ? 8 : 8}
               minTickGap={32}
-              tickFormatter={(value: string | number) => {
-                const strValue = String(value);
-                if (strValue.includes("-") && !isNaN(Date.parse(strValue))) {
-                  const date = new Date(strValue);
-                  return date.toLocaleDateString("en-US", {
-                    month: "short",
-                    day: "numeric",
-                  });
-                }
-                return strValue.slice(0, 10);
-              }}
+              angle={hasLongLabels ? -35 : 0}
+              textAnchor={hasLongLabels ? "end" : "middle"}
+              height={hasLongLabels ? 60 : 30}
+              tickFormatter={formatAxisLabel}
+              tick={{ fontSize: 11 }}
               label={
                 xAxisLabel
                   ? {
                       value: xAxisLabel,
                       position: "insideBottom",
-                      offset: -5,
+                      offset: hasLongLabels ? -35 : -5,
                       className: "fill-muted-foreground text-xs",
                     }
                   : undefined
@@ -102,6 +124,13 @@ export function DashboardAreaChart({
               tickLine={false}
               axisLine={false}
               tickMargin={8}
+              width={45}
+              tick={{ fontSize: 11 }}
+              tickFormatter={(value: number) => {
+                if (value >= 1000000) return `${(value / 1000000).toFixed(1)}M`;
+                if (value >= 1000) return `${(value / 1000).toFixed(1)}K`;
+                return String(value);
+              }}
               label={
                 yAxisLabel
                   ? {
