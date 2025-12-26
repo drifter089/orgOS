@@ -1,14 +1,14 @@
 "use client";
 
-import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from "recharts";
-
 import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+  Bar,
+  BarChart,
+  CartesianGrid,
+  ReferenceLine,
+  XAxis,
+  YAxis,
+} from "recharts";
+
 import {
   ChartContainer,
   ChartLegend,
@@ -16,91 +16,119 @@ import {
   ChartTooltip,
   ChartTooltipContent,
 } from "@/components/ui/chart";
+import { formatValue } from "@/lib/helpers/format-value";
+import { cn } from "@/lib/utils";
 
-import type { ChartComponentProps } from "./types";
+import type { BarChartProps } from "./types";
+import { formatAxisLabel, formatYAxisLabel, hasLongLabels } from "./utils";
 
-export function DashboardBarChart({
+export function MetricBarChart({
   chartData,
   chartConfig,
   xAxisKey,
   dataKeys,
-  title,
-  description,
   xAxisLabel,
   yAxisLabel,
   showLegend = false,
   showTooltip = true,
   stacked = false,
-}: ChartComponentProps) {
+  goalValue,
+  goalLabel,
+  className,
+}: BarChartProps) {
+  const needsRotation = hasLongLabels(chartData, xAxisKey);
+
   return (
-    <Card>
-      <CardHeader className="pb-2">
-        {title && <CardTitle className="text-base">{title}</CardTitle>}
-        {description && (
-          <CardDescription className="text-xs">{description}</CardDescription>
+    <ChartContainer
+      config={chartConfig}
+      className={cn(
+        needsRotation ? "h-[240px] w-full" : "h-[220px] w-full",
+        className,
+      )}
+    >
+      <BarChart
+        accessibilityLayer
+        data={chartData}
+        margin={needsRotation ? { bottom: 30 } : undefined}
+      >
+        <CartesianGrid vertical={false} />
+        <XAxis
+          dataKey={xAxisKey}
+          tickLine={false}
+          tickMargin={needsRotation ? 8 : 10}
+          axisLine={false}
+          angle={needsRotation ? -35 : 0}
+          textAnchor={needsRotation ? "end" : "middle"}
+          height={needsRotation ? 50 : 30}
+          interval={0}
+          tickFormatter={formatAxisLabel}
+          tick={{ fontSize: 11 }}
+          label={
+            xAxisLabel
+              ? {
+                  value: xAxisLabel,
+                  position: "insideBottom",
+                  offset: needsRotation ? -25 : -5,
+                  className: "fill-muted-foreground text-xs",
+                }
+              : undefined
+          }
+        />
+        <YAxis
+          tickLine={false}
+          axisLine={false}
+          tickMargin={8}
+          width={45}
+          tick={{ fontSize: 11 }}
+          tickFormatter={formatYAxisLabel}
+          label={
+            yAxisLabel
+              ? {
+                  value: yAxisLabel,
+                  angle: -90,
+                  position: "insideLeft",
+                  className: "fill-muted-foreground text-xs",
+                }
+              : undefined
+          }
+        />
+        {showTooltip && (
+          <ChartTooltip
+            cursor={false}
+            content={<ChartTooltipContent indicator="dashed" />}
+          />
         )}
-      </CardHeader>
-      <CardContent>
-        <ChartContainer config={chartConfig} className="h-[250px] w-full">
-          <BarChart accessibilityLayer data={chartData}>
-            <CartesianGrid vertical={false} />
-            <XAxis
-              dataKey={xAxisKey}
-              tickLine={false}
-              tickMargin={10}
-              axisLine={false}
-              tickFormatter={(value: string | number) =>
-                String(value).slice(0, 10)
-              }
-              label={
-                xAxisLabel
-                  ? {
-                      value: xAxisLabel,
-                      position: "insideBottom",
-                      offset: -5,
-                      className: "fill-muted-foreground text-xs",
-                    }
-                  : undefined
-              }
-            />
-            <YAxis
-              tickLine={false}
-              axisLine={false}
-              tickMargin={8}
-              label={
-                yAxisLabel
-                  ? {
-                      value: yAxisLabel,
-                      angle: -90,
-                      position: "insideLeft",
-                      className: "fill-muted-foreground text-xs",
-                    }
-                  : undefined
-              }
-            />
-            {showTooltip && (
-              <ChartTooltip
-                cursor={false}
-                content={<ChartTooltipContent indicator="dashed" />}
-              />
-            )}
-            {dataKeys.map((key, index) => (
-              <Bar
-                key={key}
-                dataKey={key}
-                fill={`var(--color-${key})`}
-                radius={4}
-                stackId={stacked ? "a" : undefined}
-                isAnimationActive={true}
-                animationDuration={600}
-                animationEasing="ease-out"
-                animationBegin={index * 80}
-              />
-            ))}
-            {showLegend && <ChartLegend content={<ChartLegendContent />} />}
-          </BarChart>
-        </ChartContainer>
-      </CardContent>
-    </Card>
+        {dataKeys.map((key, index) => (
+          <Bar
+            key={key}
+            dataKey={key}
+            fill={`var(--color-${key})`}
+            radius={4}
+            stackId={stacked ? "a" : undefined}
+            isAnimationActive={true}
+            animationDuration={600}
+            animationEasing="ease-out"
+            animationBegin={index * 80}
+          />
+        ))}
+        {goalValue != null && (
+          <ReferenceLine
+            y={goalValue}
+            stroke="var(--goal)"
+            strokeDasharray="6 3"
+            strokeWidth={2}
+            className="goal-line-animated"
+            label={{
+              value: goalLabel ?? `Goal: ${formatValue(goalValue)}`,
+              position: "insideTopLeft",
+              fill: "var(--goal)",
+              fontSize: 11,
+              fontWeight: 700,
+            }}
+          />
+        )}
+        {showLegend && <ChartLegend content={<ChartLegendContent />} />}
+      </BarChart>
+    </ChartContainer>
   );
 }

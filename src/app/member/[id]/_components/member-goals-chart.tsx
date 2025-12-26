@@ -1,13 +1,7 @@
 "use client";
 
-import { PolarAngleAxis, PolarGrid, Radar, RadarChart } from "recharts";
-
-import {
-  type ChartConfig,
-  ChartContainer,
-  ChartTooltip,
-  ChartTooltipContent,
-} from "@/components/ui/chart";
+import { MetricRadarChart } from "@/components/charts";
+import type { ChartConfig } from "@/components/ui/chart";
 import type { GoalProgress } from "@/lib/goals";
 
 interface GoalData {
@@ -69,28 +63,15 @@ export function MemberGoalsChart({ goalsData }: MemberGoalsChartProps) {
         </span>
       </div>
       <div className="flex-1 p-4">
-        <ChartContainer
-          config={chartConfig}
+        <MetricRadarChart
+          chartData={chartData}
+          chartConfig={chartConfig}
+          xAxisKey="goal"
+          dataKeys={["progress"]}
+          showLegend={false}
+          showTooltip={true}
           className="mx-auto aspect-square max-h-[220px]"
-        >
-          <RadarChart data={chartData}>
-            <ChartTooltip cursor={false} content={<ChartTooltipContent />} />
-            <PolarAngleAxis dataKey="goal" />
-            <PolarGrid />
-            <Radar
-              dataKey="progress"
-              fill="var(--color-progress)"
-              fillOpacity={0.6}
-              dot={{
-                r: 4,
-                fillOpacity: 1,
-              }}
-              isAnimationActive={true}
-              animationDuration={800}
-              animationEasing="ease-out"
-            />
-          </RadarChart>
-        </ChartContainer>
+        />
       </div>
     </div>
   );

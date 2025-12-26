@@ -5,36 +5,16 @@ import { useMemo } from "react";
 import type { MetricGoal, Role } from "@prisma/client";
 import { format } from "date-fns";
 import { Calendar, Clock, Info, Loader2, Target } from "lucide-react";
-import {
-  Area,
-  AreaChart,
-  Bar,
-  BarChart,
-  CartesianGrid,
-  Cell,
-  Label,
-  Pie,
-  PieChart,
-  PolarAngleAxis,
-  PolarGrid,
-  Radar,
-  RadarChart,
-  RadialBar,
-  RadialBarChart,
-  ReferenceLine,
-  XAxis,
-  YAxis,
-} from "recharts";
 
+import {
+  MetricAreaChart,
+  MetricBarChart,
+  MetricPieChart,
+  MetricRadarChart,
+  MetricRadialChart,
+} from "@/components/charts";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import {
-  ChartContainer,
-  ChartLegend,
-  ChartLegendContent,
-  ChartTooltip,
-  ChartTooltipContent,
-} from "@/components/ui/chart";
 import {
   Tooltip,
   TooltipContent,
@@ -128,9 +108,7 @@ export function DashboardMetricChart({
     const periodStart = new Date(goalProgress.periodStart);
     const periodEnd = new Date(goalProgress.periodEnd);
 
-    // If data is before period start, return 0
     if (latestDataDate < periodStart) return 0;
-    // If data is after period end, return 100
     if (latestDataDate > periodEnd) return 100;
 
     const totalMs = periodEnd.getTime() - periodStart.getTime();
@@ -139,10 +117,9 @@ export function DashboardMetricChart({
     return (elapsedMs / totalMs) * 100;
   }, [goalProgress, chartTransform]);
 
-  // Generate a stable key for chart re-renders (no JSON serialization)
+  // Generate a stable key for chart re-renders
   const chartKey = useMemo(() => {
     if (!chartTransform?.chartData?.length) return "empty";
-    // Use length and chart type as a cheap stable key
     return `${chartTransform.chartType}-${chartTransform.chartData.length}`;
   }, [chartTransform?.chartData?.length, chartTransform?.chartType]);
 
@@ -163,443 +140,98 @@ export function DashboardMetricChart({
       chartType,
     } = chartTransform;
 
-    // Render Area/Line Chart
+    const goalLabel = goalTargetValue
+      ? `Goal: ${formatValue(goalTargetValue)}`
+      : undefined;
+
     if (chartType === "line" || chartType === "area") {
       return (
-        <ChartContainer
-          config={chartConfig}
-          className="aspect-auto h-[220px] w-full"
-        >
-          <AreaChart data={chartData}>
-            <defs>
-              {dataKeys.map((key) => (
-                <linearGradient
-                  key={key}
-                  id={`fill${key}`}
-                  x1="0"
-                  y1="0"
-                  x2="0"
-                  y2="1"
-                >
-                  <stop
-                    offset="5%"
-                    stopColor={`var(--color-${key})`}
-                    stopOpacity={0.8}
-                  />
-                  <stop
-                    offset="95%"
-                    stopColor={`var(--color-${key})`}
-                    stopOpacity={0.1}
-                  />
-                </linearGradient>
-              ))}
-            </defs>
-            <CartesianGrid vertical={false} />
-            <XAxis
-              dataKey={xAxisKey}
-              tickLine={false}
-              axisLine={false}
-              tickMargin={8}
-              minTickGap={32}
-              tickFormatter={(value: string | number) => {
-                const strValue = String(value);
-                if (strValue.includes("-") && !isNaN(Date.parse(strValue))) {
-                  const date = new Date(strValue);
-                  return date.toLocaleDateString("en-US", {
-                    month: "short",
-                    day: "numeric",
-                  });
-                }
-                return strValue.slice(0, 10);
-              }}
-              label={
-                xAxisLabel
-                  ? {
-                      value: xAxisLabel,
-                      position: "insideBottom",
-                      offset: -5,
-                      className: "fill-muted-foreground text-xs",
-                    }
-                  : undefined
-              }
-            />
-            <YAxis
-              tickLine={false}
-              axisLine={false}
-              tickMargin={8}
-              label={
-                yAxisLabel
-                  ? {
-                      value: yAxisLabel,
-                      angle: -90,
-                      position: "insideLeft",
-                      className: "fill-muted-foreground text-xs",
-                    }
-                  : undefined
-              }
-            />
-            {showTooltip && (
-              <ChartTooltip
-                cursor={false}
-                content={
-                  <ChartTooltipContent
-                    labelFormatter={(value: string | number) => {
-                      const strValue = String(value);
-                      if (
-                        strValue.includes("-") &&
-                        !isNaN(Date.parse(strValue))
-                      ) {
-                        return new Date(strValue).toLocaleDateString("en-US", {
-                          month: "short",
-                          day: "numeric",
-                        });
-                      }
-                      return strValue;
-                    }}
-                    indicator="dot"
-                  />
-                }
-              />
-            )}
-            {dataKeys.map((key, index) => (
-              <Area
-                key={key}
-                dataKey={key}
-                type="natural"
-                fill={`url(#fill${key})`}
-                stroke={`var(--color-${key})`}
-                stackId={stacked ? "a" : undefined}
-                isAnimationActive={true}
-                animationDuration={800}
-                animationEasing="ease-out"
-                animationBegin={index * 100}
-              />
-            ))}
-            {goalTargetValue !== null && (
-              <ReferenceLine
-                y={goalTargetValue}
-                stroke="var(--goal)"
-                strokeDasharray="6 3"
-                strokeWidth={2}
-                className="goal-line-animated"
-                label={{
-                  value: `Goal: ${formatValue(goalTargetValue)}`,
-                  position: "insideTopLeft",
-                  fill: "var(--goal)",
-                  fontSize: 11,
-                  fontWeight: 700,
-                }}
-              />
-            )}
-            {showLegend && <ChartLegend content={<ChartLegendContent />} />}
-          </AreaChart>
-        </ChartContainer>
+        <MetricAreaChart
+          chartData={chartData}
+          chartConfig={chartConfig}
+          xAxisKey={xAxisKey}
+          dataKeys={dataKeys}
+          xAxisLabel={xAxisLabel}
+          yAxisLabel={yAxisLabel}
+          showLegend={showLegend}
+          showTooltip={showTooltip}
+          stacked={stacked}
+          goalValue={goalTargetValue}
+          goalLabel={goalLabel}
+        />
       );
     }
 
-    // Render Bar Chart
     if (chartType === "bar") {
       return (
-        <ChartContainer config={chartConfig} className="h-[220px] w-full">
-          <BarChart accessibilityLayer data={chartData}>
-            <CartesianGrid vertical={false} />
-            <XAxis
-              dataKey={xAxisKey}
-              tickLine={false}
-              tickMargin={10}
-              axisLine={false}
-              tickFormatter={(value: string | number) =>
-                String(value).slice(0, 10)
-              }
-              label={
-                xAxisLabel
-                  ? {
-                      value: xAxisLabel,
-                      position: "insideBottom",
-                      offset: -5,
-                      className: "fill-muted-foreground text-xs",
-                    }
-                  : undefined
-              }
-            />
-            <YAxis
-              tickLine={false}
-              axisLine={false}
-              tickMargin={8}
-              label={
-                yAxisLabel
-                  ? {
-                      value: yAxisLabel,
-                      angle: -90,
-                      position: "insideLeft",
-                      className: "fill-muted-foreground text-xs",
-                    }
-                  : undefined
-              }
-            />
-            {showTooltip && (
-              <ChartTooltip
-                cursor={false}
-                content={<ChartTooltipContent indicator="dashed" />}
-              />
-            )}
-            {dataKeys.map((key, index) => (
-              <Bar
-                key={key}
-                dataKey={key}
-                fill={`var(--color-${key})`}
-                radius={4}
-                stackId={stacked ? "a" : undefined}
-                isAnimationActive={true}
-                animationDuration={600}
-                animationEasing="ease-out"
-                animationBegin={index * 80}
-              />
-            ))}
-            {goalTargetValue !== null && (
-              <ReferenceLine
-                y={goalTargetValue}
-                stroke="var(--goal)"
-                strokeDasharray="6 3"
-                strokeWidth={2}
-                className="goal-line-animated"
-                label={{
-                  value: `Goal: ${formatValue(goalTargetValue)}`,
-                  position: "insideTopLeft",
-                  fill: "var(--goal)",
-                  fontSize: 11,
-                  fontWeight: 700,
-                }}
-              />
-            )}
-            {showLegend && <ChartLegend content={<ChartLegendContent />} />}
-          </BarChart>
-        </ChartContainer>
+        <MetricBarChart
+          chartData={chartData}
+          chartConfig={chartConfig}
+          xAxisKey={xAxisKey}
+          dataKeys={dataKeys}
+          xAxisLabel={xAxisLabel}
+          yAxisLabel={yAxisLabel}
+          showLegend={showLegend}
+          showTooltip={showTooltip}
+          stacked={stacked}
+          goalValue={goalTargetValue}
+          goalLabel={goalLabel}
+        />
       );
     }
 
-    // Render Pie Chart
     if (chartType === "pie") {
-      const dataKey = dataKeys[0] ?? "value";
       return (
-        <ChartContainer
-          config={chartConfig}
-          className="mx-auto h-[250px] w-full"
-        >
-          <PieChart>
-            {showTooltip && (
-              <ChartTooltip
-                cursor={false}
-                content={<ChartTooltipContent hideLabel nameKey={xAxisKey} />}
-              />
-            )}
-            <Pie
-              data={chartData}
-              dataKey={dataKey}
-              nameKey={xAxisKey}
-              innerRadius={60}
-              outerRadius={100}
-              strokeWidth={2}
-              isAnimationActive={true}
-              animationDuration={800}
-              animationEasing="ease-out"
-            >
-              {chartData.map((entry, index) => (
-                <Cell
-                  key={`cell-${index}`}
-                  fill={
-                    (entry.fill as string) ?? `var(--chart-${(index % 12) + 1})`
-                  }
-                />
-              ))}
-              {centerLabel && (
-                <Label
-                  content={({ viewBox }) => {
-                    if (viewBox && "cx" in viewBox && "cy" in viewBox) {
-                      return (
-                        <text
-                          x={viewBox.cx}
-                          y={viewBox.cy}
-                          textAnchor="middle"
-                          dominantBaseline="middle"
-                        >
-                          <tspan
-                            x={viewBox.cx}
-                            y={viewBox.cy}
-                            className="fill-foreground text-2xl font-bold"
-                          >
-                            {centerLabel.value}
-                          </tspan>
-                          <tspan
-                            x={viewBox.cx}
-                            y={(viewBox.cy ?? 0) + 20}
-                            className="fill-muted-foreground text-xs"
-                          >
-                            {centerLabel.label}
-                          </tspan>
-                        </text>
-                      );
-                    }
-                  }}
-                />
-              )}
-            </Pie>
-            {showLegend && (
-              <ChartLegend
-                content={<ChartLegendContent nameKey={xAxisKey} />}
-              />
-            )}
-          </PieChart>
-        </ChartContainer>
+        <MetricPieChart
+          chartData={chartData}
+          chartConfig={chartConfig}
+          xAxisKey={xAxisKey}
+          dataKeys={dataKeys}
+          showLegend={showLegend}
+          showTooltip={showTooltip}
+          centerLabel={centerLabel}
+        />
       );
     }
 
-    // Render Radar Chart
     if (chartType === "radar") {
       return (
-        <ChartContainer
-          config={chartConfig}
-          className="mx-auto h-[250px] w-full"
-        >
-          <RadarChart data={chartData}>
-            {showTooltip && (
-              <ChartTooltip cursor={false} content={<ChartTooltipContent />} />
-            )}
-            <PolarAngleAxis dataKey={xAxisKey} />
-            <PolarGrid />
-            {dataKeys.map((key, index) => (
-              <Radar
-                key={key}
-                dataKey={key}
-                fill={`var(--color-${key})`}
-                fillOpacity={0.6}
-                dot={{
-                  r: 4,
-                  fillOpacity: 1,
-                }}
-                isAnimationActive={true}
-                animationDuration={800}
-                animationEasing="ease-out"
-                animationBegin={index * 100}
-              />
-            ))}
-            {showLegend && <ChartLegend content={<ChartLegendContent />} />}
-          </RadarChart>
-        </ChartContainer>
+        <MetricRadarChart
+          chartData={chartData}
+          chartConfig={chartConfig}
+          xAxisKey={xAxisKey}
+          dataKeys={dataKeys}
+          showLegend={showLegend}
+          showTooltip={showTooltip}
+        />
       );
     }
 
-    // Render Radial Chart
     if (chartType === "radial") {
-      const dataKey = dataKeys[0] ?? "value";
       return (
-        <ChartContainer
-          config={chartConfig}
-          className="mx-auto h-[250px] w-full"
-        >
-          <RadialBarChart data={chartData} innerRadius={30} outerRadius={100}>
-            {showTooltip && (
-              <ChartTooltip
-                cursor={false}
-                content={<ChartTooltipContent hideLabel nameKey={xAxisKey} />}
-              />
-            )}
-            <PolarGrid gridType="circle" />
-            <RadialBar
-              dataKey={dataKey}
-              isAnimationActive={true}
-              animationDuration={1000}
-              animationEasing="ease-out"
-            >
-              {centerLabel && (
-                <Label
-                  content={({ viewBox }) => {
-                    if (viewBox && "cx" in viewBox && "cy" in viewBox) {
-                      return (
-                        <text
-                          x={viewBox.cx}
-                          y={viewBox.cy}
-                          textAnchor="middle"
-                          dominantBaseline="middle"
-                        >
-                          <tspan
-                            x={viewBox.cx}
-                            y={viewBox.cy}
-                            className="fill-foreground text-2xl font-bold"
-                          >
-                            {centerLabel.value}
-                          </tspan>
-                          <tspan
-                            x={viewBox.cx}
-                            y={(viewBox.cy ?? 0) + 20}
-                            className="fill-muted-foreground text-xs"
-                          >
-                            {centerLabel.label}
-                          </tspan>
-                        </text>
-                      );
-                    }
-                  }}
-                />
-              )}
-            </RadialBar>
-          </RadialBarChart>
-        </ChartContainer>
+        <MetricRadialChart
+          chartData={chartData}
+          chartConfig={chartConfig}
+          xAxisKey={xAxisKey}
+          dataKeys={dataKeys}
+          showTooltip={showTooltip}
+          centerLabel={centerLabel}
+        />
       );
     }
 
     // Default to Bar Chart
     return (
-      <ChartContainer config={chartConfig} className="h-[220px] w-full">
-        <BarChart accessibilityLayer data={chartData}>
-          <CartesianGrid vertical={false} />
-          <XAxis
-            dataKey={xAxisKey}
-            tickLine={false}
-            tickMargin={10}
-            axisLine={false}
-            tickFormatter={(value: string | number) =>
-              String(value).slice(0, 10)
-            }
-          />
-          <YAxis tickLine={false} axisLine={false} tickMargin={8} />
-          {showTooltip && (
-            <ChartTooltip
-              cursor={false}
-              content={<ChartTooltipContent indicator="dashed" />}
-            />
-          )}
-          {dataKeys.map((key, index) => (
-            <Bar
-              key={key}
-              dataKey={key}
-              fill={`var(--color-${key})`}
-              radius={4}
-              isAnimationActive={true}
-              animationDuration={600}
-              animationEasing="ease-out"
-              animationBegin={index * 80}
-            />
-          ))}
-          {goalTargetValue !== null && (
-            <ReferenceLine
-              y={goalTargetValue}
-              stroke="var(--goal)"
-              strokeDasharray="6 3"
-              strokeWidth={2}
-              className="goal-line-animated"
-              label={{
-                value: `Goal: ${formatValue(goalTargetValue)}`,
-                position: "insideTopLeft",
-                fill: "var(--goal)",
-                fontSize: 11,
-                fontWeight: 700,
-              }}
-            />
-          )}
-          {showLegend && <ChartLegend content={<ChartLegendContent />} />}
-        </BarChart>
-      </ChartContainer>
+      <MetricBarChart
+        chartData={chartData}
+        chartConfig={chartConfig}
+        xAxisKey={xAxisKey}
+        dataKeys={dataKeys}
+        showLegend={showLegend}
+        showTooltip={showTooltip}
+        goalValue={goalTargetValue}
+        goalLabel={goalLabel}
+      />
     );
   };
 
@@ -611,7 +243,6 @@ export function DashboardMetricChart({
             <CardTitle className="truncate text-sm font-medium">
               {title}
             </CardTitle>
-            {/* Chart description tooltip - always visible if chart exists */}
             {chartTransform && (
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -630,7 +261,6 @@ export function DashboardMetricChart({
                 </TooltipContent>
               </Tooltip>
             )}
-            {/* Spacer to push platform badge to the right */}
             <div className="flex-1" />
             {platformConfig && (
               <Badge
@@ -799,7 +429,6 @@ export function DashboardMetricChart({
           </div>
         )}
 
-        {/* Processing state - show loading */}
         {!hasChartData && isProcessing && (
           <div className="animate-in fade-in flex flex-1 items-center justify-center rounded-md border border-dashed p-4 duration-300">
             <div className="text-center">
@@ -813,7 +442,6 @@ export function DashboardMetricChart({
           </div>
         )}
 
-        {/* No data state */}
         {!hasChartData && !isProcessing && (
           <div className="text-muted-foreground animate-in fade-in flex flex-1 items-center justify-center rounded-md border border-dashed p-4 text-center text-sm duration-300">
             {isIntegrationMetric

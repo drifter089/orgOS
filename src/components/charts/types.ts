@@ -1,19 +1,41 @@
 import type { ChartConfig } from "@/components/ui/chart";
 
-export interface ChartComponentProps {
-  chartData: Array<Record<string, string | number>>;
+export interface BaseChartProps {
+  chartData: Record<string, unknown>[];
   chartConfig: ChartConfig;
   xAxisKey: string;
   dataKeys: string[];
-  // Rich chart metadata
-  title?: string;
-  description?: string;
   xAxisLabel?: string;
   yAxisLabel?: string;
-  // Feature flags
   showLegend?: boolean;
   showTooltip?: boolean;
+  className?: string;
+}
+
+export interface BarChartProps extends BaseChartProps {
   stacked?: boolean;
-  // Pie/Radial specific
-  centerLabel?: { value: string; label: string };
+  goalValue?: number | null;
+  goalLabel?: string;
+}
+
+export interface AreaChartProps extends BaseChartProps {
+  stacked?: boolean;
+  goalValue?: number | null;
+  goalLabel?: string;
+}
+
+export interface PieChartProps extends BaseChartProps {
+  centerLabel?: {
+    value: string | number;
+    label: string;
+  };
+}
+
+export type RadarChartProps = BaseChartProps;
+
+export interface RadialChartProps extends BaseChartProps {
+  centerLabel?: {
+    value: string | number;
+    label: string;
+  };
 }

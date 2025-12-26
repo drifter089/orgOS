@@ -15,6 +15,7 @@ import {
   useTeamStore,
   useTeamStoreApi,
 } from "../store/team-store";
+import { type KpiEdgeData } from "../types/canvas";
 
 type DashboardMetrics = RouterOutputs["dashboard"]["getDashboardCharts"];
 type DashboardMetricWithRelations = DashboardMetrics[number];
@@ -72,7 +73,51 @@ export function useChartDragDrop() {
       };
 
       const currentNodes = storeApi.getState().nodes;
+      const currentEdges = storeApi.getState().edges;
       setNodes([...currentNodes, newNode]);
+
+      // Auto-generate KPI edges for roles already assigned to this metric
+      const assignedRoles = dashboardMetric.metric.roles ?? [];
+      if (assignedRoles.length > 0) {
+        const metricId = dashboardMetric.metric.id;
+        const newEdges: TeamEdge[] = [];
+
+        for (const role of assignedRoles) {
+          // Find role node on canvas
+          const roleNode = currentNodes.find(
+            (n) => n.type === "role-node" && n.data.roleId === role.id,
+          );
+          if (!roleNode) continue;
+
+          // Check if edge already exists
+          const edgeExists = currentEdges.some(
+            (e) =>
+              (e.source === roleNode.id && e.target === nodeId) ||
+              (e.source === nodeId && e.target === roleNode.id),
+          );
+          if (edgeExists) continue;
+
+          const edgeData: KpiEdgeData = {
+            roleId: role.id,
+            metricId,
+          };
+
+          newEdges.push({
+            id: `kpi-edge-${roleNode.id}-${nodeId}`,
+            source: roleNode.id,
+            target: nodeId,
+            type: "kpi-edge",
+            animated: true,
+            data: edgeData,
+          });
+        }
+
+        if (newEdges.length > 0) {
+          const setEdges = storeApi.getState().setEdges;
+          setEdges([...currentEdges, ...newEdges]);
+        }
+      }
+
       markDirty();
       return nodeId;
     },

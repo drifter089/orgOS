@@ -303,6 +303,15 @@ export function TeamCanvas() {
       // Determine edge type based on connected node types
       const sourceNode = currentNodes.find((n) => n.id === sourceId);
       const targetNode = currentNodes.find((n) => n.id === targetId);
+
+      // Prevent chart-to-chart connections via proximity
+      if (
+        sourceNode?.type === "chart-node" &&
+        targetNode?.type === "chart-node"
+      ) {
+        return null;
+      }
+
       const edgeType = determineEdgeType(sourceNode?.type, targetNode?.type);
 
       // Build KPI edge data if applicable
@@ -505,6 +514,15 @@ export function TeamCanvas() {
     (connection: Connection | TeamEdgeType) => {
       const sourceNode = nodes.find((n) => n.id === connection.source);
       const targetNode = nodes.find((n) => n.id === connection.target);
+
+      // Prevent chart-to-chart connections
+      if (
+        sourceNode?.type === "chart-node" &&
+        targetNode?.type === "chart-node"
+      ) {
+        toast.warning("KPI charts cannot be connected to each other");
+        return false;
+      }
 
       if (
         sourceNode?.type === "role-node" &&
