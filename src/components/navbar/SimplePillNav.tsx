@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 
 import { motion } from "framer-motion";
-import { Building2, LogOut, Users } from "lucide-react";
+import { LogOut } from "lucide-react";
 import { Link } from "next-transition-router";
 
 import { Button } from "@/components/ui/button";
@@ -164,28 +164,28 @@ export function SimplePillNav({
                       <Link
                         href="/org"
                         className={cn(
-                          "border-border hover:border-foreground/20 hover:bg-muted/50 flex w-full cursor-pointer items-center gap-2.5 border px-3 py-1.5 text-sm transition-all duration-150",
+                          "border-border hover:border-foreground/20 hover:bg-muted/50 flex w-full cursor-pointer items-center border px-3 py-1.5 text-sm transition-all duration-150",
                           pathname === "/org"
                             ? "border-primary bg-primary/5 font-medium"
                             : "border-border",
                         )}
                       >
-                        <Building2 className="text-muted-foreground size-3.5" />
-                        <span>{orgName ?? "Organization"}</span>
+                        <span className="truncate">
+                          {orgName ?? "Organization"}
+                        </span>
                       </Link>
                     </NavigationMenuLink>
                     <NavigationMenuLink asChild>
                       <Link
                         href="/member"
                         className={cn(
-                          "border-border hover:border-foreground/20 hover:bg-muted/50 flex w-full cursor-pointer items-center gap-2.5 border px-3 py-1.5 text-sm transition-all duration-150",
+                          "border-border hover:border-foreground/20 hover:bg-muted/50 flex w-full cursor-pointer items-center border px-3 py-1.5 text-sm transition-all duration-150",
                           pathname === "/member"
                             ? "border-primary bg-primary/5 font-medium"
                             : "border-border",
                         )}
                       >
-                        <Users className="text-muted-foreground size-3.5" />
-                        <span>Members</span>
+                        <span className="truncate">Members</span>
                       </Link>
                     </NavigationMenuLink>
                   </NavigationMenuContent>
