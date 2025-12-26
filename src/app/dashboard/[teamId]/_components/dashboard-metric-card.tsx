@@ -103,14 +103,11 @@ export function DashboardMetricCard({
         goalProgress={dashboardChart.goalProgress}
         valueLabel={dashboardChart.valueLabel}
         isProcessing={processing}
+        latestDataTimestamp={dashboardChart.latestDataTimestamp}
       />
     </div>
   );
 }
-
-// =============================================================================
-// Read-Only Card (for public views)
-// =============================================================================
 
 export function ReadOnlyMetricCard({
   dashboardChart,
@@ -145,6 +142,7 @@ export function ReadOnlyMetricCard({
         goalProgress={dashboardChart.goalProgress}
         valueLabel={dashboardChart.valueLabel}
         isProcessing={!!metric.refreshStatus}
+        latestDataTimestamp={dashboardChart.latestDataTimestamp}
       />
     </div>
   );

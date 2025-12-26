@@ -6,9 +6,9 @@ import { Lock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { HydrateClient, api } from "@/trpc/server";
 
-import { DashboardSidebarWithDragDrop } from "./_components/dashboard-sidebar-with-drag-drop";
+import { CanvasQuickActions } from "./_components/canvas-quick-actions";
+import { CanvasSidePanels } from "./_components/canvas-side-panels";
 import { TeamCanvasWrapper } from "./_components/team-canvas-wrapper";
-import { TeamSheetSidebar } from "./_components/team-sheet-sidebar";
 import { ChartDragProvider } from "./context/chart-drag-context";
 import { TeamStoreProvider } from "./store/team-store";
 import { type StoredEdge, type StoredNode } from "./types/canvas";
@@ -126,25 +126,24 @@ export default async function TeamPage({
         initialViewport={initialViewport}
       >
         <ChartDragProvider>
-          <div className="flex h-screen w-full overflow-hidden">
-            <DashboardSidebarWithDragDrop
+          <div className="relative h-screen w-full overflow-hidden">
+            <TeamCanvasWrapper
+              initialNodes={nodes}
+              initialEdges={edges}
+              teamId={team.id}
+            />
+
+            <CanvasQuickActions
               teamId={team.id}
               initialIntegrations={integrations}
             />
 
-            <div className="relative h-full w-full flex-1 overflow-hidden">
-              <TeamCanvasWrapper
-                initialNodes={nodes}
-                initialEdges={edges}
-                teamId={team.id}
-              />
-            </div>
-
-            <TeamSheetSidebar
+            <CanvasSidePanels
               teamId={team.id}
               teamName={team.name}
-              teamDescription={team.description}
               roleCount={team.roles.length}
+              members={members}
+              initialIntegrations={integrations}
             />
           </div>
         </ChartDragProvider>

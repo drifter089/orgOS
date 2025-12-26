@@ -180,6 +180,8 @@ interface DashboardSidebarProps {
   enableDragDrop?: boolean;
   chartNodesOnCanvas?: Set<string>;
   onToggleChartVisibility?: (dashboardChart: DashboardChart) => void;
+  externalOpen?: boolean;
+  onExternalOpenChange?: (open: boolean) => void;
 }
 
 export function DashboardSidebar({
@@ -190,9 +192,15 @@ export function DashboardSidebar({
   enableDragDrop = false,
   chartNodesOnCanvas,
   onToggleChartVisibility,
+  externalOpen,
+  onExternalOpenChange,
 }: DashboardSidebarProps) {
-  const [isOpen, setIsOpen] = useState(false);
+  const [internalOpen, setInternalOpen] = useState(false);
   const [isDragging, setIsDragging] = useState<string | null>(null);
+
+  const isControlled = externalOpen !== undefined;
+  const isOpen = isControlled ? externalOpen : internalOpen;
+  const setIsOpen = isControlled ? onExternalOpenChange! : setInternalOpen;
 
   // Handle drag start
   const handleDragStart = useCallback(
@@ -241,21 +249,25 @@ export function DashboardSidebar({
 
   return (
     <>
-      <div
-        className={cn(
-          "fixed inset-0 z-[51] bg-black/20 transition-opacity duration-300",
-          isOpen ? "opacity-100" : "pointer-events-none opacity-0",
-          // Allow pointer events to pass through during drag
-          isDragging && "pointer-events-none",
-        )}
-        onClick={() => setIsOpen(false)}
-      />
+      {!isControlled && (
+        <>
+          <div
+            className={cn(
+              "fixed inset-0 z-[51] bg-black/20 transition-opacity duration-300",
+              isOpen ? "opacity-100" : "pointer-events-none opacity-0",
+              // Allow pointer events to pass through during drag
+              isDragging && "pointer-events-none",
+            )}
+            onClick={() => setIsOpen(false)}
+          />
 
-      <DashboardSheetEdgeTrigger
-        isOpen={isOpen}
-        onToggle={() => setIsOpen(!isOpen)}
-        side={side}
-      />
+          <DashboardSheetEdgeTrigger
+            isOpen={isOpen}
+            onToggle={() => setIsOpen(!isOpen)}
+            side={side}
+          />
+        </>
+      )}
 
       <Sheet open={isOpen} onOpenChange={setIsOpen} modal={false}>
         <SheetContent

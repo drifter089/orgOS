@@ -35,6 +35,7 @@ export type EnrichedDashboardChart<T extends DashboardChartWithRelations> =
     goalProgress: GoalProgress | null;
     valueLabel: string | null;
     dataDescription: string | null;
+    latestDataTimestamp: Date | null;
   };
 
 /**
@@ -71,12 +72,23 @@ export async function enrichChartsWithGoalProgress<
     select: { templateId: true, valueLabel: true, dataDescription: true },
   });
 
+  // Fetch latest data point timestamp for each metric (for goal progress markers)
+  const latestDataPoints = await db.metricDataPoint.findMany({
+    where: { metricId: { in: metricIds } },
+    orderBy: { timestamp: "desc" },
+    distinct: ["metricId"],
+    select: { metricId: true, timestamp: true },
+  });
+
   // Create maps for quick lookup
   const valueLabelMap = new Map(
     transformers.map((t) => [t.templateId, t.valueLabel]),
   );
   const dataDescriptionMap = new Map(
     transformers.map((t) => [t.templateId, t.dataDescription]),
+  );
+  const latestTimestampMap = new Map(
+    latestDataPoints.map((dp) => [dp.metricId, dp.timestamp]),
   );
 
   // Calculate goal progress and add valueLabel for each chart
@@ -97,6 +109,9 @@ export async function enrichChartsWithGoalProgress<
     const dataDescription =
       chartConfig?.description ?? dataDescriptionMap.get(cacheKey) ?? null;
 
+    // Get latest data timestamp for this metric
+    const latestDataTimestamp = latestTimestampMap.get(chart.metric.id) ?? null;
+
     // No goal or no cadence - return without progress calculation
     if (!chart.metric.goal || !chart.chartTransformer?.cadence) {
       return {
@@ -104,6 +119,7 @@ export async function enrichChartsWithGoalProgress<
         goalProgress: null,
         valueLabel,
         dataDescription,
+        latestDataTimestamp,
       };
     }
 
@@ -136,6 +152,7 @@ export async function enrichChartsWithGoalProgress<
       goalProgress: progress,
       valueLabel,
       dataDescription,
+      latestDataTimestamp,
     };
   });
 }

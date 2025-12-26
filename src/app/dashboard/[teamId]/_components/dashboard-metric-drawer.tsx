@@ -233,6 +233,7 @@ export function DashboardMetricDrawer({
             goalProgress={goalProgress}
             valueLabel={dashboardChart.valueLabel ?? null}
             isProcessing={isProcessing}
+            latestDataTimestamp={dashboardChart.latestDataTimestamp ?? null}
           />
         </div>
       </div>
