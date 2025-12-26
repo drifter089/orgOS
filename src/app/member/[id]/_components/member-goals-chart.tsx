@@ -442,12 +442,12 @@ export function MemberGoalsChart({ goalsData }: MemberGoalsChartProps) {
     latestDataTimestamp: goal.latestDataTimestamp,
   }));
 
-  const chartConfig: ChartConfig = {
+  const chartConfig = {
     progress: {
-      label: "Progress",
-      color: "hsl(var(--primary))",
+      label: "Progress %",
+      color: "var(--chart-1)",
     },
-  };
+  } satisfies ChartConfig;
 
   return (
     <div className="border-border/60 bg-card flex flex-col border">
@@ -467,34 +467,19 @@ export function MemberGoalsChart({ goalsData }: MemberGoalsChartProps) {
       <div className="flex-1 p-4">
         <ChartContainer
           config={chartConfig}
-          className="mx-auto h-[220px] w-full"
+          className="mx-auto aspect-square max-h-[250px]"
         >
-          <RadarChart data={chartData} cx="50%" cy="50%" outerRadius="70%">
+          <RadarChart data={chartData}>
             <ChartTooltip cursor={false} content={<GoalTooltipContent />} />
-            <PolarAngleAxis
-              dataKey="goal"
-              tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }}
-              tickLine={false}
-            />
-            <PolarGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+            <PolarAngleAxis dataKey="goal" />
+            <PolarGrid />
             <Radar
-              name="Progress"
               dataKey="progress"
-              stroke="#3b82f6"
-              fill="#3b82f6"
-              fillOpacity={0.4}
-              strokeWidth={2}
+              fill="var(--color-progress)"
+              fillOpacity={0.6}
               dot={{
-                r: 5,
-                fill: "#3b82f6",
-                stroke: "#fff",
-                strokeWidth: 2,
-              }}
-              activeDot={{
-                r: 7,
-                fill: "#3b82f6",
-                stroke: "#fff",
-                strokeWidth: 2,
+                r: 4,
+                fillOpacity: 1,
               }}
             />
           </RadarChart>
