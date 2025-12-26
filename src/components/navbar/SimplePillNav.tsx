@@ -161,16 +161,18 @@ export function SimplePillNav({
                   >
                     {orgName ?? "Organization"}
                   </NavigationMenuTrigger>
-                  <NavigationMenuContent className="w-56 p-2">
+                  <NavigationMenuContent className="w-52 space-y-1.5 p-2">
                     <NavigationMenuLink asChild>
                       <Link
                         href="/org"
                         className={cn(
-                          "hover:bg-muted flex w-full cursor-pointer items-center gap-3 px-3 py-2.5 text-sm transition-colors",
-                          pathname === "/org" && "bg-muted font-medium",
+                          "border-border hover:border-foreground/20 hover:bg-muted/50 flex w-full cursor-pointer items-center gap-2.5 border px-3 py-1.5 text-sm transition-all duration-150",
+                          pathname === "/org"
+                            ? "border-primary bg-primary/5 font-medium"
+                            : "border-border",
                         )}
                       >
-                        <Building2 className="text-muted-foreground size-4" />
+                        <Building2 className="text-muted-foreground size-3.5" />
                         <span>{orgName ?? "Organization"}</span>
                       </Link>
                     </NavigationMenuLink>
@@ -178,11 +180,13 @@ export function SimplePillNav({
                       <Link
                         href="/member"
                         className={cn(
-                          "hover:bg-muted flex w-full cursor-pointer items-center gap-3 px-3 py-2.5 text-sm transition-colors",
-                          pathname === "/member" && "bg-muted font-medium",
+                          "border-border hover:border-foreground/20 hover:bg-muted/50 flex w-full cursor-pointer items-center gap-2.5 border px-3 py-1.5 text-sm transition-all duration-150",
+                          pathname === "/member"
+                            ? "border-primary bg-primary/5 font-medium"
+                            : "border-border",
                         )}
                       >
-                        <Users className="text-muted-foreground size-4" />
+                        <Users className="text-muted-foreground size-3.5" />
                         <span>Members</span>
                       </Link>
                     </NavigationMenuLink>
@@ -201,7 +205,7 @@ export function SimplePillNav({
                   >
                     {currentTeam?.name ?? "Select Team"}
                   </NavigationMenuTrigger>
-                  <NavigationMenuContent className="w-56 p-2">
+                  <NavigationMenuContent className="w-52 space-y-1.5 p-2">
                     {teams.length > 0 ? (
                       teams.map((team) => {
                         const teamPath = isOnDashboard
@@ -213,8 +217,10 @@ export function SimplePillNav({
                             <Link
                               href={teamPath}
                               className={cn(
-                                "hover:bg-muted flex w-full cursor-pointer items-center px-3 py-2.5 text-sm transition-colors",
-                                isSelected && "bg-muted font-medium",
+                                "border-border hover:border-foreground/20 hover:bg-muted/50 flex w-full cursor-pointer items-center border px-3 py-1.5 text-sm transition-all duration-150",
+                                isSelected
+                                  ? "border-primary bg-primary/5 font-medium"
+                                  : "border-border",
                               )}
                             >
                               <span className="truncate">{team.name}</span>
@@ -223,7 +229,7 @@ export function SimplePillNav({
                         );
                       })
                     ) : (
-                      <div className="text-muted-foreground px-3 py-2.5 text-sm">
+                      <div className="text-muted-foreground border-border border px-3 py-1.5 text-sm">
                         No teams yet
                       </div>
                     )}
