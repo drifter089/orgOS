@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useState } from "react";
 
 import { ArrowLeft, Hash, Loader2, Percent } from "lucide-react";
 import { toast } from "sonner";
@@ -10,6 +10,8 @@ import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { api } from "@/trpc/react";
 import type { DashboardChartWithRelations } from "@/types/dashboard";
+
+import { type PeriodRange, PeriodRangeStep } from "./period-range-step";
 
 type UnitType = "number" | "percentage";
 type Cadence = "daily" | "weekly" | "monthly";
@@ -67,11 +69,16 @@ export function ManualMetricContent({
   onSuccess,
   onClose,
 }: ManualMetricContentProps) {
-  const [formStep, setFormStep] = useState<1 | 2 | 3>(1);
+  const [formStep, setFormStep] = useState<1 | 2 | 3 | 4>(1);
   const [metricName, setMetricName] = useState("");
   const [unitType, setUnitType] = useState<UnitType | null>(null);
   const [cadence, setCadence] = useState<Cadence | null>(null);
+  const [periodRange, setPeriodRange] = useState<PeriodRange | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  const handlePeriodChange = useCallback((range: PeriodRange) => {
+    setPeriodRange(range);
+  }, []);
 
   const utils = api.useUtils();
 
@@ -114,6 +121,8 @@ export function ManualMetricContent({
       teamId,
       unitType,
       cadence,
+      startDate: periodRange?.startDate,
+      endDate: periodRange?.endDate,
       description: `${unitType} metric tracked ${cadence}`,
     });
   };
@@ -126,6 +135,8 @@ export function ManualMetricContent({
         return unitType !== null;
       case 3:
         return cadence !== null;
+      case 4:
+        return periodRange !== null;
       default:
         return false;
     }
@@ -134,12 +145,14 @@ export function ManualMetricContent({
   const handleNext = () => {
     if (formStep === 1 && canProceed()) setFormStep(2);
     else if (formStep === 2 && canProceed()) setFormStep(3);
-    else if (formStep === 3 && canProceed()) void handleSubmit();
+    else if (formStep === 3 && canProceed()) setFormStep(4);
+    else if (formStep === 4 && canProceed()) void handleSubmit();
   };
 
   const handleBack = () => {
     if (formStep === 2) setFormStep(1);
     else if (formStep === 3) setFormStep(2);
+    else if (formStep === 4) setFormStep(3);
   };
 
   return (
@@ -244,6 +257,27 @@ export function ManualMetricContent({
         </div>
       )}
 
+      {/* Step 4: Period Range */}
+      {formStep === 4 && cadence && (
+        <div className="space-y-4">
+          <PeriodRangeStep
+            cadence={cadence}
+            value={periodRange}
+            onChange={handlePeriodChange}
+          />
+          <button
+            type="button"
+            onClick={() => {
+              setPeriodRange(null);
+              void handleSubmit();
+            }}
+            className="text-muted-foreground hover:text-foreground w-full text-center text-sm underline-offset-4 hover:underline"
+          >
+            skip and use defaults
+          </button>
+        </div>
+      )}
+
       {/* Navigation */}
       <div className="flex items-center justify-between pt-4">
         {formStep > 1 ? (
@@ -268,7 +302,7 @@ export function ManualMetricContent({
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
               Creating...
             </>
-          ) : formStep === 3 ? (
+          ) : formStep === 4 ? (
             "create metric"
           ) : (
             "continue"
