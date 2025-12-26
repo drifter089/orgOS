@@ -111,56 +111,71 @@ export function SettingsTabContent({
           </div>
         </div>
 
-        {/* Chart Type */}
-        <div className="space-y-2">
-          <Label className="text-xs">Chart Type</Label>
-          <ToggleGroup
-            type="single"
-            value={selectedChartType}
-            onValueChange={(v) => v && setSelectedChartType(v)}
-            className="grid w-full grid-cols-2 gap-2"
-          >
-            <ToggleGroupItem
-              value="bar"
-              aria-label="Bar Chart"
-              className="data-[state=on]:border-primary data-[state=on]:bg-primary data-[state=on]:text-primary-foreground border"
+        {/* Chart Type - only for integration metrics */}
+        {isIntegrationMetric && (
+          <div className="space-y-2">
+            <Label className="text-xs">Chart Type</Label>
+            <ToggleGroup
+              type="single"
+              value={selectedChartType}
+              onValueChange={(v) => v && setSelectedChartType(v)}
+              className="grid w-full grid-cols-2 gap-2"
             >
-              <BarChart3 className="mr-1.5 h-4 w-4" />
-              Bar
-            </ToggleGroupItem>
-            <ToggleGroupItem
-              value="line"
-              aria-label="Line Chart"
-              className="data-[state=on]:border-primary data-[state=on]:bg-primary data-[state=on]:text-primary-foreground border"
-            >
-              <TrendingUp className="mr-1.5 h-4 w-4" />
-              Line
-            </ToggleGroupItem>
-          </ToggleGroup>
-        </div>
-
-        {/* Cadence */}
-        <div className="space-y-2">
-          <Label className="text-xs">Cadence</Label>
-          <ToggleGroup
-            type="single"
-            value={selectedCadence}
-            onValueChange={(v) => v && setSelectedCadence(v as Cadence)}
-            className="grid w-full grid-cols-3 gap-2"
-          >
-            {CADENCE_OPTIONS.map((c) => (
               <ToggleGroupItem
-                key={c}
-                value={c}
-                className="data-[state=on]:border-primary data-[state=on]:bg-primary data-[state=on]:text-primary-foreground border text-xs"
+                value="bar"
+                aria-label="Bar Chart"
+                className="data-[state=on]:border-primary data-[state=on]:bg-primary data-[state=on]:text-primary-foreground border"
               >
-                {c.charAt(0) + c.slice(1).toLowerCase()}
+                <BarChart3 className="mr-1.5 h-4 w-4" />
+                Bar
               </ToggleGroupItem>
-            ))}
-          </ToggleGroup>
-        </div>
+              <ToggleGroupItem
+                value="line"
+                aria-label="Line Chart"
+                className="data-[state=on]:border-primary data-[state=on]:bg-primary data-[state=on]:text-primary-foreground border"
+              >
+                <TrendingUp className="mr-1.5 h-4 w-4" />
+                Line
+              </ToggleGroupItem>
+            </ToggleGroup>
+          </div>
+        )}
 
-        {/* Dimensions */}
+        {/* Cadence - only for integration metrics */}
+        {isIntegrationMetric && (
+          <div className="space-y-2">
+            <Label className="text-xs">Cadence</Label>
+            <ToggleGroup
+              type="single"
+              value={selectedCadence}
+              onValueChange={(v) => v && setSelectedCadence(v as Cadence)}
+              className="grid w-full grid-cols-3 gap-2"
+            >
+              {CADENCE_OPTIONS.map((c) => (
+                <ToggleGroupItem
+                  key={c}
+                  value={c}
+                  className="data-[state=on]:border-primary data-[state=on]:bg-primary data-[state=on]:text-primary-foreground border text-xs"
+                >
+                  {c.charAt(0) + c.slice(1).toLowerCase()}
+                </ToggleGroupItem>
+              ))}
+            </ToggleGroup>
+          </div>
+        )}
+
+        {/* Manual metric info */}
+        {!isIntegrationMetric && (
+          <div className="bg-muted/50 rounded-md border p-3">
+            <p className="text-muted-foreground text-xs leading-relaxed">
+              Chart type and cadence are set when creating a manual metric and
+              match the check-in periods. To change these settings, create a new
+              metric with your preferred configuration.
+            </p>
+          </div>
+        )}
+
+        {/* Dimensions - only for integration metrics */}
         {isIntegrationMetric && (
           <div className="space-y-2">
             <Label className="text-xs">Dimension</Label>
@@ -195,20 +210,22 @@ export function SettingsTabContent({
           </div>
         )}
 
-        {/* Apply Changes */}
-        <Button
-          size="sm"
-          onClick={onApplyChanges}
-          disabled={isProcessing || !hasChartChanges}
-          className="w-full transition-all duration-200 active:scale-[0.98]"
-        >
-          {isProcessing ? (
-            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-          ) : (
-            <BarChart3 className="mr-2 h-4 w-4" />
-          )}
-          Apply Changes
-        </Button>
+        {/* Apply Changes - only for integration metrics */}
+        {isIntegrationMetric && (
+          <Button
+            size="sm"
+            onClick={onApplyChanges}
+            disabled={isProcessing || !hasChartChanges}
+            className="w-full transition-all duration-200 active:scale-[0.98]"
+          >
+            {isProcessing ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : (
+              <BarChart3 className="mr-2 h-4 w-4" />
+            )}
+            Apply Changes
+          </Button>
+        )}
       </div>
     </div>
   );

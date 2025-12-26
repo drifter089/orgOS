@@ -147,15 +147,44 @@ export function getPeriodForDate(cadence: Cadence, date: Date): Period {
 }
 
 /**
- * Get previous periods based on cadence (most recent first)
+ * Get periods based on cadence (future first, then current, then past)
  * @param cadence - The cadence type
- * @param count - Number of periods to return (including current)
+ * @param pastCount - Number of past periods to include
+ * @param futureCount - Number of future periods to include (default 0)
  */
-export function getPeriods(cadence: Cadence, count: number): Period[] {
+export function getPeriods(
+  cadence: Cadence,
+  pastCount: number,
+  futureCount = 0,
+): Period[] {
   const periods: Period[] = [];
   const now = new Date();
 
-  for (let i = 0; i < count; i++) {
+  // Add future periods first (furthest future first, so they appear at bottom after reverse)
+  for (let i = futureCount; i >= 1; i--) {
+    let periodDate: Date;
+
+    switch (cadence) {
+      case "daily":
+        periodDate = new Date(now);
+        periodDate.setDate(periodDate.getDate() + i);
+        break;
+
+      case "weekly":
+        periodDate = new Date(now);
+        periodDate.setDate(periodDate.getDate() + i * 7);
+        break;
+
+      case "monthly":
+        periodDate = new Date(now.getFullYear(), now.getMonth() + i, 1);
+        break;
+    }
+
+    periods.push(getPeriodForDate(cadence, periodDate));
+  }
+
+  // Add current and past periods (current first, then going back)
+  for (let i = 0; i <= pastCount; i++) {
     let periodDate: Date;
 
     switch (cadence) {
@@ -175,6 +204,67 @@ export function getPeriods(cadence: Cadence, count: number): Period[] {
     }
 
     periods.push(getPeriodForDate(cadence, periodDate));
+  }
+
+  return periods;
+}
+
+/**
+ * Get default periods for a cadence
+ * - Daily: 7 days past + current + 7 days future (15 total)
+ * - Weekly: 2 weeks past + current + 2 weeks future (5 total)
+ * - Monthly: 2 months past + current + 2 months future (5 total)
+ */
+export function getDefaultPeriods(cadence: Cadence): Period[] {
+  switch (cadence) {
+    case "daily":
+      return getPeriods(cadence, 7, 7);
+    case "weekly":
+      return getPeriods(cadence, 2, 2);
+    case "monthly":
+      return getPeriods(cadence, 2, 2);
+  }
+}
+
+/**
+ * Get periods within a custom date range
+ * Returns all periods of the given cadence that fall within startDate to endDate
+ */
+export function getPeriodsInRange(
+  cadence: Cadence,
+  startDate: Date,
+  endDate: Date,
+): Period[] {
+  const periods: Period[] = [];
+  let current = new Date(startDate);
+
+  while (current <= endDate) {
+    const period = getPeriodForDate(cadence, current);
+
+    // Avoid duplicates (important for daily where we iterate day by day)
+    const isDuplicate = periods.some(
+      (p) => p.start.getTime() === period.start.getTime(),
+    );
+
+    if (!isDuplicate) {
+      periods.push(period);
+    }
+
+    // Move to next period
+    switch (cadence) {
+      case "daily":
+        current = new Date(current);
+        current.setDate(current.getDate() + 1);
+        break;
+      case "weekly":
+        current = new Date(current);
+        current.setDate(current.getDate() + 7);
+        break;
+      case "monthly":
+        current = new Date(current);
+        current.setMonth(current.getMonth() + 1);
+        break;
+    }
   }
 
   return periods;

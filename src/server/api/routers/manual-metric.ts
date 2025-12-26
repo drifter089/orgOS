@@ -29,6 +29,8 @@ export const manualMetricRouter = createTRPCRouter({
         unitType: z.enum(["number", "percentage"]),
         cadence: z.enum(["daily", "weekly", "monthly"]),
         teamId: z.string(),
+        startDate: z.coerce.date().optional(),
+        endDate: z.coerce.date().optional(),
       }),
     )
     .mutation(async ({ ctx, input }) => {
@@ -54,6 +56,10 @@ export const manualMetricRouter = createTRPCRouter({
                 type: "manual",
                 unitType: input.unitType,
                 cadence: input.cadence,
+                ...(input.startDate && {
+                  startDate: input.startDate.toISOString(),
+                }),
+                ...(input.endDate && { endDate: input.endDate.toISOString() }),
               },
               pollFrequency: "manual",
               nextPollAt: null,

@@ -21,7 +21,9 @@ import {
   type Cadence,
   type Period,
   findPeriodForTimestamp,
-  getPeriods,
+  getDefaultPeriods,
+  getPeriodsInRange,
+  isInPeriod,
 } from "@/lib/metrics/periods";
 import { api } from "@/trpc/react";
 
@@ -48,8 +50,28 @@ export function BaseMetricCheckInForm({
   role,
   onSuccess,
 }: BaseMetricCheckInFormProps) {
-  // Get the last 3 periods to display
-  const periods = useMemo(() => getPeriods(cadence, 3), [cadence]);
+  // Get config from endpointConfig
+  const config = metric.endpointConfig as {
+    type?: string;
+    unitType?: string;
+    cadence?: string;
+    startDate?: string;
+    endDate?: string;
+  } | null;
+
+  // Get periods based on custom range or cadence defaults
+  const periods = useMemo(() => {
+    // If custom date range is specified, use it
+    if (config?.startDate && config?.endDate) {
+      return getPeriodsInRange(
+        cadence,
+        new Date(config.startDate),
+        new Date(config.endDate),
+      );
+    }
+    // Otherwise use defaults
+    return getDefaultPeriods(cadence);
+  }, [cadence, config?.startDate, config?.endDate]);
 
   // Map existing data points to periods
   const existingValues = useMemo(() => {
@@ -167,12 +189,6 @@ export function BaseMetricCheckInForm({
     onSuccess,
   ]);
 
-  const config = metric.endpointConfig as {
-    type?: string;
-    unitType?: string;
-    cadence?: string;
-  } | null;
-
   return (
     <Card>
       <CardHeader className="pb-3">
@@ -207,16 +223,23 @@ export function BaseMetricCheckInForm({
             </TableRow>
           </TableHeader>
           <TableBody>
-            {periods.map((period, index) => (
-              <PeriodRow
-                key={period.label}
-                period={period}
-                value={values[period.label] ?? ""}
-                existingValue={existingValues[period.label] ?? null}
-                onChange={(value) => handleValueChange(period.label, value)}
-                isCurrent={index === 0}
-              />
-            ))}
+            {periods.map((period) => {
+              const now = new Date();
+              const isCurrent = isInPeriod(now, period);
+              const isFuture = period.start > now;
+
+              return (
+                <PeriodRow
+                  key={period.label}
+                  period={period}
+                  value={values[period.label] ?? ""}
+                  existingValue={existingValues[period.label] ?? null}
+                  onChange={(value) => handleValueChange(period.label, value)}
+                  isCurrent={isCurrent}
+                  isFuture={isFuture}
+                />
+              );
+            })}
           </TableBody>
         </Table>
 
@@ -231,8 +254,10 @@ export function BaseMetricCheckInForm({
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
               Saving...
             </>
+          ) : isDirty ? (
+            "save changes"
           ) : (
-            "submit values"
+            "saved"
           )}
         </Button>
       </CardContent>
@@ -246,6 +271,7 @@ interface PeriodRowProps {
   existingValue: number | null;
   onChange: (value: string) => void;
   isCurrent: boolean;
+  isFuture: boolean;
 }
 
 function PeriodRow({
@@ -254,15 +280,23 @@ function PeriodRow({
   existingValue,
   onChange,
   isCurrent,
+  isFuture,
 }: PeriodRowProps) {
   const hasExistingValue = existingValue != null;
 
   return (
-    <TableRow>
+    <TableRow className={isCurrent ? "bg-muted/30" : undefined}>
       <TableCell className="font-medium">
         {period.label}
         {isCurrent && (
-          <span className="text-muted-foreground ml-2 text-xs">(current)</span>
+          <span className="text-primary ml-2 text-xs font-normal">
+            (current)
+          </span>
+        )}
+        {isFuture && (
+          <span className="text-muted-foreground ml-2 text-xs font-normal">
+            (upcoming)
+          </span>
         )}
       </TableCell>
       <TableCell>
