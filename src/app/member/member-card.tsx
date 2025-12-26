@@ -91,32 +91,35 @@ export function MemberCard({ member, dashboardCharts }: MemberCardProps) {
 
   return (
     <Link href={`/member/${member.id}`} className="block">
-      <Card className="group hover:border-primary/50 hover:bg-accent/30 flex cursor-pointer gap-6 p-6 transition-colors">
-        <Avatar className="h-16 w-16 shrink-0">
-          <AvatarImage
-            src={`https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(getDisplayName(member))}`}
-            alt={getDisplayName(member)}
-          />
-          <AvatarFallback className="text-lg">
-            {getInitials(member)}
-          </AvatarFallback>
-        </Avatar>
-
-        <div className="flex min-w-0 flex-1 items-center gap-6">
-          <div className="flex min-w-[200px] shrink-0 flex-col justify-center">
-            <h3 className="group-hover:text-primary truncate text-xl font-semibold transition-colors">
-              {getDisplayName(member)}
-            </h3>
-            <p className="text-muted-foreground truncate text-sm">
-              {member.email}
-            </p>
+      <Card className="group hover:border-primary/50 hover:bg-accent/30 cursor-pointer p-6 transition-colors">
+        <div className="flex gap-6">
+          <div className="flex w-[220px] shrink-0 flex-col gap-4">
+            <div className="flex items-center gap-4">
+              <Avatar className="h-14 w-14 shrink-0">
+                <AvatarImage
+                  src={`https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(getDisplayName(member))}`}
+                  alt={getDisplayName(member)}
+                />
+                <AvatarFallback className="text-lg">
+                  {getInitials(member)}
+                </AvatarFallback>
+              </Avatar>
+              <div className="min-w-0 flex-1">
+                <h3 className="group-hover:text-primary truncate text-lg font-semibold transition-colors">
+                  {getDisplayName(member)}
+                </h3>
+                <p className="text-muted-foreground truncate text-sm">
+                  {member.email}
+                </p>
+              </div>
+            </div>
             {isLoading ? (
-              <div className="mt-2 flex gap-2">
+              <div className="flex gap-2">
                 <Skeleton className="h-5 w-16" />
                 <Skeleton className="h-5 w-20" />
               </div>
             ) : (
-              <div className="mt-2 flex flex-wrap gap-2">
+              <div className="flex flex-wrap gap-2">
                 <Badge variant="secondary">
                   {roles?.length ?? 0} {roles?.length === 1 ? "role" : "roles"}
                 </Badge>
@@ -125,55 +128,59 @@ export function MemberCard({ member, dashboardCharts }: MemberCardProps) {
             )}
           </div>
 
-          <div className="flex flex-1 items-center justify-center gap-8">
+          <div className="grid min-h-[280px] flex-1 grid-cols-2 gap-4">
             {isLoading ? (
               <>
-                <Skeleton className="h-[160px] w-[200px]" />
-                <Skeleton className="h-[160px] w-[200px]" />
+                <Skeleton className="h-full w-full" />
+                <Skeleton className="h-full w-full" />
               </>
             ) : (
               <>
-                <div className="flex flex-col items-center">
-                  <span className="text-muted-foreground mb-1 text-xs font-medium tracking-wider uppercase">
+                <div className="border-border/40 flex flex-col rounded-md border p-3">
+                  <span className="text-muted-foreground mb-2 text-xs font-medium tracking-wider uppercase">
                     Effort Distribution
                   </span>
                   {rolesWithEffort.length > 0 ? (
-                    <MetricPieChart
-                      chartData={pieChartData}
-                      chartConfig={pieChartConfig}
-                      xAxisKey="name"
-                      dataKeys={["value"]}
-                      showLegend={true}
-                      showTooltip={true}
-                      centerLabel={{
-                        value: totalEffortPoints,
-                        label: "Total",
-                      }}
-                      className="h-[160px] w-[200px]"
-                    />
+                    <div className="flex-1">
+                      <MetricPieChart
+                        chartData={pieChartData}
+                        chartConfig={pieChartConfig}
+                        xAxisKey="name"
+                        dataKeys={["value"]}
+                        showLegend={true}
+                        showTooltip={true}
+                        centerLabel={{
+                          value: totalEffortPoints,
+                          label: "Total",
+                        }}
+                        className="h-full w-full"
+                      />
+                    </div>
                   ) : (
-                    <div className="text-muted-foreground flex h-[160px] w-[200px] items-center justify-center text-sm">
+                    <div className="text-muted-foreground flex flex-1 items-center justify-center text-sm">
                       No effort data
                     </div>
                   )}
                 </div>
 
-                <div className="flex flex-col items-center">
-                  <span className="text-muted-foreground mb-1 text-xs font-medium tracking-wider uppercase">
+                <div className="border-border/40 flex flex-col rounded-md border p-3">
+                  <span className="text-muted-foreground mb-2 text-xs font-medium tracking-wider uppercase">
                     Goals Progress
                   </span>
                   {goalsData.length > 0 ? (
-                    <MetricRadarChart
-                      chartData={goalsData}
-                      chartConfig={radarChartConfig}
-                      xAxisKey="goal"
-                      dataKeys={["progress"]}
-                      showLegend={false}
-                      showTooltip={true}
-                      className="h-[160px] w-[200px]"
-                    />
+                    <div className="flex-1">
+                      <MetricRadarChart
+                        chartData={goalsData}
+                        chartConfig={radarChartConfig}
+                        xAxisKey="goal"
+                        dataKeys={["progress"]}
+                        showLegend={false}
+                        showTooltip={true}
+                        className="h-full w-full"
+                      />
+                    </div>
                   ) : (
-                    <div className="text-muted-foreground flex h-[160px] w-[200px] items-center justify-center text-sm">
+                    <div className="text-muted-foreground flex flex-1 items-center justify-center text-sm">
                       No goals data
                     </div>
                   )}
