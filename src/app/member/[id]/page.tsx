@@ -15,6 +15,7 @@ export default async function MemberPage({ params }: MemberPageProps) {
     api.organization.getMembers().catch(() => []),
     api.role.getByUser.prefetch({ userId: memberId }),
     api.dashboard.getDashboardCharts.prefetch(),
+    api.organization.getMemberStats.prefetch(),
   ]);
 
   const member = members.find((m) => m.id === memberId);
@@ -24,7 +25,11 @@ export default async function MemberPage({ params }: MemberPageProps) {
 
   return (
     <HydrateClient>
-      <MemberPageClient memberId={memberId} memberInfo={member} />
+      <MemberPageClient
+        memberId={memberId}
+        memberInfo={member}
+        allMembers={members}
+      />
     </HydrateClient>
   );
 }
