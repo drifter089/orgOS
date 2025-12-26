@@ -5,31 +5,32 @@ import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 
 import { motion } from "framer-motion";
-import { ChevronDown, LogOut, Menu } from "lucide-react";
+import { Building2, LogOut, Users } from "lucide-react";
 import { Link } from "next-transition-router";
 
 import { Button } from "@/components/ui/button";
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+  NavigationMenu,
+  NavigationMenuContent,
+  NavigationMenuItem,
+  NavigationMenuLink,
+  NavigationMenuList,
+  NavigationMenuTrigger,
+} from "@/components/ui/navigation-menu";
 import { useThemeToggle } from "@/hooks/use-theme-toggle";
 import { cn } from "@/lib/utils";
 
-// Theme toggle with animated sun/moon
 function ThemeToggle({ className = "" }: { className?: string }) {
-  const { isDark, toggleTheme } = useThemeToggle({
-    variant: "circle",
+  const { isDark, toggleTheme, buttonRef } = useThemeToggle({
     start: "top-right",
   });
 
   return (
     <button
+      ref={buttonRef}
       type="button"
       className={cn(
-        "rounded-full p-1.5 transition-all duration-200 hover:scale-110 active:scale-95",
+        "p-1.5 transition-all duration-200 hover:scale-110 active:scale-95",
         isDark ? "bg-zinc-800 text-white" : "bg-zinc-100 text-zinc-900",
         className,
       )}
@@ -95,12 +96,14 @@ interface SimplePillNavProps {
   } | null;
   signOutAction: () => Promise<void>;
   teams?: Team[];
+  orgName?: string;
 }
 
 export function SimplePillNav({
   user,
   signOutAction,
   teams = [],
+  orgName,
 }: SimplePillNavProps) {
   const pathname = usePathname();
   const [mounted, setMounted] = useState(false);
@@ -109,7 +112,6 @@ export function SimplePillNav({
     setMounted(true);
   }, []);
 
-  // Extract team ID from pathname
   const currentTeamId =
     pathname.startsWith("/teams/") || pathname.startsWith("/dashboard/")
       ? pathname.split("/")[2]
@@ -117,31 +119,26 @@ export function SimplePillNav({
 
   const isOnTeamPage =
     pathname.startsWith("/teams/") || pathname.startsWith("/dashboard/");
+  const isOnDashboard = pathname.startsWith("/dashboard/");
   const currentTeam = teams.find((t) => t.id === currentTeamId);
 
-  // Loading skeleton
   if (!mounted) {
     return (
       <div className="fixed top-4 left-1/2 z-50 -translate-x-1/2">
-        <div className="bg-background/80 border-border h-10 w-40 animate-pulse rounded-full border backdrop-blur-md" />
+        <div className="border-border bg-background/60 h-10 w-48 animate-pulse border backdrop-blur-xl" />
       </div>
     );
   }
 
   return (
     <div className="fixed top-4 left-1/2 z-50 -translate-x-1/2">
-      <div
-        className={cn(
-          "border-border bg-background/80 flex items-center gap-2 rounded-full border px-3 py-1.5 shadow-lg backdrop-blur-md",
-          "transition-all duration-200 hover:shadow-xl",
-        )}
-      >
+      <div className="border-border bg-background/60 flex items-center gap-2 border px-3 py-1.5 shadow-lg backdrop-blur-xl">
         {/* Logo */}
         <Link
           href={user ? "/org" : "/"}
           className="flex items-center gap-2 transition-transform hover:scale-105"
         >
-          <div className="bg-primary flex size-7 items-center justify-center rounded-full">
+          <div className="bg-primary flex size-7 items-center justify-center">
             <span className="text-primary-foreground text-xs font-bold">R</span>
           </div>
           {!user && (
@@ -151,67 +148,103 @@ export function SimplePillNav({
 
         {user ? (
           <>
-            {/* Organization Link */}
-            <Link
-              href="/org"
-              className={cn(
-                "text-muted-foreground hover:text-foreground text-sm transition-colors",
-                pathname === "/org" && "text-foreground font-medium",
-              )}
-            >
-              Organization
-            </Link>
+            <NavigationMenu viewport={false}>
+              <NavigationMenuList className="gap-0">
+                {/* Organization Menu */}
+                <NavigationMenuItem>
+                  <NavigationMenuTrigger
+                    className={cn(
+                      "h-auto bg-transparent px-2 py-1 text-sm",
+                      (pathname === "/org" || pathname === "/member") &&
+                        "text-foreground font-medium",
+                    )}
+                  >
+                    {orgName ?? "Organization"}
+                  </NavigationMenuTrigger>
+                  <NavigationMenuContent className="w-48">
+                    <div className="text-muted-foreground mb-1 px-2 text-xs">
+                      Organization
+                    </div>
+                    <NavigationMenuLink asChild>
+                      <Link
+                        href="/org"
+                        className={cn(
+                          "flex items-center gap-2",
+                          pathname === "/org" && "bg-accent",
+                        )}
+                      >
+                        <Building2 className="size-4" />
+                        <span>Overview</span>
+                      </Link>
+                    </NavigationMenuLink>
+                    <NavigationMenuLink asChild>
+                      <Link
+                        href="/member"
+                        className={cn(
+                          "flex items-center gap-2",
+                          pathname === "/member" && "bg-accent",
+                        )}
+                      >
+                        <Users className="size-4" />
+                        <span>Members</span>
+                      </Link>
+                    </NavigationMenuLink>
+                  </NavigationMenuContent>
+                </NavigationMenuItem>
 
-            <div className="bg-border h-5 w-px" />
+                <div className="bg-border mx-1 h-5 w-px" />
 
-            {/* Team Dropdown - Always visible */}
-            <DropdownMenu>
-              <DropdownMenuTrigger
-                className={cn(
-                  "text-muted-foreground hover:text-foreground flex items-center gap-1 text-sm transition-colors",
-                  currentTeam && "text-foreground font-medium",
-                )}
-              >
-                {currentTeam?.name ?? "Select Team"}
-                <ChevronDown className="size-3.5" />
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="start" sideOffset={8}>
-                {teams.length > 0 ? (
-                  teams.map((team) => {
-                    const targetPath = isOnTeamPage
-                      ? pathname.startsWith("/dashboard/")
-                        ? `/dashboard/${team.id}`
-                        : `/teams/${team.id}`
-                      : `/teams/${team.id}`;
+                {/* Team Menu */}
+                <NavigationMenuItem>
+                  <NavigationMenuTrigger
+                    className={cn(
+                      "h-auto bg-transparent px-2 py-1 text-sm",
+                      currentTeam && "text-foreground font-medium",
+                    )}
+                  >
+                    {currentTeam?.name ?? "Select Team"}
+                  </NavigationMenuTrigger>
+                  <NavigationMenuContent className="w-48">
+                    <div className="text-muted-foreground mb-1 px-2 text-xs">
+                      Teams
+                    </div>
+                    {teams.length > 0 ? (
+                      teams.map((team) => {
+                        const teamPath = isOnDashboard
+                          ? `/dashboard/${team.id}`
+                          : `/teams/${team.id}`;
+                        return (
+                          <NavigationMenuLink key={team.id} asChild>
+                            <Link
+                              href={teamPath}
+                              className={cn(
+                                team.id === currentTeamId && "bg-accent",
+                              )}
+                            >
+                              {team.name}
+                            </Link>
+                          </NavigationMenuLink>
+                        );
+                      })
+                    ) : (
+                      <div className="text-muted-foreground px-2 py-1.5 text-sm">
+                        No teams yet
+                      </div>
+                    )}
+                  </NavigationMenuContent>
+                </NavigationMenuItem>
+              </NavigationMenuList>
+            </NavigationMenu>
 
-                    return (
-                      <DropdownMenuItem key={team.id} asChild>
-                        <Link
-                          href={targetPath}
-                          className={cn(
-                            team.id === currentTeamId && "bg-accent",
-                          )}
-                        >
-                          {team.name}
-                        </Link>
-                      </DropdownMenuItem>
-                    );
-                  })
-                ) : (
-                  <DropdownMenuItem disabled>No teams yet</DropdownMenuItem>
-                )}
-              </DropdownMenuContent>
-            </DropdownMenu>
-
-            {/* Roles/KPIs Tabs - Only on team pages */}
+            {/* Roles/KPIs Tabs */}
             {isOnTeamPage && currentTeamId && (
               <>
                 <div className="bg-border h-5 w-px" />
-                <div className="bg-muted flex rounded-md p-0.5">
+                <div className="bg-muted flex p-0.5">
                   <Link
                     href={`/teams/${currentTeamId}`}
                     className={cn(
-                      "text-muted-foreground rounded px-2 py-0.5 text-sm transition-all",
+                      "text-muted-foreground px-2 py-0.5 text-sm transition-all",
                       pathname.startsWith("/teams/") &&
                         "bg-background text-foreground shadow-sm",
                     )}
@@ -221,7 +254,7 @@ export function SimplePillNav({
                   <Link
                     href={`/dashboard/${currentTeamId}`}
                     className={cn(
-                      "text-muted-foreground rounded px-2 py-0.5 text-sm transition-all",
+                      "text-muted-foreground px-2 py-0.5 text-sm transition-all",
                       pathname.startsWith("/dashboard/") &&
                         "bg-background text-foreground shadow-sm",
                     )}
@@ -237,34 +270,20 @@ export function SimplePillNav({
             {/* Theme Toggle */}
             <ThemeToggle />
 
-            {/* Menu Dropdown */}
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="size-7 transition-transform hover:scale-110"
-                >
-                  <Menu className="size-4" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" sideOffset={8}>
-                <DropdownMenuItem asChild>
-                  <form action={signOutAction} className="w-full">
-                    <button
-                      type="submit"
-                      className="flex w-full items-center gap-2"
-                    >
-                      <LogOut className="size-4" />
-                      Sign out
-                    </button>
-                  </form>
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+            {/* Sign Out Button */}
+            <form action={signOutAction}>
+              <Button
+                type="submit"
+                variant="ghost"
+                size="icon"
+                className="size-7 transition-transform hover:scale-110"
+                title="Sign out"
+              >
+                <LogOut className="size-4" />
+              </Button>
+            </form>
           </>
         ) : (
-          /* Unauthenticated - just sign in */
           <Button size="sm" asChild className="h-7 px-3">
             <Link href="/login" prefetch={false}>
               Sign in
