@@ -171,10 +171,17 @@ export function MemberPageClient({
     })
     .map((role) => {
       const chart = chartsByMetricId.get(role.metricId!)!;
+      const gp = chart.goalProgress!;
       return {
         goalName: chart.metric.name ?? role.metric?.name ?? "Unknown",
-        progressPercent: chart.goalProgress!.progressPercent,
-        status: chart.goalProgress!.status,
+        progressPercent: gp.progressPercent,
+        expectedProgressPercent: gp.expectedProgressPercent,
+        status: gp.status,
+        daysElapsed: gp.daysElapsed,
+        daysTotal: gp.daysTotal,
+        daysRemaining: gp.daysRemaining,
+        currentValue: gp.currentValue,
+        targetValue: gp.targetDisplayValue,
       };
     });
 
