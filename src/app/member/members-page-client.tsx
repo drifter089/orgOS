@@ -22,9 +22,9 @@ function MemberCardSkeleton() {
             <Skeleton className="h-5 w-16" />
           </div>
         </div>
-        <div className="grid min-h-[280px] flex-1 grid-cols-2 gap-4">
-          <Skeleton className="h-full w-full" />
-          <Skeleton className="h-full w-full" />
+        <div className="grid flex-1 grid-cols-2 gap-4">
+          <Skeleton className="h-[320px] w-full" />
+          <Skeleton className="h-[320px] w-full" />
         </div>
       </div>
     </div>
