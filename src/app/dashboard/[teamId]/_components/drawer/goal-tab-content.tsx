@@ -8,15 +8,16 @@ import { Calendar, Loader2, Pencil, Target, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
+import { SliderWithInputs } from "@/components/ui/slider-with-inputs";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { useOptimisticGoalUpdate } from "@/hooks/use-optimistic-goal-update";
 import { type GoalProgress, calculateTargetDisplayValue } from "@/lib/goals";
 import { formatCadence } from "@/lib/helpers/format-cadence";
 import { formatValue } from "@/lib/helpers/format-value";
 import { cn } from "@/lib/utils";
+import { api } from "@/trpc/react";
 
 /**
  * Format time remaining based on cadence
@@ -58,9 +59,11 @@ export function GoalTabContent({
   const [goalType, setGoalType] = useState<GoalType>(
     goal?.goalType ?? "ABSOLUTE",
   );
-  const [targetValue, setTargetValue] = useState(
-    goal?.targetValue?.toString() ?? "",
-  );
+  const [targetValue, setTargetValue] = useState(goal?.targetValue ?? 10);
+
+  // Fetch suggested range for slider
+  const { data: goalData } = api.goal.get.useQuery({ metricId });
+  const suggestedRange = goalData?.suggestedRange;
 
   // Use optimistic goal update hook - updates cache directly, no invalidation
   const { upsertGoal, deleteGoal, isUpserting, isDeleting, isPending } =
@@ -70,19 +73,18 @@ export function GoalTabContent({
   const isRecalculating = isProcessing || isPending;
 
   const handleSaveGoal = () => {
-    const value = parseFloat(targetValue);
-    if (isNaN(value) || value <= 0) {
+    if (targetValue <= 0) {
       toast.error("Please enter a valid positive number");
       return;
     }
-    upsertGoal(goalType, value);
+    upsertGoal(goalType, targetValue);
     setIsEditing(false);
   };
 
   const handleEditGoal = () => {
     if (goal) {
       setGoalType(goal.goalType);
-      setTargetValue(String(goal.targetValue));
+      setTargetValue(goal.targetValue);
     }
     setIsEditing(true);
   };
@@ -201,20 +203,20 @@ export function GoalTabContent({
             </div>
           )}
 
-          <div className="space-y-2">
-            <Label className="text-xs">
-              Target {goalType === "RELATIVE" ? "Growth %" : "Value"}
-            </Label>
-            <Input
-              type="number"
-              placeholder={
-                goalType === "RELATIVE" ? "e.g., 10 for 10%" : "Target value"
-              }
-              value={targetValue}
-              onChange={(e) => setTargetValue(e.target.value)}
-              className="h-9 text-sm"
-            />
-          </div>
+          <SliderWithInputs
+            value={targetValue}
+            onChange={setTargetValue}
+            suggestedMin={
+              goalType === "RELATIVE" ? 0 : (suggestedRange?.suggestedMin ?? 0)
+            }
+            suggestedMax={
+              goalType === "RELATIVE"
+                ? 100
+                : (suggestedRange?.suggestedMax ?? 100)
+            }
+            label={`Target ${goalType === "RELATIVE" ? "Growth %" : "Value"}`}
+            suffix={goalType === "RELATIVE" ? "%" : undefined}
+          />
 
           <div className="flex gap-2 pt-2">
             {goal && (
@@ -230,7 +232,7 @@ export function GoalTabContent({
             <Button
               size="sm"
               onClick={handleSaveGoal}
-              disabled={isUpserting || !targetValue}
+              disabled={isUpserting || targetValue <= 0}
               className="flex-1 transition-all duration-200 active:scale-[0.98]"
             >
               {isUpserting && <Loader2 className="mr-1 h-3 w-3 animate-spin" />}
