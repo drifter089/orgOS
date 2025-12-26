@@ -243,21 +243,21 @@ export function MemberGoalsChart({ goalsData }: MemberGoalsChartProps) {
       <div className="flex-1 p-4">
         <ChartContainer
           config={chartConfig}
-          className="mx-auto aspect-square max-h-[220px]"
+          className="mx-auto h-[220px] w-full"
         >
-          <RadarChart data={chartData}>
+          <RadarChart data={chartData} cx="50%" cy="50%" outerRadius="80%">
             <ChartTooltip cursor={false} content={<GoalTooltipContent />} />
-            <PolarAngleAxis dataKey="goal" />
+            <PolarAngleAxis dataKey="goal" tick={{ fontSize: 11 }} />
             <PolarGrid />
             <Radar
               dataKey="progress"
-              stroke="var(--color-progress)"
-              fill="var(--color-progress)"
+              stroke="hsl(var(--primary))"
+              fill="hsl(var(--primary))"
               fillOpacity={0.3}
               strokeWidth={2}
               dot={{
                 r: 4,
-                fill: "var(--color-progress)",
+                fill: "hsl(var(--primary))",
                 fillOpacity: 1,
               }}
               isAnimationActive={true}
