@@ -28,6 +28,7 @@ export {
 } from "./progress-calculator";
 export { analyzeTrend } from "./trend-analyzer";
 export {
+  calculateSuggestedRange,
   extractAllValues,
   extractBaselineValue,
   extractCurrentValue,
