@@ -161,31 +161,28 @@ export function SimplePillNav({
                   >
                     {orgName ?? "Organization"}
                   </NavigationMenuTrigger>
-                  <NavigationMenuContent className="w-48">
-                    <div className="text-muted-foreground mb-1 px-2 text-xs">
-                      Organization
-                    </div>
+                  <NavigationMenuContent className="w-56 p-2">
                     <NavigationMenuLink asChild>
                       <Link
                         href="/org"
                         className={cn(
-                          "flex items-center gap-2",
-                          pathname === "/org" && "bg-accent",
+                          "hover:bg-muted flex w-full cursor-pointer items-center gap-3 px-3 py-2.5 text-sm transition-colors",
+                          pathname === "/org" && "bg-muted font-medium",
                         )}
                       >
-                        <Building2 className="size-4" />
-                        <span>Overview</span>
+                        <Building2 className="text-muted-foreground size-4" />
+                        <span>{orgName ?? "Organization"}</span>
                       </Link>
                     </NavigationMenuLink>
                     <NavigationMenuLink asChild>
                       <Link
                         href="/member"
                         className={cn(
-                          "flex items-center gap-2",
-                          pathname === "/member" && "bg-accent",
+                          "hover:bg-muted flex w-full cursor-pointer items-center gap-3 px-3 py-2.5 text-sm transition-colors",
+                          pathname === "/member" && "bg-muted font-medium",
                         )}
                       >
-                        <Users className="size-4" />
+                        <Users className="text-muted-foreground size-4" />
                         <span>Members</span>
                       </Link>
                     </NavigationMenuLink>
@@ -204,30 +201,29 @@ export function SimplePillNav({
                   >
                     {currentTeam?.name ?? "Select Team"}
                   </NavigationMenuTrigger>
-                  <NavigationMenuContent className="w-48">
-                    <div className="text-muted-foreground mb-1 px-2 text-xs">
-                      Teams
-                    </div>
+                  <NavigationMenuContent className="w-56 p-2">
                     {teams.length > 0 ? (
                       teams.map((team) => {
                         const teamPath = isOnDashboard
                           ? `/dashboard/${team.id}`
                           : `/teams/${team.id}`;
+                        const isSelected = team.id === currentTeamId;
                         return (
                           <NavigationMenuLink key={team.id} asChild>
                             <Link
                               href={teamPath}
                               className={cn(
-                                team.id === currentTeamId && "bg-accent",
+                                "hover:bg-muted flex w-full cursor-pointer items-center px-3 py-2.5 text-sm transition-colors",
+                                isSelected && "bg-muted font-medium",
                               )}
                             >
-                              {team.name}
+                              <span className="truncate">{team.name}</span>
                             </Link>
                           </NavigationMenuLink>
                         );
                       })
                     ) : (
-                      <div className="text-muted-foreground px-2 py-1.5 text-sm">
+                      <div className="text-muted-foreground px-3 py-2.5 text-sm">
                         No teams yet
                       </div>
                     )}
