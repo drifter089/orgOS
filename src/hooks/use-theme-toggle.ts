@@ -4,62 +4,105 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import { useTheme } from "next-themes";
 
+type AnimationStart =
+  | "center"
+  | "top-left"
+  | "top-right"
+  | "bottom-left"
+  | "bottom-right";
+
 interface UseThemeToggleOptions {
-  variant?: "circle" | "rectangle" | "gif" | "polygon" | "circle-blur";
-  start?:
-    | "center"
-    | "top-left"
-    | "top-right"
-    | "bottom-left"
-    | "bottom-right"
-    | "left"
-    | "right"
-    | "top"
-    | "bottom"
-    | "bottom-up";
+  start?: AnimationStart;
 }
 
-function getPosition(
-  start: UseThemeToggleOptions["start"],
-  buttonRef: React.RefObject<HTMLButtonElement | null>,
-) {
-  if (buttonRef.current) {
-    const rect = buttonRef.current.getBoundingClientRect();
-    return {
-      x: rect.left + rect.width / 2,
-      y: rect.top + rect.height / 2,
-    };
-  }
+const STYLE_ID = "theme-transition-styles";
 
-  const width = window.innerWidth;
-  const height = window.innerHeight;
-
-  switch (start) {
+function getClipPathPosition(position: AnimationStart) {
+  switch (position) {
     case "top-left":
-      return { x: 0, y: 0 };
+      return "0% 0%";
     case "top-right":
-      return { x: width, y: 0 };
+      return "100% 0%";
     case "bottom-left":
-      return { x: 0, y: height };
+      return "0% 100%";
     case "bottom-right":
-      return { x: width, y: height };
-    case "left":
-      return { x: 0, y: height / 2 };
-    case "right":
-      return { x: width, y: height / 2 };
-    case "top":
-      return { x: width / 2, y: 0 };
-    case "bottom":
-    case "bottom-up":
-      return { x: width / 2, y: height };
+      return "100% 100%";
     case "center":
     default:
-      return { x: width / 2, y: height / 2 };
+      return "50% 50%";
   }
+}
+
+function createAnimationCSS(
+  start: AnimationStart,
+  buttonRef: React.RefObject<HTMLButtonElement | null>,
+) {
+  let clipPosition = getClipPathPosition(start);
+
+  // If we have a button ref, calculate position from button
+  if (buttonRef.current) {
+    const rect = buttonRef.current.getBoundingClientRect();
+    const x = ((rect.left + rect.width / 2) / window.innerWidth) * 100;
+    const y = ((rect.top + rect.height / 2) / window.innerHeight) * 100;
+    clipPosition = `${x}% ${y}%`;
+  }
+
+  return `
+    ::view-transition-group(root) {
+      animation-duration: 0.7s;
+      animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    ::view-transition-new(root) {
+      animation-name: reveal-light;
+    }
+
+    ::view-transition-old(root),
+    .dark::view-transition-old(root) {
+      animation: none;
+      z-index: -1;
+    }
+
+    .dark::view-transition-new(root) {
+      animation-name: reveal-dark;
+    }
+
+    @keyframes reveal-dark {
+      from {
+        clip-path: circle(0% at ${clipPosition});
+      }
+      to {
+        clip-path: circle(150% at ${clipPosition});
+      }
+    }
+
+    @keyframes reveal-light {
+      from {
+        clip-path: circle(0% at ${clipPosition});
+      }
+      to {
+        clip-path: circle(150% at ${clipPosition});
+      }
+    }
+  `;
+}
+
+function updateStyles(css: string) {
+  if (typeof window === "undefined") return;
+
+  let styleElement = document.getElementById(STYLE_ID) as HTMLStyleElement;
+
+  if (!styleElement) {
+    styleElement = document.createElement("style");
+    styleElement.id = STYLE_ID;
+    document.head.appendChild(styleElement);
+  }
+
+  styleElement.textContent = css;
 }
 
 export function useThemeToggle(options?: UseThemeToggleOptions) {
-  const { setTheme, resolvedTheme } = useTheme();
+  const { theme, setTheme, resolvedTheme } = useTheme();
   const [isDark, setIsDark] = useState(false);
   const buttonRef = useRef<HTMLButtonElement>(null);
 
@@ -70,51 +113,29 @@ export function useThemeToggle(options?: UseThemeToggleOptions) {
   }, [resolvedTheme]);
 
   const toggleTheme = useCallback(() => {
-    const newTheme = resolvedTheme === "light" ? "dark" : "light";
+    const newTheme = theme === "light" ? "dark" : "light";
+
+    // Update local state immediately
+    setIsDark(newTheme === "dark");
+
+    // Generate and inject animation CSS
+    const css = createAnimationCSS(start, buttonRef);
+    updateStyles(css);
 
     // Check if View Transitions API is supported
-    if (
-      typeof document !== "undefined" &&
-      "startViewTransition" in document &&
-      typeof document.startViewTransition === "function"
-    ) {
-      const { x, y } = getPosition(start, buttonRef);
-      const endRadius = Math.hypot(
-        Math.max(x, window.innerWidth - x),
-        Math.max(y, window.innerHeight - y),
-      );
+    if (typeof window === "undefined") return;
 
-      const transition = document.startViewTransition(() => {
-        setTheme(newTheme);
-      });
-
-      transition.ready
-        .then(() => {
-          const clipPath = [
-            `circle(0px at ${x}px ${y}px)`,
-            `circle(${endRadius}px at ${x}px ${y}px)`,
-          ];
-
-          document.documentElement.animate(
-            {
-              clipPath: isDark ? clipPath : clipPath.reverse(),
-            },
-            {
-              duration: 400,
-              easing: "ease-out",
-              pseudoElement: isDark
-                ? "::view-transition-old(root)"
-                : "::view-transition-new(root)",
-            },
-          );
-        })
-        .catch(() => {
-          // Animation failed, theme still changed
-        });
-    } else {
+    const switchTheme = () => {
       setTheme(newTheme);
+    };
+
+    if (!document.startViewTransition) {
+      switchTheme();
+      return;
     }
-  }, [resolvedTheme, setTheme, start, isDark]);
+
+    document.startViewTransition(switchTheme);
+  }, [theme, setTheme, start]);
 
   return { isDark, toggleTheme, buttonRef };
 }
