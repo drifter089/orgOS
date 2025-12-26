@@ -13,15 +13,19 @@ function getHandleCoordsByPosition(
   node: NodeWithInternals,
   handlePosition: Position,
 ): [number, number] {
-  const handleBounds = node.internals.handleBounds?.source;
-  if (!handleBounds) {
+  // Check both source and target handles - chart nodes use target handles for incoming connections
+  const sourceHandles = node.internals.handleBounds?.source ?? [];
+  const targetHandles = node.internals.handleBounds?.target ?? [];
+  const allHandles = [...sourceHandles, ...targetHandles];
+
+  if (allHandles.length === 0) {
     return [
       node.internals.positionAbsolute.x,
       node.internals.positionAbsolute.y,
     ];
   }
 
-  const handle = handleBounds.find((h) => h.position === handlePosition);
+  const handle = allHandles.find((h) => h.position === handlePosition);
   if (!handle) {
     return [
       node.internals.positionAbsolute.x + (node.measured?.width ?? 0) / 2,
