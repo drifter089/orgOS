@@ -1,15 +1,7 @@
 "use client";
 
-import { Cell, Label, Pie, PieChart } from "recharts";
-
-import {
-  type ChartConfig,
-  ChartContainer,
-  ChartLegend,
-  ChartLegendContent,
-  ChartTooltip,
-  ChartTooltipContent,
-} from "@/components/ui/chart";
+import { MetricPieChart } from "@/components/charts";
+import type { ChartConfig } from "@/components/ui/chart";
 import type { RouterOutputs } from "@/trpc/react";
 
 type Role = RouterOutputs["role"]["getByUser"][number];
@@ -67,65 +59,19 @@ export function MemberEffortChart({
         </span>
       </div>
       <div className="flex-1 p-4">
-        <ChartContainer
-          config={chartConfig}
+        <MetricPieChart
+          chartData={chartData}
+          chartConfig={chartConfig}
+          xAxisKey="name"
+          dataKeys={["value"]}
+          showLegend={true}
+          showTooltip={true}
+          centerLabel={{
+            value: totalEffortPoints,
+            label: "Total",
+          }}
           className="mx-auto aspect-square h-[20rem]"
-        >
-          <PieChart>
-            <ChartTooltip
-              cursor={false}
-              content={<ChartTooltipContent hideLabel nameKey="name" />}
-            />
-            <Pie
-              data={chartData}
-              dataKey="value"
-              nameKey="name"
-              innerRadius={50}
-              outerRadius={85}
-              strokeWidth={2}
-              isAnimationActive={true}
-              animationDuration={800}
-              animationEasing="ease-out"
-            >
-              {chartData.map((entry, index) => (
-                <Cell
-                  key={`cell-${index}`}
-                  fill={entry.fill ?? `var(--chart-${(index % 12) + 1})`}
-                />
-              ))}
-              <Label
-                content={({ viewBox }) => {
-                  if (viewBox && "cx" in viewBox && "cy" in viewBox) {
-                    return (
-                      <text
-                        x={viewBox.cx}
-                        y={viewBox.cy}
-                        textAnchor="middle"
-                        dominantBaseline="middle"
-                      >
-                        <tspan
-                          x={viewBox.cx}
-                          y={viewBox.cy}
-                          className="fill-foreground text-2xl font-bold"
-                        >
-                          {totalEffortPoints}
-                        </tspan>
-                        <tspan
-                          x={viewBox.cx}
-                          y={(viewBox.cy ?? 0) + 18}
-                          className="fill-muted-foreground text-xs"
-                        >
-                          Total
-                        </tspan>
-                      </text>
-                    );
-                  }
-                }}
-              />
-            </Pie>
-            <ChartLegend content={<ChartLegendContent nameKey="name" />} />
-          </PieChart>
-        </ChartContainer>
+        />
       </div>
     </div>
   );
