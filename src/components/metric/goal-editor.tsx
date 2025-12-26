@@ -7,8 +7,9 @@ import { Loader2, Pencil, Target, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { SliderWithInputs } from "@/components/ui/slider-with-inputs";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import type { SuggestedRange } from "@/lib/goals/value-extractor";
 import { formatCadence } from "@/lib/helpers/format-cadence";
 import { formatValue } from "@/lib/helpers/format-value";
 import { api } from "@/trpc/react";
@@ -19,6 +20,8 @@ interface GoalEditorProps {
   initialGoal?: MetricGoal | null;
   /** Optional: The chart's cadence (read-only display) */
   cadence?: Cadence | null;
+  /** Optional: Suggested range for slider */
+  initialSuggestedRange?: SuggestedRange | null;
   /** Compact mode for use in dialogs */
   compact?: boolean;
   /** Callback when goal is saved */
@@ -33,6 +36,7 @@ export function GoalEditor({
   metricId,
   initialGoal,
   cadence: initialCadence,
+  initialSuggestedRange,
   compact = false,
   onSave,
   onDelete,
@@ -40,7 +44,7 @@ export function GoalEditor({
 }: GoalEditorProps) {
   const [isEditing, setIsEditing] = useState(startEditing);
   const [goalType, setGoalType] = useState<GoalType>("ABSOLUTE");
-  const [targetValue, setTargetValue] = useState("");
+  const [targetValue, setTargetValue] = useState(10);
 
   const utils = api.useUtils();
 
@@ -55,6 +59,10 @@ export function GoalEditor({
   const goal = initialGoal !== undefined ? initialGoal : goalData?.goal;
   const cadence =
     initialCadence !== undefined ? initialCadence : goalData?.cadence;
+  const suggestedRange =
+    initialSuggestedRange !== undefined
+      ? initialSuggestedRange
+      : goalData?.suggestedRange;
 
   // Sync editing state with startEditing prop
   useEffect(() => {
@@ -67,7 +75,6 @@ export function GoalEditor({
     onSuccess: async () => {
       toast.success("Goal saved");
       setIsEditing(false);
-      setTargetValue("");
       await utils.goal.get.invalidate({ metricId });
       await utils.dashboard.getDashboardCharts.invalidate();
       onSave?.();
@@ -90,29 +97,31 @@ export function GoalEditor({
   });
 
   const handleSaveGoal = () => {
-    const value = parseFloat(targetValue);
-    if (isNaN(value) || value <= 0) {
+    if (targetValue <= 0) {
       toast.error("Please enter a valid positive number");
       return;
     }
     upsertGoalMutation.mutate({
       metricId,
       goalType,
-      targetValue: value,
+      targetValue,
     });
   };
 
   const handleEditGoal = () => {
     if (goal) {
       setGoalType(goal.goalType);
-      setTargetValue(String(goal.targetValue));
+      setTargetValue(goal.targetValue);
     }
     setIsEditing(true);
   };
 
   const handleCancelEdit = () => {
     setIsEditing(false);
-    setTargetValue("");
+    // Reset to goal value or default
+    if (goal) {
+      setTargetValue(goal.targetValue);
+    }
   };
 
   const handleDelete = () => {
@@ -175,22 +184,20 @@ export function GoalEditor({
           </div>
         )}
 
-        <div className="space-y-0.5">
-          <span className="text-muted-foreground text-[10px]">
-            Target {goalType === "RELATIVE" ? "Growth %" : "Value"}
-          </span>
-          <Input
-            type="number"
-            placeholder={
-              goalType === "RELATIVE"
-                ? "e.g., 10 for 10% growth"
-                : "Target value"
-            }
-            value={targetValue}
-            onChange={(e) => setTargetValue(e.target.value)}
-            className="h-7 text-xs"
-          />
-        </div>
+        <SliderWithInputs
+          value={targetValue}
+          onChange={setTargetValue}
+          suggestedMin={
+            goalType === "RELATIVE" ? 0 : (suggestedRange?.suggestedMin ?? 0)
+          }
+          suggestedMax={
+            goalType === "RELATIVE"
+              ? 100
+              : (suggestedRange?.suggestedMax ?? 100)
+          }
+          label={`Target ${goalType === "RELATIVE" ? "Growth %" : "Value"}`}
+          suffix={goalType === "RELATIVE" ? "%" : undefined}
+        />
 
         <div className="flex gap-1.5">
           {goal && (
@@ -206,7 +213,7 @@ export function GoalEditor({
           <Button
             size="sm"
             onClick={handleSaveGoal}
-            disabled={upsertGoalMutation.isPending || !targetValue}
+            disabled={upsertGoalMutation.isPending || targetValue <= 0}
             className="h-7 flex-1 text-xs"
           >
             {upsertGoalMutation.isPending && (

@@ -12,6 +12,7 @@ import {
   type ChartDataForGoal,
   type GoalInput,
   calculateGoalProgress,
+  calculateSuggestedRange,
 } from "@/lib/goals";
 import type {
   ChartConfig,
@@ -113,8 +114,22 @@ export const goalRouter = createTRPCRouter({
         }
       }
 
+      // Build chart data for range calculation
+      const chartDataForRange: ChartDataForGoal = {
+        chartData: chartConfig?.chartData ?? [],
+        xAxisKey: chartConfig?.xAxisKey ?? "date",
+        dataKeys: chartConfig?.dataKeys ?? [],
+        selectedDimension,
+      };
+
       // If no goal, return current value info for goal creation context
       if (!goal) {
+        // Calculate suggested range for ABSOLUTE goals (default for new goals)
+        const suggestedRange = calculateSuggestedRange(
+          chartDataForRange,
+          "ABSOLUTE",
+        );
+
         return {
           goal: null,
           progress: null,
@@ -122,11 +137,16 @@ export const goalRouter = createTRPCRouter({
           currentValue,
           currentValueLabel,
           valueLabel,
+          suggestedRange,
         };
       }
 
       // If no chart or no cadence, return goal without progress
       if (!cadence) {
+        const suggestedRange = calculateSuggestedRange(
+          chartDataForRange,
+          goal.goalType,
+        );
         return {
           goal,
           progress: null,
@@ -134,6 +154,7 @@ export const goalRouter = createTRPCRouter({
           currentValue,
           currentValueLabel,
           valueLabel,
+          suggestedRange,
         };
       }
 
@@ -146,19 +167,17 @@ export const goalRouter = createTRPCRouter({
         onTrackThreshold: goal.onTrackThreshold,
       };
 
-      // Convert ChartConfig to ChartDataForGoal
-      const chartDataForGoal: ChartDataForGoal = {
-        chartData: chartConfig?.chartData ?? [],
-        xAxisKey: chartConfig?.xAxisKey ?? "date",
-        dataKeys: chartConfig?.dataKeys ?? [],
-        selectedDimension,
-      };
-
       const progress = calculateGoalProgress(
         goalInput,
         cadence,
-        chartDataForGoal,
+        chartDataForRange,
       );
+
+      const suggestedRange = calculateSuggestedRange(
+        chartDataForRange,
+        goal.goalType,
+      );
+
       return {
         goal,
         progress,
@@ -166,6 +185,7 @@ export const goalRouter = createTRPCRouter({
         currentValue,
         currentValueLabel,
         valueLabel,
+        suggestedRange,
       };
     }),
 
