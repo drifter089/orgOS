@@ -128,34 +128,32 @@ export function MemberCard({ member, dashboardCharts }: MemberCardProps) {
             )}
           </div>
 
-          <div className="grid min-h-[280px] flex-1 grid-cols-2 gap-4">
+          <div className="grid flex-1 grid-cols-2 gap-4">
             {isLoading ? (
               <>
-                <Skeleton className="h-full w-full" />
-                <Skeleton className="h-full w-full" />
+                <Skeleton className="h-[320px] w-full" />
+                <Skeleton className="h-[320px] w-full" />
               </>
             ) : (
               <>
-                <div className="border-border/40 flex flex-col rounded-md border p-3">
+                <div className="border-border/40 flex h-[320px] flex-col rounded-md border p-4">
                   <span className="text-muted-foreground mb-2 text-xs font-medium tracking-wider uppercase">
                     Effort Distribution
                   </span>
                   {rolesWithEffort.length > 0 ? (
-                    <div className="flex-1">
-                      <MetricPieChart
-                        chartData={pieChartData}
-                        chartConfig={pieChartConfig}
-                        xAxisKey="name"
-                        dataKeys={["value"]}
-                        showLegend={true}
-                        showTooltip={true}
-                        centerLabel={{
-                          value: totalEffortPoints,
-                          label: "Total",
-                        }}
-                        className="h-full w-full"
-                      />
-                    </div>
+                    <MetricPieChart
+                      chartData={pieChartData}
+                      chartConfig={pieChartConfig}
+                      xAxisKey="name"
+                      dataKeys={["value"]}
+                      showLegend={true}
+                      showTooltip={true}
+                      centerLabel={{
+                        value: totalEffortPoints,
+                        label: "Total",
+                      }}
+                      className="h-[280px] w-full"
+                    />
                   ) : (
                     <div className="text-muted-foreground flex flex-1 items-center justify-center text-sm">
                       No effort data
@@ -163,22 +161,20 @@ export function MemberCard({ member, dashboardCharts }: MemberCardProps) {
                   )}
                 </div>
 
-                <div className="border-border/40 flex flex-col rounded-md border p-3">
+                <div className="border-border/40 flex h-[320px] flex-col rounded-md border p-4">
                   <span className="text-muted-foreground mb-2 text-xs font-medium tracking-wider uppercase">
                     Goals Progress
                   </span>
                   {goalsData.length > 0 ? (
-                    <div className="flex-1">
-                      <MetricRadarChart
-                        chartData={goalsData}
-                        chartConfig={radarChartConfig}
-                        xAxisKey="goal"
-                        dataKeys={["progress"]}
-                        showLegend={false}
-                        showTooltip={true}
-                        className="h-full w-full"
-                      />
-                    </div>
+                    <MetricRadarChart
+                      chartData={goalsData}
+                      chartConfig={radarChartConfig}
+                      xAxisKey="goal"
+                      dataKeys={["progress"]}
+                      showLegend={false}
+                      showTooltip={true}
+                      className="h-[280px] w-full"
+                    />
                   ) : (
                     <div className="text-muted-foreground flex flex-1 items-center justify-center text-sm">
                       No goals data
