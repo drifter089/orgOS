@@ -1,5 +1,12 @@
 "use client";
 
+import {
+  AlertTriangle,
+  Calendar,
+  Check,
+  Target,
+  TrendingUp,
+} from "lucide-react";
 import { PolarAngleAxis, PolarGrid, Radar, RadarChart } from "recharts";
 
 import { Badge } from "@/components/ui/badge";
@@ -8,8 +15,8 @@ import {
   ChartContainer,
   ChartTooltip,
 } from "@/components/ui/chart";
-import { Progress } from "@/components/ui/progress";
 import type { GoalProgress } from "@/lib/goals";
+import { formatValue } from "@/lib/helpers/format-value";
 import { cn } from "@/lib/utils";
 
 interface GoalData {
@@ -30,31 +37,41 @@ interface MemberGoalsChartProps {
 
 const STATUS_CONFIG: Record<
   GoalProgress["status"],
-  { label: string; className: string }
+  {
+    label: string;
+    variant: "default" | "secondary" | "outline" | "destructive";
+    icon: React.ReactNode;
+  }
 > = {
   exceeded: {
     label: "Exceeded",
-    className: "bg-emerald-500/15 text-emerald-600 border-emerald-500/30",
+    variant: "default",
+    icon: <Check className="h-3 w-3" />,
   },
   on_track: {
     label: "On Track",
-    className: "bg-green-500/15 text-green-600 border-green-500/30",
+    variant: "secondary",
+    icon: <TrendingUp className="h-3 w-3" />,
   },
   behind: {
     label: "Behind",
-    className: "bg-amber-500/15 text-amber-600 border-amber-500/30",
+    variant: "outline",
+    icon: <AlertTriangle className="h-3 w-3" />,
   },
   at_risk: {
     label: "At Risk",
-    className: "bg-red-500/15 text-red-600 border-red-500/30",
+    variant: "destructive",
+    icon: <AlertTriangle className="h-3 w-3" />,
   },
   no_data: {
     label: "No Data",
-    className: "bg-muted text-muted-foreground border-muted",
+    variant: "outline",
+    icon: <Target className="h-3 w-3" />,
   },
   invalid_baseline: {
     label: "Invalid",
-    className: "bg-muted text-muted-foreground border-muted",
+    variant: "outline",
+    icon: <AlertTriangle className="h-3 w-3" />,
   },
 };
 
@@ -84,54 +101,85 @@ function GoalTooltipContent({ active, payload }: GoalTooltipProps) {
   if (!data) return null;
 
   const statusConfig = STATUS_CONFIG[data.status];
-  const timeProgressPercent = Math.round(
-    (data.daysElapsed / data.daysTotal) * 100,
-  );
+  const progressPercent = Math.round(data.progress);
+  const expectedPercent = Math.round(data.expectedProgress);
 
   return (
-    <div className="border-border/50 bg-background min-w-[200px] rounded-lg border px-3 py-2.5 shadow-xl">
-      <div className="mb-2 flex items-center justify-between gap-2">
-        <span className="text-sm font-medium">{data.goal}</span>
-        <Badge
-          variant="outline"
-          className={cn("px-1.5 py-0 text-[10px]", statusConfig.className)}
-        >
+    <div className="border-border/50 bg-background min-w-[220px] space-y-3 rounded-lg border p-3 shadow-xl">
+      <div className="flex items-start justify-between gap-2">
+        <div className="flex items-center gap-1.5">
+          <Target className="text-muted-foreground h-3.5 w-3.5" />
+          <span className="text-sm font-semibold">{data.goal}</span>
+        </div>
+        <Badge variant={statusConfig.variant} className="gap-1 text-[10px]">
+          {statusConfig.icon}
           {statusConfig.label}
         </Badge>
       </div>
 
-      <div className="space-y-2.5">
+      <div className="grid grid-cols-3 gap-3">
         <div>
-          <div className="mb-1 flex items-center justify-between text-xs">
-            <span className="text-muted-foreground">Goal Progress</span>
-            <span className="font-medium">{Math.round(data.progress)}%</span>
-          </div>
-          <div className="relative">
-            <Progress value={Math.min(100, data.progress)} className="h-2" />
-            {data.expectedProgress > 0 && data.expectedProgress <= 100 && (
-              <div
-                className="bg-foreground/60 absolute top-0 h-2 w-0.5"
-                style={{ left: `${data.expectedProgress}%` }}
-                title={`Expected: ${Math.round(data.expectedProgress)}%`}
-              />
-            )}
-          </div>
-          <div className="text-muted-foreground mt-0.5 text-[10px]">
-            Expected: {Math.round(data.expectedProgress)}%
-          </div>
+          <p className="text-muted-foreground text-[10px] font-medium uppercase">
+            Current
+          </p>
+          <p className="text-base font-bold">
+            {data.currentValue !== null ? formatValue(data.currentValue) : "--"}
+          </p>
         </div>
+        <div>
+          <p className="text-muted-foreground text-[10px] font-medium uppercase">
+            Target
+          </p>
+          <p className="text-base font-bold">{formatValue(data.targetValue)}</p>
+        </div>
+        <div>
+          <p className="text-muted-foreground text-[10px] font-medium uppercase">
+            Progress
+          </p>
+          <p className="text-base font-bold">{progressPercent}%</p>
+        </div>
+      </div>
 
-        <div>
-          <div className="mb-1 flex items-center justify-between text-xs">
-            <span className="text-muted-foreground">Time Elapsed</span>
-            <span className="font-medium">{timeProgressPercent}%</span>
-          </div>
-          <Progress value={timeProgressPercent} className="h-2" />
-          <div className="text-muted-foreground mt-0.5 text-[10px]">
-            {data.daysElapsed} of {data.daysTotal} days ({data.daysRemaining}{" "}
-            remaining)
-          </div>
+      <div>
+        <div className="bg-muted h-2 w-full overflow-hidden rounded-full">
+          <div
+            className={cn(
+              "h-full transition-[width] duration-300 ease-out",
+              progressPercent >= 100
+                ? "bg-green-500"
+                : progressPercent >= expectedPercent
+                  ? "bg-blue-500"
+                  : progressPercent >= expectedPercent * 0.7
+                    ? "bg-amber-500"
+                    : "bg-red-500",
+            )}
+            style={{ width: `${Math.min(progressPercent, 100)}%` }}
+          />
         </div>
+        <div className="text-muted-foreground mt-1 flex items-center justify-between text-[10px]">
+          <span>Expected: {expectedPercent}%</span>
+          <span
+            className={cn(
+              "font-medium",
+              progressPercent >= expectedPercent
+                ? "text-green-600"
+                : "text-amber-600",
+            )}
+          >
+            {progressPercent >= expectedPercent ? "Ahead" : "Behind"} by{" "}
+            {Math.abs(progressPercent - expectedPercent)}%
+          </span>
+        </div>
+      </div>
+
+      <div className="text-muted-foreground flex items-center gap-1 text-[10px]">
+        <Calendar className="h-3 w-3" />
+        <span>
+          Day {data.daysElapsed} of {data.daysTotal}
+        </span>
+        <span className="text-foreground ml-1 font-medium">
+          ({data.daysRemaining}d left)
+        </span>
       </div>
     </div>
   );
@@ -203,10 +251,13 @@ export function MemberGoalsChart({ goalsData }: MemberGoalsChartProps) {
             <PolarGrid />
             <Radar
               dataKey="progress"
+              stroke="var(--color-progress)"
               fill="var(--color-progress)"
-              fillOpacity={0.6}
+              fillOpacity={0.3}
+              strokeWidth={2}
               dot={{
                 r: 4,
+                fill: "var(--color-progress)",
                 fillOpacity: 1,
               }}
               isAnimationActive={true}
