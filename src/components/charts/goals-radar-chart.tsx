@@ -17,10 +17,14 @@ import { Badge } from "@/components/ui/badge";
 import {
   type ChartConfig,
   ChartContainer,
-  ChartLegend,
-  ChartLegendContent,
   ChartTooltip,
 } from "@/components/ui/chart";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import type { GoalProgress } from "@/lib/goals";
 import { formatCadence } from "@/lib/helpers/format-cadence";
 import { formatValue } from "@/lib/helpers/format-value";
@@ -440,7 +444,7 @@ export function GoalsRadarChart({
 
   const chartData = goalsData.map((goal) => ({
     goal: goal.goalName,
-    progress: Math.max(0, Math.min(100, goal.progressPercent)),
+    progress: Math.max(0, Math.min(100, goal.progressPercent ?? 0)),
     expectedProgress: goal.expectedProgressPercent,
     status: goal.status,
     daysElapsed: goal.daysElapsed,
@@ -463,7 +467,7 @@ export function GoalsRadarChart({
   const chartConfig = {
     progress: {
       label: "Progress %",
-      color: "var(--chart-1)",
+      color: "#3b82f6", // Direct color - CSS variables don't resolve in SVG fill
     },
   } satisfies ChartConfig;
 
@@ -497,16 +501,58 @@ export function GoalsRadarChart({
             <PolarGrid />
             <Radar
               dataKey="progress"
-              fill="var(--color-progress)"
+              fill="#3b82f6"
               fillOpacity={0.6}
+              stroke="#3b82f6"
+              strokeWidth={2}
+              isAnimationActive={false}
               dot={{
                 r: 4,
                 fillOpacity: 1,
+                fill: "#3b82f6",
               }}
             />
-            <ChartLegend content={<ChartLegendContent />} />
           </RadarChart>
         </ChartContainer>
+
+        {/* Custom legend showing goals with dimensions */}
+        <div className="mt-3 flex flex-wrap justify-center gap-x-4 gap-y-1">
+          {chartData.map((item) => (
+            <TooltipProvider key={item.goal} delayDuration={0}>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div className="flex items-center gap-1.5 text-xs">
+                    <div
+                      className="h-2 w-2 shrink-0 rounded-full"
+                      style={{ backgroundColor: "#3b82f6" }}
+                    />
+                    <span className="text-muted-foreground max-w-[100px] truncate">
+                      {item.goal}
+                    </span>
+                    {item.selectedDimension && (
+                      <span className="text-muted-foreground/60 text-[10px]">
+                        ({item.selectedDimension})
+                      </span>
+                    )}
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent side="bottom" className="text-xs">
+                  <div>
+                    <p className="font-medium">{item.goal}</p>
+                    {item.selectedDimension && (
+                      <p className="text-muted-foreground">
+                        Dimension: {item.selectedDimension}
+                      </p>
+                    )}
+                    <p className="text-muted-foreground">
+                      Progress: {Math.round(item.progress)}%
+                    </p>
+                  </div>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          ))}
+        </div>
       </div>
     </div>
   );
