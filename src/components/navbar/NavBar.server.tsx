@@ -1,4 +1,4 @@
-import { getSignUpUrl, signOut, withAuth } from "@workos-inc/authkit-nextjs";
+import { signOut, withAuth } from "@workos-inc/authkit-nextjs";
 
 import { NavWrapper } from "./NavWrapper.client";
 
@@ -13,8 +13,6 @@ export async function NavBar() {
     user = null;
   }
 
-  const signUpUrl = await getSignUpUrl();
-
   // Server action for sign out
   const handleSignOut = async () => {
     "use server";
@@ -24,7 +22,6 @@ export async function NavBar() {
   return (
     <NavWrapper
       user={user ? { id: user.id, firstName: user.firstName } : null}
-      signUpUrl={signUpUrl}
       signOutAction={handleSignOut}
     />
   );

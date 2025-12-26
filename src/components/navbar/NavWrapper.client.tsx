@@ -1,83 +1,38 @@
 "use client";
 
-import { useMemo } from "react";
-
 import { usePathname } from "next/navigation";
 
-import { generateBreadcrumbs, isOrganizationPage } from "@/lib/nav-tree";
 import { api } from "@/trpc/react";
 
-import { FancyNav } from "./FancyNav.client";
+import { SimplePillNav } from "./SimplePillNav";
 
 interface NavWrapperProps {
   user: {
     id: string;
     firstName?: string | null;
   } | null;
-  signUpUrl: string;
   signOutAction: () => Promise<void>;
 }
 
-export function NavWrapper({
-  user,
-  signUpUrl,
-  signOutAction,
-}: NavWrapperProps) {
+export function NavWrapper({ user, signOutAction }: NavWrapperProps) {
   const pathname = usePathname();
 
-  const isOrgPage = isOrganizationPage(pathname);
-
-  // Extract team ID from pathname for both /teams/:id and /dashboard/:teamId
-  const teamId = useMemo(() => {
-    if (pathname.startsWith("/teams/")) {
-      const segments = pathname.split("/");
-      return segments[2] ?? null;
-    }
-    if (pathname.startsWith("/dashboard/")) {
-      const segments = pathname.split("/");
-      return segments[2] ?? null;
-    }
-    return null;
-  }, [pathname]);
-
-  // Fetch organization data when on org pages
-  const { data: orgData } = api.organization.getCurrent.useQuery(undefined, {
-    enabled: isOrgPage,
+  // Fetch all teams for the dropdown (only when authenticated)
+  const { data: teams } = api.team.getAll.useQuery(undefined, {
+    enabled: !!user,
     retry: false,
   });
 
-  // Fetch team data when on team or dashboard pages (skip "default" which is not a real team)
-  const { data: team } = api.team.getById.useQuery(
-    { id: teamId! },
-    {
-      enabled: !!teamId && teamId !== "default" && isOrgPage,
-      retry: false,
-    },
-  );
-
-  // Generate breadcrumbs based on current pathname
-  const breadcrumbs = useMemo(() => {
-    if (!isOrgPage) return undefined;
-    return generateBreadcrumbs(
-      pathname,
-      teamId,
-      team?.name,
-      orgData?.organization.name,
-    );
-  }, [isOrgPage, pathname, teamId, team?.name, orgData?.organization.name]);
-
-  // Hide navbar on landing page and mission page as they have their own headers
+  // Hide navbar on landing page and mission page (they have their own headers)
   if (pathname === "/" || pathname === "/mission") {
     return null;
   }
 
   return (
-    <FancyNav
+    <SimplePillNav
       user={user}
-      signUpUrl={signUpUrl}
       signOutAction={signOutAction}
-      isOrgPage={isOrgPage}
-      breadcrumbs={breadcrumbs}
+      teams={teams ?? []}
     />
   );
 }

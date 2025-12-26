@@ -18,10 +18,10 @@ import {
   Wrench,
 } from "lucide-react";
 
-import { ThemeSwitch } from "@/components/navbar/ThemeSwitch.client";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { cn } from "@/lib/utils";
 
 const docsRoutes = [
@@ -172,7 +172,7 @@ function SidebarContent() {
               ← Back to App
             </Button>
           </Link>
-          <ThemeSwitch />
+          <ThemeToggle />
         </div>
       </div>
     </div>
@@ -199,7 +199,7 @@ export function DocsSidebar() {
           <span className="text-xl font-bold tracking-tight">Docs</span>
         </Link>
         <div className="flex items-center gap-3">
-          <ThemeSwitch />
+          <ThemeToggle />
           <Sheet>
             <SheetTrigger asChild>
               <Button
