@@ -21,9 +21,7 @@ import { useThemeToggle } from "@/hooks/use-theme-toggle";
 import { cn } from "@/lib/utils";
 
 function ThemeToggle({ className = "" }: { className?: string }) {
-  const { isDark, toggleTheme, buttonRef } = useThemeToggle({
-    start: "top-right",
-  });
+  const { isDark, toggleTheme, buttonRef } = useThemeToggle();
 
   return (
     <button
