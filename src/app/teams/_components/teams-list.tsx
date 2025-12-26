@@ -3,11 +3,10 @@
 import Link from "next/link";
 
 import { AnimatePresence, motion } from "framer-motion";
-import { BarChart3, Loader2, Lock, Network, Target, Users } from "lucide-react";
+import { Loader2, Lock, Target, Users } from "lucide-react";
 import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { Card, CardTitle } from "@/components/ui/card";
 import {
   Empty,
@@ -25,17 +24,13 @@ import { DeleteTeamDialog } from "./delete-team-dialog";
 
 function TeamCardSkeleton() {
   return (
-    <Card className="gap-0 overflow-hidden py-0">
-      <div className="flex flex-col gap-3 p-4">
+    <Card className="p-4">
+      <div className="flex flex-col gap-3">
         <Skeleton className="h-8 w-3/4" />
         <div className="flex gap-2">
           <Skeleton className="h-5 w-20 rounded-full" />
           <Skeleton className="h-5 w-20 rounded-full" />
         </div>
-      </div>
-      <div className="grid grid-cols-2">
-        <Skeleton className="h-12 rounded-none" />
-        <Skeleton className="h-12 rounded-none" />
       </div>
     </Card>
   );
@@ -116,8 +111,8 @@ export function TeamsList() {
                 layout
                 exit={{ opacity: 0, scale: 0.95 }}
               >
-                <Card className="ring-primary/20 cursor-not-allowed gap-0 overflow-hidden py-0 opacity-70 ring-2">
-                  <div className="flex flex-col gap-3 p-4">
+                <Card className="ring-primary/20 cursor-not-allowed p-4 opacity-70 ring-2">
+                  <div className="flex flex-col gap-3">
                     <div className="flex items-center gap-2">
                       <CardTitle className="line-clamp-1 flex-1 text-xl font-semibold">
                         {team.name}
@@ -134,16 +129,6 @@ export function TeamsList() {
                       <Badge variant="secondary" className="gap-1.5">
                         <Target className="h-3 w-3" />0 KPIs
                       </Badge>
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-2">
-                    <div className="bg-muted/50 flex h-9 items-center justify-center border-t text-sm">
-                      <Network className="mr-1.5 h-3.5 w-3.5 opacity-50" />
-                      <span className="opacity-50">Roles</span>
-                    </div>
-                    <div className="bg-muted/50 flex h-12 items-center justify-center border-t border-l">
-                      <BarChart3 className="mr-2 h-4 w-4 opacity-50" />
-                      <span className="opacity-50">KPIs</span>
                     </div>
                   </div>
                 </Card>
@@ -168,8 +153,11 @@ export function TeamsList() {
                 layout
                 exit={{ opacity: 0, scale: 0.95 }}
               >
-                <Card className="gap-0 overflow-hidden py-0 opacity-60">
-                  <div className="flex flex-col gap-3 p-4">
+                <Card
+                  className="cursor-not-allowed p-4 opacity-60"
+                  onClick={handleLockedClick}
+                >
+                  <div className="flex flex-col gap-3">
                     <div className="flex items-start justify-between gap-2">
                       <CardTitle className="line-clamp-1 text-2xl font-bold">
                         {team.name}
@@ -182,7 +170,6 @@ export function TeamsList() {
                         {lockedByUserName ?? "In use"}
                       </Badge>
                     </div>
-
                     <div className="flex gap-2">
                       <Badge variant="secondary" className="gap-1.5">
                         <Users className="h-3 w-3" />
@@ -196,25 +183,6 @@ export function TeamsList() {
                       </Badge>
                     </div>
                   </div>
-
-                  <div className="grid grid-cols-2">
-                    <Button
-                      variant="ghost"
-                      className="h-9 cursor-not-allowed rounded-none border-t opacity-50"
-                      onClick={handleLockedClick}
-                    >
-                      <Network className="mr-1.5 h-3.5 w-3.5" />
-                      Roles
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      className="h-9 cursor-not-allowed rounded-none border-t border-l opacity-50"
-                      onClick={handleLockedClick}
-                    >
-                      <BarChart3 className="mr-2 h-4 w-4" />
-                      KPIs
-                    </Button>
-                  </div>
                 </Card>
               </motion.div>
             );
@@ -227,57 +195,35 @@ export function TeamsList() {
               layout
               exit={{ opacity: 0, scale: 0.95 }}
             >
-              <Card className="group hover:border-border/80 gap-0 overflow-hidden py-0 transition-colors">
-                <div className="flex flex-col gap-3 p-4">
-                  <div className="flex items-start justify-between gap-2">
-                    <CardTitle className="line-clamp-1 text-2xl font-bold">
-                      {team.name}
-                    </CardTitle>
-                    <DeleteTeamDialog
-                      teamId={team.id}
-                      teamName={team.name}
-                      roleCount={team._count.roles}
-                      metricCount={team._count.metrics}
-                    />
+              <Link href={`/teams/${team.id}`} className="block">
+                <Card className="group hover:border-primary/50 hover:bg-accent/50 cursor-pointer p-4 transition-colors">
+                  <div className="flex flex-col gap-3">
+                    <div className="flex items-start justify-between gap-2">
+                      <CardTitle className="group-hover:text-primary line-clamp-1 text-2xl font-bold transition-colors">
+                        {team.name}
+                      </CardTitle>
+                      <DeleteTeamDialog
+                        teamId={team.id}
+                        teamName={team.name}
+                        roleCount={team._count.roles}
+                        metricCount={team._count.metrics}
+                      />
+                    </div>
+                    <div className="flex gap-2">
+                      <Badge variant="secondary" className="gap-1.5">
+                        <Users className="h-3 w-3" />
+                        {team._count.roles}{" "}
+                        {team._count.roles !== 1 ? "roles" : "role"}
+                      </Badge>
+                      <Badge variant="secondary" className="gap-1.5">
+                        <Target className="h-3 w-3" />
+                        {team._count.metrics}{" "}
+                        {team._count.metrics !== 1 ? "KPIs" : "KPI"}
+                      </Badge>
+                    </div>
                   </div>
-
-                  <div className="flex gap-2">
-                    <Badge variant="secondary" className="gap-1.5">
-                      <Users className="h-3 w-3" />
-                      {team._count.roles}{" "}
-                      {team._count.roles !== 1 ? "roles" : "role"}
-                    </Badge>
-                    <Badge variant="secondary" className="gap-1.5">
-                      <Target className="h-3 w-3" />
-                      {team._count.metrics}{" "}
-                      {team._count.metrics !== 1 ? "KPIs" : "KPI"}
-                    </Badge>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2">
-                  <Button
-                    asChild
-                    variant="ghost"
-                    className="hover:bg-primary/10 hover:text-primary h-9 rounded-none border-t transition-colors"
-                  >
-                    <Link href={`/teams/${team.id}`}>
-                      <Network className="mr-1.5 h-3.5 w-3.5" />
-                      Roles
-                    </Link>
-                  </Button>
-                  <Button
-                    asChild
-                    variant="ghost"
-                    className="hover:bg-primary/10 hover:text-primary h-9 rounded-none border-t border-l transition-colors"
-                  >
-                    <Link href={`/dashboard/${team.id}`}>
-                      <BarChart3 className="mr-2 h-4 w-4" />
-                      KPIs
-                    </Link>
-                  </Button>
-                </div>
-              </Card>
+                </Card>
+              </Link>
             </motion.div>
           );
         })}
