@@ -7,15 +7,25 @@ import { MemberCard } from "./member-card";
 
 function MemberCardSkeleton() {
   return (
-    <div className="border-border/60 bg-card flex gap-6 border p-6">
-      <Skeleton className="h-16 w-16 shrink-0" />
-      <div className="flex flex-1 gap-6">
-        <div className="flex-1 space-y-2">
-          <Skeleton className="h-6 w-48" />
-          <Skeleton className="h-4 w-32" />
+    <div className="border-border/60 bg-card border p-6">
+      <div className="flex gap-6">
+        <div className="flex w-[220px] shrink-0 flex-col gap-4">
+          <div className="flex items-center gap-4">
+            <Skeleton className="h-14 w-14 shrink-0" />
+            <div className="flex-1 space-y-2">
+              <Skeleton className="h-5 w-32" />
+              <Skeleton className="h-4 w-24" />
+            </div>
+          </div>
+          <div className="flex gap-2">
+            <Skeleton className="h-5 w-16" />
+            <Skeleton className="h-5 w-16" />
+          </div>
         </div>
-        <Skeleton className="h-[180px] w-[200px]" />
-        <Skeleton className="h-[180px] w-[200px]" />
+        <div className="grid min-h-[280px] flex-1 grid-cols-2 gap-4">
+          <Skeleton className="h-full w-full" />
+          <Skeleton className="h-full w-full" />
+        </div>
       </div>
     </div>
   );
