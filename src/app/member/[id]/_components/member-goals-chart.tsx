@@ -1,10 +1,14 @@
 "use client";
 
+import { format } from "date-fns";
 import {
   AlertTriangle,
+  BarChart3,
   Calendar,
   Check,
+  Clock,
   Target,
+  TrendingDown,
   TrendingUp,
 } from "lucide-react";
 import { PolarAngleAxis, PolarGrid, Radar, RadarChart } from "recharts";
@@ -16,6 +20,7 @@ import {
   ChartTooltip,
 } from "@/components/ui/chart";
 import type { GoalProgress } from "@/lib/goals";
+import { formatCadence } from "@/lib/helpers/format-cadence";
 import { formatValue } from "@/lib/helpers/format-value";
 import { cn } from "@/lib/utils";
 
@@ -27,8 +32,17 @@ interface GoalData {
   daysElapsed: number;
   daysTotal: number;
   daysRemaining: number;
+  hoursRemaining: number;
   currentValue: number | null;
   targetValue: number;
+  baselineValue: number | null;
+  cadence: GoalProgress["cadence"];
+  periodStart: Date;
+  periodEnd: Date;
+  trend: GoalProgress["trend"];
+  projectedEndValue: number | null;
+  valueLabel: string | null;
+  latestDataTimestamp: Date | null;
 }
 
 interface MemberGoalsChartProps {
@@ -75,6 +89,43 @@ const STATUS_CONFIG: Record<
   },
 };
 
+const TREND_CONFIG: Record<
+  GoalProgress["trend"],
+  { label: string; icon: React.ReactNode; className: string }
+> = {
+  accelerating: {
+    label: "Accelerating",
+    icon: <TrendingUp className="h-3 w-3" />,
+    className: "text-green-600",
+  },
+  stable: {
+    label: "Stable",
+    icon: <BarChart3 className="h-3 w-3" />,
+    className: "text-blue-600",
+  },
+  decelerating: {
+    label: "Decelerating",
+    icon: <TrendingDown className="h-3 w-3" />,
+    className: "text-amber-600",
+  },
+  unknown: {
+    label: "Unknown",
+    icon: <BarChart3 className="h-3 w-3" />,
+    className: "text-muted-foreground",
+  },
+};
+
+function formatTimeRemaining(
+  cadence: GoalProgress["cadence"],
+  daysRemaining: number,
+  hoursRemaining: number,
+): string {
+  if (cadence === "DAILY") {
+    return `${hoursRemaining}h left`;
+  }
+  return `${daysRemaining}d left`;
+}
+
 interface GoalTooltipProps {
   active?: boolean;
   payload?: Array<{
@@ -86,8 +137,17 @@ interface GoalTooltipProps {
       daysElapsed: number;
       daysTotal: number;
       daysRemaining: number;
+      hoursRemaining: number;
       currentValue: number | null;
       targetValue: number;
+      baselineValue: number | null;
+      cadence: GoalProgress["cadence"];
+      periodStart: Date;
+      periodEnd: Date;
+      trend: GoalProgress["trend"];
+      projectedEndValue: number | null;
+      valueLabel: string | null;
+      latestDataTimestamp: Date | null;
     };
   }>;
 }
@@ -101,15 +161,25 @@ function GoalTooltipContent({ active, payload }: GoalTooltipProps) {
   if (!data) return null;
 
   const statusConfig = STATUS_CONFIG[data.status];
+  const trendConfig = TREND_CONFIG[data.trend];
   const progressPercent = Math.round(data.progress);
   const expectedPercent = Math.round(data.expectedProgress);
+  const timeProgressPercent = Math.round(
+    (data.daysElapsed / data.daysTotal) * 100,
+  );
 
   return (
-    <div className="border-border/50 bg-background min-w-[220px] space-y-3 rounded-lg border p-3 shadow-xl">
+    <div className="border-border/50 bg-background min-w-[260px] space-y-3 rounded-lg border p-3 shadow-xl">
+      {/* Header with goal name and status */}
       <div className="flex items-start justify-between gap-2">
-        <div className="flex items-center gap-1.5">
-          <Target className="text-muted-foreground h-3.5 w-3.5" />
-          <span className="text-sm font-semibold">{data.goal}</span>
+        <div>
+          <div className="flex items-center gap-1.5">
+            <Target className="text-muted-foreground h-3.5 w-3.5" />
+            <span className="text-sm font-semibold">{data.goal}</span>
+          </div>
+          <span className="text-muted-foreground text-[10px]">
+            {formatCadence(data.cadence)} Goal
+          </span>
         </div>
         <Badge variant={statusConfig.variant} className="gap-1 text-[10px]">
           {statusConfig.icon}
@@ -117,70 +187,144 @@ function GoalTooltipContent({ active, payload }: GoalTooltipProps) {
         </Badge>
       </div>
 
+      {/* Values Grid: Current, Target, Progress */}
       <div className="grid grid-cols-3 gap-3">
         <div>
           <p className="text-muted-foreground text-[10px] font-medium uppercase">
             Current
           </p>
-          <p className="text-base font-bold">
+          <p className="text-lg font-bold">
             {data.currentValue !== null ? formatValue(data.currentValue) : "--"}
           </p>
+          {data.valueLabel && (
+            <p className="text-muted-foreground truncate text-[10px]">
+              {data.valueLabel}
+            </p>
+          )}
         </div>
         <div>
           <p className="text-muted-foreground text-[10px] font-medium uppercase">
             Target
           </p>
-          <p className="text-base font-bold">{formatValue(data.targetValue)}</p>
+          <p className="text-lg font-bold">{formatValue(data.targetValue)}</p>
+          {data.valueLabel && (
+            <p className="text-muted-foreground truncate text-[10px]">
+              {data.valueLabel}
+            </p>
+          )}
         </div>
         <div>
           <p className="text-muted-foreground text-[10px] font-medium uppercase">
             Progress
           </p>
-          <p className="text-base font-bold">{progressPercent}%</p>
-        </div>
-      </div>
-
-      <div>
-        <div className="bg-muted h-2 w-full overflow-hidden rounded-full">
-          <div
+          <p className="text-lg font-bold">{progressPercent}%</p>
+          <p
             className={cn(
-              "h-full transition-[width] duration-300 ease-out",
-              progressPercent >= 100
-                ? "bg-green-500"
-                : progressPercent >= expectedPercent
-                  ? "bg-blue-500"
-                  : progressPercent >= expectedPercent * 0.7
-                    ? "bg-amber-500"
-                    : "bg-red-500",
-            )}
-            style={{ width: `${Math.min(progressPercent, 100)}%` }}
-          />
-        </div>
-        <div className="text-muted-foreground mt-1 flex items-center justify-between text-[10px]">
-          <span>Expected: {expectedPercent}%</span>
-          <span
-            className={cn(
-              "font-medium",
+              "text-[10px] font-medium",
               progressPercent >= expectedPercent
                 ? "text-green-600"
                 : "text-amber-600",
             )}
           >
-            {progressPercent >= expectedPercent ? "Ahead" : "Behind"} by{" "}
-            {Math.abs(progressPercent - expectedPercent)}%
+            {progressPercent >= expectedPercent ? "+" : ""}
+            {progressPercent - expectedPercent}% vs expected
+          </p>
+        </div>
+      </div>
+
+      {/* Goal Progress Bar */}
+      <div className="space-y-1">
+        <div className="text-muted-foreground flex items-center justify-between text-[10px]">
+          <span className="font-medium uppercase">Goal Progress</span>
+          <span>{progressPercent}%</span>
+        </div>
+        <div className="relative">
+          <div className="bg-muted h-2 w-full overflow-hidden rounded-full">
+            <div
+              className={cn(
+                "h-full transition-[width] duration-300 ease-out",
+                progressPercent >= 100
+                  ? "bg-green-500"
+                  : progressPercent >= expectedPercent
+                    ? "bg-blue-500"
+                    : progressPercent >= expectedPercent * 0.7
+                      ? "bg-amber-500"
+                      : "bg-red-500",
+              )}
+              style={{ width: `${Math.min(progressPercent, 100)}%` }}
+            />
+          </div>
+          {/* Expected progress marker */}
+          <div
+            className="bg-foreground/60 absolute top-0 h-2 w-0.5"
+            style={{ left: `${Math.min(expectedPercent, 100)}%` }}
+            title={`Expected: ${expectedPercent}%`}
+          />
+        </div>
+        <div className="text-muted-foreground flex items-center justify-between text-[10px]">
+          <span>Expected: {expectedPercent}%</span>
+          {data.trend !== "unknown" && (
+            <span
+              className={cn("flex items-center gap-0.5", trendConfig.className)}
+            >
+              {trendConfig.icon}
+              {trendConfig.label}
+            </span>
+          )}
+        </div>
+      </div>
+
+      {/* Time Progress Bar */}
+      <div className="space-y-1">
+        <div className="text-muted-foreground flex items-center justify-between text-[10px]">
+          <span className="font-medium uppercase">Time Progress</span>
+          <span>
+            {formatTimeRemaining(
+              data.cadence,
+              data.daysRemaining,
+              data.hoursRemaining,
+            )}
+          </span>
+        </div>
+        <div className="bg-muted h-2 w-full overflow-hidden rounded-full">
+          <div
+            className="bg-primary/50 h-full transition-[width] duration-300 ease-out"
+            style={{ width: `${Math.min(timeProgressPercent, 100)}%` }}
+          />
+        </div>
+        <div className="text-muted-foreground flex items-center gap-1 text-[10px]">
+          <Calendar className="h-3 w-3" />
+          <span>
+            {format(new Date(data.periodStart), "MMM d")} –{" "}
+            {format(new Date(data.periodEnd), "MMM d")}
+          </span>
+          <span className="text-foreground ml-auto font-medium">
+            Day {data.daysElapsed}/{data.daysTotal}
           </span>
         </div>
       </div>
 
-      <div className="text-muted-foreground flex items-center gap-1 text-[10px]">
-        <Calendar className="h-3 w-3" />
-        <span>
-          Day {data.daysElapsed} of {data.daysTotal}
-        </span>
-        <span className="text-foreground ml-1 font-medium">
-          ({data.daysRemaining}d left)
-        </span>
-      </div>
+      {/* Latest Data Timestamp */}
+      {data.latestDataTimestamp && (
+        <div className="border-border/50 flex items-center gap-1.5 border-t pt-2 text-[10px]">
+          <Clock className="text-muted-foreground h-3 w-3" />
+          <span className="text-muted-foreground">Data as of:</span>
+          <span className="text-foreground font-medium">
+            {format(new Date(data.latestDataTimestamp), "MMM d, h:mm a")}
+          </span>
+        </div>
+      )}
+
+      {/* Projected End Value */}
+      {data.projectedEndValue !== null && data.trend !== "unknown" && (
+        <div className="text-muted-foreground flex items-center gap-1.5 text-[10px]">
+          <TrendingUp className="h-3 w-3" />
+          <span>Projected end value:</span>
+          <span className="text-foreground font-medium">
+            {formatValue(data.projectedEndValue)}
+          </span>
+        </div>
+      )}
     </div>
   );
 }
@@ -214,8 +358,17 @@ export function MemberGoalsChart({ goalsData }: MemberGoalsChartProps) {
     daysElapsed: goal.daysElapsed,
     daysTotal: goal.daysTotal,
     daysRemaining: goal.daysRemaining,
+    hoursRemaining: goal.hoursRemaining,
     currentValue: goal.currentValue,
     targetValue: goal.targetValue,
+    baselineValue: goal.baselineValue,
+    cadence: goal.cadence,
+    periodStart: goal.periodStart,
+    periodEnd: goal.periodEnd,
+    trend: goal.trend,
+    projectedEndValue: goal.projectedEndValue,
+    valueLabel: goal.valueLabel,
+    latestDataTimestamp: goal.latestDataTimestamp,
   }));
 
   const chartConfig: ChartConfig = {
@@ -243,21 +396,21 @@ export function MemberGoalsChart({ goalsData }: MemberGoalsChartProps) {
       <div className="flex-1 p-4">
         <ChartContainer
           config={chartConfig}
-          className="mx-auto aspect-square max-h-[220px]"
+          className="mx-auto h-[220px] w-full"
         >
-          <RadarChart data={chartData}>
+          <RadarChart data={chartData} cx="50%" cy="50%" outerRadius="80%">
             <ChartTooltip cursor={false} content={<GoalTooltipContent />} />
-            <PolarAngleAxis dataKey="goal" />
+            <PolarAngleAxis dataKey="goal" tick={{ fontSize: 11 }} />
             <PolarGrid />
             <Radar
               dataKey="progress"
-              stroke="var(--color-progress)"
-              fill="var(--color-progress)"
+              stroke="hsl(var(--primary))"
+              fill="hsl(var(--primary))"
               fillOpacity={0.3}
               strokeWidth={2}
               dot={{
                 r: 4,
-                fill: "var(--color-progress)",
+                fill: "hsl(var(--primary))",
                 fillOpacity: 1,
               }}
               isAnimationActive={true}

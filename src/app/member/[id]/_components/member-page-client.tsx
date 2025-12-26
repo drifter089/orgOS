@@ -180,8 +180,17 @@ export function MemberPageClient({
         daysElapsed: gp.daysElapsed,
         daysTotal: gp.daysTotal,
         daysRemaining: gp.daysRemaining,
+        hoursRemaining: gp.hoursRemaining,
         currentValue: gp.currentValue,
         targetValue: gp.targetDisplayValue,
+        baselineValue: gp.baselineValue,
+        cadence: gp.cadence,
+        periodStart: gp.periodStart,
+        periodEnd: gp.periodEnd,
+        trend: gp.trend,
+        projectedEndValue: gp.projectedEndValue,
+        valueLabel: chart.valueLabel,
+        latestDataTimestamp: chart.latestDataTimestamp,
       };
     });
 
