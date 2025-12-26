@@ -23,6 +23,12 @@ export function NavWrapper({ user, signOutAction }: NavWrapperProps) {
     retry: false,
   });
 
+  // Fetch organization data (only when authenticated)
+  const { data: orgData } = api.organization.getCurrent.useQuery(undefined, {
+    enabled: !!user,
+    retry: false,
+  });
+
   // Hide navbar on landing page and mission page (they have their own headers)
   if (pathname === "/" || pathname === "/mission") {
     return null;
@@ -33,6 +39,7 @@ export function NavWrapper({ user, signOutAction }: NavWrapperProps) {
       user={user}
       signOutAction={signOutAction}
       teams={teams ?? []}
+      orgName={orgData?.organization.name}
     />
   );
 }
