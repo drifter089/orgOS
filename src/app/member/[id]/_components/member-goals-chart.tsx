@@ -329,6 +329,51 @@ function GoalTooltipContent({ active, payload }: GoalTooltipProps) {
   );
 }
 
+function GoalProgressBar({ goal }: { goal: GoalData }) {
+  const statusConfig = STATUS_CONFIG[goal.status];
+  const progressPercent = Math.round(goal.progressPercent);
+  const expectedPercent = Math.round(goal.expectedProgressPercent);
+
+  return (
+    <div className="space-y-2 rounded-lg border p-3">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Target className="text-muted-foreground h-4 w-4" />
+          <span className="text-sm font-medium">{goal.goalName}</span>
+        </div>
+        <Badge variant={statusConfig.variant} className="gap-1 text-[10px]">
+          {statusConfig.icon}
+          {statusConfig.label}
+        </Badge>
+      </div>
+      <div className="flex items-center gap-3">
+        <div className="relative flex-1">
+          <div className="bg-muted h-2.5 w-full overflow-hidden rounded-full">
+            <div
+              className={cn(
+                "h-full transition-[width] duration-300",
+                progressPercent >= 100
+                  ? "bg-green-500"
+                  : progressPercent >= expectedPercent
+                    ? "bg-blue-500"
+                    : "bg-amber-500",
+              )}
+              style={{ width: `${Math.min(progressPercent, 100)}%` }}
+            />
+          </div>
+          <div
+            className="bg-foreground/50 absolute top-0 h-2.5 w-0.5"
+            style={{ left: `${Math.min(expectedPercent, 100)}%` }}
+          />
+        </div>
+        <span className="w-12 text-right text-sm font-bold">
+          {progressPercent}%
+        </span>
+      </div>
+    </div>
+  );
+}
+
 export function MemberGoalsChart({ goalsData }: MemberGoalsChartProps) {
   if (goalsData.length === 0) {
     return (
@@ -345,6 +390,32 @@ export function MemberGoalsChart({ goalsData }: MemberGoalsChartProps) {
         </div>
         <div className="text-muted-foreground flex h-[200px] items-center justify-center text-sm">
           No goals assigned to roles
+        </div>
+      </div>
+    );
+  }
+
+  // Use bar list for 1-2 goals, radar for 3+
+  if (goalsData.length < 3) {
+    return (
+      <div className="border-border/60 bg-card flex flex-col border">
+        <div className="border-border/60 flex items-center justify-between border-b px-4 py-3">
+          <div>
+            <h3 className="text-sm font-semibold tracking-wider uppercase">
+              Goal Progress
+            </h3>
+            <p className="text-muted-foreground text-xs">
+              Progress toward metric goals
+            </p>
+          </div>
+          <span className="text-muted-foreground text-xs">
+            {goalsData.length} {goalsData.length === 1 ? "goal" : "goals"}
+          </span>
+        </div>
+        <div className="flex-1 space-y-2 p-4">
+          {goalsData.map((goal) => (
+            <GoalProgressBar key={goal.goalName} goal={goal} />
+          ))}
         </div>
       </div>
     );
@@ -398,24 +469,33 @@ export function MemberGoalsChart({ goalsData }: MemberGoalsChartProps) {
           config={chartConfig}
           className="mx-auto h-[220px] w-full"
         >
-          <RadarChart data={chartData} cx="50%" cy="50%" outerRadius="80%">
+          <RadarChart data={chartData} cx="50%" cy="50%" outerRadius="70%">
             <ChartTooltip cursor={false} content={<GoalTooltipContent />} />
-            <PolarAngleAxis dataKey="goal" tick={{ fontSize: 11 }} />
-            <PolarGrid />
+            <PolarAngleAxis
+              dataKey="goal"
+              tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }}
+              tickLine={false}
+            />
+            <PolarGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
             <Radar
+              name="Progress"
               dataKey="progress"
-              stroke="hsl(var(--primary))"
-              fill="hsl(var(--primary))"
-              fillOpacity={0.3}
+              stroke="#3b82f6"
+              fill="#3b82f6"
+              fillOpacity={0.4}
               strokeWidth={2}
               dot={{
-                r: 4,
-                fill: "hsl(var(--primary))",
-                fillOpacity: 1,
+                r: 5,
+                fill: "#3b82f6",
+                stroke: "#fff",
+                strokeWidth: 2,
               }}
-              isAnimationActive={true}
-              animationDuration={800}
-              animationEasing="ease-out"
+              activeDot={{
+                r: 7,
+                fill: "#3b82f6",
+                stroke: "#fff",
+                strokeWidth: 2,
+              }}
             />
           </RadarChart>
         </ChartContainer>
