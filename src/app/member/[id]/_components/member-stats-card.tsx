@@ -1,6 +1,6 @@
 "use client";
 
-import { Briefcase, Target, Users } from "lucide-react";
+import { Briefcase, Gauge, Users } from "lucide-react";
 
 interface MemberStatsCardProps {
   roleCount: number;
@@ -26,7 +26,7 @@ export function MemberStatsCard({
         label={teamCount === 1 ? "Team" : "Teams"}
       />
       <StatBlock
-        icon={<Target className="h-4 w-4" />}
+        icon={<Gauge className="h-4 w-4" />}
         value={totalEffortPoints}
         label="Points"
       />

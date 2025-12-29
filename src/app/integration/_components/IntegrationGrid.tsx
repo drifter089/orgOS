@@ -182,7 +182,7 @@ export function IntegrationGrid({
             <div className="group relative aspect-square">
               {/* Delete button (hover) */}
               <Button
-                variant="ghost"
+                variant="outline"
                 size="icon"
                 onClick={() =>
                   handleRevoke(integration.connectionId, config.name)
@@ -195,7 +195,7 @@ export function IntegrationGrid({
 
               {/* Edit button (hover) */}
               <Button
-                variant="ghost"
+                variant="outline"
                 size="icon"
                 onClick={() =>
                   startEditing(
@@ -276,7 +276,7 @@ export function IntegrationGrid({
                   <Button
                     variant="outline"
                     size="sm"
-                    className="w-full shadow-sm transition-all hover:shadow-md hover:bg-accent"
+                    className="hover:bg-accent w-full shadow-sm transition-all hover:shadow-md"
                   >
                     <Plus className="mr-1.5 h-3.5 w-3.5" />
                     Add KPI

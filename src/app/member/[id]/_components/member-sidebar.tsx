@@ -1,6 +1,6 @@
 "use client";
 
-import { Briefcase, Target, TrendingUp } from "lucide-react";
+import { Briefcase, Gauge, Target } from "lucide-react";
 import { Link } from "next-transition-router";
 
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -114,7 +114,7 @@ export function MemberSidebar({
                             "border-primary-foreground/30 text-primary-foreground",
                         )}
                       >
-                        <TrendingUp className="h-2.5 w-2.5" />
+                        <Gauge className="h-2.5 w-2.5" />
                         {totalEffort}
                       </Badge>
                     )}
