@@ -7,17 +7,15 @@ import {
   Briefcase,
   ChevronLeft,
   ChevronRight,
-  ExternalLink,
   Loader2,
   Target,
   Trash2,
   Users,
 } from "lucide-react";
-import { Link } from "next-transition-router";
 
 import { DashboardSidebar } from "@/app/dashboard/[teamId]/_components/dashboard-sidebar";
 import { type DashboardChart } from "@/app/metric/_components";
-import { MembersList } from "@/components/member/member-list";
+import { MembersPanel } from "@/components/member/member-list";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Sheet } from "@/components/ui/sheet";
@@ -211,15 +209,7 @@ function RightSideToggleButtons({
   roleCount,
 }: RightSideToggleButtonsProps) {
   const getButtonPosition = () => {
-    switch (activePanel) {
-      case "members":
-      case "roles":
-        return "right-[24.5rem]";
-      case "kpis":
-        return "right-[40.5rem]";
-      default:
-        return "right-4";
-    }
+    return activePanel ? "right-[40.5rem]" : "right-4";
   };
 
   return (
@@ -328,6 +318,7 @@ export function CanvasSidePanels({
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const nodes = useTeamStore((state) => state.nodes);
   const { chartNodesOnCanvas, onToggleChartVisibility } = useChartDragContext();
+  const { data: memberStats } = api.organization.getMemberStats.useQuery();
 
   const handleToggle = (panel: ActivePanel) => {
     setActivePanel(panel);
@@ -362,29 +353,9 @@ export function CanvasSidePanels({
       >
         <NonModalSheetContent
           side="right"
-          className="w-[24rem] overflow-hidden p-0"
+          className="w-[40rem] overflow-hidden p-0 sm:max-w-none"
         >
-          <div className="flex h-full flex-col">
-            <div className="flex-shrink-0 border-b px-6 py-4">
-              <div className="flex items-center justify-between">
-                <h2 className="text-2xl font-bold tracking-tight">Members</h2>
-                <Button variant="outline" size="sm" asChild>
-                  <Link href="/member">
-                    View All
-                    <ExternalLink className="ml-1.5 h-3.5 w-3.5" />
-                  </Link>
-                </Button>
-              </div>
-              <p className="text-muted-foreground mt-1 text-sm">
-                {members.length} {members.length === 1 ? "member" : "members"}{" "}
-                in your organization
-              </p>
-            </div>
-
-            <div className="[&::-webkit-scrollbar-thumb]:bg-border/40 hover:[&::-webkit-scrollbar-thumb]:bg-border/60 flex-1 overflow-y-auto px-6 py-4 [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-track]:bg-transparent">
-              <MembersList members={members} />
-            </div>
-          </div>
+          <MembersPanel members={members} memberStats={memberStats} />
         </NonModalSheetContent>
       </Sheet>
 
@@ -395,7 +366,7 @@ export function CanvasSidePanels({
       >
         <NonModalSheetContent
           side="right"
-          className="w-[24rem] overflow-hidden p-0"
+          className="w-[40rem] overflow-hidden p-0 sm:max-w-none"
         >
           <div className="flex h-full flex-col">
             <div className="flex-shrink-0 border-b px-6 py-4">

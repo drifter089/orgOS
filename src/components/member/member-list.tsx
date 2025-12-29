@@ -1,18 +1,24 @@
 "use client";
 
-import { ChevronRight, FolderSync, LogIn, Mail } from "lucide-react";
+import {
+  Briefcase,
+  ExternalLink,
+  FolderSync,
+  LogIn,
+  Mail,
+  Target,
+} from "lucide-react";
 import { Link } from "next-transition-router";
 
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { type RouterOutputs } from "@/trpc/react";
 
 type Member = RouterOutputs["organization"]["getMembers"][number];
+type MemberStats = RouterOutputs["organization"]["getMemberStats"];
 
-/**
- * Get member display name and initials
- */
 export function getMemberDisplayInfo(member: Member) {
   const initials =
     member.firstName && member.lastName
@@ -29,76 +35,85 @@ export function getMemberDisplayInfo(member: Member) {
 
 interface MemberCardProps {
   member: Member;
+  stats?: MemberStats[string];
 }
 
-function MemberCard({ member }: MemberCardProps) {
+function MemberCard({ member, stats }: MemberCardProps) {
   const { initials, displayName } = getMemberDisplayInfo(member);
   const isDirectory = member.source === "directory" || member.source === "both";
+
+  const roleCount = stats?.roleCount ?? 0;
+  const goalsOnTrack = stats?.goalsOnTrack ?? 0;
+  const goalsTotal = stats?.goalsTotal ?? 0;
 
   return (
     <Link
       href={`/member/${member.id}`}
       aria-label={`View details for ${displayName}`}
       className={cn(
-        "group relative flex cursor-pointer items-center justify-between rounded-lg border p-4 transition-all duration-200",
-        isDirectory
-          ? "border-blue-500/30 bg-blue-500/5 hover:border-blue-500/50 hover:bg-blue-500/10 hover:shadow-md"
-          : "border-border bg-card hover:border-primary/30 hover:bg-accent/50 hover:shadow-md",
+        "group relative flex cursor-pointer items-center gap-4 rounded-lg border p-4 transition-all duration-200",
+        "border-border bg-card hover:border-primary/30 hover:bg-accent/50 hover:shadow-md",
         "focus-visible:ring-ring focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none",
       )}
     >
-      {isDirectory && (
-        <div className="absolute -top-2 -right-2 flex h-6 w-6 items-center justify-center rounded-full bg-blue-500">
-          <FolderSync className="h-3.5 w-3.5 text-white" />
+      <Avatar className="group-hover:ring-primary/20 h-10 w-10 shrink-0 ring-2 ring-transparent transition-all">
+        <AvatarFallback className="bg-primary/10 text-primary group-hover:bg-primary/20 text-sm font-medium transition-colors">
+          {initials}
+        </AvatarFallback>
+      </Avatar>
+
+      <div className="min-w-0 flex-1">
+        <p className="group-hover:text-primary truncate font-medium transition-colors">
+          {displayName}
+        </p>
+        <div className="text-muted-foreground mt-0.5 flex items-center gap-1.5 text-sm">
+          <Mail className="h-3 w-3 shrink-0" />
+          <span className="truncate">{member.email ?? "No email"}</span>
         </div>
-      )}
-
-      <div className="flex items-center gap-4">
-        <Avatar className="group-hover:ring-primary/20 h-12 w-12 ring-2 ring-transparent transition-all group-hover:scale-105">
-          <AvatarFallback className="bg-primary/10 text-primary group-hover:bg-primary/20 transition-colors">
-            {initials}
-          </AvatarFallback>
-        </Avatar>
-
-        <div className="space-y-1">
-          <p className="group-hover:text-primary font-semibold transition-colors">
-            {displayName}
+        {member.jobTitle && (
+          <p className="text-muted-foreground mt-0.5 truncate text-xs">
+            {member.jobTitle}
           </p>
-          <div className="text-muted-foreground flex items-center gap-1.5 text-sm">
-            <Mail className="h-3.5 w-3.5" />
-            <span>{member.email ?? "No email"}</span>
-          </div>
-          {member.jobTitle && (
-            <p className="text-muted-foreground text-xs">{member.jobTitle}</p>
+        )}
+
+        <div className="mt-2 flex flex-wrap items-center gap-1.5">
+          {isDirectory && (
+            <Badge
+              variant="secondary"
+              className="flex items-center gap-1 text-xs"
+            >
+              <FolderSync className="h-3 w-3" />
+              Directory
+            </Badge>
+          )}
+          {member.canLogin && (
+            <Badge
+              variant="outline"
+              className="flex items-center gap-1 border-green-500/50 text-xs text-green-600 dark:text-green-400"
+            >
+              <LogIn className="h-3 w-3" />
+              Can Login
+            </Badge>
+          )}
+          {roleCount > 0 && (
+            <Badge
+              variant="secondary"
+              className="flex items-center gap-1 text-xs"
+            >
+              <Briefcase className="h-3 w-3" />
+              {roleCount} {roleCount === 1 ? "role" : "roles"}
+            </Badge>
+          )}
+          {goalsTotal > 0 && (
+            <Badge
+              variant="outline"
+              className="flex items-center gap-1 text-xs"
+            >
+              <Target className="h-3 w-3" />
+              {goalsOnTrack}/{goalsTotal} goals
+            </Badge>
           )}
         </div>
-      </div>
-
-      <div className="flex items-center gap-2">
-        {member.canLogin ? (
-          <Badge
-            variant="outline"
-            className="flex items-center gap-1 border-green-500/50 text-green-600 dark:text-green-400"
-          >
-            <LogIn className="h-3 w-3" />
-            Can Login
-          </Badge>
-        ) : (
-          <Badge
-            variant="outline"
-            className="text-muted-foreground flex items-center gap-1"
-          >
-            No Login
-          </Badge>
-        )}
-        <Badge
-          variant={isDirectory ? "default" : "secondary"}
-          className="flex items-center gap-1"
-        >
-          {isDirectory && <FolderSync className="h-3 w-3" />}
-          {isDirectory ? "Directory" : "Member"}
-        </Badge>
-        <ChevronRight className="text-muted-foreground group-hover:text-primary h-5 w-5 transition-all group-hover:translate-x-1" />
       </div>
     </Link>
   );
@@ -106,10 +121,15 @@ function MemberCard({ member }: MemberCardProps) {
 
 interface MembersListProps {
   members: Member[];
+  memberStats?: MemberStats;
   className?: string;
 }
 
-export function MembersList({ members, className }: MembersListProps) {
+export function MembersList({
+  members,
+  memberStats,
+  className,
+}: MembersListProps) {
   if (!members || members.length === 0) {
     return (
       <div className="text-muted-foreground flex flex-col items-center justify-center rounded-lg border border-dashed py-8 text-center">
@@ -122,8 +142,49 @@ export function MembersList({ members, className }: MembersListProps) {
   return (
     <div className={cn("space-y-3", className)}>
       {members.map((member) => (
-        <MemberCard key={member.id} member={member} />
+        <MemberCard
+          key={member.id}
+          member={member}
+          stats={memberStats?.[member.id]}
+        />
       ))}
+    </div>
+  );
+}
+
+interface MembersPanelProps {
+  members: Member[];
+  memberStats?: MemberStats;
+  title?: string;
+  className?: string;
+}
+
+export function MembersPanel({
+  members,
+  memberStats,
+  title = "Members",
+  className,
+}: MembersPanelProps) {
+  return (
+    <div className={cn("flex h-full flex-col", className)}>
+      <div className="flex shrink-0 items-center justify-between border-b px-6 py-4">
+        <div>
+          <h2 className="text-xl font-semibold tracking-tight">{title}</h2>
+          <p className="text-muted-foreground text-sm">
+            {members.length} {members.length === 1 ? "member" : "members"}
+          </p>
+        </div>
+        <Button variant="outline" size="sm" asChild>
+          <Link href="/member">
+            View All
+            <ExternalLink className="ml-1.5 h-3.5 w-3.5" />
+          </Link>
+        </Button>
+      </div>
+
+      <div className="flex-1 overflow-y-auto px-6 py-4">
+        <MembersList members={members} memberStats={memberStats} />
+      </div>
     </div>
   );
 }
