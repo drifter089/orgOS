@@ -6,7 +6,7 @@ import { createTRPCRouter, workspaceProcedure } from "@/server/api/trpc";
 import {
   cacheStrategyWithTags,
   dashboardCache,
-  invalidateCacheByTags,
+  invalidateDashboardCache,
 } from "@/server/api/utils/cache-strategy";
 import { enrichChartsWithGoalProgress } from "@/server/api/utils/enrich-charts-with-goal-progress";
 import { enrichChartRolesWithUserNames } from "@/server/api/utils/organization-members";
@@ -163,11 +163,11 @@ export const dashboardRouter = createTRPCRouter({
       });
 
       // Invalidate Prisma cache for dashboard queries
-      const cacheTags = [`dashboard_org_${ctx.workspace.organizationId}`];
-      if (existing.metric?.teamId) {
-        cacheTags.push(`dashboard_team_${existing.metric.teamId}`);
-      }
-      await invalidateCacheByTags(ctx.db, cacheTags);
+      await invalidateDashboardCache(
+        ctx.db,
+        ctx.workspace.organizationId,
+        existing.metric?.teamId,
+      );
 
       return result;
     }),

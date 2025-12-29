@@ -2,32 +2,11 @@
 
 import { toast } from "sonner";
 
+import { getUserDisplayName } from "@/lib/helpers/get-user-name";
 import { api } from "@/trpc/react";
 import type { RouterOutputs } from "@/trpc/react";
 
 type DashboardChart = RouterOutputs["dashboard"]["getDashboardCharts"][number];
-
-/**
- * Helper to get user's display name from the organization members cache.
- * Returns null if user not found.
- */
-function getAssignedUserName(
-  members: Array<{
-    id: string;
-    firstName: string | null;
-    lastName: string | null;
-    email: string;
-  }>,
-  userId: string | null | undefined,
-): string | null {
-  if (!userId) return null;
-  const member = members.find((m) => m.id === userId);
-  if (!member) return null;
-  return (
-    [member.firstName, member.lastName].filter(Boolean).join(" ") ||
-    member.email
-  );
-}
 
 /**
  * Shared hook for role updates with optimistic updates on both caches.
@@ -69,7 +48,7 @@ export function useOptimisticRoleUpdate(teamId: string) {
         ? (variables.assignedUserId ?? null)
         : (updatedRole?.assignedUserId ?? null);
       const newAssignedUserName: string | null = assignedUserIdProvided
-        ? getAssignedUserName(members, newAssignedUserId)
+        ? getUserDisplayName(newAssignedUserId, members)
         : (updatedRole?.assignedUserName ?? null);
 
       // Update role cache

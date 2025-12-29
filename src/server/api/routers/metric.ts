@@ -9,7 +9,7 @@ import {
   getMetricAndVerifyAccess,
   getTeamAndVerifyAccess,
 } from "@/server/api/utils/authorization";
-import { invalidateCacheByTags } from "@/server/api/utils/cache-strategy";
+import { invalidateDashboardCache } from "@/server/api/utils/cache-strategy";
 
 import { runBackgroundTask } from "./pipeline";
 
@@ -198,9 +198,11 @@ export const metricRouter = createTRPCRouter({
       );
 
       // Invalidate Prisma cache before returning so frontend refetch gets fresh data
-      const cacheTags = [`dashboard_org_${ctx.workspace.organizationId}`];
-      if (input.teamId) cacheTags.push(`dashboard_team_${input.teamId}`);
-      await invalidateCacheByTags(ctx.db, cacheTags);
+      await invalidateDashboardCache(
+        ctx.db,
+        ctx.workspace.organizationId,
+        input.teamId,
+      );
 
       void runBackgroundTask({
         metricId: dashboardChart.metricId,
@@ -235,11 +237,11 @@ export const metricRouter = createTRPCRouter({
         data,
       });
 
-      const cacheTags = [`dashboard_org_${ctx.workspace.organizationId}`];
-      if (existing.teamId) {
-        cacheTags.push(`dashboard_team_${existing.teamId}`);
-      }
-      await invalidateCacheByTags(ctx.db, cacheTags);
+      await invalidateDashboardCache(
+        ctx.db,
+        ctx.workspace.organizationId,
+        existing.teamId,
+      );
 
       return metric;
     }),
@@ -266,11 +268,11 @@ export const metricRouter = createTRPCRouter({
       });
 
       // Invalidate Prisma cache for dashboard queries
-      const cacheTags = [`dashboard_org_${metric.organizationId}`];
-      if (metric.teamId) {
-        cacheTags.push(`dashboard_team_${metric.teamId}`);
-      }
-      await invalidateCacheByTags(ctx.db, cacheTags);
+      await invalidateDashboardCache(
+        ctx.db,
+        metric.organizationId,
+        metric.teamId,
+      );
 
       return { success: true };
     }),

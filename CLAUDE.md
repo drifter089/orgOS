@@ -370,35 +370,32 @@ Playwright E2E tests in `tests/`.
 1. Add procedure to appropriate router
 2. Use `workspaceProcedure` for org-scoped operations
 3. Call authorization helpers for resource verification
-4. Invalidate cache tags after mutations:
+4. Invalidate dashboard cache after mutations:
    ```tsx
-   await invalidateCacheByTags(ctx.db, [`team_${teamId}`]);
+   import { invalidateDashboardCache } from "@/server/api/utils/cache-strategy";
+
+   await invalidateDashboardCache(ctx.db, organizationId, teamId);
    ```
 
-## Known Issues & Cleanup Needed
-
-### Duplications to Consolidate
-
-**Metric Dialogs (5 nearly identical wrappers):**
-
-- Consider factory pattern to reduce duplication
-
-**Role Nodes:**
-
-- `role-node.tsx` vs `public-role-node.tsx` - 75% identical
-- Extract shared `RoleNodeTemplate` with `isEditable` prop
-
-**Dashboard Cards:**
-
-- `dashboard-metric-card.tsx` vs `public-dashboard-metric-card.tsx`
-- Add `readOnly` mode instead of separate components
-
-### Consolidated Components
+## Consolidated Components
 
 **MembersList:** Shared component at `src/components/member/member-list.tsx`
 
 - Used by canvas sidebar (`canvas-side-panels.tsx`) and org page (`MembersListClient.tsx`)
 - Includes `getMemberDisplayInfo()` utility for initials/name logic
+
+**Role Enrichment:** Shared utilities in `src/server/api/utils/organization-members.ts`
+
+- `enrichRolesWithUserNames()` - for flat role arrays
+- `enrichChartRolesWithUserNames()` - for nested chart roles
+- Both use shared internal helpers to avoid duplication
+
+**User Display Names:**
+
+- Client-side (sync): `getUserDisplayName(userId, members)` from `@/lib/helpers/get-user-name`
+- Server-side (async WorkOS): `fetchUserDisplayName(userId)` from `@/server/api/utils/get-user-display-name`
+
+## Known Issues
 
 ### Performance Issues
 

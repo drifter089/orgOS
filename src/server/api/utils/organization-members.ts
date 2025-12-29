@@ -134,6 +134,43 @@ type RoleWithUser = {
 };
 
 /**
+ * Internal helper to enrich a single role with user name from the name map.
+ * Shared by both enrichRolesWithUserNames and enrichChartRolesWithUserNames.
+ */
+function enrichRoleWithName<T extends RoleWithUser>(
+  role: T,
+  nameMap: Map<string, string>,
+): T {
+  if (role.assignedUserId && !role.assignedUserName) {
+    return {
+      ...role,
+      assignedUserName:
+        nameMap.get(role.assignedUserId) ??
+        `User ${role.assignedUserId.substring(0, 8)}`,
+    };
+  }
+  return role;
+}
+
+/**
+ * Internal helper to get member name map if any roles need enrichment.
+ * Returns null if no enrichment needed to avoid unnecessary API calls.
+ */
+async function getMemberNameMapIfNeeded(
+  roles: RoleWithUser[],
+  organizationId: string,
+  directoryId?: string | null,
+): Promise<Map<string, string> | null> {
+  const needsEnrichment = roles.some(
+    (r) => r.assignedUserId && !r.assignedUserName,
+  );
+  if (!needsEnrichment) return null;
+
+  const members = await fetchOrganizationMembers(organizationId, directoryId);
+  return buildMemberNameMap(members);
+}
+
+/**
  * Enriches roles with missing assignedUserName.
  * Only fetches members if needed. Used by dashboard and public-view routers.
  */
@@ -142,25 +179,14 @@ export async function enrichRolesWithUserNames<T extends RoleWithUser>(
   organizationId: string,
   directoryId?: string | null,
 ): Promise<T[]> {
-  const needsEnrichment = roles.some(
-    (r) => r.assignedUserId && !r.assignedUserName,
+  const nameMap = await getMemberNameMapIfNeeded(
+    roles,
+    organizationId,
+    directoryId,
   );
-  if (!needsEnrichment) return roles;
+  if (!nameMap) return roles;
 
-  const members = await fetchOrganizationMembers(organizationId, directoryId);
-  const nameMap = buildMemberNameMap(members);
-
-  return roles.map((role) => {
-    if (role.assignedUserId && !role.assignedUserName) {
-      return {
-        ...role,
-        assignedUserName:
-          nameMap.get(role.assignedUserId) ??
-          `User ${role.assignedUserId.substring(0, 8)}`,
-      };
-    }
-    return role;
-  });
+  return roles.map((role) => enrichRoleWithName(role, nameMap));
 }
 
 /**
@@ -175,27 +201,19 @@ export async function enrichChartRolesWithUserNames<
   directoryId?: string | null,
 ): Promise<T[]> {
   const allRoles = charts.flatMap((c) => c.metric.roles);
-  const needsEnrichment = allRoles.some(
-    (r) => r.assignedUserId && !r.assignedUserName,
+  const nameMap = await getMemberNameMapIfNeeded(
+    allRoles,
+    organizationId,
+    directoryId,
   );
-  if (!needsEnrichment) return charts;
-
-  const members = await fetchOrganizationMembers(organizationId, directoryId);
-  const nameMap = buildMemberNameMap(members);
+  if (!nameMap) return charts;
 
   return charts.map((chart) => ({
     ...chart,
     metric: {
       ...chart.metric,
       roles: chart.metric.roles.map((role) =>
-        role.assignedUserId && !role.assignedUserName
-          ? {
-              ...role,
-              assignedUserName:
-                nameMap.get(role.assignedUserId) ??
-                `User ${role.assignedUserId.substring(0, 8)}`,
-            }
-          : role,
+        enrichRoleWithName(role, nameMap),
       ),
     },
   }));

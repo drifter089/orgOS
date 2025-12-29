@@ -3,7 +3,7 @@ import type { Cadence, Prisma } from "@prisma/client";
 import { TRPCError } from "@trpc/server";
 
 import type { ChartConfig, DataPoint } from "@/lib/metrics/transformer-types";
-import { invalidateCacheByTags } from "@/server/api/utils/cache-strategy";
+import { invalidateDashboardCache } from "@/server/api/utils/cache-strategy";
 import { db } from "@/server/db";
 
 import { generateChartTransformerCode } from "./ai-code-generator";
@@ -265,11 +265,11 @@ export async function createChartTransformer(
   }
 
   // Invalidate dashboard cache so queries return fresh transformer fields
-  const cacheTags = [`dashboard_org_${dashboardChart.organizationId}`];
-  if (dashboardChart.metric.teamId) {
-    cacheTags.push(`dashboard_team_${dashboardChart.metric.teamId}`);
-  }
-  await invalidateCacheByTags(db, cacheTags);
+  await invalidateDashboardCache(
+    db,
+    dashboardChart.organizationId,
+    dashboardChart.metric.teamId,
+  );
 
   return { transformerId: transformer.id };
 }
@@ -469,11 +469,11 @@ export async function regenerateChartTransformer(input: {
       );
     }
 
-    const cacheTags = [`dashboard_org_${dashboardChart.organizationId}`];
-    if (dashboardChart.metric.teamId) {
-      cacheTags.push(`dashboard_team_${dashboardChart.metric.teamId}`);
-    }
-    await invalidateCacheByTags(db, cacheTags);
+    await invalidateDashboardCache(
+      db,
+      dashboardChart.organizationId,
+      dashboardChart.metric.teamId,
+    );
 
     await db.metric.update({
       where: { id: metricId },
