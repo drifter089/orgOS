@@ -1,8 +1,10 @@
 /**
- * Helper to get user display name from members list
- * Used across dashboard components to display assigned user names
+ * Get user display name from a members list (client-side sync lookup).
+ * Used across dashboard components to display assigned user names.
+ *
+ * For server-side async lookup from WorkOS, use fetchUserDisplayName instead.
  */
-export function getUserName(
+export function getUserDisplayName(
   userId: string | null,
   members:
     | Array<{ id: string; firstName: string | null; lastName: string | null }>

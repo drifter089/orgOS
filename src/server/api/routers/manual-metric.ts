@@ -14,7 +14,7 @@ import { z } from "zod";
 import { updateManualMetricChart } from "@/server/api/services/transformation";
 import { createTRPCRouter, workspaceProcedure } from "@/server/api/trpc";
 import { getMetricAndVerifyAccess } from "@/server/api/utils/authorization";
-import { invalidateCacheByTags } from "@/server/api/utils/cache-strategy";
+import { invalidateDashboardCache } from "@/server/api/utils/cache-strategy";
 
 export const manualMetricRouter = createTRPCRouter({
   /**
@@ -89,9 +89,11 @@ export const manualMetricRouter = createTRPCRouter({
       );
 
       // Invalidate Prisma cache for dashboard queries
-      const cacheTags = [`dashboard_org_${ctx.workspace.organizationId}`];
-      cacheTags.push(`dashboard_team_${input.teamId}`);
-      await invalidateCacheByTags(ctx.db, cacheTags);
+      await invalidateDashboardCache(
+        ctx.db,
+        ctx.workspace.organizationId,
+        input.teamId,
+      );
 
       return dashboardChart;
     }),

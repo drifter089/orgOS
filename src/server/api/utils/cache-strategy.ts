@@ -181,3 +181,26 @@ export async function invalidateCacheByTags(
     return false;
   }
 }
+
+/**
+ * Invalidates dashboard cache for an organization, optionally scoped to a team.
+ * Consolidates the repeated pattern of building dashboard cache tags.
+ *
+ * @example
+ * await invalidateDashboardCache(ctx.db, ctx.workspace.organizationId, metric.teamId);
+ *
+ * @param db - Prisma client with Accelerate extension
+ * @param organizationId - Organization ID for cache tag
+ * @param teamId - Optional team ID for team-scoped cache tag
+ * @returns true if invalidation succeeded, false if it failed
+ */
+export async function invalidateDashboardCache(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  db: any,
+  organizationId: string,
+  teamId?: string | null,
+): Promise<boolean> {
+  const cacheTags = [`dashboard_org_${organizationId}`];
+  if (teamId) cacheTags.push(`dashboard_team_${teamId}`);
+  return invalidateCacheByTags(db, cacheTags);
+}

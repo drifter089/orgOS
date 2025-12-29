@@ -12,7 +12,7 @@ import {
   invalidateCacheByTags,
   listCache,
 } from "@/server/api/utils/cache-strategy";
-import { getUserDisplayName } from "@/server/api/utils/get-user-display-name";
+import { fetchUserDisplayName } from "@/server/api/utils/get-user-display-name";
 
 const metricInclude = {
   include: {
@@ -96,7 +96,7 @@ export const roleRouter = createTRPCRouter({
         }
       }
 
-      const assignedUserName = await getUserDisplayName(input.assignedUserId);
+      const assignedUserName = await fetchUserDisplayName(input.assignedUserId);
 
       const role = await ctx.db.role.create({
         data: {
@@ -169,7 +169,9 @@ export const roleRouter = createTRPCRouter({
 
       if (Object.prototype.hasOwnProperty.call(input, "assignedUserId")) {
         data.assignedUserId = input.assignedUserId;
-        data.assignedUserName = await getUserDisplayName(input.assignedUserId);
+        data.assignedUserName = await fetchUserDisplayName(
+          input.assignedUserId,
+        );
       }
 
       if (Object.prototype.hasOwnProperty.call(input, "metricId")) {

@@ -24,7 +24,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useOptimisticRoleUpdate } from "@/hooks/use-optimistic-role-update";
-import { getUserName } from "@/lib/helpers/get-user-name";
+import { getUserDisplayName } from "@/lib/helpers/get-user-name";
 import { api } from "@/trpc/react";
 
 const MAX_ROLES_PER_METRIC = 3;
@@ -137,7 +137,10 @@ export function RoleAssignment({
               {teamRoles
                 .filter((role) => !assignedRoleIds.includes(role.id))
                 .map((role) => {
-                  const userName = getUserName(role.assignedUserId, members);
+                  const userName = getUserDisplayName(
+                    role.assignedUserId,
+                    members,
+                  );
                   const hasOtherMetric =
                     role.metricId && role.metricId !== metricId;
 

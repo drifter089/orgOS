@@ -11,7 +11,7 @@ import { workos } from "@/server/workos";
  * Used by role create/update where we know the assignedUserId is always
  * a user management ID (from validateUserAssignable check).
  */
-export async function getUserDisplayName(
+export async function fetchUserDisplayName(
   userId: string | null | undefined,
 ): Promise<string | null> {
   if (!userId) return null;

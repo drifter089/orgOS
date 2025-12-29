@@ -7,7 +7,7 @@ import { createChartTransformer } from "@/server/api/services/transformation/cha
 import { ingestMetricData } from "@/server/api/services/transformation/data-pipeline";
 import { createTRPCRouter, workspaceProcedure } from "@/server/api/trpc";
 import { getMetricAndVerifyAccess } from "@/server/api/utils/authorization";
-import { invalidateCacheByTags } from "@/server/api/utils/cache-strategy";
+import { invalidateDashboardCache } from "@/server/api/utils/cache-strategy";
 import { db } from "@/server/db";
 
 // ============================================================================
@@ -50,9 +50,7 @@ export async function runBackgroundTask(
   const { metricId, type, organizationId, teamId } = config;
 
   const invalidateCache = async () => {
-    const cacheTags = [`dashboard_org_${organizationId}`];
-    if (teamId) cacheTags.push(`dashboard_team_${teamId}`);
-    await invalidateCacheByTags(db, cacheTags);
+    await invalidateDashboardCache(db, organizationId, teamId);
   };
 
   try {
@@ -159,9 +157,11 @@ export const pipelineRouter = createTRPCRouter({
       });
 
       // Invalidate Prisma cache so processing status is visible on client refetch
-      const cacheTags = [`dashboard_org_${ctx.workspace.organizationId}`];
-      if (metric.teamId) cacheTags.push(`dashboard_team_${metric.teamId}`);
-      await invalidateCacheByTags(ctx.db, cacheTags);
+      await invalidateDashboardCache(
+        ctx.db,
+        ctx.workspace.organizationId,
+        metric.teamId,
+      );
 
       void runBackgroundTask({
         metricId: input.metricId,
@@ -187,9 +187,11 @@ export const pipelineRouter = createTRPCRouter({
       });
 
       // Invalidate Prisma cache so processing status is visible on client refetch
-      const cacheTags = [`dashboard_org_${ctx.workspace.organizationId}`];
-      if (metric.teamId) cacheTags.push(`dashboard_team_${metric.teamId}`);
-      await invalidateCacheByTags(ctx.db, cacheTags);
+      await invalidateDashboardCache(
+        ctx.db,
+        ctx.workspace.organizationId,
+        metric.teamId,
+      );
 
       void runBackgroundTask({
         metricId: input.metricId,
@@ -231,9 +233,11 @@ export const pipelineRouter = createTRPCRouter({
       });
 
       // Invalidate Prisma cache so processing status is visible on client refetch
-      const cacheTags = [`dashboard_org_${ctx.workspace.organizationId}`];
-      if (metric.teamId) cacheTags.push(`dashboard_team_${metric.teamId}`);
-      await invalidateCacheByTags(ctx.db, cacheTags);
+      await invalidateDashboardCache(
+        ctx.db,
+        ctx.workspace.organizationId,
+        metric.teamId,
+      );
 
       void runBackgroundTask({
         metricId: input.metricId,
@@ -290,9 +294,11 @@ export const pipelineRouter = createTRPCRouter({
       });
 
       // Invalidate Prisma cache so processing status is visible on client refetch
-      const cacheTags = [`dashboard_org_${ctx.workspace.organizationId}`];
-      if (metric.teamId) cacheTags.push(`dashboard_team_${metric.teamId}`);
-      await invalidateCacheByTags(ctx.db, cacheTags);
+      await invalidateDashboardCache(
+        ctx.db,
+        ctx.workspace.organizationId,
+        metric.teamId,
+      );
 
       void runBackgroundTask({
         metricId: input.metricId,
