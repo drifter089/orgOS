@@ -393,6 +393,13 @@ Playwright E2E tests in `tests/`.
 - `dashboard-metric-card.tsx` vs `public-dashboard-metric-card.tsx`
 - Add `readOnly` mode instead of separate components
 
+### Consolidated Components
+
+**MembersList:** Shared component at `src/components/member/member-list.tsx`
+
+- Used by canvas sidebar (`canvas-side-panels.tsx`) and org page (`MembersListClient.tsx`)
+- Includes `getMemberDisplayInfo()` utility for initials/name logic
+
 ### Performance Issues
 
 - `MetricApiLog` writes on every fetch (debugging overhead in production)
