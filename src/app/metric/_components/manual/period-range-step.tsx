@@ -189,7 +189,7 @@ export function PeriodRangeStep({
         <p className="text-muted-foreground mt-1 text-sm">{getDescription()}</p>
       </div>
 
-      <div className="flex justify-center">
+      <div className="flex max-w-full justify-center overflow-x-auto">
         {cadence === "daily" && (
           <Calendar
             mode="range"

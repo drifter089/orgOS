@@ -40,7 +40,7 @@ export function ManualMetricDialog({
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       {trigger && <DialogTrigger asChild>{trigger}</DialogTrigger>}
-      <DialogContent className="sm:max-w-[480px]">
+      <DialogContent className="sm:max-w-fit">
         <DialogHeader>
           <DialogTitle>Create Manual KPI</DialogTitle>
           <p className="text-muted-foreground text-sm">
