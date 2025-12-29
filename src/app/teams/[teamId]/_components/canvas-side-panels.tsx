@@ -209,15 +209,7 @@ function RightSideToggleButtons({
   roleCount,
 }: RightSideToggleButtonsProps) {
   const getButtonPosition = () => {
-    switch (activePanel) {
-      case "members":
-      case "roles":
-        return "right-[28.5rem]";
-      case "kpis":
-        return "right-[40.5rem]";
-      default:
-        return "right-4";
-    }
+    return activePanel ? "right-[40.5rem]" : "right-4";
   };
 
   return (
@@ -361,7 +353,7 @@ export function CanvasSidePanels({
       >
         <NonModalSheetContent
           side="right"
-          className="w-full overflow-hidden p-0 sm:max-w-[28rem]"
+          className="w-[40rem] overflow-hidden p-0 sm:max-w-none"
         >
           <MembersPanel members={members} memberStats={memberStats} />
         </NonModalSheetContent>
@@ -374,7 +366,7 @@ export function CanvasSidePanels({
       >
         <NonModalSheetContent
           side="right"
-          className="w-full overflow-hidden p-0 sm:max-w-[28rem]"
+          className="w-[40rem] overflow-hidden p-0 sm:max-w-none"
         >
           <div className="flex h-full flex-col">
             <div className="flex-shrink-0 border-b px-6 py-4">

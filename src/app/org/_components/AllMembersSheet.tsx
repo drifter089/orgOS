@@ -30,7 +30,7 @@ export function AllMembersSheet({ members }: AllMembersSheetProps) {
           {totalMembers} {totalMembers === 1 ? "Member" : "Members"}
         </Button>
       </SheetTrigger>
-      <SheetContent className="w-full overflow-hidden p-0 sm:max-w-[28rem]">
+      <SheetContent className="w-full overflow-hidden p-0 sm:max-w-[40rem]">
         <SheetTitle className="sr-only">Members</SheetTitle>
         <MembersPanel members={members} memberStats={memberStats} />
       </SheetContent>
