@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 
-import { Loader2, Target, Trash2, Users } from "lucide-react";
+import { Briefcase, Loader2, Target, Trash2 } from "lucide-react";
 
 import {
   AlertDialog,
@@ -69,7 +69,7 @@ export function DeleteTeamDialog({
     <AlertDialog open={open} onOpenChange={setOpen}>
       <AlertDialogTrigger asChild>
         <Button
-          variant="ghost"
+          variant="outline"
           size="icon"
           className="text-muted-foreground hover:text-destructive hover:bg-destructive/10 h-8 w-8 shrink-0"
           onClick={(e) => e.stopPropagation()}
@@ -96,7 +96,7 @@ export function DeleteTeamDialog({
                   <div className="flex flex-wrap gap-2">
                     {roleCount > 0 && (
                       <Badge variant="secondary" className="gap-1.5">
-                        <Users className="h-3 w-3" />
+                        <Briefcase className="h-3 w-3" />
                         {roleCount} {roleCount === 1 ? "role" : "roles"}
                       </Badge>
                     )}

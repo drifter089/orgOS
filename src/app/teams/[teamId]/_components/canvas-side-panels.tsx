@@ -156,7 +156,7 @@ function RolesList({
             </div>
             {!isPending && (
               <Button
-                variant="ghost"
+                variant="outline"
                 size="icon"
                 className="text-muted-foreground hover:text-destructive hover:bg-destructive/10 h-8 w-8 flex-shrink-0 opacity-0 transition-all group-hover:opacity-100"
                 onClick={async (e) => {

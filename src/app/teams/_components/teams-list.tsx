@@ -3,7 +3,7 @@
 import Link from "next/link";
 
 import { AnimatePresence, motion } from "framer-motion";
-import { Loader2, Lock, Target, Users } from "lucide-react";
+import { Briefcase, Loader2, Lock, Target, Users } from "lucide-react";
 import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
@@ -124,7 +124,7 @@ export function TeamsList() {
                     </div>
                     <div className="flex gap-2">
                       <Badge variant="secondary" className="gap-1.5">
-                        <Users className="h-3 w-3" />0 roles
+                        <Briefcase className="h-3 w-3" />0 roles
                       </Badge>
                       <Badge variant="secondary" className="gap-1.5">
                         <Target className="h-3 w-3" />0 KPIs
@@ -172,7 +172,7 @@ export function TeamsList() {
                     </div>
                     <div className="flex gap-2">
                       <Badge variant="secondary" className="gap-1.5">
-                        <Users className="h-3 w-3" />
+                        <Briefcase className="h-3 w-3" />
                         {team._count.roles}{" "}
                         {team._count.roles !== 1 ? "roles" : "role"}
                       </Badge>
@@ -211,7 +211,7 @@ export function TeamsList() {
                     </div>
                     <div className="flex gap-2">
                       <Badge variant="secondary" className="gap-1.5">
-                        <Users className="h-3 w-3" />
+                        <Briefcase className="h-3 w-3" />
                         {team._count.roles}{" "}
                         {team._count.roles !== 1 ? "roles" : "role"}
                       </Badge>

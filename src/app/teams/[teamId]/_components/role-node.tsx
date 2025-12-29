@@ -177,7 +177,7 @@ function RoleNodeComponent({ data, selected, id }: NodeProps<RoleNode>) {
       {!isPending && !data.readOnly && (
         <div className="nodrag absolute top-1 right-1 z-10 flex gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
           <Button
-            variant="ghost"
+            variant="outline"
             size="icon"
             onClick={(e) => {
               e.stopPropagation();
@@ -189,7 +189,7 @@ function RoleNodeComponent({ data, selected, id }: NodeProps<RoleNode>) {
             <Settings className="h-3 w-3" />
           </Button>
           <Button
-            variant="ghost"
+            variant="outline"
             size="icon"
             onClick={(e) => {
               e.stopPropagation();

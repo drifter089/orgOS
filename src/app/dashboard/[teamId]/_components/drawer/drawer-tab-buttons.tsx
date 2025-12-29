@@ -1,6 +1,6 @@
 "use client";
 
-import { Settings, Target, Users } from "lucide-react";
+import { Briefcase, Settings, Target } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 
@@ -17,7 +17,7 @@ export function DrawerTabButtons({
 }: DrawerTabButtonsProps) {
   const tabs: { id: DrawerTab; label: string; icon: typeof Target }[] = [
     { id: "goal", label: "Goal", icon: Target },
-    { id: "role", label: "Roles", icon: Users },
+    { id: "role", label: "Roles", icon: Briefcase },
     { id: "settings", label: "Settings", icon: Settings },
   ];
 

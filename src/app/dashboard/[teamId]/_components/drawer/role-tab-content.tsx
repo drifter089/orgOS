@@ -83,7 +83,7 @@ export function RoleTabContent({
                   )}
                 </div>
                 <Button
-                  variant="ghost"
+                  variant="outline"
                   size="icon"
                   className="h-7 w-7 opacity-0 transition-opacity group-hover:opacity-100"
                   onClick={() => setEditingRoleId(role.id)}

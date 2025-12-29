@@ -63,7 +63,7 @@ export function DashboardMetricCard({
         {!isIntegrationMetric && (
           <Tooltip>
             <TooltipTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-7 w-7" asChild>
+              <Button variant="outline" size="icon" className="h-7 w-7" asChild>
                 <Link href={`/metric/check-in/${metricId}`}>
                   <ClipboardCheck className="h-4 w-4" />
                 </Link>
@@ -78,7 +78,7 @@ export function DashboardMetricCard({
           dashboardChart={dashboardChart}
           teamId={teamId}
           trigger={
-            <Button variant="ghost" size="icon" className="h-7 w-7">
+            <Button variant="outline" size="icon" className="h-7 w-7">
               <Settings className="h-4 w-4" />
             </Button>
           }
