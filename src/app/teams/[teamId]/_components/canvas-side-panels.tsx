@@ -11,23 +11,17 @@ import {
   Loader2,
   Target,
   Trash2,
-  TrendingUp,
   Users,
 } from "lucide-react";
 import { Link } from "next-transition-router";
 
 import { DashboardSidebar } from "@/app/dashboard/[teamId]/_components/dashboard-sidebar";
 import { type DashboardChart } from "@/app/metric/_components";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { MembersList } from "@/components/member/member-list";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Sheet } from "@/components/ui/sheet";
 import { Skeleton } from "@/components/ui/skeleton";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
 import { stripHtml } from "@/lib/html-utils";
 import { cn } from "@/lib/utils";
 import { useConfirmation } from "@/providers/ConfirmationDialogProvider";
@@ -194,104 +188,6 @@ function RolesList({
                 )}
               </Button>
             )}
-          </div>
-        );
-      })}
-    </div>
-  );
-}
-
-function MembersList({ members }: { members: Member[] }) {
-  const { data: memberStats } = api.organization.getMemberStats.useQuery();
-
-  return (
-    <div className="space-y-2">
-      {members.map((member) => {
-        const initials =
-          member.firstName && member.lastName
-            ? `${member.firstName[0]}${member.lastName[0]}`.toUpperCase()
-            : (member.email?.[0]?.toUpperCase() ?? "U");
-
-        const userName =
-          member.firstName && member.lastName
-            ? `${member.firstName} ${member.lastName}`
-            : (member.email ?? "Member");
-
-        const stats = memberStats?.[member.id];
-        const roleCount = stats?.roleCount ?? 0;
-        const totalEffort = stats?.totalEffort ?? 0;
-        const goalsOnTrack = stats?.goalsOnTrack ?? 0;
-        const goalsTotal = stats?.goalsTotal ?? 0;
-
-        return (
-          <div
-            key={member.id}
-            className="group border-border bg-card hover:bg-accent/30 relative flex items-center justify-between rounded-lg border px-4 py-3"
-          >
-            <div className="flex min-w-0 flex-1 items-center gap-3">
-              <Avatar className="h-10 w-10 flex-shrink-0">
-                <AvatarFallback className="bg-muted text-muted-foreground text-sm font-medium">
-                  {initials}
-                </AvatarFallback>
-              </Avatar>
-
-              <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-medium">{userName}</p>
-                {member.jobTitle && (
-                  <p className="text-muted-foreground truncate text-xs">
-                    {member.jobTitle}
-                  </p>
-                )}
-
-                <div className="mt-1.5 flex flex-wrap items-center gap-2">
-                  {roleCount > 0 && (
-                    <Badge
-                      variant="secondary"
-                      className="gap-1 px-1.5 py-0 text-xs font-normal"
-                    >
-                      <Briefcase className="h-3 w-3" />
-                      {roleCount} {roleCount === 1 ? "role" : "roles"}
-                    </Badge>
-                  )}
-                  {totalEffort > 0 && (
-                    <Badge
-                      variant="outline"
-                      className="gap-1 px-1.5 py-0 text-xs font-normal"
-                    >
-                      <TrendingUp className="h-3 w-3" />
-                      {totalEffort} pts
-                    </Badge>
-                  )}
-                  {goalsTotal > 0 && (
-                    <Badge
-                      variant="outline"
-                      className="gap-1 px-1.5 py-0 text-xs font-normal"
-                    >
-                      <Target className="h-3 w-3" />
-                      {goalsOnTrack}/{goalsTotal} goals
-                    </Badge>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8 flex-shrink-0 opacity-0 transition-opacity group-hover:opacity-100"
-                  asChild
-                >
-                  <Link href={`/member/${member.id}`}>
-                    <ExternalLink className="h-4 w-4" />
-                  </Link>
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent side="left">
-                <p>View member details</p>
-              </TooltipContent>
-            </Tooltip>
           </div>
         );
       })}
@@ -470,8 +366,16 @@ export function CanvasSidePanels({
         >
           <div className="flex h-full flex-col">
             <div className="flex-shrink-0 border-b px-6 py-4">
-              <h2 className="text-2xl font-bold tracking-tight">Members</h2>
-              <p className="text-muted-foreground text-sm">
+              <div className="flex items-center justify-between">
+                <h2 className="text-2xl font-bold tracking-tight">Members</h2>
+                <Button variant="outline" size="sm" asChild>
+                  <Link href="/member">
+                    View All
+                    <ExternalLink className="ml-1.5 h-3.5 w-3.5" />
+                  </Link>
+                </Button>
+              </div>
+              <p className="text-muted-foreground mt-1 text-sm">
                 {members.length} {members.length === 1 ? "member" : "members"}{" "}
                 in your organization
               </p>

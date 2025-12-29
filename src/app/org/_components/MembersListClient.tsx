@@ -1,9 +1,6 @@
 "use client";
 
-import { ChevronRight, FolderSync, LogIn, Mail, Users } from "lucide-react";
-import { Link } from "next-transition-router";
-
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { MembersList } from "@/components/member/member-list";
 import { Badge } from "@/components/ui/badge";
 import {
   Card,
@@ -13,7 +10,6 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
-import { cn } from "@/lib/utils";
 import { type RouterOutputs } from "@/trpc/react";
 
 type Member = RouterOutputs["organization"]["getMembers"][number];
@@ -36,167 +32,27 @@ export function MembersListClient({ members }: MembersListClientProps) {
     );
   }
 
-  const directoryMembers = members.filter(
-    (m) => m.source === "directory" || m.source === "both",
-  );
-  const membershipMembers = members.filter(
-    (m) => m.source === "membership" || m.source === "both",
-  );
-
   return (
-    <>
-      <Card>
-        <CardHeader>
-          <div className="flex items-start justify-between gap-4">
-            <div className="space-y-1">
-              <CardTitle className="text-2xl">Organization Members</CardTitle>
-              <CardDescription className="text-base">
-                View your team members
-              </CardDescription>
-            </div>
-            <Badge variant="secondary" className="shrink-0 px-3 py-1 text-lg">
-              {members.length}
-            </Badge>
+    <Card>
+      <CardHeader>
+        <div className="flex items-start justify-between gap-4">
+          <div className="space-y-1">
+            <CardTitle className="text-2xl">Organization Members</CardTitle>
+            <CardDescription className="text-base">
+              View your team members
+            </CardDescription>
           </div>
-        </CardHeader>
+          <Badge variant="secondary" className="shrink-0 px-3 py-1 text-lg">
+            {members.length}
+          </Badge>
+        </div>
+      </CardHeader>
 
-        <Separator />
+      <Separator />
 
-        <CardContent className="pt-6">
-          <div className="space-y-3">
-            {members.map((member) => {
-              const initials =
-                member.firstName && member.lastName
-                  ? `${member.firstName[0]}${member.lastName[0]}`.toUpperCase()
-                  : (member.email?.[0]?.toUpperCase() ?? "U");
-
-              const userName =
-                member.firstName && member.lastName
-                  ? `${member.firstName} ${member.lastName}`
-                  : (member.email ?? "Member");
-
-              const isDirectory =
-                member.source === "directory" || member.source === "both";
-
-              return (
-                <Link
-                  key={member.id}
-                  href={`/member/${member.id}`}
-                  aria-label={`View details for ${userName}`}
-                  className={cn(
-                    "group relative flex cursor-pointer items-center justify-between rounded-lg border p-4 transition-all duration-200",
-                    isDirectory
-                      ? "border-blue-500/30 bg-blue-500/5 hover:border-blue-500/50 hover:bg-blue-500/10 hover:shadow-md"
-                      : "border-border bg-card hover:border-primary/30 hover:bg-accent/50 hover:shadow-md",
-                    "focus-visible:ring-ring focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none",
-                  )}
-                >
-                  {/* Directory indicator badge */}
-                  {isDirectory && (
-                    <div className="absolute -top-2 -right-2 flex h-6 w-6 items-center justify-center rounded-full bg-blue-500">
-                      <FolderSync className="h-3.5 w-3.5 text-white" />
-                    </div>
-                  )}
-
-                  <div className="flex items-center gap-4">
-                    {/* Avatar with transition */}
-                    <Avatar className="group-hover:ring-primary/20 h-12 w-12 ring-2 ring-transparent transition-all group-hover:scale-105">
-                      <AvatarFallback className="bg-primary/10 text-primary group-hover:bg-primary/20 transition-colors">
-                        {initials}
-                      </AvatarFallback>
-                    </Avatar>
-
-                    {/* User Info */}
-                    <div className="space-y-1">
-                      <div className="flex items-center gap-2">
-                        <p className="group-hover:text-primary font-semibold transition-colors">
-                          {userName}
-                        </p>
-                      </div>
-                      <div className="text-muted-foreground flex items-center gap-1.5 text-sm">
-                        <Mail className="h-3.5 w-3.5" />
-                        <span>{member.email ?? "No email"}</span>
-                      </div>
-                      {member.jobTitle && (
-                        <p className="text-muted-foreground text-xs">
-                          {member.jobTitle}
-                        </p>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Source Badge */}
-                  <div className="flex items-center gap-2">
-                    {member.canLogin ? (
-                      <Badge
-                        variant="outline"
-                        className="flex items-center gap-1 border-green-500/50 text-green-600 dark:text-green-400"
-                      >
-                        <LogIn className="h-3 w-3" />
-                        Can Login
-                      </Badge>
-                    ) : (
-                      <Badge
-                        variant="outline"
-                        className="text-muted-foreground flex items-center gap-1"
-                      >
-                        No Login
-                      </Badge>
-                    )}
-                    <Badge
-                      variant={isDirectory ? "default" : "secondary"}
-                      className="flex items-center gap-1"
-                    >
-                      {isDirectory && <FolderSync className="h-3 w-3" />}
-                      {isDirectory ? "Directory" : "Member"}
-                    </Badge>
-                    <ChevronRight className="text-muted-foreground group-hover:text-primary h-5 w-5 transition-all group-hover:translate-x-1" />
-                  </div>
-                </Link>
-              );
-            })}
-          </div>
-
-          {/* Summary Stats */}
-          <Separator className="my-6" />
-
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            {/* Directory Members */}
-            <div className="border-border relative overflow-hidden rounded-lg border bg-gradient-to-br from-blue-500/10 to-blue-500/5 p-6 transition-all hover:shadow-md">
-              <div className="flex items-center justify-between">
-                <div className="space-y-1">
-                  <p className="text-muted-foreground text-sm font-medium">
-                    Directory Synced
-                  </p>
-                  <p className="text-3xl font-bold text-blue-600 dark:text-blue-400">
-                    {directoryMembers.length}
-                  </p>
-                </div>
-                <div className="rounded-full bg-blue-500/10 p-3">
-                  <FolderSync className="h-6 w-6 text-blue-600 dark:text-blue-400" />
-                </div>
-              </div>
-            </div>
-
-            {/* Membership Members */}
-            <div className="border-border bg-card relative overflow-hidden rounded-lg border p-6 transition-all hover:shadow-md">
-              <div className="flex items-center justify-between">
-                <div className="space-y-1">
-                  <p className="text-muted-foreground text-sm font-medium">
-                    Direct Members
-                  </p>
-                  <p className="text-3xl font-bold">
-                    {membershipMembers.length}
-                  </p>
-                </div>
-                <div className="bg-muted rounded-full p-3">
-                  <Users className="text-muted-foreground h-6 w-6" />
-                </div>
-              </div>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-    </>
+      <CardContent className="pt-6">
+        <MembersList members={members} />
+      </CardContent>
+    </Card>
   );
 }
