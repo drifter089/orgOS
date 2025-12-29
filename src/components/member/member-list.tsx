@@ -1,6 +1,13 @@
 "use client";
 
-import { ExternalLink, FolderSync, LogIn, Mail } from "lucide-react";
+import {
+  Briefcase,
+  ExternalLink,
+  FolderSync,
+  LogIn,
+  Mail,
+  Target,
+} from "lucide-react";
 import { Link } from "next-transition-router";
 
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -10,10 +17,8 @@ import { cn } from "@/lib/utils";
 import { type RouterOutputs } from "@/trpc/react";
 
 type Member = RouterOutputs["organization"]["getMembers"][number];
+type MemberStats = RouterOutputs["organization"]["getMemberStats"];
 
-/**
- * Get member display name and initials
- */
 export function getMemberDisplayInfo(member: Member) {
   const initials =
     member.firstName && member.lastName
@@ -30,11 +35,16 @@ export function getMemberDisplayInfo(member: Member) {
 
 interface MemberCardProps {
   member: Member;
+  stats?: MemberStats[string];
 }
 
-function MemberCard({ member }: MemberCardProps) {
+function MemberCard({ member, stats }: MemberCardProps) {
   const { initials, displayName } = getMemberDisplayInfo(member);
   const isDirectory = member.source === "directory" || member.source === "both";
+
+  const roleCount = stats?.roleCount ?? 0;
+  const goalsOnTrack = stats?.goalsOnTrack ?? 0;
+  const goalsTotal = stats?.goalsTotal ?? 0;
 
   return (
     <Link
@@ -85,6 +95,24 @@ function MemberCard({ member }: MemberCardProps) {
               Can Login
             </Badge>
           )}
+          {roleCount > 0 && (
+            <Badge
+              variant="secondary"
+              className="flex items-center gap-1 text-xs"
+            >
+              <Briefcase className="h-3 w-3" />
+              {roleCount} {roleCount === 1 ? "role" : "roles"}
+            </Badge>
+          )}
+          {goalsTotal > 0 && (
+            <Badge
+              variant="outline"
+              className="flex items-center gap-1 text-xs"
+            >
+              <Target className="h-3 w-3" />
+              {goalsOnTrack}/{goalsTotal} goals
+            </Badge>
+          )}
         </div>
       </div>
     </Link>
@@ -93,10 +121,15 @@ function MemberCard({ member }: MemberCardProps) {
 
 interface MembersListProps {
   members: Member[];
+  memberStats?: MemberStats;
   className?: string;
 }
 
-export function MembersList({ members, className }: MembersListProps) {
+export function MembersList({
+  members,
+  memberStats,
+  className,
+}: MembersListProps) {
   if (!members || members.length === 0) {
     return (
       <div className="text-muted-foreground flex flex-col items-center justify-center rounded-lg border border-dashed py-8 text-center">
@@ -109,7 +142,11 @@ export function MembersList({ members, className }: MembersListProps) {
   return (
     <div className={cn("space-y-3", className)}>
       {members.map((member) => (
-        <MemberCard key={member.id} member={member} />
+        <MemberCard
+          key={member.id}
+          member={member}
+          stats={memberStats?.[member.id]}
+        />
       ))}
     </div>
   );
@@ -117,16 +154,14 @@ export function MembersList({ members, className }: MembersListProps) {
 
 interface MembersPanelProps {
   members: Member[];
+  memberStats?: MemberStats;
   title?: string;
   className?: string;
 }
 
-/**
- * Complete members panel with header and list.
- * Use this for consistent styling across org page and canvas sidebar.
- */
 export function MembersPanel({
   members,
+  memberStats,
   title = "Members",
   className,
 }: MembersPanelProps) {
@@ -148,7 +183,7 @@ export function MembersPanel({
       </div>
 
       <div className="flex-1 overflow-y-auto px-6 py-4">
-        <MembersList members={members} />
+        <MembersList members={members} memberStats={memberStats} />
       </div>
     </div>
   );

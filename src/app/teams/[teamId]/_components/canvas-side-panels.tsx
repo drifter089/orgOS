@@ -326,6 +326,7 @@ export function CanvasSidePanels({
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const nodes = useTeamStore((state) => state.nodes);
   const { chartNodesOnCanvas, onToggleChartVisibility } = useChartDragContext();
+  const { data: memberStats } = api.organization.getMemberStats.useQuery();
 
   const handleToggle = (panel: ActivePanel) => {
     setActivePanel(panel);
@@ -360,9 +361,9 @@ export function CanvasSidePanels({
       >
         <NonModalSheetContent
           side="right"
-          className="w-[28rem] overflow-hidden p-0"
+          className="w-full overflow-hidden p-0 sm:max-w-[28rem]"
         >
-          <MembersPanel members={members} />
+          <MembersPanel members={members} memberStats={memberStats} />
         </NonModalSheetContent>
       </Sheet>
 
@@ -373,7 +374,7 @@ export function CanvasSidePanels({
       >
         <NonModalSheetContent
           side="right"
-          className="w-[28rem] overflow-hidden p-0"
+          className="w-full overflow-hidden p-0 sm:max-w-[28rem]"
         >
           <div className="flex h-full flex-col">
             <div className="flex-shrink-0 border-b px-6 py-4">
