@@ -1,6 +1,7 @@
 "use client";
 
-import { AlertCircle, Bug, Settings } from "lucide-react";
+import { AlertCircle, Bug, ClipboardCheck, Settings } from "lucide-react";
+import { Link } from "next-transition-router";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -58,19 +59,31 @@ export function DashboardMetricCard({
         </Tooltip>
       )}
 
-      <MetricSettingsDrawer
-        dashboardChart={dashboardChart}
-        teamId={teamId}
-        trigger={
-          <Button
-            variant="ghost"
-            size="icon"
-            className="absolute top-2 right-2 z-10 h-7 w-7"
-          >
-            <Settings className="h-4 w-4" />
-          </Button>
-        }
-      />
+      <div className="absolute top-2 right-2 z-10 flex items-center gap-1">
+        {!isIntegrationMetric && (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button variant="ghost" size="icon" className="h-7 w-7" asChild>
+                <Link href={`/metric/check-in/${metricId}`}>
+                  <ClipboardCheck className="h-4 w-4" />
+                </Link>
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="bottom">
+              <p className="text-xs">Check-in</p>
+            </TooltipContent>
+          </Tooltip>
+        )}
+        <MetricSettingsDrawer
+          dashboardChart={dashboardChart}
+          teamId={teamId}
+          trigger={
+            <Button variant="ghost" size="icon" className="h-7 w-7">
+              <Settings className="h-4 w-4" />
+            </Button>
+          }
+        />
+      </div>
 
       {isDevMode() && (
         <Tooltip>
