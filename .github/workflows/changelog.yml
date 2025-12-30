@@ -1,0 +1,74 @@
+name: Daily Changelog Update
+
+on:
+  # Run daily at 11:59 PM UTC
+  schedule:
+    - cron: '59 23 * * *'
+
+  # Allow manual trigger
+  workflow_dispatch:
+
+jobs:
+  update-changelog:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+      id-token: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # Need full history for PR analysis
+
+      - name: Update Changelog with Claude
+        id: changelog
+        uses: anthropics/claude-code-action@v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          prompt: |
+            REPO: ${{ github.repository }}
+            DATE: $(date -u +%Y-%m-%d)
+
+            Please update the CHANGELOG.md file with all PRs merged in the last 24 hours.
+
+            Steps:
+            1. Use `gh pr list --search "is:pr is:merged merged:>=$(date -u -d '24 hours ago' +%Y-%m-%d)" --json number,title,author,mergedAt,labels` to get all PRs merged today
+            2. If no PRs were merged today, exit without making changes
+            3. Read the existing CHANGELOG.md file
+            4. For each merged PR, analyze what changed using `gh pr view <number>` and `gh pr diff <number>`
+            5. Update the "## [Unreleased]" section with entries following the Keep a Changelog format
+            6. Group changes by category (Added, Changed, Fixed, Security, etc.) as shown in the CHANGELOG.md guidelines
+            7. Format entries as: "- Brief description (#PR_NUMBER)"
+
+            Categories to use (follow Keep a Changelog):
+            - **Added**: New features
+            - **Changed**: Changes to existing functionality
+            - **Fixed**: Bug fixes
+            - **Security**: Security vulnerability fixes
+            - **Deprecated**: Soon-to-be removed features
+            - **Removed**: Removed features
+
+            Example format:
+            ## [Unreleased]
+
+            ### Added
+            - User dashboard with real-time analytics (#123)
+            - Dark mode support across all components (#124)
+
+            ### Fixed
+            - Type error in TOC component (#125)
+
+            After updating CHANGELOG.md:
+            1. Create a new branch: `git checkout -b changelog/$(date -u +%Y-%m-%d)`
+            2. Configure git:
+               git config user.name "github-actions[bot]"
+               git config user.email "github-actions[bot]@users.noreply.github.com"
+            3. Commit changes: `git add CHANGELOG.md && git commit -m "docs: update changelog for $(date -u +%Y-%m-%d)"`
+            4. Push branch: `git push -u origin changelog/$(date -u +%Y-%m-%d)`
+            5. Create PR using: `gh pr create --title "docs: update changelog for $(date -u +%Y-%m-%d)" --body "Automated changelog update for PRs merged on $(date -u +%Y-%m-%d)" --base main`
+
+            IMPORTANT: Only analyze PRs from the last 24 hours to minimize AI costs.
+
+          claude_args: '--allowed-tools "Bash(gh pr list:*),Bash(gh pr view:*),Bash(gh pr diff:*),Bash(gh pr create:*),Bash(git *),Bash(date *)"'
