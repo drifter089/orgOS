@@ -130,7 +130,7 @@ export function MemberCard({ member, dashboardCharts }: MemberCardProps) {
             </>
           ) : (
             <>
-              <div className="border-border/40 flex h-[320px] flex-col rounded-md border p-4">
+              <div className="border-border/40 flex h-[380px] flex-col rounded-md border p-4">
                 <span className="text-muted-foreground mb-2 text-xs font-medium tracking-wider uppercase">
                   Effort Distribution
                 </span>
@@ -158,7 +158,7 @@ export function MemberCard({ member, dashboardCharts }: MemberCardProps) {
               <GoalsRadarChart
                 metricIds={metricIdsWithGoals}
                 showHeader={false}
-                className="h-[320px] rounded-md"
+                className="h-[380px] rounded-md"
               />
             </>
           )}

@@ -6,7 +6,6 @@ import { format } from "date-fns";
 import {
   AlertTriangle,
   BarChart3,
-  Calendar,
   Check,
   Clock,
   Target,
@@ -164,12 +163,9 @@ function GoalTooltipContent({ active, payload }: GoalTooltipProps) {
   const trendConfig = TREND_CONFIG[data.trend];
   const progressPercent = Math.round(data.progress);
   const expectedPercent = Math.round(data.expectedProgress);
-  const timeProgressPercent = Math.round(
-    (data.daysElapsed / data.daysTotal) * 100,
-  );
 
   return (
-    <div className="border-border/50 bg-background min-w-[260px] space-y-3 rounded-lg border p-3 shadow-xl">
+    <div className="border-border/40 bg-background/95 min-w-[240px] space-y-2.5 rounded-lg border p-2.5 shadow-lg backdrop-blur-sm">
       <div className="flex items-start justify-between gap-2">
         <div>
           <div className="flex items-center gap-1.5">
@@ -187,57 +183,47 @@ function GoalTooltipContent({ active, payload }: GoalTooltipProps) {
         </Badge>
       </div>
 
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-3 gap-2">
         <div>
-          <p className="text-muted-foreground text-[10px] font-medium uppercase">
+          <p className="text-muted-foreground text-[9px] font-medium uppercase">
             Current
           </p>
-          <p className="text-lg font-bold">
+          <p className="text-base font-bold">
             {data.currentValue !== null ? formatValue(data.currentValue) : "--"}
           </p>
-          {data.valueLabel && (
-            <p className="text-muted-foreground truncate text-[10px]">
-              {data.valueLabel}
-            </p>
-          )}
         </div>
         <div>
-          <p className="text-muted-foreground text-[10px] font-medium uppercase">
+          <p className="text-muted-foreground text-[9px] font-medium uppercase">
             Target
           </p>
-          <p className="text-lg font-bold">{formatValue(data.targetValue)}</p>
-          {data.valueLabel && (
-            <p className="text-muted-foreground truncate text-[10px]">
-              {data.valueLabel}
-            </p>
-          )}
+          <p className="text-base font-bold">{formatValue(data.targetValue)}</p>
         </div>
         <div>
-          <p className="text-muted-foreground text-[10px] font-medium uppercase">
+          <p className="text-muted-foreground text-[9px] font-medium uppercase">
             Progress
           </p>
-          <p className="text-lg font-bold">{progressPercent}%</p>
-          <p
-            className={cn(
-              "text-[10px] font-medium",
-              progressPercent >= expectedPercent
-                ? "text-green-600"
-                : "text-amber-600",
-            )}
-          >
-            {progressPercent >= expectedPercent ? "+" : ""}
-            {progressPercent - expectedPercent}% vs expected
-          </p>
+          <p className="text-base font-bold">{progressPercent}%</p>
         </div>
       </div>
 
+      <div
+        className={cn(
+          "flex items-center gap-1.5 text-[10px] font-medium",
+          progressPercent >= expectedPercent
+            ? "text-green-600"
+            : "text-amber-600",
+        )}
+      >
+        <Target className="h-3 w-3" />
+        <span>
+          {progressPercent >= expectedPercent ? "+" : ""}
+          {progressPercent - expectedPercent}% vs expected ({expectedPercent}%)
+        </span>
+      </div>
+
       <div className="space-y-1">
-        <div className="text-muted-foreground flex items-center justify-between text-[10px]">
-          <span className="font-medium uppercase">Goal Progress</span>
-          <span>{progressPercent}%</span>
-        </div>
         <div className="relative">
-          <div className="bg-muted h-2 w-full overflow-hidden rounded-full">
+          <div className="bg-muted h-1.5 w-full overflow-hidden rounded-full">
             <div
               className={cn(
                 "h-full transition-[width] duration-300 ease-out",
@@ -253,72 +239,39 @@ function GoalTooltipContent({ active, payload }: GoalTooltipProps) {
             />
           </div>
           <div
-            className="bg-foreground/60 absolute top-0 h-2 w-0.5"
+            className="bg-foreground/60 absolute top-0 h-1.5 w-0.5"
             style={{ left: `${Math.min(expectedPercent, 100)}%` }}
             title={`Expected: ${expectedPercent}%`}
           />
         </div>
-        <div className="text-muted-foreground flex items-center justify-between text-[10px]">
-          <span>Expected: {expectedPercent}%</span>
-          {data.trend !== "unknown" && (
-            <span
-              className={cn("flex items-center gap-0.5", trendConfig.className)}
-            >
-              {trendConfig.icon}
-              {trendConfig.label}
-            </span>
-          )}
-        </div>
-      </div>
-
-      <div className="space-y-1">
-        <div className="text-muted-foreground flex items-center justify-between text-[10px]">
-          <span className="font-medium uppercase">Time Progress</span>
-          <span>
-            {formatTimeRemaining(
-              data.cadence,
-              data.daysRemaining,
-              data.hoursRemaining,
-            )}
-          </span>
-        </div>
-        <div className="bg-muted h-2 w-full overflow-hidden rounded-full">
+        {data.trend !== "unknown" && (
           <div
-            className="bg-primary/50 h-full transition-[width] duration-300 ease-out"
-            style={{ width: `${Math.min(timeProgressPercent, 100)}%` }}
-          />
-        </div>
-        <div className="text-muted-foreground flex items-center gap-1 text-[10px]">
-          <Calendar className="h-3 w-3" />
-          <span>
-            {format(new Date(data.periodStart), "MMM d")} –{" "}
-            {format(new Date(data.periodEnd), "MMM d")}
-          </span>
-          <span className="text-foreground ml-auto font-medium">
-            Day {data.daysElapsed}/{data.daysTotal}
-          </span>
-        </div>
+            className={cn(
+              "flex items-center gap-1 text-[9px] font-medium",
+              trendConfig.className,
+            )}
+          >
+            {trendConfig.icon}
+            <span>{trendConfig.label}</span>
+          </div>
+        )}
       </div>
 
-      {data.latestDataTimestamp && (
-        <div className="border-border/50 flex items-center gap-1.5 border-t pt-2 text-[10px]">
-          <Clock className="text-muted-foreground h-3 w-3" />
-          <span className="text-muted-foreground">Data as of:</span>
-          <span className="text-foreground font-medium">
-            {format(new Date(data.latestDataTimestamp), "MMM d, h:mm a")}
-          </span>
-        </div>
-      )}
-
-      {data.projectedEndValue !== null && data.trend !== "unknown" && (
-        <div className="text-muted-foreground flex items-center gap-1.5 text-[10px]">
-          <TrendingUp className="h-3 w-3" />
-          <span>Projected end value:</span>
-          <span className="text-foreground font-medium">
-            {formatValue(data.projectedEndValue)}
-          </span>
-        </div>
-      )}
+      <div className="text-muted-foreground flex items-center gap-1.5 text-[9px]">
+        <Clock className="h-3 w-3" />
+        <span>
+          {format(new Date(data.periodStart), "MMM d")} –{" "}
+          {format(new Date(data.periodEnd), "MMM d")}
+        </span>
+        <span className="text-foreground ml-auto font-medium">
+          {formatTimeRemaining(
+            data.cadence,
+            data.daysRemaining,
+            data.hoursRemaining,
+          )}{" "}
+          left
+        </span>
+      </div>
     </div>
   );
 }
@@ -496,16 +449,33 @@ export function GoalsRadarChart({
           </span>
         </div>
       )}
-      <div className="flex-1 p-4">
+      <div className="flex flex-1 flex-col p-4">
         <ChartContainer
           config={chartConfig}
-          className="mx-auto aspect-square max-h-[250px]"
+          className="mx-auto aspect-square max-h-[280px] w-full"
         >
-          <RadarChart data={chartData}>
+          <RadarChart
+            data={chartData}
+            margin={{ top: 10, right: 40, bottom: 10, left: 40 }}
+          >
             <ChartTooltip cursor={false} content={<GoalTooltipContent />} />
-            <PolarAngleAxis dataKey="goal" />
-            <PolarGrid gridType="polygon" />
-            <PolarRadiusAxis angle={90} domain={[0, 100]} tickCount={5} />
+            <PolarAngleAxis
+              dataKey="goal"
+              tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }}
+              tickLine={false}
+            />
+            <PolarGrid
+              gridType="polygon"
+              stroke="hsl(var(--border))"
+              strokeOpacity={0.3}
+            />
+            <PolarRadiusAxis
+              angle={90}
+              domain={[0, 100]}
+              tickCount={5}
+              tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 10 }}
+              axisLine={false}
+            />
             <Radar
               dataKey="progress"
               fill="var(--color-progress)"
@@ -520,43 +490,57 @@ export function GoalsRadarChart({
           </RadarChart>
         </ChartContainer>
 
-        {/* Custom legend showing goals with dimensions */}
-        <div className="mt-3 flex flex-wrap justify-center gap-x-4 gap-y-1">
-          {chartData.map((item) => (
-            <TooltipProvider key={item.goal} delayDuration={0}>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <div className="flex items-center gap-1.5 text-xs">
-                    <div
-                      className="h-2 w-2 shrink-0 rounded-full"
-                      style={{ backgroundColor: "hsl(var(--chart-1))" }}
-                    />
-                    <span className="text-muted-foreground max-w-[100px] truncate">
-                      {item.goal}
-                    </span>
-                    {item.selectedDimension && (
-                      <span className="text-muted-foreground/60 text-[10px]">
-                        ({item.selectedDimension})
-                      </span>
-                    )}
-                  </div>
-                </TooltipTrigger>
-                <TooltipContent side="bottom" className="text-xs">
-                  <div>
-                    <p className="font-medium">{item.goal}</p>
-                    {item.selectedDimension && (
-                      <p className="text-muted-foreground">
-                        Dimension: {item.selectedDimension}
-                      </p>
-                    )}
-                    <p className="text-muted-foreground">
-                      Progress: {Math.round(item.progress)}%
-                    </p>
-                  </div>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-          ))}
+        <div className="border-border/40 mt-4 flex flex-wrap justify-center gap-x-3 gap-y-2 border-t pt-3">
+          {chartData.map((item) => {
+            const statusConfig = STATUS_CONFIG[item.status];
+            return (
+              <TooltipProvider key={item.goal} delayDuration={0}>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <div className="hover:bg-muted/50 border-border/40 flex cursor-pointer items-center gap-2 rounded-md border px-2.5 py-1.5 transition-colors">
+                      <div
+                        className="ring-border/20 h-2.5 w-2.5 shrink-0 rounded-full ring-1"
+                        style={{ backgroundColor: "hsl(var(--chart-1))" }}
+                      />
+                      <div className="flex min-w-0 flex-col">
+                        <span className="text-foreground max-w-[120px] truncate text-xs font-medium">
+                          {item.goal}
+                        </span>
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-muted-foreground text-[10px]">
+                            {Math.round(item.progress)}%
+                          </span>
+                          <Badge
+                            variant={statusConfig.variant}
+                            className="h-4 gap-0.5 px-1 text-[9px]"
+                          >
+                            {statusConfig.icon}
+                            {statusConfig.label}
+                          </Badge>
+                        </div>
+                      </div>
+                    </div>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom" className="text-xs">
+                    <div className="space-y-1">
+                      <p className="font-medium">{item.goal}</p>
+                      {item.selectedDimension && (
+                        <p className="text-muted-foreground text-[10px]">
+                          Dimension: {item.selectedDimension}
+                        </p>
+                      )}
+                      <div className="flex items-center gap-2">
+                        <span className="text-muted-foreground">Progress:</span>
+                        <span className="font-semibold">
+                          {Math.round(item.progress)}%
+                        </span>
+                      </div>
+                    </div>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            );
+          })}
         </div>
       </div>
     </div>
