@@ -165,7 +165,7 @@ function GoalTooltipContent({ active, payload }: GoalTooltipProps) {
   const expectedPercent = Math.round(data.expectedProgress);
 
   return (
-    <div className="border-border/40 bg-background/95 min-w-[240px] space-y-2.5 rounded-lg border p-2.5 shadow-lg backdrop-blur-sm">
+    <div className="border-border/40 bg-background/90 min-w-[240px] space-y-2.5 rounded-lg border p-2.5 shadow-lg backdrop-blur-md">
       <div className="flex items-start justify-between gap-2">
         <div>
           <div className="flex items-center gap-1.5">
@@ -467,7 +467,7 @@ export function GoalsRadarChart({
             <PolarGrid
               gridType="polygon"
               stroke="hsl(var(--border))"
-              strokeOpacity={0.3}
+              strokeOpacity={0.6}
             />
             <PolarRadiusAxis
               angle={90}
