@@ -20,7 +20,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0 # Need full history for PR analysis
+          fetch-depth: 1 # Shallow clone is sufficient (gh API provides PR data)
 
       - name: Update Changelog with Claude
         id: changelog
@@ -29,18 +29,19 @@ jobs:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           prompt: |
             REPO: ${{ github.repository }}
-            DATE: $(date -u +%Y-%m-%d)
 
             Please update the CHANGELOG.md file with all PRs merged in the last 24 hours.
 
             Steps:
-            1. Use `gh pr list --search "is:pr is:merged merged:>=$(date -u -d '24 hours ago' +%Y-%m-%d)" --json number,title,author,mergedAt,labels` to get all PRs merged today
-            2. If no PRs were merged today, exit without making changes
-            3. Read the existing CHANGELOG.md file
-            4. For each merged PR, analyze what changed using `gh pr view <number>` and `gh pr diff <number>`
-            5. Update the "## [Unreleased]" section with entries following the Keep a Changelog format
-            6. Group changes by category (Added, Changed, Fixed, Security, etc.) as shown in the CHANGELOG.md guidelines
-            7. Format entries as: "- Brief description (#PR_NUMBER)"
+            1. First, get today's date: `TODAY=$(date -u +%Y-%m-%d)`
+            2. Get yesterday's date: `YESTERDAY=$(date -u -d '24 hours ago' +%Y-%m-%d)`
+            3. Use `gh pr list --search "is:pr is:merged merged:>=$YESTERDAY" --json number,title,author,mergedAt,labels` to get all PRs merged in the last 24 hours
+            4. If no PRs were merged, exit without making changes
+            5. Read the existing CHANGELOG.md file
+            6. For each merged PR, analyze what changed using `gh pr view <number>` and `gh pr diff <number>`
+            7. Update the "## [Unreleased]" section with entries following the Keep a Changelog format
+            8. Group changes by category (Added, Changed, Fixed, Security, etc.) as shown in the CHANGELOG.md guidelines
+            9. Format entries as: "- Brief description (#PR_NUMBER)"
 
             Categories to use (follow Keep a Changelog):
             - **Added**: New features
@@ -61,14 +62,14 @@ jobs:
             - Type error in TOC component (#125)
 
             After updating CHANGELOG.md:
-            1. Create a new branch: `git checkout -b changelog/$(date -u +%Y-%m-%d)`
+            1. Create a new branch: `git checkout -b "changelog/$TODAY"`
             2. Configure git:
                git config user.name "github-actions[bot]"
                git config user.email "github-actions[bot]@users.noreply.github.com"
-            3. Commit changes: `git add CHANGELOG.md && git commit -m "docs: update changelog for $(date -u +%Y-%m-%d)"`
-            4. Push branch: `git push -u origin changelog/$(date -u +%Y-%m-%d)`
-            5. Create PR using: `gh pr create --title "docs: update changelog for $(date -u +%Y-%m-%d)" --body "Automated changelog update for PRs merged on $(date -u +%Y-%m-%d)" --base main`
+            3. Commit changes: `git add CHANGELOG.md && git commit -m "docs: update changelog for $TODAY"`
+            4. Push branch: `git push -u origin "changelog/$TODAY"`
+            5. Create PR using: `gh pr create --title "docs: update changelog for $TODAY" --body "Automated changelog update for PRs merged on $TODAY" --base main`
 
             IMPORTANT: Only analyze PRs from the last 24 hours to minimize AI costs.
 
-          claude_args: '--allowed-tools "Bash(gh pr list:*),Bash(gh pr view:*),Bash(gh pr diff:*),Bash(gh pr create:*),Bash(git *),Bash(date *)"'
+          claude_args: '--allowed-tools "Read,Edit,Write,Bash(gh pr list:*),Bash(gh pr view:*),Bash(gh pr diff:*),Bash(gh pr create:*),Bash(git config:*),Bash(git checkout:*),Bash(git add:*),Bash(git commit:*),Bash(git push:*),Bash(date *)"'
