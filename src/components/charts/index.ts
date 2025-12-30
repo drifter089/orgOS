@@ -1,6 +1,6 @@
 export { MetricAreaChart } from "./area-chart";
 export { MetricBarChart } from "./bar-chart";
-export { GoalsRadarChart, type GoalData } from "./goals-radar-chart";
+export { GoalsRadarChart } from "./goals-radar-chart";
 export { MetricPieChart } from "./pie-chart";
 export { MetricRadarChart } from "./radar-chart";
 export { MetricRadialChart } from "./radial-chart";

@@ -1,5 +1,7 @@
 "use client";
 
+import { useMemo } from "react";
+
 import { format } from "date-fns";
 import {
   AlertTriangle,
@@ -11,7 +13,13 @@ import {
   TrendingDown,
   TrendingUp,
 } from "lucide-react";
-import { PolarAngleAxis, PolarGrid, Radar, RadarChart } from "recharts";
+import {
+  PolarAngleAxis,
+  PolarGrid,
+  PolarRadiusAxis,
+  Radar,
+  RadarChart,
+} from "recharts";
 
 import { Badge } from "@/components/ui/badge";
 import {
@@ -29,31 +37,11 @@ import type { GoalProgress } from "@/lib/goals";
 import { formatCadence } from "@/lib/helpers/format-cadence";
 import { formatValue } from "@/lib/helpers/format-value";
 import { cn } from "@/lib/utils";
-
-export interface GoalData {
-  goalName: string;
-  progressPercent: number;
-  expectedProgressPercent: number;
-  status: GoalProgress["status"];
-  daysElapsed: number;
-  daysTotal: number;
-  daysRemaining: number;
-  hoursRemaining: number;
-  currentValue: number | null;
-  targetValue: number;
-  baselineValue: number | null;
-  cadence: GoalProgress["cadence"];
-  periodStart: Date;
-  periodEnd: Date;
-  trend: GoalProgress["trend"];
-  projectedEndValue: number | null;
-  valueLabel: string | null;
-  latestDataTimestamp: Date | null;
-  selectedDimension: string | null;
-}
+import { api } from "@/trpc/react";
 
 interface GoalsRadarChartProps {
-  goalsData: GoalData[];
+  /** Array of metric IDs to display goal progress for */
+  metricIds: string[];
   showHeader?: boolean;
   className?: string;
 }
@@ -135,30 +123,32 @@ function formatTimeRemaining(
   return `${daysRemaining}d left`;
 }
 
+interface ChartDataPoint {
+  goal: string;
+  progress: number;
+  expectedProgress: number;
+  status: GoalProgress["status"];
+  daysElapsed: number;
+  daysTotal: number;
+  daysRemaining: number;
+  hoursRemaining: number;
+  currentValue: number | null;
+  targetValue: number;
+  baselineValue: number | null;
+  cadence: GoalProgress["cadence"];
+  periodStart: Date;
+  periodEnd: Date;
+  trend: GoalProgress["trend"];
+  projectedEndValue: number | null;
+  valueLabel: string | null;
+  latestDataTimestamp: Date | null;
+  selectedDimension: string | null;
+}
+
 interface GoalTooltipProps {
   active?: boolean;
   payload?: Array<{
-    payload: {
-      goal: string;
-      progress: number;
-      expectedProgress: number;
-      status: GoalProgress["status"];
-      daysElapsed: number;
-      daysTotal: number;
-      daysRemaining: number;
-      hoursRemaining: number;
-      currentValue: number | null;
-      targetValue: number;
-      baselineValue: number | null;
-      cadence: GoalProgress["cadence"];
-      periodStart: Date;
-      periodEnd: Date;
-      trend: GoalProgress["trend"];
-      projectedEndValue: number | null;
-      valueLabel: string | null;
-      latestDataTimestamp: Date | null;
-      selectedDimension: string | null;
-    };
+    payload: ChartDataPoint;
   }>;
 }
 
@@ -333,17 +323,17 @@ function GoalTooltipContent({ active, payload }: GoalTooltipProps) {
   );
 }
 
-function GoalProgressBar({ goal }: { goal: GoalData }) {
-  const statusConfig = STATUS_CONFIG[goal.status];
-  const progressPercent = Math.round(goal.progressPercent);
-  const expectedPercent = Math.round(goal.expectedProgressPercent);
+function GoalProgressBar({ data }: { data: ChartDataPoint }) {
+  const statusConfig = STATUS_CONFIG[data.status];
+  const progressPercent = Math.round(data.progress);
+  const expectedPercent = Math.round(data.expectedProgress);
 
   return (
     <div className="space-y-2 rounded-lg border p-3">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Target className="text-muted-foreground h-4 w-4" />
-          <span className="text-sm font-medium">{goal.goalName}</span>
+          <span className="text-sm font-medium">{data.goal}</span>
         </div>
         <Badge variant={statusConfig.variant} className="gap-1 text-[10px]">
           {statusConfig.icon}
@@ -379,11 +369,49 @@ function GoalProgressBar({ goal }: { goal: GoalData }) {
 }
 
 export function GoalsRadarChart({
-  goalsData,
+  metricIds,
   showHeader = true,
   className,
 }: GoalsRadarChartProps) {
-  if (goalsData.length === 0) {
+  // Fetch dashboard charts from cache (parent already fetched this)
+  const { data: allCharts } = api.dashboard.getDashboardCharts.useQuery();
+
+  // Filter charts to only those with metric IDs in our list and with goalProgress
+  const chartData = useMemo(() => {
+    if (!allCharts) return [];
+
+    return allCharts
+      .filter(
+        (chart) =>
+          metricIds.includes(chart.metric.id) && chart.goalProgress != null,
+      )
+      .map((chart) => {
+        const gp = chart.goalProgress!;
+        return {
+          goal: chart.metric.name ?? "Unknown",
+          progress: Math.max(0, Math.min(100, gp.progressPercent ?? 0)),
+          expectedProgress: gp.expectedProgressPercent,
+          status: gp.status,
+          daysElapsed: gp.daysElapsed,
+          daysTotal: gp.daysTotal,
+          daysRemaining: gp.daysRemaining,
+          hoursRemaining: gp.hoursRemaining,
+          currentValue: gp.currentValue,
+          targetValue: gp.targetDisplayValue,
+          baselineValue: gp.baselineValue,
+          cadence: gp.cadence,
+          periodStart: gp.periodStart,
+          periodEnd: gp.periodEnd,
+          trend: gp.trend,
+          projectedEndValue: gp.projectedEndValue,
+          valueLabel: chart.valueLabel,
+          latestDataTimestamp: chart.latestDataTimestamp,
+          selectedDimension: chart.chartTransformer?.selectedDimension ?? null,
+        };
+      });
+  }, [allCharts, metricIds]);
+
+  if (chartData.length === 0) {
     return (
       <div
         className={cn(
@@ -410,7 +438,7 @@ export function GoalsRadarChart({
     );
   }
 
-  if (goalsData.length < 3) {
+  if (chartData.length < 3) {
     return (
       <div
         className={cn(
@@ -429,45 +457,23 @@ export function GoalsRadarChart({
               </p>
             </div>
             <span className="text-muted-foreground text-xs">
-              {goalsData.length} {goalsData.length === 1 ? "goal" : "goals"}
+              {chartData.length} {chartData.length === 1 ? "goal" : "goals"}
             </span>
           </div>
         )}
         <div className="flex-1 space-y-2 p-4">
-          {goalsData.map((goal) => (
-            <GoalProgressBar key={goal.goalName} goal={goal} />
+          {chartData.map((data) => (
+            <GoalProgressBar key={data.goal} data={data} />
           ))}
         </div>
       </div>
     );
   }
 
-  const chartData = goalsData.map((goal) => ({
-    goal: goal.goalName,
-    progress: Math.max(0, Math.min(100, goal.progressPercent ?? 0)),
-    expectedProgress: goal.expectedProgressPercent,
-    status: goal.status,
-    daysElapsed: goal.daysElapsed,
-    daysTotal: goal.daysTotal,
-    daysRemaining: goal.daysRemaining,
-    hoursRemaining: goal.hoursRemaining,
-    currentValue: goal.currentValue,
-    targetValue: goal.targetValue,
-    baselineValue: goal.baselineValue,
-    cadence: goal.cadence,
-    periodStart: goal.periodStart,
-    periodEnd: goal.periodEnd,
-    trend: goal.trend,
-    projectedEndValue: goal.projectedEndValue,
-    valueLabel: goal.valueLabel,
-    latestDataTimestamp: goal.latestDataTimestamp,
-    selectedDimension: goal.selectedDimension,
-  }));
-
   const chartConfig = {
     progress: {
       label: "Progress %",
-      color: "#3b82f6", // Direct color - CSS variables don't resolve in SVG fill
+      color: "hsl(var(--chart-1))",
     },
   } satisfies ChartConfig;
 
@@ -486,7 +492,7 @@ export function GoalsRadarChart({
             </p>
           </div>
           <span className="text-muted-foreground text-xs">
-            {goalsData.length} {goalsData.length === 1 ? "goal" : "goals"}
+            {chartData.length} {chartData.length === 1 ? "goal" : "goals"}
           </span>
         </div>
       )}
@@ -498,18 +504,17 @@ export function GoalsRadarChart({
           <RadarChart data={chartData}>
             <ChartTooltip cursor={false} content={<GoalTooltipContent />} />
             <PolarAngleAxis dataKey="goal" />
-            <PolarGrid />
+            <PolarGrid gridType="polygon" />
+            <PolarRadiusAxis angle={90} domain={[0, 100]} tickCount={5} />
             <Radar
               dataKey="progress"
-              fill="#3b82f6"
+              fill="var(--color-progress)"
               fillOpacity={0.6}
-              stroke="#3b82f6"
+              stroke="var(--color-progress)"
               strokeWidth={2}
-              isAnimationActive={false}
               dot={{
                 r: 4,
                 fillOpacity: 1,
-                fill: "#3b82f6",
               }}
             />
           </RadarChart>
@@ -524,7 +529,7 @@ export function GoalsRadarChart({
                   <div className="flex items-center gap-1.5 text-xs">
                     <div
                       className="h-2 w-2 shrink-0 rounded-full"
-                      style={{ backgroundColor: "#3b82f6" }}
+                      style={{ backgroundColor: "hsl(var(--chart-1))" }}
                     />
                     <span className="text-muted-foreground max-w-[100px] truncate">
                       {item.goal}

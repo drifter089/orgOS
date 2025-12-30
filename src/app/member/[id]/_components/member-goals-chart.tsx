@@ -1,13 +1,11 @@
 "use client";
 
-import { type GoalData, GoalsRadarChart } from "@/components/charts";
-
-export type { GoalData };
+import { GoalsRadarChart } from "@/components/charts";
 
 interface MemberGoalsChartProps {
-  goalsData: GoalData[];
+  metricIds: string[];
 }
 
-export function MemberGoalsChart({ goalsData }: MemberGoalsChartProps) {
-  return <GoalsRadarChart goalsData={goalsData} showHeader={true} />;
+export function MemberGoalsChart({ metricIds }: MemberGoalsChartProps) {
+  return <GoalsRadarChart metricIds={metricIds} showHeader={true} />;
 }

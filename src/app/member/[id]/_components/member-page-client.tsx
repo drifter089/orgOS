@@ -162,38 +162,10 @@ export function MemberPageClient({
     a[0]!.team.name.localeCompare(b[0]!.team.name),
   );
 
-  // Process goals data for the radar chart
-  const goalsData = roles
-    .filter((role) => {
-      if (!role.metricId) return false;
-      const chart = chartsByMetricId.get(role.metricId);
-      return chart?.goalProgress != null;
-    })
-    .map((role) => {
-      const chart = chartsByMetricId.get(role.metricId!)!;
-      const gp = chart.goalProgress!;
-      return {
-        goalName: chart.metric.name ?? role.metric?.name ?? "Unknown",
-        progressPercent: gp.progressPercent,
-        expectedProgressPercent: gp.expectedProgressPercent,
-        status: gp.status,
-        daysElapsed: gp.daysElapsed,
-        daysTotal: gp.daysTotal,
-        daysRemaining: gp.daysRemaining,
-        hoursRemaining: gp.hoursRemaining,
-        currentValue: gp.currentValue,
-        targetValue: gp.targetDisplayValue,
-        baselineValue: gp.baselineValue,
-        cadence: gp.cadence,
-        periodStart: gp.periodStart,
-        periodEnd: gp.periodEnd,
-        trend: gp.trend,
-        projectedEndValue: gp.projectedEndValue,
-        valueLabel: chart.valueLabel,
-        latestDataTimestamp: chart.latestDataTimestamp,
-        selectedDimension: chart.chartTransformer?.selectedDimension ?? null,
-      };
-    });
+  // Get metric IDs for roles that have goals
+  const metricIdsWithGoals = roles
+    .filter((role) => role.metricId != null)
+    .map((role) => role.metricId!);
 
   return (
     <div className="container mx-auto px-4 py-6 pt-20">
@@ -223,7 +195,7 @@ export function MemberPageClient({
             </div>
 
             <div className="lg:col-span-6">
-              <MemberGoalsChart goalsData={goalsData} />
+              <MemberGoalsChart metricIds={metricIdsWithGoals} />
             </div>
 
             <div className="space-y-3 lg:col-span-12">
