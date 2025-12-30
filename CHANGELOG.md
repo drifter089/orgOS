@@ -9,11 +9,40 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Claude Code GitHub workflow for AI-assisted code reviews and development (#313)
+- Daily automated changelog update workflow (#314)
+- "Check-in" action on metric cards for quick navigation to metric check-in page (#307)
+
+### Changed
+
+- Enhanced radar chart UI with semi-transparent tooltip and improved legend (#317)
+- Increased chart heights from 320px to 380px for better visibility (#317)
+- Standardized button variants from `ghost` to `outline` for consistent border styling across UI (#311)
+- Unified icon usage: `Briefcase` for roles, `Users` for members, `Target` for goals, `Gauge` for effort points (#311)
+- Consolidated MembersList component into shared component at `src/components/member/member-list.tsx` (#308, #310)
+- Widened sidebar panel from 24rem to 28rem for better content display (#310)
+- Manual metric dialog made more responsive by removing fixed width constraint (#307)
+
+### Fixed
+
+- GitHub Actions workflow permissions for Claude Code to allow PR comments and file editing (#316)
+- Radar chart polygon rendering by adding PolarRadiusAxis with explicit domain [0, 100] (#315)
+- Processing badge disappearing on metric refresh by removing premature cache invalidation (#309)
+- Calendar input overflow in manual metric dialog for daily/weekly/monthly tracking periods (#307)
+
+### Refactored
+
+- Eliminated goals data duplication by moving transformation logic into GoalsRadarChart component (#315)
+- Consolidated cache invalidation patterns into shared `invalidateDashboardCache()` utility (#312)
+- Standardized user name functions: `getUserDisplayName()` (client), `fetchUserDisplayName()` (server) (#312)
+- Simplified GoalsRadarChart API to accept `metricIds: string[]` instead of pre-transformed data (#315)
+
 ### In Progress
 
 - Testing infrastructure with Playwright E2E tests
 - Documentation sync automation system
-- CI/CD pipeline setup with GitHub Actions
 
 ### Planned
 
