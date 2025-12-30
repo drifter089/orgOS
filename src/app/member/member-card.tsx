@@ -4,11 +4,7 @@ import Link from "next/link";
 
 import { ArrowRight } from "lucide-react";
 
-import {
-  type GoalData,
-  GoalsRadarChart,
-  MetricPieChart,
-} from "@/components/charts";
+import { GoalsRadarChart, MetricPieChart } from "@/components/charts";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -71,38 +67,11 @@ export function MemberCard({ member, dashboardCharts }: MemberCardProps) {
     return acc;
   }, {} as ChartConfig);
 
-  const goalsData: GoalData[] =
+  // Get metric IDs for roles that have goals
+  const metricIdsWithGoals =
     roles
-      ?.filter((role) => {
-        if (!role.metricId) return false;
-        const chart = chartsByMetricId.get(role.metricId);
-        return chart?.goalProgress != null;
-      })
-      .map((role) => {
-        const chart = chartsByMetricId.get(role.metricId!)!;
-        const gp = chart.goalProgress!;
-        return {
-          goalName: chart.metric.name ?? role.metric?.name ?? "Unknown",
-          progressPercent: gp.progressPercent,
-          expectedProgressPercent: gp.expectedProgressPercent,
-          status: gp.status,
-          daysElapsed: gp.daysElapsed,
-          daysTotal: gp.daysTotal,
-          daysRemaining: gp.daysRemaining,
-          hoursRemaining: gp.hoursRemaining,
-          currentValue: gp.currentValue,
-          targetValue: gp.targetDisplayValue,
-          baselineValue: gp.baselineValue,
-          cadence: gp.cadence,
-          periodStart: gp.periodStart,
-          periodEnd: gp.periodEnd,
-          trend: gp.trend,
-          projectedEndValue: gp.projectedEndValue,
-          valueLabel: chart.valueLabel,
-          latestDataTimestamp: chart.latestDataTimestamp,
-          selectedDimension: chart.chartTransformer?.selectedDimension ?? null,
-        };
-      }) ?? [];
+      ?.filter((role) => role.metricId != null)
+      .map((role) => role.metricId!) ?? [];
 
   return (
     <Card className="p-6">
@@ -187,7 +156,7 @@ export function MemberCard({ member, dashboardCharts }: MemberCardProps) {
               </div>
 
               <GoalsRadarChart
-                goalsData={goalsData}
+                metricIds={metricIdsWithGoals}
                 showHeader={false}
                 className="h-[320px] rounded-md"
               />
