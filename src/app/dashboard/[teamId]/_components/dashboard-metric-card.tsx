@@ -12,11 +12,14 @@ import {
 } from "@/components/ui/tooltip";
 import { isDevMode } from "@/lib/dev-mode";
 import type { ChartTransformResult } from "@/lib/metrics/transformer-types";
-import type { DashboardChartWithRelations } from "@/types/dashboard";
+import { type RouterOutputs } from "@/trpc/react";
 
 import { useDashboard } from "./dashboard-context";
 import { DashboardMetricChart } from "./dashboard-metric-chart";
 import { MetricSettingsDrawer } from "./metric-settings-drawer";
+
+type DashboardChartWithRelations =
+  RouterOutputs["dashboard"]["getDashboardCharts"][number];
 
 interface DashboardMetricCardProps {
   dashboardChart: DashboardChartWithRelations;
