@@ -26,44 +26,79 @@ export function useMetricDrawerMutations({
   const { confirm } = useConfirmation();
   const utils = api.useUtils();
 
+  // Shared optimistic update helper for pipeline mutations
+  // Returns snapshot for potential rollback
   const setOptimisticProcessing = useCallback(
-    (id: string) => {
+    async (id: string) => {
+      // Cancel outgoing refetches to avoid race conditions
+      await utils.dashboard.getDashboardCharts.cancel({ teamId });
+
+      // Snapshot current state for rollback
+      const previousCharts = utils.dashboard.getDashboardCharts.getData({
+        teamId,
+      });
+
+      // Optimistically set processing state (instant UI feedback)
       utils.dashboard.getDashboardCharts.setData({ teamId }, (old) =>
         old?.map((dc) =>
           dc.metric.id === id
-            ? { ...dc, metric: { ...dc.metric, refreshStatus: "processing" } }
+            ? {
+                ...dc,
+                metric: { ...dc.metric, refreshStatus: "processing" as const },
+              }
             : dc,
         ),
       );
+
+      return { previousCharts };
     },
     [utils, teamId],
   );
 
   // Refresh mutations: optimistic update + polling pattern
-  // - onMutate: Sets refreshStatus immediately (instant UI feedback)
+  // - onMutate: Sets refreshStatus immediately (instant UI feedback) with rollback snapshot
   // - onSuccess: No invalidate (would wipe optimistic state & race with background task)
+  // - onError: Rollback to previous state
   // - useDashboardCharts polls every 3s while any metric is processing
 
   const refreshMutation = api.pipeline.refresh.useMutation({
     onMutate: () => setOptimisticProcessing(metricId),
-    onError: (err) => {
-      void utils.dashboard.getDashboardCharts.invalidate({ teamId });
+    onError: (err, _variables, context) => {
+      // Rollback on error
+      if (context?.previousCharts) {
+        utils.dashboard.getDashboardCharts.setData(
+          { teamId },
+          context.previousCharts,
+        );
+      }
       toast.error("Refresh failed", { description: err.message });
     },
   });
 
   const regenerateMutation = api.pipeline.regenerate.useMutation({
     onMutate: () => setOptimisticProcessing(metricId),
-    onError: (err) => {
-      void utils.dashboard.getDashboardCharts.invalidate({ teamId });
+    onError: (err, _variables, context) => {
+      // Rollback on error
+      if (context?.previousCharts) {
+        utils.dashboard.getDashboardCharts.setData(
+          { teamId },
+          context.previousCharts,
+        );
+      }
       toast.error("Regenerate failed", { description: err.message });
     },
   });
 
   const regenerateChartMutation = api.pipeline.regenerateChartOnly.useMutation({
     onMutate: () => setOptimisticProcessing(metricId),
-    onError: (err) => {
-      void utils.dashboard.getDashboardCharts.invalidate({ teamId });
+    onError: (err, _variables, context) => {
+      // Rollback on error
+      if (context?.previousCharts) {
+        utils.dashboard.getDashboardCharts.setData(
+          { teamId },
+          context.previousCharts,
+        );
+      }
       toast.error("Chart update failed", { description: err.message });
     },
   });

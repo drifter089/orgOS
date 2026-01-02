@@ -14,9 +14,9 @@ import { isDevMode } from "@/lib/dev-mode";
 import type { ChartTransformResult } from "@/lib/metrics/transformer-types";
 import type { DashboardChartWithRelations } from "@/types/dashboard";
 
+import { useDashboard } from "./dashboard-context";
 import { DashboardMetricChart } from "./dashboard-metric-chart";
 import { MetricSettingsDrawer } from "./metric-settings-drawer";
-import { useDashboardCharts } from "./use-dashboard-charts";
 
 interface DashboardMetricCardProps {
   dashboardChart: DashboardChartWithRelations;
@@ -27,7 +27,7 @@ export function DashboardMetricCard({
   dashboardChart,
   teamId,
 }: DashboardMetricCardProps) {
-  const { isProcessing, getError } = useDashboardCharts(teamId);
+  const { isProcessing, getError } = useDashboard();
 
   const metric = dashboardChart.metric;
   const metricId = metric.id;
