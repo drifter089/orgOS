@@ -55,7 +55,7 @@ export function useOptimisticGoalUpdate(teamId: string, metricId: string) {
       return { previousCharts };
     },
 
-    onSuccess: (response, _variables, context) => {
+    onSuccess: (response) => {
       // Update dashboard cache with server response (includes recalculated goalProgress)
       utils.dashboard.getDashboardCharts.setData({ teamId }, (old) => {
         if (!old) return old;
