@@ -2,8 +2,10 @@
 
 import { useCallback } from "react";
 
-import { api } from "@/trpc/react";
-import type { DashboardChartWithRelations } from "@/types/dashboard";
+import { type RouterOutputs, api } from "@/trpc/react";
+
+type DashboardChartWithRelations =
+  RouterOutputs["dashboard"]["getDashboardCharts"][number];
 
 interface UseDashboardChartsReturn {
   charts: DashboardChartWithRelations[];

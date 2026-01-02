@@ -8,10 +8,12 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
-import { api } from "@/trpc/react";
-import type { DashboardChartWithRelations } from "@/types/dashboard";
+import { type RouterOutputs, api } from "@/trpc/react";
 
 import { type PeriodRange, PeriodRangeStep } from "./period-range-step";
+
+type DashboardChartWithRelations =
+  RouterOutputs["dashboard"]["getDashboardCharts"][number];
 
 type UnitType = "number" | "percentage";
 type Cadence = "daily" | "weekly" | "monthly";

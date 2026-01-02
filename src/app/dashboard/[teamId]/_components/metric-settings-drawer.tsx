@@ -31,11 +31,14 @@ import {
 import type { ChartTransformResult } from "@/lib/metrics/transformer-types";
 import { getPlatformConfig } from "@/lib/platform-config";
 import { cn } from "@/lib/utils";
-import type { DashboardChartWithRelations } from "@/types/dashboard";
+import { type RouterOutputs } from "@/trpc/react";
 
 import { DashboardMetricDrawer } from "./dashboard-metric-drawer";
 import { useDashboardCharts } from "./use-dashboard-charts";
 import { useMetricDrawerMutations } from "./use-metric-drawer-mutations";
+
+type DashboardChartWithRelations =
+  RouterOutputs["dashboard"]["getDashboardCharts"][number];
 
 interface MetricSettingsDrawerProps {
   dashboardChart: DashboardChartWithRelations;
