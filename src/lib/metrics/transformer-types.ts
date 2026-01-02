@@ -2,10 +2,15 @@
  * Types for AI-generated transformer code
  * Used by both MetricTransformer and ChartTransformer
  */
+import { Cadence } from "@prisma/client";
+
 import type { ChartType } from "./utils";
 
 // Re-export ChartType for convenience
 export type { ChartType } from "./utils";
+
+// Re-export Prisma enum for convenience
+export { Cadence };
 
 // =============================================================================
 // Data Point Types
@@ -84,13 +89,9 @@ export type MetricTransformFn = (
 ) => DataPoint[];
 
 /**
- * Cadence determines how data is aggregated for chart display
- */
-export type Cadence = "DAILY" | "WEEKLY" | "MONTHLY";
-
-/**
  * Function signature for ChartTransformer code
  * Transforms DataPoints into chart-ready configuration
+ * Cadence is re-exported from Prisma above
  */
 export type ChartTransformFn = (
   dataPoints: DataPoint[],

@@ -10,6 +10,8 @@ import type { ChartTransformResult } from "@/lib/metrics/transformer-types";
 
 /**
  * Dashboard chart with metric and chartTransformer included
+ * NOTE: This type must be manually defined here to avoid circular dependency.
+ * Cannot use tRPC RouterOutputs because AppRouter depends on this util file.
  */
 type DashboardChartWithRelations = {
   id: string;
