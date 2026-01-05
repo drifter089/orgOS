@@ -58,7 +58,14 @@ export function MetricCheckInClient({ metricId }: MetricCheckInClientProps) {
   const role = metric.roles[0] ?? null;
 
   const handleSuccess = async () => {
+    // Invalidate manual metric cache
     await utils.manualMetric.getById.invalidate();
+    // Invalidate dashboard cache to trigger goal progress recalculation
+    if (metric.teamId) {
+      await utils.dashboard.getDashboardCharts.invalidate({
+        teamId: metric.teamId,
+      });
+    }
   };
 
   return (
