@@ -15,6 +15,7 @@ import { type Metadata } from "next";
 import { FeedbackButton } from "@/components/feedback/FeedbackButton";
 import { NavBar } from "@/components/navbar/NavBar.server";
 import { Toaster } from "@/components/ui/sonner";
+import { VersionChecker } from "@/components/version-checker";
 import { ConfirmationDialogProvider } from "@/providers/ConfirmationDialogProvider";
 import { ThemeProvider } from "@/providers/ThemeProvider";
 import { TransitionProvider } from "@/providers/TransitionProvider";
@@ -115,6 +116,7 @@ export default function RootLayout({
                 <NavBar />
                 <TransitionProvider>{children}</TransitionProvider>
                 <Toaster />
+                <VersionChecker />
                 <Analytics />
                 <FeedbackButton />
               </ConfirmationDialogProvider>
