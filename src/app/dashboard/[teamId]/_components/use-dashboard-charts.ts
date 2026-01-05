@@ -5,7 +5,7 @@ import { useCallback } from "react";
 import { api } from "@/trpc/react";
 import type { DashboardChartWithRelations } from "@/types/dashboard";
 
-interface UseDashboardChartsReturn {
+export interface UseDashboardChartsReturn {
   charts: DashboardChartWithRelations[];
   isLoading: boolean;
   isError: boolean;

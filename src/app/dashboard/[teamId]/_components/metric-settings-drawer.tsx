@@ -33,8 +33,8 @@ import { getPlatformConfig } from "@/lib/platform-config";
 import { cn } from "@/lib/utils";
 import type { DashboardChartWithRelations } from "@/types/dashboard";
 
+import { useDashboard } from "./dashboard-context";
 import { DashboardMetricDrawer } from "./dashboard-metric-drawer";
-import { useDashboardCharts } from "./use-dashboard-charts";
 import { useMetricDrawerMutations } from "./use-metric-drawer-mutations";
 
 interface MetricSettingsDrawerProps {
@@ -50,7 +50,7 @@ export function MetricSettingsDrawer({
 }: MetricSettingsDrawerProps) {
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [forceRebuild, setForceRebuild] = useState(false);
-  const { isProcessing, getError } = useDashboardCharts(teamId);
+  const { isProcessing, getError } = useDashboard();
 
   const metric = dashboardChart.metric;
   const metricId = metric.id;

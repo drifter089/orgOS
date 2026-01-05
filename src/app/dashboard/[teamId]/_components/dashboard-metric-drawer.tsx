@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 
 import type { Cadence } from "@prisma/client";
 import { Loader2 } from "lucide-react";
@@ -9,8 +9,8 @@ import { getLatestMetricValue } from "@/lib/metrics/get-latest-value";
 import type { ChartTransformResult } from "@/lib/metrics/transformer-types";
 import { cn } from "@/lib/utils";
 import { api } from "@/trpc/react";
-import type { DashboardChartWithRelations } from "@/types/dashboard";
 
+import { useDashboard } from "./dashboard-context";
 import { DashboardMetricChart } from "./dashboard-metric-chart";
 import {
   type DrawerTab,
@@ -39,18 +39,9 @@ export function DashboardMetricDrawer({
   onClose,
   onRegenerateChart,
 }: DashboardMetricDrawerProps) {
-  // Subscribe to cache directly - drawer re-renders when cache changes
-  const { data: dashboardChart, isLoading } =
-    api.dashboard.getDashboardCharts.useQuery(
-      { teamId },
-      {
-        select: useCallback(
-          (charts: DashboardChartWithRelations[]) =>
-            charts.find((c) => c.id === dashboardChartId),
-          [dashboardChartId],
-        ),
-      },
-    );
+  // Use dashboard context - drawer re-renders when cache changes
+  const { charts, isLoading } = useDashboard();
+  const dashboardChart = charts.find((c) => c.id === dashboardChartId);
 
   // Derive processing/error state from cache data
   const isProcessing = !!dashboardChart?.metric.refreshStatus;
