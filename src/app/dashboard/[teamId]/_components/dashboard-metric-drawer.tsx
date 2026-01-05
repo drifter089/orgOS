@@ -139,102 +139,105 @@ export function DashboardMetricDrawer({
   };
 
   return (
-    <div className="grid h-full grid-cols-[auto_1fr_1.2fr] gap-0">
-      {/* Tab Buttons Column */}
+    <div className="flex h-full flex-col md:grid md:grid-cols-[auto_1fr_1.2fr] md:gap-0">
+      {/* Tab Buttons - horizontal row on mobile, vertical column on desktop */}
       <DrawerTabButtons activeTab={activeTab} onTabChange={setActiveTab} />
 
-      {/* Tab Content Column */}
-      <div className="bg-muted/20 relative overflow-hidden border-r">
-        {/* Goal Tab */}
-        <div
-          className={cn(
-            "absolute inset-0 transition-all duration-200 ease-out",
-            activeTab === "goal"
-              ? "translate-y-0 opacity-100"
-              : "pointer-events-none translate-y-2 opacity-0",
-          )}
-        >
-          <GoalTabContent
-            metricId={metric.id}
-            teamId={teamId}
-            goal={metric.goal}
-            goalProgress={goalProgress}
-            currentValue={currentValue}
-            valueLabel={dashboardChart.valueLabel ?? null}
-            cadence={chartTransformer?.cadence}
-            isProcessing={isProcessing}
-          />
+      {/* Content area - stacked on mobile, side-by-side on desktop */}
+      <div className="flex min-h-0 flex-1 flex-col overflow-hidden md:contents">
+        {/* Tab Content Column */}
+        <div className="bg-muted/20 relative min-h-[180px] flex-1 overflow-hidden md:min-h-0">
+          {/* Goal Tab */}
+          <div
+            className={cn(
+              "absolute inset-0 transition-all duration-200 ease-out",
+              activeTab === "goal"
+                ? "translate-y-0 opacity-100"
+                : "pointer-events-none translate-y-2 opacity-0",
+            )}
+          >
+            <GoalTabContent
+              metricId={metric.id}
+              teamId={teamId}
+              goal={metric.goal}
+              goalProgress={goalProgress}
+              currentValue={currentValue}
+              valueLabel={dashboardChart.valueLabel ?? null}
+              cadence={chartTransformer?.cadence}
+              isProcessing={isProcessing}
+            />
+          </div>
+
+          {/* Role Tab */}
+          <div
+            className={cn(
+              "absolute inset-0 transition-all duration-200 ease-out",
+              activeTab === "role"
+                ? "translate-y-0 opacity-100"
+                : "pointer-events-none translate-y-2 opacity-0",
+            )}
+          >
+            <RoleTabContent
+              metricId={metric.id}
+              metricName={metric.name}
+              teamId={metric.teamId}
+              roles={(metric.roles ?? []).map((r) => ({
+                id: r.id,
+                title: r.title,
+                color: r.color,
+                assignedUserId: r.assignedUserId,
+                assignedUserName: r.assignedUserName,
+              }))}
+            />
+          </div>
+
+          {/* Settings Tab */}
+          <div
+            className={cn(
+              "absolute inset-0 transition-all duration-200 ease-out",
+              activeTab === "settings"
+                ? "translate-y-0 opacity-100"
+                : "pointer-events-none translate-y-2 opacity-0",
+            )}
+          >
+            <SettingsTabContent
+              metricName={metric.name}
+              metricDescription={metric.description}
+              selectedChartType={selectedChartType}
+              setSelectedChartType={setSelectedChartType}
+              selectedCadence={selectedCadence}
+              setSelectedCadence={setSelectedCadence}
+              selectedDimension={selectedDimension}
+              setSelectedDimension={setSelectedDimension}
+              availableDimensions={availableDimensions}
+              isDimensionsLoading={isDimensionsLoading}
+              isIntegrationMetric={isIntegrationMetric}
+              valueLabel={dashboardChart.valueLabel ?? null}
+              hasChartChanges={hasChartChanges}
+              isProcessing={isProcessing}
+              onApplyChanges={handleApplyChanges}
+              onUpdateMetric={onUpdateMetric}
+            />
+          </div>
         </div>
 
-        {/* Role Tab */}
-        <div
-          className={cn(
-            "absolute inset-0 transition-all duration-200 ease-out",
-            activeTab === "role"
-              ? "translate-y-0 opacity-100"
-              : "pointer-events-none translate-y-2 opacity-0",
-          )}
-        >
-          <RoleTabContent
-            metricId={metric.id}
-            metricName={metric.name}
-            teamId={metric.teamId}
-            roles={(metric.roles ?? []).map((r) => ({
-              id: r.id,
-              title: r.title,
-              color: r.color,
-              assignedUserId: r.assignedUserId,
-              assignedUserName: r.assignedUserName,
-            }))}
-          />
-        </div>
-
-        {/* Settings Tab */}
-        <div
-          className={cn(
-            "absolute inset-0 transition-all duration-200 ease-out",
-            activeTab === "settings"
-              ? "translate-y-0 opacity-100"
-              : "pointer-events-none translate-y-2 opacity-0",
-          )}
-        >
-          <SettingsTabContent
-            metricName={metric.name}
-            metricDescription={metric.description}
-            selectedChartType={selectedChartType}
-            setSelectedChartType={setSelectedChartType}
-            selectedCadence={selectedCadence}
-            setSelectedCadence={setSelectedCadence}
-            selectedDimension={selectedDimension}
-            setSelectedDimension={setSelectedDimension}
-            availableDimensions={availableDimensions}
-            isDimensionsLoading={isDimensionsLoading}
-            isIntegrationMetric={isIntegrationMetric}
-            valueLabel={dashboardChart.valueLabel ?? null}
-            hasChartChanges={hasChartChanges}
-            isProcessing={isProcessing}
-            onApplyChanges={handleApplyChanges}
-            onUpdateMetric={onUpdateMetric}
-          />
-        </div>
-      </div>
-
-      {/* Chart Column */}
-      <div className="flex flex-col border-l">
-        <div className="flex-1 overflow-hidden p-4">
-          <DashboardMetricChart
-            title={chartTransform?.title ?? metric.name}
-            chartTransform={chartTransform ?? null}
-            hasChartData={hasChartData}
-            isIntegrationMetric={isIntegrationMetric}
-            integrationId={metric.integration?.providerId}
-            roles={metric.roles ?? []}
-            goal={metric.goal}
-            goalProgress={goalProgress}
-            valueLabel={dashboardChart.valueLabel ?? null}
-            isProcessing={isProcessing}
-            latestDataTimestamp={dashboardChart.latestDataTimestamp ?? null}
-          />
+        {/* Chart Column */}
+        <div className="flex min-h-0 flex-1 flex-col border-t md:border-t-0 md:border-l">
+          <div className="flex-1 overflow-hidden p-3 sm:p-4">
+            <DashboardMetricChart
+              title={chartTransform?.title ?? metric.name}
+              chartTransform={chartTransform ?? null}
+              hasChartData={hasChartData}
+              isIntegrationMetric={isIntegrationMetric}
+              integrationId={metric.integration?.providerId}
+              roles={metric.roles ?? []}
+              goal={metric.goal}
+              goalProgress={goalProgress}
+              valueLabel={dashboardChart.valueLabel ?? null}
+              isProcessing={isProcessing}
+              latestDataTimestamp={dashboardChart.latestDataTimestamp ?? null}
+            />
+          </div>
         </div>
       </div>
     </div>

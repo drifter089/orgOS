@@ -81,7 +81,7 @@ export function SettingsTabContent({
   };
 
   return (
-    <div className="flex h-full flex-col p-5">
+    <div className="flex h-full flex-col overflow-y-auto p-4 pb-6 sm:p-5 sm:pb-8">
       <div className="mb-5">
         <h3 className="text-base font-semibold">Settings</h3>
         <p className="text-muted-foreground mt-1 text-xs leading-relaxed">
