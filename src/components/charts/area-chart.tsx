@@ -1,5 +1,7 @@
 "use client";
 
+import { useMemo } from "react";
+
 import {
   Area,
   AreaChart,
@@ -20,7 +22,12 @@ import { formatValue } from "@/lib/helpers/format-value";
 import { cn } from "@/lib/utils";
 
 import type { AreaChartProps } from "./types";
-import { formatAxisLabel, formatYAxisLabel, hasLongLabels } from "./utils";
+import {
+  calculateYAxisDomain,
+  formatAxisLabel,
+  formatYAxisLabel,
+  hasLongLabels,
+} from "./utils";
 
 export function MetricAreaChart({
   chartData,
@@ -37,6 +44,13 @@ export function MetricAreaChart({
   className,
 }: AreaChartProps) {
   const needsRotation = hasLongLabels(chartData, xAxisKey);
+
+  // Calculate Y-axis domain to include goal value when present
+  // This ensures the goal line is always visible, even with high targets
+  const yAxisDomain = useMemo(
+    () => calculateYAxisDomain(chartData, dataKeys, goalValue),
+    [chartData, dataKeys, goalValue],
+  );
 
   return (
     <ChartContainer
@@ -105,6 +119,7 @@ export function MetricAreaChart({
           width={45}
           tick={{ fontSize: 11 }}
           tickFormatter={formatYAxisLabel}
+          domain={yAxisDomain}
           label={
             yAxisLabel
               ? {
