@@ -1,5 +1,7 @@
 "use client";
 
+import { useCallback, useRef, useState } from "react";
+
 import { EdgeLabelRenderer } from "@xyflow/react";
 import { Loader2, Plus, Trash2 } from "lucide-react";
 
@@ -27,6 +29,8 @@ export type EdgeActionButtonsProps = {
   showAdd?: boolean;
   /** Whether to show the delete button (default: true) */
   showDelete?: boolean;
+  /** Delay in ms before hiding buttons after mouse leaves (default: 500) */
+  hideDelay?: number;
 };
 
 /**
@@ -66,9 +70,32 @@ export function EdgeActionButtons({
   deleteTitle = "Delete connection",
   showAdd = true,
   showDelete = true,
+  hideDelay = 500,
 }: EdgeActionButtonsProps) {
+  const [isVisible, setIsVisible] = useState(false);
+  const hideTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
   const showAddButton = showAdd && onAdd;
   const showDeleteButton = showDelete && onDelete;
+
+  const clearHideTimeout = useCallback(() => {
+    if (hideTimeoutRef.current) {
+      clearTimeout(hideTimeoutRef.current);
+      hideTimeoutRef.current = null;
+    }
+  }, []);
+
+  const handleMouseEnter = useCallback(() => {
+    clearHideTimeout();
+    setIsVisible(true);
+  }, [clearHideTimeout]);
+
+  const handleMouseLeave = useCallback(() => {
+    clearHideTimeout();
+    hideTimeoutRef.current = setTimeout(() => {
+      setIsVisible(false);
+    }, hideDelay);
+  }, [hideDelay, clearHideTimeout]);
 
   // Don't render anything if no buttons to show
   if (!showAddButton && !showDeleteButton) {
@@ -77,11 +104,28 @@ export function EdgeActionButtons({
 
   return (
     <EdgeLabelRenderer>
+      {/* Larger invisible hit area for easier hover detection */}
       <div
-        className="nodrag nopan pointer-events-auto absolute flex gap-1"
+        className="nodrag nopan pointer-events-auto absolute"
+        style={{
+          transform: `translate(-50%, -50%) translate(${labelX}px, ${labelY}px)`,
+          width: "80px",
+          height: "80px",
+        }}
+        onMouseEnter={handleMouseEnter}
+        onMouseLeave={handleMouseLeave}
+      />
+      {/* Visible buttons container */}
+      <div
+        className={cn(
+          "nodrag nopan pointer-events-auto absolute flex gap-1 transition-opacity duration-200",
+          isVisible ? "opacity-100" : "pointer-events-none opacity-0",
+        )}
         style={{
           transform: `translate(-50%, -50%) translate(${labelX}px, ${labelY}px)`,
         }}
+        onMouseEnter={handleMouseEnter}
+        onMouseLeave={handleMouseLeave}
       >
         {showAddButton && (
           <Button
