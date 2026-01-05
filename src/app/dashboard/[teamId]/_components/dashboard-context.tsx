@@ -1,6 +1,6 @@
 "use client";
 
-import { type ReactNode, createContext, useContext } from "react";
+import { createContext, useContext, type ReactNode } from "react";
 
 import type { UseDashboardChartsReturn } from "./use-dashboard-charts";
 
@@ -26,12 +26,4 @@ export function useDashboard() {
     throw new Error("useDashboard must be used within DashboardProvider");
   }
   return context;
-}
-
-/**
- * Optional version of useDashboard that returns null when outside DashboardProvider.
- * Use this for components that can work both inside and outside the dashboard context.
- */
-export function useDashboardOptional() {
-  return useContext(DashboardContext);
 }
