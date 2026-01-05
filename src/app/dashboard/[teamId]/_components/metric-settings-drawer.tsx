@@ -82,10 +82,10 @@ export function MetricSettingsDrawer({
     <Drawer open={isDrawerOpen} onOpenChange={setIsDrawerOpen}>
       <DrawerTrigger asChild>{trigger}</DrawerTrigger>
 
-      <DrawerContent className="flex h-[60vh] max-h-[60vh] flex-col overflow-hidden">
-        <DrawerHeader className="relative flex flex-row items-center justify-between border-b px-6 py-4">
-          <div className="flex items-center gap-3">
-            <DrawerTitle className="text-lg font-semibold">
+      <DrawerContent className="flex h-[85vh] max-h-[85vh] min-h-[400px] flex-col overflow-hidden sm:h-[75vh] sm:max-h-[75vh] md:h-[60vh] md:max-h-[60vh]">
+        <DrawerHeader className="relative flex flex-row items-center justify-between border-b px-3 py-3 sm:px-6 sm:py-4">
+          <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2 sm:gap-3">
+            <DrawerTitle className="max-w-[140px] truncate text-base font-semibold sm:max-w-[200px] sm:text-lg md:max-w-none">
               {metric.name}
             </DrawerTitle>
             {chartTransform && (
@@ -126,14 +126,19 @@ export function MetricSettingsDrawer({
               </Badge>
             )}
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex shrink-0 items-center gap-1 sm:gap-2">
             {!isIntegrationMetric && (
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <Button variant="default" size="sm" asChild>
+                  <Button
+                    variant="default"
+                    size="sm"
+                    className="h-8 px-2 sm:px-3"
+                    asChild
+                  >
                     <Link href={`/metric/check-in/${metricId}`}>
-                      <ClipboardCheck className="mr-1 h-4 w-4" />
-                      Check-in
+                      <ClipboardCheck className="h-4 w-4 sm:mr-1" />
+                      <span className="hidden sm:inline">Check-in</span>
                     </Link>
                   </Button>
                 </TooltipTrigger>
@@ -143,7 +148,7 @@ export function MetricSettingsDrawer({
               </Tooltip>
             )}
 
-            <div className="bg-border mx-1 h-6 w-px" />
+            <div className="bg-border mx-0.5 hidden h-6 w-px sm:mx-1 sm:block" />
 
             {/* Refresh/Rebuild Button with Toggle */}
             <Tooltip>
@@ -151,18 +156,18 @@ export function MetricSettingsDrawer({
                 <Button
                   variant="outline"
                   size="sm"
-                  className="h-8 gap-2 border px-2 transition-all duration-150 hover:scale-[1.02] hover:shadow-sm active:scale-[0.98]"
+                  className="h-8 gap-1.5 border px-2 transition-all duration-150 hover:scale-[1.02] hover:shadow-sm active:scale-[0.98] sm:gap-2"
                   onClick={() => handleRefresh(forceRebuild)}
                   disabled={processing}
                 >
                   <RefreshCw
                     className={cn("h-3.5 w-3.5", processing && "animate-spin")}
                   />
-                  <span className="text-xs">
+                  <span className="hidden text-xs sm:inline">
                     {forceRebuild ? "Rebuild" : "Refresh"}
                   </span>
                   <div
-                    className="flex items-center gap-1.5 border-l pl-2"
+                    className="flex items-center gap-1 border-l pl-1.5 sm:gap-1.5 sm:pl-2"
                     onClick={(e) => e.stopPropagation()}
                   >
                     <Switch
@@ -208,7 +213,7 @@ export function MetricSettingsDrawer({
               </TooltipContent>
             </Tooltip>
 
-            <div className="bg-border mx-1 h-6 w-px" />
+            <div className="bg-border mx-0.5 hidden h-6 w-px sm:mx-1 sm:block" />
 
             {/* Close Button */}
             <DrawerClose asChild>

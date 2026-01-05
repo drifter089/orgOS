@@ -44,7 +44,7 @@ export function RoleTabContent({
   }
 
   return (
-    <div className="flex h-full flex-col overflow-y-auto p-5">
+    <div className="flex h-full flex-col overflow-y-auto p-4 pb-6 sm:p-5 sm:pb-8">
       <div className="mb-5">
         <h3 className="text-base font-semibold">Assigned Roles</h3>
         <p className="text-muted-foreground mt-1 text-xs leading-relaxed">
@@ -95,14 +95,18 @@ export function RoleTabContent({
           ))}
         </div>
       ) : (
-        <div className="bg-muted/20 mb-4 flex flex-col items-center border border-dashed p-6 text-center">
-          <div className="bg-muted mb-3 flex h-12 w-12 items-center justify-center">
-            <Users className="text-muted-foreground h-6 w-6" />
+        <div className="bg-muted/20 mb-3 flex items-center gap-3 border border-dashed p-3">
+          <div className="bg-muted flex h-9 w-9 shrink-0 items-center justify-center">
+            <Users className="text-muted-foreground h-4 w-4" />
           </div>
-          <p className="text-muted-foreground text-sm">No roles assigned yet</p>
-          <p className="text-muted-foreground mt-1 text-xs">
-            Use the dropdown below to assign roles
-          </p>
+          <div>
+            <p className="text-muted-foreground text-sm">
+              No roles assigned yet
+            </p>
+            <p className="text-muted-foreground text-xs">
+              Use the dropdown below to assign
+            </p>
+          </div>
         </div>
       )}
 
