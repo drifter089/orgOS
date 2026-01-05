@@ -30,13 +30,13 @@ export function useMetricDrawerMutations({
   // Returns snapshot for potential rollback
   const setOptimisticProcessing = useCallback(
     async (id: string) => {
-      // Cancel outgoing refetches to avoid race conditions
-      await utils.dashboard.getDashboardCharts.cancel({ teamId });
-
-      // Snapshot current state for rollback
+      // Snapshot current state for rollback (before cancel to avoid race condition)
       const previousCharts = utils.dashboard.getDashboardCharts.getData({
         teamId,
       });
+
+      // Cancel outgoing refetches
+      await utils.dashboard.getDashboardCharts.cancel({ teamId });
 
       // Optimistically set processing state (instant UI feedback)
       utils.dashboard.getDashboardCharts.setData({ teamId }, (old) =>
