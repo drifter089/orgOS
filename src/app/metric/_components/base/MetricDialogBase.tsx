@@ -14,8 +14,10 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
-import { api } from "@/trpc/react";
-import type { DashboardChartWithRelations } from "@/types/dashboard";
+import { type RouterOutputs, api } from "@/trpc/react";
+
+type DashboardChartWithRelations =
+  RouterOutputs["dashboard"]["getDashboardCharts"][number];
 
 export interface MetricCreateInput {
   templateId: string;

@@ -1,5 +1,9 @@
-export type Cadence = "DAILY" | "WEEKLY" | "MONTHLY";
-export type GoalType = "ABSOLUTE" | "RELATIVE";
+import { Cadence, GoalType } from "@prisma/client";
+
+// Re-export Prisma enums for convenience
+export { Cadence, GoalType };
+
+// Custom status type (not in Prisma)
 export type GoalStatus =
   | "exceeded"
   | "on_track"

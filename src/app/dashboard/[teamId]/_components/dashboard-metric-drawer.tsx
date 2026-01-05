@@ -8,7 +8,7 @@ import { Loader2 } from "lucide-react";
 import { getLatestMetricValue } from "@/lib/metrics/get-latest-value";
 import type { ChartTransformResult } from "@/lib/metrics/transformer-types";
 import { cn } from "@/lib/utils";
-import { api } from "@/trpc/react";
+import { type RouterOutputs, api } from "@/trpc/react";
 
 import { useDashboard } from "./dashboard-context";
 import { DashboardMetricChart } from "./dashboard-metric-chart";
@@ -19,6 +19,9 @@ import {
   RoleTabContent,
   SettingsTabContent,
 } from "./drawer";
+
+type DashboardChartWithRelations =
+  RouterOutputs["dashboard"]["getDashboardCharts"][number];
 
 interface DashboardMetricDrawerProps {
   dashboardChartId: string;
