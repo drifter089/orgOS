@@ -66,6 +66,10 @@ export function useChartDragDrop() {
           x: position.x - CHART_NODE_WIDTH / 2,
           y: position.y - CHART_NODE_HEIGHT / 2,
         },
+        style: {
+          width: CHART_NODE_WIDTH,
+          height: CHART_NODE_HEIGHT,
+        },
         data: {
           dashboardMetricId: dashboardMetric.id,
           dashboardMetric,

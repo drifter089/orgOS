@@ -39,6 +39,9 @@ export function serializeNodes(nodes: TeamNode[]): StoredNode[] {
       }
 
       if (node.type === "chart-node") {
+        const style = node.style as
+          | { width?: number; height?: number }
+          | undefined;
         return {
           id: node.id,
           type: node.type,
@@ -46,6 +49,10 @@ export function serializeNodes(nodes: TeamNode[]): StoredNode[] {
           data: {
             dashboardMetricId: node.data.dashboardMetricId,
           },
+          style:
+            style?.width || style?.height
+              ? { width: style.width, height: style.height }
+              : undefined,
         };
       }
 
@@ -143,6 +150,7 @@ export function enrichNodesWithRoleData(
             teamId: teamId ?? dashboardMetric.metric.teamId ?? "",
             dashboardMetric,
           },
+          style: node.style ?? { width: 750, height: 420 },
         };
       }
 
