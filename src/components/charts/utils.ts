@@ -38,3 +38,40 @@ export function hasLongLabels(
     return label.length > 8;
   });
 }
+
+/**
+ * Calculate Y-axis domain that includes goal value when present.
+ *
+ * Behavior:
+ * - No goal: Returns undefined (Recharts auto-calculates from data)
+ * - Goal exists: Returns [0, max(dataMax, goalValue) * 1.1] with 10% padding
+ *
+ * This ensures the goal reference line is always visible on the chart,
+ * even when the goal target is higher than current data values.
+ */
+export function calculateYAxisDomain(
+  chartData: Record<string, unknown>[],
+  dataKeys: string[],
+  goalValue?: number | null,
+): [number, number] | undefined {
+  // No goal - let Recharts auto-calculate domain from data
+  if (goalValue == null) {
+    return undefined;
+  }
+
+  // Find max value across all data keys
+  let dataMax = 0;
+  for (const row of chartData) {
+    for (const key of dataKeys) {
+      const val = row[key];
+      if (typeof val === "number" && val > dataMax) {
+        dataMax = val;
+      }
+    }
+  }
+
+  // Use the larger of dataMax or goalValue, with 10% padding for visual breathing room
+  const upperBound = Math.max(dataMax, goalValue) * 1.1;
+
+  return [0, upperBound];
+}

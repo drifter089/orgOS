@@ -174,17 +174,29 @@ export const manualMetricRouter = createTRPCRouter({
   /**
    * Update chart for manual metric check-ins.
    * Reuses existing transformer (no AI) or creates one if needed (AI, once).
+   * Invalidates dashboard cache to trigger goal progress recalculation.
    */
   updateChart: workspaceProcedure
     .input(z.object({ metricId: z.string() }))
     .mutation(async ({ ctx, input }) => {
-      await getMetricAndVerifyAccess(
+      const metric = await getMetricAndVerifyAccess(
         ctx.db,
         input.metricId,
         ctx.workspace.organizationId,
       );
 
-      return updateManualMetricChart({ metricId: input.metricId });
+      const result = await updateManualMetricChart({
+        metricId: input.metricId,
+      });
+
+      // Invalidate dashboard cache so goal progress recalculates with new data
+      await invalidateDashboardCache(
+        ctx.db,
+        ctx.workspace.organizationId,
+        metric.teamId,
+      );
+
+      return result;
     }),
 
   /**

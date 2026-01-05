@@ -1,5 +1,7 @@
 "use client";
 
+import { useMemo } from "react";
+
 import {
   Bar,
   BarChart,
@@ -20,7 +22,12 @@ import { formatValue } from "@/lib/helpers/format-value";
 import { cn } from "@/lib/utils";
 
 import type { BarChartProps } from "./types";
-import { formatAxisLabel, formatYAxisLabel, hasLongLabels } from "./utils";
+import {
+  calculateYAxisDomain,
+  formatAxisLabel,
+  formatYAxisLabel,
+  hasLongLabels,
+} from "./utils";
 
 export function MetricBarChart({
   chartData,
@@ -37,6 +44,13 @@ export function MetricBarChart({
   className,
 }: BarChartProps) {
   const needsRotation = hasLongLabels(chartData, xAxisKey);
+
+  // Calculate Y-axis domain to include goal value when present
+  // This ensures the goal line is always visible, even with high targets
+  const yAxisDomain = useMemo(
+    () => calculateYAxisDomain(chartData, dataKeys, goalValue),
+    [chartData, dataKeys, goalValue],
+  );
 
   return (
     <ChartContainer
@@ -81,6 +95,7 @@ export function MetricBarChart({
           width={45}
           tick={{ fontSize: 11 }}
           tickFormatter={formatYAxisLabel}
+          domain={yAxisDomain}
           label={
             yAxisLabel
               ? {

@@ -26,7 +26,12 @@ export function MetricCheckInCard({
   const utils = api.useUtils();
 
   const handleSuccess = async () => {
-    await utils.manualMetric.getForUser.invalidate();
+    // Invalidate both manual metric cache and dashboard cache
+    // Dashboard invalidation triggers goal progress recalculation
+    await Promise.all([
+      utils.manualMetric.getForUser.invalidate(),
+      utils.dashboard.getDashboardCharts.invalidate({ teamId: role.team.id }),
+    ]);
   };
 
   return (
