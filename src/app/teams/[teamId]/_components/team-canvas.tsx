@@ -590,6 +590,7 @@ export function TeamCanvas() {
         connectionMode={ConnectionMode.Loose}
         defaultViewport={savedViewport ?? undefined}
         fitView={!savedViewport}
+        minZoom={0.1}
         fitViewOptions={{
           maxZoom: 0.65,
           minZoom: 0.65,
