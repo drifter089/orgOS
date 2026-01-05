@@ -10,6 +10,8 @@ import "./src/env.js";
 const config = {
   pageExtensions: ["js", "jsx", "md", "mdx", "ts", "tsx"],
 
+  generateBuildId: async () => `build-${Date.now()}`,
+
   // Exclude native modules from Server Components bundling
   serverExternalPackages: ["isolated-vm"],
 
