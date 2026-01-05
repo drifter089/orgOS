@@ -9,9 +9,8 @@ import { getLatestMetricValue } from "@/lib/metrics/get-latest-value";
 import type { ChartTransformResult } from "@/lib/metrics/transformer-types";
 import { cn } from "@/lib/utils";
 import { api } from "@/trpc/react";
-import type { DashboardChartWithRelations } from "@/types/dashboard";
 
-import { useDashboardOptional } from "./dashboard-context";
+import { useDashboard } from "./dashboard-context";
 import { DashboardMetricChart } from "./dashboard-metric-chart";
 import {
   type DrawerTab,
@@ -31,8 +30,6 @@ interface DashboardMetricDrawerProps {
     cadence: Cadence,
     selectedDimension?: string,
   ) => void;
-  /** Optional: Pass chart data directly when context is not available (e.g., canvas) */
-  dashboardChartData?: DashboardChartWithRelations;
 }
 
 export function DashboardMetricDrawer({
@@ -41,15 +38,10 @@ export function DashboardMetricDrawer({
   onUpdateMetric,
   onClose,
   onRegenerateChart,
-  dashboardChartData,
 }: DashboardMetricDrawerProps) {
-  // Use dashboard context if available, otherwise use passed data (canvas)
-  const dashboardContext = useDashboardOptional();
-  const chartFromContext = dashboardContext?.charts.find(
-    (c) => c.id === dashboardChartId,
-  );
-  const dashboardChart = chartFromContext ?? dashboardChartData;
-  const isLoading = dashboardContext?.isLoading ?? false;
+  // Use dashboard context - drawer re-renders when cache changes
+  const { charts, isLoading } = useDashboard();
+  const dashboardChart = charts.find((c) => c.id === dashboardChartId);
 
   // Derive processing/error state from cache data
   const isProcessing = !!dashboardChart?.metric.refreshStatus;
