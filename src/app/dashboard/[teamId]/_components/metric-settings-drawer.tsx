@@ -33,7 +33,7 @@ import { getPlatformConfig } from "@/lib/platform-config";
 import { cn } from "@/lib/utils";
 import type { DashboardChartWithRelations } from "@/types/dashboard";
 
-import { useDashboard } from "./dashboard-context";
+import { useDashboardOptional } from "./dashboard-context";
 import { DashboardMetricDrawer } from "./dashboard-metric-drawer";
 import { useMetricDrawerMutations } from "./use-metric-drawer-mutations";
 
@@ -50,12 +50,20 @@ export function MetricSettingsDrawer({
 }: MetricSettingsDrawerProps) {
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [forceRebuild, setForceRebuild] = useState(false);
-  const { isProcessing, getError } = useDashboard();
+  const dashboardContext = useDashboardOptional();
 
   const metric = dashboardChart.metric;
   const metricId = metric.id;
-  const processing = isProcessing(metricId);
-  const error = getError(metricId);
+
+  // Use context if available (dashboard page), otherwise fall back to props (canvas)
+  const processing = dashboardContext
+    ? dashboardContext.isProcessing(metricId)
+    : !!metric.refreshStatus;
+  const error = dashboardContext
+    ? dashboardContext.getError(metricId)
+    : metric.refreshStatus
+      ? null
+      : (metric.lastError ?? null);
 
   const isIntegrationMetric = !!metric.integration?.providerId;
   const chartTransform =
@@ -231,6 +239,7 @@ export function MetricSettingsDrawer({
             onUpdateMetric={handleUpdateMetric}
             onClose={() => setIsDrawerOpen(false)}
             onRegenerateChart={handleRegenerateChart}
+            dashboardChartData={dashboardChart}
           />
         </div>
       </DrawerContent>
