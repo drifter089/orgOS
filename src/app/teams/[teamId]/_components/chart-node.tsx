@@ -2,7 +2,13 @@
 
 import { memo } from "react";
 
-import { Handle, type Node, type NodeProps, Position } from "@xyflow/react";
+import {
+  Handle,
+  type Node,
+  type NodeProps,
+  NodeResizer,
+  Position,
+} from "@xyflow/react";
 
 import {
   DashboardMetricCard,
@@ -38,19 +44,33 @@ const handleClassName = cn(
   "transition-transform hover:!scale-125",
 );
 
+const MIN_WIDTH = 400;
+const MIN_HEIGHT = 200;
+
 function ChartNodeComponent({ data, selected }: NodeProps<ChartNode>) {
   // Use override data if provided (public view), otherwise use direct data (private view)
   const dashboardMetric = data.dashboardMetricOverride ?? data.dashboardMetric;
+
+  const isReadOnly = data.readOnly;
 
   // Fallback UI when metric not found
   if (!dashboardMetric) {
     return (
       <div
         className={cn(
-          "bg-card w-[750px] rounded-xl border-2 p-6 shadow-md",
+          "bg-card h-full w-full rounded-xl border-2 p-6 shadow-md",
           selected && "ring-primary ring-2 ring-offset-2",
         )}
       >
+        {!isReadOnly && (
+          <NodeResizer
+            isVisible={selected}
+            minWidth={MIN_WIDTH}
+            minHeight={MIN_HEIGHT}
+            lineClassName="!border-primary/40"
+            handleClassName="!h-2 !w-2 !rounded-full !border-primary/60 !bg-background"
+          />
+        )}
         <Handle
           type="target"
           position={Position.Top}
@@ -85,11 +105,20 @@ function ChartNodeComponent({ data, selected }: NodeProps<ChartNode>) {
   return (
     <div
       className={cn(
-        "bg-card w-[750px] rounded-xl border-2 p-3 shadow-md",
+        "bg-card h-full w-full rounded-xl border-2 p-3 shadow-md",
         "transition-shadow hover:shadow-lg",
         selected && "ring-primary ring-2 ring-offset-2",
       )}
     >
+      {!isReadOnly && (
+        <NodeResizer
+          isVisible={selected}
+          minWidth={MIN_WIDTH}
+          minHeight={MIN_HEIGHT}
+          lineClassName="!border-primary/40"
+          handleClassName="!h-2 !w-2 !rounded-full !border-primary/60 !bg-background"
+        />
+      )}
       <Handle
         type="target"
         position={Position.Top}
@@ -115,8 +144,8 @@ function ChartNodeComponent({ data, selected }: NodeProps<ChartNode>) {
         className={handleClassName}
       />
 
-      <div className="overflow-hidden rounded-lg">
-        {data.readOnly ? (
+      <div className="h-full overflow-hidden rounded-lg">
+        {isReadOnly ? (
           <ReadOnlyMetricCard dashboardChart={dashboardMetric} />
         ) : (
           <DashboardMetricCard

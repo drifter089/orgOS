@@ -218,7 +218,7 @@ export function TeamCanvas() {
 
       if (isInput || editingTextNodeId || isDrawing) return;
 
-      if (e.key === "t" || e.key === "T") {
+      if ((e.key === "t" || e.key === "T") && !e.metaKey && !e.ctrlKey) {
         e.preventDefault();
         const position = mousePositionRef.current
           ? screenToFlowPosition(mousePositionRef.current)
@@ -308,6 +308,14 @@ export function TeamCanvas() {
       if (
         sourceNode?.type === "chart-node" &&
         targetNode?.type === "chart-node"
+      ) {
+        return null;
+      }
+
+      // Disable proximity edges for role-to-role (require manual drag)
+      if (
+        sourceNode?.type === "role-node" &&
+        targetNode?.type === "role-node"
       ) {
         return null;
       }
