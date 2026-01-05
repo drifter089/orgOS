@@ -14,9 +14,9 @@ import { isDevMode } from "@/lib/dev-mode";
 import type { ChartTransformResult } from "@/lib/metrics/transformer-types";
 import type { DashboardChartWithRelations } from "@/types/dashboard";
 
-import { useDashboardOptional } from "./dashboard-context";
 import { DashboardMetricChart } from "./dashboard-metric-chart";
 import { MetricSettingsDrawer } from "./metric-settings-drawer";
+import { useDashboardCharts } from "./use-dashboard-charts";
 
 interface DashboardMetricCardProps {
   dashboardChart: DashboardChartWithRelations;
@@ -27,20 +27,12 @@ export function DashboardMetricCard({
   dashboardChart,
   teamId,
 }: DashboardMetricCardProps) {
-  const dashboardContext = useDashboardOptional();
+  const { isProcessing, getError } = useDashboardCharts(teamId);
 
   const metric = dashboardChart.metric;
   const metricId = metric.id;
-
-  // Use context if available (dashboard page), otherwise fall back to props (canvas)
-  const processing = dashboardContext
-    ? dashboardContext.isProcessing(metricId)
-    : !!metric.refreshStatus;
-  const error = dashboardContext
-    ? dashboardContext.getError(metricId)
-    : metric.refreshStatus
-      ? null
-      : (metric.lastError ?? null);
+  const processing = isProcessing(metricId);
+  const error = getError(metricId);
 
   const isIntegrationMetric = !!metric.integration?.providerId;
   const chartTransform =
