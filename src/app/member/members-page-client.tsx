@@ -8,8 +8,8 @@ import { MemberCard } from "./member-card";
 function MemberCardSkeleton() {
   return (
     <div className="border-border/60 bg-card border p-6">
-      <div className="flex gap-6">
-        <div className="flex w-[220px] shrink-0 flex-col gap-4">
+      <div className="flex flex-col gap-6 md:flex-row">
+        <div className="flex w-full flex-col gap-4 md:w-[220px] md:shrink-0">
           <div className="flex items-center gap-4">
             <Skeleton className="h-14 w-14 shrink-0" />
             <div className="flex-1 space-y-2">
@@ -22,7 +22,7 @@ function MemberCardSkeleton() {
             <Skeleton className="h-5 w-16" />
           </div>
         </div>
-        <div className="grid flex-1 grid-cols-2 gap-4">
+        <div className="grid flex-1 grid-cols-1 gap-4 md:grid-cols-2">
           <Skeleton className="h-[320px] w-full" />
           <Skeleton className="h-[320px] w-full" />
         </div>

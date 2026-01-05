@@ -75,8 +75,8 @@ export function MemberCard({ member, dashboardCharts }: MemberCardProps) {
 
   return (
     <Card className="p-6">
-      <div className="flex gap-6">
-        <div className="flex w-[220px] shrink-0 flex-col gap-4">
+      <div className="flex flex-col gap-6 md:flex-row">
+        <div className="flex w-full flex-col gap-4 md:w-[220px] md:shrink-0">
           <div className="flex items-center gap-4">
             <Avatar className="h-14 w-14 shrink-0">
               <AvatarImage
@@ -122,7 +122,7 @@ export function MemberCard({ member, dashboardCharts }: MemberCardProps) {
           </Button>
         </div>
 
-        <div className="grid flex-1 grid-cols-2 gap-4">
+        <div className="grid flex-1 grid-cols-1 gap-4 md:grid-cols-2">
           {isLoading ? (
             <>
               <Skeleton className="h-[320px] w-full" />

@@ -2,7 +2,9 @@
 
 import { useState } from "react";
 
-import { ChevronDown, ChevronRight } from "lucide-react";
+import Link from "next/link";
+
+import { ChevronDown, ChevronRight, ExternalLink } from "lucide-react";
 
 import {
   Collapsible,
@@ -53,6 +55,14 @@ export function TeamSection({
                 )}
               </div>
               <span className="text-lg font-semibold">{team.name}</span>
+              <Link
+                href={`/teams/${team.id}`}
+                onClick={(e) => e.stopPropagation()}
+                className="text-muted-foreground hover:text-foreground transition-colors"
+                title="Open team canvas"
+              >
+                <ExternalLink className="h-4 w-4" />
+              </Link>
               <span className="text-muted-foreground text-xs tracking-wider uppercase">
                 {roles.length} {roles.length === 1 ? "role" : "roles"}
               </span>
