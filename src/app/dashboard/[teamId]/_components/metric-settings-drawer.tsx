@@ -82,7 +82,7 @@ export function MetricSettingsDrawer({
     <Drawer open={isDrawerOpen} onOpenChange={setIsDrawerOpen}>
       <DrawerTrigger asChild>{trigger}</DrawerTrigger>
 
-      <DrawerContent className="flex h-[85vh] max-h-[85vh] min-h-[400px] flex-col overflow-hidden sm:h-[75vh] sm:max-h-[75vh] md:h-[60vh] md:max-h-[60vh]">
+      <DrawerContent className="flex h-[92vh] max-h-[92vh] min-h-[500px] flex-col overflow-hidden sm:h-[85vh] sm:max-h-[85vh] md:h-[70vh] md:max-h-[70vh]">
         <DrawerHeader className="relative flex flex-row items-center justify-between border-b px-3 py-3 sm:px-6 sm:py-4">
           <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2 sm:gap-3">
             <DrawerTitle className="max-w-[140px] truncate text-base font-semibold sm:max-w-[200px] sm:text-lg md:max-w-none">
