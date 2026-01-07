@@ -138,14 +138,14 @@ export function DashboardMetricDialog({
       <div className="flex min-h-52 flex-col border-b md:border-r md:border-b-0">
         <DialogTabButtons activeTab={activeTab} onTabChange={setActiveTab} />
 
-        <div className="bg-muted/10 relative flex-1 overflow-hidden">
+        <div className="bg-muted/10 relative flex-1">
           {/* Goal Tab */}
           <div
             id="tabpanel-goal"
             role="tabpanel"
             aria-labelledby="tab-goal"
             className={cn(
-              "absolute inset-0 transition-all duration-200 ease-out",
+              "absolute inset-0 overflow-auto transition-all duration-200 ease-out",
               activeTab === "goal"
                 ? "translate-y-0 opacity-100"
                 : "pointer-events-none translate-y-2 opacity-0",
@@ -169,7 +169,7 @@ export function DashboardMetricDialog({
             role="tabpanel"
             aria-labelledby="tab-role"
             className={cn(
-              "absolute inset-0 transition-all duration-200 ease-out",
+              "absolute inset-0 overflow-auto transition-all duration-200 ease-out",
               activeTab === "role"
                 ? "translate-y-0 opacity-100"
                 : "pointer-events-none translate-y-2 opacity-0",
@@ -195,7 +195,7 @@ export function DashboardMetricDialog({
             role="tabpanel"
             aria-labelledby="tab-settings"
             className={cn(
-              "absolute inset-0 transition-all duration-200 ease-out",
+              "absolute inset-0 overflow-auto transition-all duration-200 ease-out",
               activeTab === "settings"
                 ? "translate-y-0 opacity-100"
                 : "pointer-events-none translate-y-2 opacity-0",

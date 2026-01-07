@@ -101,7 +101,7 @@ export function GoalTabContent({
   // Loading skeleton when goal data is being recalculated
   if (isRecalculating && goal) {
     return (
-      <div className="flex h-full flex-col overflow-y-auto p-4">
+      <div className="flex h-full flex-col p-4">
         <div className="mb-3">
           <h3 className="text-base font-semibold">Goal Progress</h3>
           <p className="text-muted-foreground mt-0.5 text-xs">Updating...</p>
@@ -145,7 +145,7 @@ export function GoalTabContent({
   // Editing Mode
   if (isEditing || !goal) {
     return (
-      <div className="flex h-full flex-col overflow-y-auto p-4">
+      <div className="flex h-full flex-col p-4">
         <div className="mb-3">
           <h3 className="text-base font-semibold">
             {goal ? "Edit Goal" : "Set Goal"}
@@ -245,7 +245,7 @@ export function GoalTabContent({
 
   // Display Mode
   return (
-    <div className="relative flex h-full flex-col overflow-y-auto p-4">
+    <div className="relative flex h-full flex-col p-4">
       {/* Edit button at top right */}
       <Button
         variant="outline"
