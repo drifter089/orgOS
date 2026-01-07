@@ -24,7 +24,7 @@ export function CanvasQuickActions({
         trigger={
           <Button
             variant="outline"
-            className="bg-background h-9 border px-3 text-sm font-medium shadow-lg hover:shadow-xl md:h-10 md:px-4"
+            className="border-border bg-background h-9 px-3 text-sm font-medium shadow-lg hover:shadow-xl md:h-10 md:px-4"
           >
             + Role
           </Button>
@@ -37,7 +37,7 @@ export function CanvasQuickActions({
         trigger={
           <Button
             variant="outline"
-            className="bg-background h-9 border px-3 text-sm font-medium shadow-lg hover:shadow-xl md:h-10 md:px-4"
+            className="border-border bg-background h-9 px-3 text-sm font-medium shadow-lg hover:shadow-xl md:h-10 md:px-4"
           >
             + KPI
           </Button>

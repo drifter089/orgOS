@@ -116,13 +116,13 @@ export function MemberCard({
           )}
         </div>
 
-        {/* Admin + Directory badges - hidden on very small widths */}
-        <div className="xs:flex hidden shrink-0 items-center gap-1">
+        {/* Admin + Directory badges - hidden on small screens */}
+        <div className="hidden shrink-0 items-center gap-1 sm:flex">
           {member.canLogin && (
             <Badge
               variant="outline"
               className={cn(
-                "h-5 gap-0.5 px-1 text-[9px] font-normal sm:px-1.5 sm:text-[10px]",
+                "h-5 gap-0.5 px-1 text-[10px] font-normal sm:px-1.5 sm:text-[10px]",
                 isActive
                   ? "border-primary-foreground/30 text-primary-foreground"
                   : "border-green-500/50 text-green-600 dark:text-green-400",
@@ -136,7 +136,7 @@ export function MemberCard({
             <Badge
               variant="secondary"
               className={cn(
-                "h-5 gap-0.5 px-1 text-[9px] font-normal sm:px-1.5 sm:text-[10px]",
+                "h-5 gap-0.5 px-1 text-[10px] font-normal sm:px-1.5 sm:text-[10px]",
                 isActive && "bg-primary-foreground/20 text-primary-foreground",
               )}
             >
@@ -155,7 +155,7 @@ export function MemberCard({
             <Badge
               variant="secondary"
               className={cn(
-                "h-4 gap-0.5 px-1 text-[9px] font-normal sm:h-5 sm:px-1.5 sm:text-[10px]",
+                "h-4 gap-0.5 px-1 text-[10px] font-normal sm:h-5 sm:px-1.5 sm:text-[10px]",
                 isActive && "bg-primary-foreground/20 text-primary-foreground",
               )}
             >
@@ -167,7 +167,7 @@ export function MemberCard({
             <Badge
               variant="outline"
               className={cn(
-                "h-4 gap-0.5 px-1 text-[9px] font-normal sm:h-5 sm:px-1.5 sm:text-[10px]",
+                "h-4 gap-0.5 px-1 text-[10px] font-normal sm:h-5 sm:px-1.5 sm:text-[10px]",
                 isActive &&
                   "border-primary-foreground/30 text-primary-foreground",
               )}
@@ -180,7 +180,7 @@ export function MemberCard({
             <Badge
               variant="outline"
               className={cn(
-                "h-4 gap-0.5 px-1 text-[9px] font-normal sm:h-5 sm:px-1.5 sm:text-[10px]",
+                "h-4 gap-0.5 px-1 text-[10px] font-normal sm:h-5 sm:px-1.5 sm:text-[10px]",
                 isActive &&
                   "border-primary-foreground/30 text-primary-foreground",
               )}
@@ -197,7 +197,7 @@ export function MemberCard({
           variant={isActive ? "secondary" : "outline"}
           size="sm"
           className={cn(
-            "h-5 shrink-0 gap-0.5 border px-1.5 text-[10px] transition-all duration-200 hover:scale-[1.02] sm:h-6 sm:gap-1 sm:px-2 sm:text-xs",
+            "group h-5 shrink-0 gap-0.5 px-1.5 text-[10px] transition-all duration-200 hover:scale-[1.02] sm:h-6 sm:gap-1 sm:px-2 sm:text-xs",
             isActive
               ? "bg-primary-foreground/20 text-primary-foreground hover:bg-primary-foreground/30"
               : "border-border hover:border-primary/50 hover:bg-accent/50",
