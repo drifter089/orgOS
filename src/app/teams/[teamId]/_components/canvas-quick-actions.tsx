@@ -1,7 +1,5 @@
 "use client";
 
-import { Briefcase, Plus, Target } from "lucide-react";
-
 import { PlatformsDialog } from "@/app/integration/_components";
 import { Button } from "@/components/ui/button";
 import type { RouterOutputs } from "@/trpc/react";
@@ -24,10 +22,11 @@ export function CanvasQuickActions({
       <RoleDialog
         teamId={teamId}
         trigger={
-          <Button size="lg" className="gap-2 shadow-lg hover:shadow-xl">
-            <Plus className="h-4 w-4" />
-            <Briefcase className="h-4 w-4" />
-            <span className="text-sm font-medium">Role</span>
+          <Button
+            variant="outline"
+            className="h-9 px-3 text-sm font-medium shadow-lg hover:shadow-xl md:h-10 md:px-4"
+          >
+            + Role
           </Button>
         }
       />
@@ -36,10 +35,11 @@ export function CanvasQuickActions({
         teamId={teamId}
         initialIntegrations={initialIntegrations}
         trigger={
-          <Button size="lg" className="gap-2 shadow-lg hover:shadow-xl">
-            <Plus className="h-4 w-4" />
-            <Target className="h-4 w-4" />
-            <span className="text-sm font-medium">KPI</span>
+          <Button
+            variant="outline"
+            className="h-9 px-3 text-sm font-medium shadow-lg hover:shadow-xl md:h-10 md:px-4"
+          >
+            + KPI
           </Button>
         }
       />
