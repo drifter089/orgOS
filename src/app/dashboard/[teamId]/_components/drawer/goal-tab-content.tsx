@@ -248,20 +248,20 @@ export function GoalTabContent({
 
   // Display Mode
   return (
-    <div className="flex h-full flex-col overflow-y-auto p-6">
-      <div className="mb-6">
-        <div className="flex items-start justify-between">
-          <h3 className="text-base font-semibold">Goal Progress</h3>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={handleEditGoal}
-            className="text-muted-foreground hover:text-foreground -mr-2 h-8 gap-1 px-2"
-          >
-            <Pencil className="h-3.5 w-3.5" />
-            Edit
-          </Button>
-        </div>
+    <div className="relative flex h-full flex-col overflow-y-auto p-6">
+      {/* Edit button at top right */}
+      <Button
+        variant="outline"
+        size="icon"
+        onClick={handleEditGoal}
+        className="absolute top-0 right-0 h-10 w-10 rounded-none border-t-0 border-r-0 border-b border-l"
+      >
+        <Pencil className="h-4 w-4" />
+        <span className="sr-only">Edit goal</span>
+      </Button>
+
+      <div className="mb-6 pr-12">
+        <h3 className="text-base font-semibold">Goal Progress</h3>
         <p className="text-muted-foreground mt-1 text-xs leading-relaxed">
           Track your progress towards the target you&apos;ve set.
         </p>
