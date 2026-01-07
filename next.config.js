@@ -33,7 +33,7 @@ const config = {
               "style-src 'self' 'unsafe-inline'",
               "img-src 'self' data: https:",
               "font-src 'self' data:",
-              "connect-src 'self' https://api.workos.com https://*.workos.com https://api.nango.dev",
+              "connect-src 'self' https://api.workos.com https://*.workos.com https://api.nango.dev https://*.posthog.com https://eu.i.posthog.com",
               "frame-src 'self' https://authkit.workos.com https://*.workos.com https://connect.nango.dev",
             ]
               .join("; ")
