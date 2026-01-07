@@ -81,32 +81,32 @@ export function SettingsTabContent({
   };
 
   return (
-    <div className="flex h-full flex-col overflow-y-auto p-4 pb-6 sm:p-5 sm:pb-8">
-      <div className="mb-5">
+    <div className="flex h-full flex-col overflow-y-auto p-6">
+      <div className="mb-6">
         <h3 className="text-base font-semibold">Settings</h3>
         <p className="text-muted-foreground mt-1 text-xs leading-relaxed">
           Configure how this metric is displayed and set the tracking cadence.
         </p>
       </div>
 
-      <div className="space-y-5">
+      <div className="space-y-4">
         {/* Metric Name */}
         <div className="space-y-2">
-          <Label className="text-xs">Metric Name</Label>
+          <Label className="text-xs font-medium">Metric Name</Label>
           <div className="flex gap-2">
             <Input
               value={name}
               onChange={(e) => handleNameChange(e.target.value)}
-              className="h-8 text-sm"
+              className="h-10 text-sm"
             />
             <Button
               size="icon"
               variant="outline"
-              className="h-8 w-8 shrink-0"
+              className="h-10 w-10 shrink-0"
               onClick={handleSaveName}
               disabled={!hasNameChanges || !name.trim() || name === metricName}
             >
-              <Check className="h-3 w-3" />
+              <Check className="h-4 w-4" />
             </Button>
           </div>
         </div>
@@ -114,7 +114,7 @@ export function SettingsTabContent({
         {/* Chart Type - only for integration metrics */}
         {isIntegrationMetric && (
           <div className="space-y-2">
-            <Label className="text-xs">Chart Type</Label>
+            <Label className="text-xs font-medium">Chart Type</Label>
             <ToggleGroup
               type="single"
               value={selectedChartType}
@@ -124,17 +124,17 @@ export function SettingsTabContent({
               <ToggleGroupItem
                 value="bar"
                 aria-label="Bar Chart"
-                className="data-[state=on]:border-primary data-[state=on]:bg-primary data-[state=on]:text-primary-foreground border"
+                className="data-[state=on]:border-primary data-[state=on]:bg-primary data-[state=on]:text-primary-foreground border text-sm"
               >
-                <BarChart3 className="mr-1.5 h-4 w-4" />
+                <BarChart3 className="mr-2 h-4 w-4" />
                 Bar
               </ToggleGroupItem>
               <ToggleGroupItem
                 value="line"
                 aria-label="Line Chart"
-                className="data-[state=on]:border-primary data-[state=on]:bg-primary data-[state=on]:text-primary-foreground border"
+                className="data-[state=on]:border-primary data-[state=on]:bg-primary data-[state=on]:text-primary-foreground border text-sm"
               >
-                <TrendingUp className="mr-1.5 h-4 w-4" />
+                <TrendingUp className="mr-2 h-4 w-4" />
                 Line
               </ToggleGroupItem>
             </ToggleGroup>
@@ -144,7 +144,7 @@ export function SettingsTabContent({
         {/* Cadence - only for integration metrics */}
         {isIntegrationMetric && (
           <div className="space-y-2">
-            <Label className="text-xs">Cadence</Label>
+            <Label className="text-xs font-medium">Cadence</Label>
             <ToggleGroup
               type="single"
               value={selectedCadence}
@@ -155,7 +155,7 @@ export function SettingsTabContent({
                 <ToggleGroupItem
                   key={c}
                   value={c}
-                  className="data-[state=on]:border-primary data-[state=on]:bg-primary data-[state=on]:text-primary-foreground border text-xs"
+                  className="data-[state=on]:border-primary data-[state=on]:bg-primary data-[state=on]:text-primary-foreground border text-sm"
                 >
                   {c.charAt(0) + c.slice(1).toLowerCase()}
                 </ToggleGroupItem>
@@ -166,7 +166,7 @@ export function SettingsTabContent({
 
         {/* Manual metric info */}
         {!isIntegrationMetric && (
-          <div className="bg-muted/50 rounded-md border p-3">
+          <div className="bg-muted/50 border p-4">
             <p className="text-muted-foreground text-xs leading-relaxed">
               Chart type and cadence are set when creating a manual metric and
               match the check-in periods. To change these settings, create a new
@@ -178,9 +178,9 @@ export function SettingsTabContent({
         {/* Dimensions - only for integration metrics */}
         {isIntegrationMetric && (
           <div className="space-y-2">
-            <Label className="text-xs">Dimension</Label>
+            <Label className="text-xs font-medium">Dimension</Label>
             {isDimensionsLoading ? (
-              <div className="flex h-8 items-center justify-center border">
+              <div className="flex h-10 items-center justify-center border">
                 <Loader2 className="text-muted-foreground h-4 w-4 animate-spin" />
               </div>
             ) : availableDimensions && availableDimensions.length > 0 ? (
@@ -188,7 +188,7 @@ export function SettingsTabContent({
                 value={selectedDimension}
                 onValueChange={setSelectedDimension}
               >
-                <SelectTrigger className="h-8 text-sm">
+                <SelectTrigger className="h-10 text-sm">
                   <SelectValue placeholder="Select dimension" />
                 </SelectTrigger>
                 <SelectContent>
@@ -203,7 +203,7 @@ export function SettingsTabContent({
                 </SelectContent>
               </Select>
             ) : (
-              <div className="text-muted-foreground h-8 border px-3 py-1.5 text-sm">
+              <div className="text-muted-foreground flex h-10 items-center border px-4 text-sm">
                 No dimensions available
               </div>
             )}
@@ -216,7 +216,7 @@ export function SettingsTabContent({
             size="sm"
             onClick={onApplyChanges}
             disabled={isProcessing || !hasChartChanges}
-            className="w-full transition-all duration-200 active:scale-[0.98]"
+            className="mt-4 h-10 w-full transition-all duration-200 active:scale-[0.98]"
           >
             {isProcessing ? (
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
