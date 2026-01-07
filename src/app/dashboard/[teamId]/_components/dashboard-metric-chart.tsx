@@ -55,6 +55,8 @@ interface DashboardMetricChartProps {
   isProcessing?: boolean;
   /** Actual timestamp of the latest data point from the database */
   latestDataTimestamp?: Date | null;
+  /** Custom className for the card container */
+  className?: string;
 }
 
 export function DashboardMetricChart({
@@ -69,6 +71,7 @@ export function DashboardMetricChart({
   valueLabel,
   isProcessing = false,
   latestDataTimestamp,
+  className,
 }: DashboardMetricChartProps) {
   const platformConfig = integrationId
     ? getPlatformConfig(integrationId)
@@ -233,7 +236,7 @@ export function DashboardMetricChart({
   };
 
   return (
-    <Card className="flex h-[420px] flex-col">
+    <Card className={cn("flex h-[420px] flex-col", className)}>
       <CardHeader className="flex-shrink-0 space-y-0.5 px-5 pt-3 pb-1">
         <div className="flex items-center justify-between gap-2">
           <div className="flex min-w-0 items-center gap-1.5">

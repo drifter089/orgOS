@@ -82,13 +82,13 @@ export function MetricSettingsDialog({
       <DialogTrigger asChild>{trigger}</DialogTrigger>
 
       <DialogContent
-        className="flex h-[92vh] max-h-[92vh] w-full max-w-[calc(100%-1rem)] flex-col gap-0 overflow-hidden p-0 sm:h-[85vh] sm:max-h-[85vh] sm:max-w-5xl md:h-[80vh] md:max-h-[80vh] md:max-w-6xl"
+        className="flex h-[92vh] max-h-[92vh] w-full max-w-[calc(100%-1rem)] flex-col gap-0 overflow-hidden p-0 sm:h-[85vh] sm:max-h-[85vh] sm:max-w-5xl md:h-[80vh] md:max-h-[80vh] md:max-w-7xl"
         showCloseButton={false}
       >
         {/* Header */}
-        <div className="flex items-center justify-between">
+        <div className="flex shrink-0 items-stretch border-b">
           {/* Left side: Title and badges */}
-          <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2 border-b px-4 py-3 sm:gap-3 sm:px-6">
+          <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2 px-4 py-4 sm:gap-3 sm:px-6">
             <DialogTitle className="max-w-40 truncate text-lg font-semibold sm:max-w-72 md:max-w-none">
               {metric.name}
             </DialogTitle>
@@ -136,14 +136,14 @@ export function MetricSettingsDialog({
           </div>
 
           {/* Right side: Action buttons - flush to edge with borders */}
-          <div className="flex shrink-0 items-center">
+          <div className="flex shrink-0 items-stretch">
             {!isIntegrationMetric && (
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Button
                     variant="ghost"
                     size="sm"
-                    className="hover:bg-muted h-10 gap-1 rounded-none border-b border-l px-3"
+                    className="hover:bg-muted h-auto gap-1 rounded-none border-l px-3"
                     asChild
                   >
                     <Link href={`/metric/check-in/${metricId}`}>
@@ -163,7 +163,7 @@ export function MetricSettingsDialog({
                 <Button
                   variant="ghost"
                   size="sm"
-                  className="hover:bg-muted h-10 gap-2 rounded-none border-b border-l px-3"
+                  className="hover:bg-muted h-auto gap-2 rounded-none border-l px-3"
                   onClick={() => handleRefresh(forceRebuild)}
                   disabled={processing}
                 >
@@ -186,7 +186,7 @@ export function MetricSettingsDialog({
 
             <Tooltip>
               <TooltipTrigger asChild>
-                <div className="flex h-10 items-center border-b border-l px-2">
+                <div className="flex items-center border-l px-2">
                   <Switch
                     checked={forceRebuild}
                     onCheckedChange={setForceRebuild}
@@ -204,7 +204,7 @@ export function MetricSettingsDialog({
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90 h-10 w-10 rounded-none border-b border-l"
+                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90 h-auto w-12 rounded-none border-l"
                   onClick={handleDelete}
                   disabled={isDeleting}
                 >
@@ -225,7 +225,7 @@ export function MetricSettingsDialog({
               <Button
                 variant="ghost"
                 size="icon"
-                className="hover:bg-muted h-10 w-10 rounded-none border-b border-l"
+                className="hover:bg-muted h-auto w-12 rounded-none border-l"
               >
                 <X className="h-4 w-4" />
                 <span className="sr-only">Close</span>

@@ -133,11 +133,12 @@ export function DashboardMetricDialog({
   };
 
   return (
-    <div className="flex h-full flex-col">
-      <DialogTabButtons activeTab={activeTab} onTabChange={setActiveTab} />
+    <div className="grid h-full min-h-0 md:grid-cols-[30%_70%]">
+      {/* Left side: Tabs + Tab Content (30%) */}
+      <div className="flex min-h-52 flex-col border-b md:border-r md:border-b-0">
+        <DialogTabButtons activeTab={activeTab} onTabChange={setActiveTab} />
 
-      <div className="grid min-h-0 flex-1 md:grid-cols-[1fr_1.2fr]">
-        <div className="bg-muted/10 relative min-h-52 overflow-hidden border-b md:border-r md:border-b-0">
+        <div className="bg-muted/10 relative flex-1 overflow-hidden">
           {/* Goal Tab */}
           <div
             id="tabpanel-goal"
@@ -220,25 +221,23 @@ export function DashboardMetricDialog({
             />
           </div>
         </div>
-
-        <div className="flex min-h-0 flex-1 flex-col">
-          <div className="flex-1 overflow-hidden p-4 sm:p-6">
-            <DashboardMetricChart
-              title={chartTransform?.title ?? metric.name}
-              chartTransform={chartTransform ?? null}
-              hasChartData={hasChartData}
-              isIntegrationMetric={isIntegrationMetric}
-              integrationId={metric.integration?.providerId}
-              roles={metric.roles ?? []}
-              goal={metric.goal}
-              goalProgress={goalProgress}
-              valueLabel={dashboardChart.valueLabel ?? null}
-              isProcessing={isProcessing}
-              latestDataTimestamp={dashboardChart.latestDataTimestamp ?? null}
-            />
-          </div>
-        </div>
       </div>
+
+      {/* Right side: Chart (70%) */}
+      <DashboardMetricChart
+        title={chartTransform?.title ?? metric.name}
+        chartTransform={chartTransform ?? null}
+        hasChartData={hasChartData}
+        isIntegrationMetric={isIntegrationMetric}
+        integrationId={metric.integration?.providerId}
+        roles={metric.roles ?? []}
+        goal={metric.goal}
+        goalProgress={goalProgress}
+        valueLabel={dashboardChart.valueLabel ?? null}
+        isProcessing={isProcessing}
+        latestDataTimestamp={dashboardChart.latestDataTimestamp ?? null}
+        className="h-full rounded-none border-0 shadow-none"
+      />
     </div>
   );
 }
