@@ -112,21 +112,21 @@ export function TeamsList() {
                 exit={{ opacity: 0, scale: 0.95 }}
               >
                 <Card className="ring-primary/20 cursor-not-allowed p-4 opacity-70 ring-2">
-                  <div className="flex flex-col gap-3">
+                  <div className="flex flex-col gap-2">
                     <div className="flex items-center gap-2">
-                      <CardTitle className="line-clamp-1 flex-1 text-xl font-semibold">
+                      <CardTitle className="line-clamp-1 flex-1 text-lg font-semibold">
                         {team.name}
                       </CardTitle>
-                      <Badge variant="outline" className="shrink-0 gap-1.5">
+                      <Badge variant="outline" className="shrink-0 gap-1">
                         <Loader2 className="h-3 w-3 animate-spin" />
                         Creating
                       </Badge>
                     </div>
                     <div className="flex gap-2">
-                      <Badge variant="secondary" className="gap-1.5">
+                      <Badge variant="secondary" className="gap-1">
                         <Briefcase className="h-3 w-3" />0 roles
                       </Badge>
-                      <Badge variant="secondary" className="gap-1.5">
+                      <Badge variant="secondary" className="gap-1">
                         <Target className="h-3 w-3" />0 KPIs
                       </Badge>
                     </div>
@@ -157,26 +157,26 @@ export function TeamsList() {
                   className="cursor-not-allowed p-4 opacity-60"
                   onClick={handleLockedClick}
                 >
-                  <div className="flex flex-col gap-3">
+                  <div className="flex flex-col gap-2">
                     <div className="flex items-start justify-between gap-2">
-                      <CardTitle className="line-clamp-1 text-2xl font-bold">
+                      <CardTitle className="line-clamp-1 text-lg font-semibold">
                         {team.name}
                       </CardTitle>
                       <Badge
                         variant="outline"
-                        className="border-amber-300 bg-amber-50 text-amber-700"
+                        className="border-amber-300 bg-amber-50 text-amber-700 dark:border-amber-600 dark:bg-amber-950 dark:text-amber-400"
                       >
                         <Lock className="mr-1 h-3 w-3" />
                         {lockedByUserName ?? "In use"}
                       </Badge>
                     </div>
                     <div className="flex gap-2">
-                      <Badge variant="secondary" className="gap-1.5">
+                      <Badge variant="secondary" className="gap-1">
                         <Briefcase className="h-3 w-3" />
                         {team._count.roles}{" "}
                         {team._count.roles !== 1 ? "roles" : "role"}
                       </Badge>
-                      <Badge variant="secondary" className="gap-1.5">
+                      <Badge variant="secondary" className="gap-1">
                         <Target className="h-3 w-3" />
                         {team._count.metrics}{" "}
                         {team._count.metrics !== 1 ? "KPIs" : "KPI"}
@@ -196,26 +196,24 @@ export function TeamsList() {
               exit={{ opacity: 0, scale: 0.95 }}
             >
               <Link href={`/teams/${team.id}`} className="block">
-                <Card className="group hover:border-primary/50 hover:bg-accent/50 cursor-pointer p-4 transition-colors">
-                  <div className="flex flex-col gap-3">
-                    <div className="flex items-start justify-between gap-2">
-                      <CardTitle className="group-hover:text-primary line-clamp-1 text-2xl font-bold transition-colors">
-                        {team.name}
-                      </CardTitle>
-                      <DeleteTeamDialog
-                        teamId={team.id}
-                        teamName={team.name}
-                        roleCount={team._count.roles}
-                        metricCount={team._count.metrics}
-                      />
-                    </div>
+                <Card className="group hover:border-primary/50 hover:bg-accent/50 relative cursor-pointer p-4 transition-colors">
+                  <DeleteTeamDialog
+                    teamId={team.id}
+                    teamName={team.name}
+                    roleCount={team._count.roles}
+                    metricCount={team._count.metrics}
+                  />
+                  <div className="flex flex-col gap-2 pr-6">
+                    <CardTitle className="group-hover:text-primary line-clamp-1 text-lg font-semibold transition-colors">
+                      {team.name}
+                    </CardTitle>
                     <div className="flex gap-2">
-                      <Badge variant="secondary" className="gap-1.5">
+                      <Badge variant="secondary" className="gap-1">
                         <Briefcase className="h-3 w-3" />
                         {team._count.roles}{" "}
                         {team._count.roles !== 1 ? "roles" : "role"}
                       </Badge>
-                      <Badge variant="secondary" className="gap-1.5">
+                      <Badge variant="secondary" className="gap-1">
                         <Target className="h-3 w-3" />
                         {team._count.metrics}{" "}
                         {team._count.metrics !== 1 ? "KPIs" : "KPI"}

@@ -11,13 +11,13 @@ import { OrganizationDetails } from "./_components/OrganizationDetails";
 
 function OrganizationDetailsLoading() {
   return (
-    <div className="flex flex-wrap items-center justify-between gap-4">
+    <div className="flex flex-wrap items-center justify-between gap-3">
       <div className="flex items-center gap-3">
-        <Skeleton className="h-9 w-9 rounded-full" />
+        <Skeleton className="h-8 w-8" />
         <Skeleton className="h-4 w-32" />
         <Skeleton className="h-5 w-16" />
       </div>
-      <Skeleton className="h-9 w-28" />
+      <Skeleton className="h-8 w-28" />
     </div>
   );
 }
@@ -30,7 +30,7 @@ export default async function OrganizationPage() {
     return (
       <HydrateClient>
         <div className="min-h-screen">
-          <div className="container mx-auto max-w-7xl px-6 pt-16 pb-8 sm:px-8 sm:pt-20 sm:pb-12 lg:px-12 lg:pt-24 lg:pb-16">
+          <div className="container mx-auto max-w-6xl px-4 pt-8 pb-8 sm:px-6 sm:pt-12 sm:pb-12 lg:px-8 lg:pt-16 lg:pb-16">
             <CreateOrganization />
           </div>
         </div>
@@ -50,19 +50,17 @@ export default async function OrganizationPage() {
   return (
     <HydrateClient>
       <div className="min-h-screen">
-        <div className="container mx-auto max-w-7xl px-6 pt-16 pb-8 sm:px-8 sm:pt-20 sm:pb-12 lg:px-12 lg:pt-24 lg:pb-16">
+        <div className="container mx-auto max-w-6xl px-4 pt-8 pb-8 sm:px-6 sm:pt-12 sm:pb-12 lg:px-8 lg:pt-16 lg:pb-16">
           {/* Page Header */}
-          <div className="animate-in fade-in slide-in-from-bottom-4 mb-8 space-y-4 duration-500 sm:mb-12">
-            <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">
-              {orgName}
-            </h1>
+          <div className="animate-in fade-in slide-in-from-bottom-4 mb-8 space-y-3 duration-500">
+            <h1 className="text-2xl font-bold tracking-tight">{orgName}</h1>
             <Suspense fallback={<OrganizationDetailsLoading />}>
               <OrganizationDetails />
             </Suspense>
           </div>
 
           {/* Directory Sync Section */}
-          <section className="animate-in fade-in slide-in-from-bottom-4 mb-8 max-w-md delay-75 duration-500">
+          <section className="animate-in fade-in slide-in-from-bottom-4 mb-8 delay-75 duration-500">
             <DirectorySyncSection
               hasDirectorySync={orgData.hasDirectorySync}
               directory={orgData.directory}
@@ -70,11 +68,9 @@ export default async function OrganizationPage() {
           </section>
 
           {/* Teams Section */}
-          <section className="animate-in fade-in slide-in-from-bottom-4 space-y-6 delay-100 duration-500">
-            <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between sm:gap-6">
-              <h2 className="text-2xl font-bold tracking-tight sm:text-3xl">
-                Teams
-              </h2>
+          <section className="animate-in fade-in slide-in-from-bottom-4 space-y-4 delay-100 duration-500">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <h2 className="text-xl font-semibold tracking-tight">Teams</h2>
               <div className="shrink-0">
                 <CreateTeamDialog />
               </div>

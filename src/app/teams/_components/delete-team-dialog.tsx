@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 
-import { Briefcase, Loader2, Target, Trash2 } from "lucide-react";
+import { Briefcase, Loader2, Target, X } from "lucide-react";
 
 import {
   AlertDialog,
@@ -16,7 +16,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
-import { Button, buttonVariants } from "@/components/ui/button";
+import { buttonVariants } from "@/components/ui/button";
 import { api } from "@/trpc/react";
 
 interface DeleteTeamDialogProps {
@@ -68,15 +68,13 @@ export function DeleteTeamDialog({
   return (
     <AlertDialog open={open} onOpenChange={setOpen}>
       <AlertDialogTrigger asChild>
-        <Button
-          variant="outline"
-          size="icon"
-          className="text-muted-foreground hover:text-destructive hover:bg-destructive/10 h-8 w-8 shrink-0"
+        <button
+          className="text-muted-foreground hover:text-destructive hover:bg-destructive/10 absolute top-0 right-0 flex h-7 w-7 items-center justify-center opacity-0 transition-all group-hover:opacity-100 focus:opacity-100"
           onClick={(e) => e.stopPropagation()}
         >
-          <Trash2 className="h-4 w-4" />
+          <X className="h-4 w-4" />
           <span className="sr-only">Delete team</span>
-        </Button>
+        </button>
       </AlertDialogTrigger>
       <AlertDialogContent onClick={(e) => e.stopPropagation()}>
         <AlertDialogHeader>
