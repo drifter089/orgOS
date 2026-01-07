@@ -1,5 +1,6 @@
 "use client";
 
+import * as SheetPrimitive from "@radix-ui/react-dialog";
 import {
   Briefcase,
   ExternalLink,
@@ -7,6 +8,7 @@ import {
   LogIn,
   Mail,
   Target,
+  X,
 } from "lucide-react";
 import { Link } from "next-transition-router";
 
@@ -167,19 +169,27 @@ export function MembersPanel({
 }: MembersPanelProps) {
   return (
     <div className={cn("flex h-full flex-col", className)}>
-      <div className="flex shrink-0 items-center justify-between border-b px-4 py-3 pr-14">
+      <div className="flex shrink-0 items-center justify-between border-b px-4 py-3">
         <div>
           <h2 className="text-lg font-semibold tracking-tight">{title}</h2>
           <p className="text-muted-foreground text-xs">
             {members.length} {members.length === 1 ? "member" : "members"}
           </p>
         </div>
-        <Button variant="outline" size="sm" asChild>
-          <Link href="/member">
-            View All
-            <ExternalLink className="ml-1.5 h-3 w-3" />
-          </Link>
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" asChild>
+            <Link href="/member">
+              View All
+              <ExternalLink className="ml-1.5 h-3 w-3" />
+            </Link>
+          </Button>
+          <SheetPrimitive.Close asChild>
+            <Button variant="outline" size="sm" className="h-8 w-8 p-0">
+              <X className="h-4 w-4" />
+              <span className="sr-only">Close</span>
+            </Button>
+          </SheetPrimitive.Close>
+        </div>
       </div>
 
       <div className="flex-1 overflow-y-auto px-4 py-3">

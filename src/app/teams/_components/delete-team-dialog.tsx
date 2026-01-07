@@ -17,6 +17,11 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { api } from "@/trpc/react";
 
 interface DeleteTeamDialogProps {
@@ -67,15 +72,26 @@ export function DeleteTeamDialog({
 
   return (
     <AlertDialog open={open} onOpenChange={setOpen}>
-      <AlertDialogTrigger asChild>
-        <button
-          className="text-muted-foreground hover:text-destructive hover:bg-destructive/10 absolute top-0 right-0 flex h-7 w-7 items-center justify-center opacity-0 transition-all group-hover:opacity-100 focus:opacity-100"
-          onClick={(e) => e.stopPropagation()}
-        >
-          <X className="h-4 w-4" />
-          <span className="sr-only">Delete team</span>
-        </button>
-      </AlertDialogTrigger>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <AlertDialogTrigger asChild>
+            <button
+              data-delete-button
+              className="bg-destructive/10 text-destructive border-destructive/30 hover:bg-destructive hover:text-destructive-foreground hover:border-destructive absolute top-0 right-0 z-10 flex h-6 w-6 items-center justify-center rounded-tr-[calc(var(--radius)-1px)] rounded-bl-md border-b border-l transition-all"
+              onClick={(e) => {
+                e.stopPropagation();
+              }}
+              onMouseDown={(e) => {
+                e.stopPropagation();
+              }}
+            >
+              <X className="h-3.5 w-3.5" />
+              <span className="sr-only">Delete team</span>
+            </button>
+          </AlertDialogTrigger>
+        </TooltipTrigger>
+        <TooltipContent side="top">Delete team</TooltipContent>
+      </Tooltip>
       <AlertDialogContent onClick={(e) => e.stopPropagation()}>
         <AlertDialogHeader>
           <AlertDialogTitle>Delete &quot;{teamName}&quot;?</AlertDialogTitle>

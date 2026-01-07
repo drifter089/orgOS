@@ -3,7 +3,14 @@
 import Link from "next/link";
 
 import { AnimatePresence, motion } from "framer-motion";
-import { Briefcase, Loader2, Lock, Target, Users } from "lucide-react";
+import {
+  ArrowRight,
+  Briefcase,
+  Loader2,
+  Lock,
+  Target,
+  Users,
+} from "lucide-react";
 import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
@@ -195,33 +202,39 @@ export function TeamsList() {
               layout
               exit={{ opacity: 0, scale: 0.95 }}
             >
-              <Link href={`/teams/${team.id}`} className="block">
-                <Card className="group hover:border-primary/50 hover:bg-accent/50 relative cursor-pointer p-4 transition-colors">
-                  <DeleteTeamDialog
-                    teamId={team.id}
-                    teamName={team.name}
-                    roleCount={team._count.roles}
-                    metricCount={team._count.metrics}
-                  />
-                  <div className="flex flex-col gap-2 pr-6">
-                    <CardTitle className="group-hover:text-primary line-clamp-1 text-lg font-semibold transition-colors">
+              <Card className="group has-[[data-delete-button]:hover]:border-border hover:border-primary/50 relative cursor-pointer p-4 transition-all duration-200 hover:shadow-md has-[[data-delete-button]:hover]:bg-transparent">
+                <Link
+                  href={`/teams/${team.id}`}
+                  className="absolute inset-0 z-0"
+                  aria-label={`View ${team.name} team`}
+                />
+                <DeleteTeamDialog
+                  teamId={team.id}
+                  teamName={team.name}
+                  roleCount={team._count.roles}
+                  metricCount={team._count.metrics}
+                />
+                <div className="pointer-events-none relative z-0 flex flex-col gap-2 pr-8">
+                  <div className="flex items-center gap-2">
+                    <CardTitle className="group-has-[[data-delete-button]:hover]:text-foreground group-hover:text-primary line-clamp-1 text-lg font-semibold transition-colors">
                       {team.name}
                     </CardTitle>
-                    <div className="flex gap-2">
-                      <Badge variant="secondary" className="gap-1">
-                        <Briefcase className="h-3 w-3" />
-                        {team._count.roles}{" "}
-                        {team._count.roles !== 1 ? "roles" : "role"}
-                      </Badge>
-                      <Badge variant="secondary" className="gap-1">
-                        <Target className="h-3 w-3" />
-                        {team._count.metrics}{" "}
-                        {team._count.metrics !== 1 ? "KPIs" : "KPI"}
-                      </Badge>
-                    </div>
+                    <ArrowRight className="text-primary h-4 w-4 translate-x-0 opacity-0 transition-all duration-200 group-hover:translate-x-1 group-hover:opacity-100 group-has-[[data-delete-button]:hover]:translate-x-0 group-has-[[data-delete-button]:hover]:opacity-0" />
                   </div>
-                </Card>
-              </Link>
+                  <div className="flex gap-2">
+                    <Badge variant="secondary" className="gap-1">
+                      <Briefcase className="h-3 w-3" />
+                      {team._count.roles}{" "}
+                      {team._count.roles !== 1 ? "roles" : "role"}
+                    </Badge>
+                    <Badge variant="secondary" className="gap-1">
+                      <Target className="h-3 w-3" />
+                      {team._count.metrics}{" "}
+                      {team._count.metrics !== 1 ? "KPIs" : "KPI"}
+                    </Badge>
+                  </div>
+                </div>
+              </Card>
             </motion.div>
           );
         })}
