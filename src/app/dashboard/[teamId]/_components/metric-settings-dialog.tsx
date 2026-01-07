@@ -146,44 +146,50 @@ export function MetricSettingsDialog({
               </Tooltip>
             )}
 
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="h-8 gap-2 border px-2 transition-all duration-150 hover:shadow-sm active:scale-[0.98] sm:px-3"
-                  onClick={() => handleRefresh(forceRebuild)}
-                  disabled={processing}
-                >
-                  <RefreshCw
-                    className={cn("h-3.5 w-3.5", processing && "animate-spin")}
-                  />
-                  <span className="hidden text-xs sm:inline">
-                    {forceRebuild ? "Rebuild" : "Refresh"}
-                  </span>
-                  <div
-                    className="flex items-center gap-1.5 border-l pl-2"
-                    onClick={(e) => e.stopPropagation()}
+            <div className="flex items-center">
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-8 gap-2 rounded-r-none border-r-0 px-2 transition-all duration-150 hover:shadow-sm active:scale-[0.98] sm:px-3"
+                    onClick={() => handleRefresh(forceRebuild)}
+                    disabled={processing}
                   >
+                    <RefreshCw
+                      className={cn(
+                        "h-3.5 w-3.5",
+                        processing && "animate-spin",
+                      )}
+                    />
+                    <span className="hidden text-xs sm:inline">
+                      {forceRebuild ? "Rebuild" : "Refresh"}
+                    </span>
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom" className="max-w-52">
+                  <p className="text-xs">
+                    {forceRebuild
+                      ? "Rebuild: Re-fetch and regenerate chart from scratch"
+                      : "Refresh: Fetch latest data"}
+                  </p>
+                </TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div className="flex h-8 items-center rounded-l-none border px-2">
                     <Switch
                       checked={forceRebuild}
                       onCheckedChange={setForceRebuild}
                       className="h-4 w-7 data-[state=checked]:bg-amber-500"
                     />
                   </div>
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent side="bottom" className="max-w-52">
-                <p className="text-xs">
-                  {forceRebuild
-                    ? "Rebuild: Re-fetch and regenerate chart from scratch"
-                    : "Refresh: Fetch latest data"}
-                </p>
-                <p className="text-muted-foreground mt-1 text-xs">
-                  Toggle to switch modes
-                </p>
-              </TooltipContent>
-            </Tooltip>
+                </TooltipTrigger>
+                <TooltipContent side="bottom">
+                  <p className="text-xs">Toggle rebuild mode</p>
+                </TooltipContent>
+              </Tooltip>
+            </div>
 
             <Tooltip>
               <TooltipTrigger asChild>
