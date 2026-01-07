@@ -133,8 +133,8 @@ export function DashboardMetricDialog({
   };
 
   return (
-    <div className="grid h-full min-h-0 md:grid-cols-[30%_70%]">
-      {/* Left side: Tabs + Tab Content (30%) */}
+    <div className="grid h-full min-h-0 md:grid-cols-[45%_55%]">
+      {/* Left side: Tabs + Tab Content (45%) */}
       <div className="flex min-h-52 flex-col border-b md:border-r md:border-b-0">
         <DialogTabButtons activeTab={activeTab} onTabChange={setActiveTab} />
 

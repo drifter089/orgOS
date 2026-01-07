@@ -101,10 +101,10 @@ export function GoalTabContent({
   // Loading skeleton when goal data is being recalculated
   if (isRecalculating && goal) {
     return (
-      <div className="flex h-full flex-col overflow-y-auto p-6">
-        <div className="mb-6">
+      <div className="flex h-full flex-col overflow-y-auto p-4">
+        <div className="mb-3">
           <h3 className="text-base font-semibold">Goal Progress</h3>
-          <p className="text-muted-foreground mt-1 text-xs">Updating...</p>
+          <p className="text-muted-foreground mt-0.5 text-xs">Updating...</p>
         </div>
         <div className="space-y-4">
           {/* Progress skeleton */}
@@ -145,27 +145,24 @@ export function GoalTabContent({
   // Editing Mode
   if (isEditing || !goal) {
     return (
-      <div className="flex h-full flex-col overflow-y-auto p-6">
-        <div className="mb-6">
+      <div className="flex h-full flex-col overflow-y-auto p-4">
+        <div className="mb-3">
           <h3 className="text-base font-semibold">
             {goal ? "Edit Goal" : "Set Goal"}
           </h3>
-          <p className="text-muted-foreground mt-1 text-xs leading-relaxed">
-            Define targets for this metric and track your progress over time.
+          <p className="text-muted-foreground mt-0.5 text-xs">
+            Define targets for this metric and track progress.
           </p>
         </div>
 
         {/* Empty state intro when no goal */}
         {!goal && !isEditing && (
-          <div className="bg-muted/20 mb-4 flex items-center gap-4 border border-dashed p-4">
-            <div className="bg-muted flex h-10 w-10 shrink-0 items-center justify-center">
-              <Target className="text-muted-foreground h-4 w-4" />
+          <div className="bg-muted/20 mb-3 flex items-center gap-3 border border-dashed p-3">
+            <div className="bg-muted flex h-8 w-8 shrink-0 items-center justify-center">
+              <Target className="text-muted-foreground h-3.5 w-3.5" />
             </div>
             <div>
               <p className="text-muted-foreground text-sm">No goal set yet</p>
-              <p className="text-muted-foreground text-xs">
-                Set a target below
-              </p>
             </div>
           </div>
         )}
@@ -248,22 +245,22 @@ export function GoalTabContent({
 
   // Display Mode
   return (
-    <div className="relative flex h-full flex-col overflow-y-auto p-6">
+    <div className="relative flex h-full flex-col overflow-y-auto p-4">
       {/* Edit button at top right */}
       <Button
         variant="outline"
         size="icon"
         onClick={handleEditGoal}
-        className="absolute top-0 right-0 h-10 w-10 rounded-none border-t-0 border-r-0 border-b border-l"
+        className="absolute top-0 right-0 h-8 w-8 rounded-none border-t-0 border-r-0 border-b border-l"
       >
-        <Pencil className="h-4 w-4" />
+        <Pencil className="h-3.5 w-3.5" />
         <span className="sr-only">Edit goal</span>
       </Button>
 
-      <div className="mb-6 pr-12">
+      <div className="mb-3 pr-10">
         <h3 className="text-base font-semibold">Goal Progress</h3>
-        <p className="text-muted-foreground mt-1 text-xs leading-relaxed">
-          Track your progress towards the target you&apos;ve set.
+        <p className="text-muted-foreground mt-0.5 text-xs">
+          Track your progress towards your target.
         </p>
       </div>
 
