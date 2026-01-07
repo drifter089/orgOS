@@ -10,8 +10,8 @@ DIRECTORY="${1:-$HOME}"
 COMMAND="${2:-}"
 
 if [ -n "$COMMAND" ]; then
-    # Open terminal in directory and run command
-    nohup alacritty --working-directory "$DIRECTORY" -e bash -c "$COMMAND; exec bash" >/dev/null 2>&1 &
+    # Open terminal in directory and run command (interactive bash to load aliases)
+    nohup alacritty --working-directory "$DIRECTORY" -e bash -ic "$COMMAND; exec bash" >/dev/null 2>&1 &
 else
     # Just open terminal in directory
     nohup alacritty --working-directory "$DIRECTORY" >/dev/null 2>&1 &
