@@ -209,6 +209,7 @@ interface RightSideToggleButtonsProps {
   onToggle: (panel: ActivePanel) => void;
   memberCount: number;
   roleCount: number;
+  kpiCount: number;
 }
 
 function RightSideToggleButtons({
@@ -216,10 +217,23 @@ function RightSideToggleButtons({
   onToggle,
   memberCount,
   roleCount,
+  kpiCount,
 }: RightSideToggleButtonsProps) {
   const getButtonPosition = () => {
     return activePanel ? "right-[40.5rem]" : "right-4";
   };
+
+  const buttonBaseClass = cn(
+    "flex items-center gap-1.5 md:gap-2",
+    "h-9 px-2.5 md:h-10 md:px-3",
+    "rounded-lg border bg-background",
+    "shadow-lg hover:shadow-xl",
+    "transition-all duration-200",
+    "text-sm font-medium",
+  );
+
+  const activeClass = "bg-accent border-primary";
+  const inactiveClass = "hover:bg-accent/50";
 
   return (
     <div
@@ -231,13 +245,8 @@ function RightSideToggleButtons({
       <button
         onClick={() => onToggle(activePanel === "members" ? null : "members")}
         className={cn(
-          "flex items-center gap-2 px-3 py-2",
-          "rounded-lg border",
-          "shadow-lg hover:shadow-xl",
-          "transition-all duration-200",
-          activePanel === "members"
-            ? "bg-background/60 hover:bg-background/80 backdrop-blur-md"
-            : "bg-primary text-primary-foreground border-primary hover:brightness-110",
+          buttonBaseClass,
+          activePanel === "members" ? activeClass : inactiveClass,
         )}
         aria-label={
           activePanel === "members"
@@ -246,8 +255,8 @@ function RightSideToggleButtons({
         }
       >
         <Users className="h-4 w-4" />
-        <span className="text-sm font-medium">Members</span>
-        <span className="text-sm font-medium">({memberCount})</span>
+        <span className="hidden md:inline">Members</span>
+        <span>({memberCount})</span>
         {activePanel === "members" ? (
           <ChevronRight className="h-4 w-4" />
         ) : (
@@ -258,21 +267,16 @@ function RightSideToggleButtons({
       <button
         onClick={() => onToggle(activePanel === "roles" ? null : "roles")}
         className={cn(
-          "flex items-center gap-2 px-3 py-2",
-          "rounded-lg border",
-          "shadow-lg hover:shadow-xl",
-          "transition-all duration-200",
-          activePanel === "roles"
-            ? "bg-background/60 hover:bg-background/80 backdrop-blur-md"
-            : "bg-primary text-primary-foreground border-primary hover:brightness-110",
+          buttonBaseClass,
+          activePanel === "roles" ? activeClass : inactiveClass,
         )}
         aria-label={
           activePanel === "roles" ? "Close Roles sidebar" : "Open Roles sidebar"
         }
       >
         <Briefcase className="h-4 w-4" />
-        <span className="text-sm font-medium">Roles</span>
-        <span className="text-sm font-medium">({roleCount})</span>
+        <span className="hidden md:inline">Roles</span>
+        <span>({roleCount})</span>
         {activePanel === "roles" ? (
           <ChevronRight className="h-4 w-4" />
         ) : (
@@ -283,20 +287,16 @@ function RightSideToggleButtons({
       <button
         onClick={() => onToggle(activePanel === "kpis" ? null : "kpis")}
         className={cn(
-          "flex items-center gap-2 px-3 py-2",
-          "rounded-lg border",
-          "shadow-lg hover:shadow-xl",
-          "transition-all duration-200",
-          activePanel === "kpis"
-            ? "bg-background/60 hover:bg-background/80 backdrop-blur-md"
-            : "bg-primary text-primary-foreground border-primary hover:brightness-110",
+          buttonBaseClass,
+          activePanel === "kpis" ? activeClass : inactiveClass,
         )}
         aria-label={
           activePanel === "kpis" ? "Close KPIs sidebar" : "Open KPIs sidebar"
         }
       >
         <Target className="h-4 w-4" />
-        <span className="text-sm font-medium">KPIs</span>
+        <span className="hidden md:inline">KPIs</span>
+        <span>({kpiCount})</span>
         {activePanel === "kpis" ? (
           <ChevronRight className="h-4 w-4" />
         ) : (
@@ -328,6 +328,10 @@ export function CanvasSidePanels({
   const nodes = useTeamStore((state) => state.nodes);
   const { chartNodesOnCanvas, onToggleChartVisibility } = useChartDragContext();
   const { data: memberStats } = api.organization.getMemberStats.useQuery();
+  const { data: dashboardCharts } = api.dashboard.getDashboardCharts.useQuery({
+    teamId,
+  });
+  const kpiCount = dashboardCharts?.length ?? 0;
 
   const handleToggle = (panel: ActivePanel) => {
     setActivePanel(panel);
@@ -353,6 +357,7 @@ export function CanvasSidePanels({
         onToggle={handleToggle}
         memberCount={members.length}
         roleCount={roleCount}
+        kpiCount={kpiCount}
       />
 
       <Sheet
