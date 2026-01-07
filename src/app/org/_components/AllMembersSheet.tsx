@@ -25,12 +25,12 @@ export function AllMembersSheet({ members }: AllMembersSheetProps) {
   return (
     <Sheet>
       <SheetTrigger asChild>
-        <Button variant="outline" className="w-[130px] gap-2 font-semibold">
+        <Button variant="outline" className="w-32 gap-2 font-semibold">
           <Users className="h-4 w-4" />
           {totalMembers} {totalMembers === 1 ? "Member" : "Members"}
         </Button>
       </SheetTrigger>
-      <SheetContent className="w-full overflow-hidden p-0 sm:max-w-[40rem]">
+      <SheetContent className="overflow-hidden p-0 sm:max-w-md" hideCloseButton>
         <SheetTitle className="sr-only">Members</SheetTitle>
         <MembersPanel members={members} memberStats={memberStats} />
       </SheetContent>

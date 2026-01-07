@@ -121,7 +121,7 @@ function NavigationCard({
     <div ref={cardRef} onClick={onClick} className="cursor-pointer">
       <Card className="group hover:border-primary relative overflow-hidden border-2 transition-all duration-300 hover:shadow-xl">
         <div className="from-primary/5 to-primary/10 absolute inset-0 bg-gradient-to-br via-transparent" />
-        <div className="relative flex min-h-[280px] flex-col items-center justify-center gap-6 p-12">
+        <div className="relative flex min-h-72 flex-col items-center justify-center gap-6 p-12">
           <div
             ref={iconRef}
             className="bg-primary/10 group-hover:bg-primary/20 rounded-full p-8 transition-colors duration-300"
@@ -160,8 +160,8 @@ export function NavigationCards() {
   if (isLoading) {
     return (
       <div className="grid gap-8 sm:grid-cols-2">
-        <Card className="bg-muted/50 min-h-[280px] animate-pulse" />
-        <Card className="bg-muted/50 min-h-[280px] animate-pulse" />
+        <Card className="bg-muted/50 min-h-72 animate-pulse" />
+        <Card className="bg-muted/50 min-h-72 animate-pulse" />
       </div>
     );
   }

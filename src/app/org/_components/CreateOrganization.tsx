@@ -37,20 +37,22 @@ export function CreateOrganization() {
 
   return (
     <div className="flex min-h-[60vh] items-center justify-center">
-      <Card className="w-full max-w-md">
+      <Card className="w-full max-w-sm">
         <CardHeader className="text-center">
-          <div className="bg-primary/10 mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full">
-            <Building2 className="text-primary h-6 w-6" />
+          <div className="bg-primary/10 mx-auto mb-3 flex h-10 w-10 items-center justify-center">
+            <Building2 className="text-primary h-5 w-5" />
           </div>
-          <CardTitle className="text-2xl">Create Your Workspace</CardTitle>
-          <CardDescription>
+          <CardTitle className="text-xl">Create Your Workspace</CardTitle>
+          <CardDescription className="text-xs">
             Get started by creating your organization workspace.
           </CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="orgName">Organization Name</Label>
+            <div className="space-y-1.5">
+              <Label htmlFor="orgName" className="text-sm">
+                Organization Name
+              </Label>
               <Input
                 id="orgName"
                 placeholder="My Company"

@@ -1,5 +1,6 @@
 "use client";
 
+import * as SheetPrimitive from "@radix-ui/react-dialog";
 import {
   Briefcase,
   ExternalLink,
@@ -7,6 +8,7 @@ import {
   LogIn,
   Mail,
   Target,
+  X,
 } from "lucide-react";
 import { Link } from "next-transition-router";
 
@@ -51,22 +53,22 @@ function MemberCard({ member, stats }: MemberCardProps) {
       href={`/member/${member.id}`}
       aria-label={`View details for ${displayName}`}
       className={cn(
-        "group relative flex cursor-pointer items-center gap-4 rounded-lg border p-4 transition-all duration-200",
-        "border-border bg-card hover:border-primary/30 hover:bg-accent/50 hover:shadow-md",
+        "group relative flex cursor-pointer items-center gap-3 border p-3 transition-all duration-200",
+        "border-border bg-card hover:border-primary/30 hover:bg-accent/50",
         "focus-visible:ring-ring focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none",
       )}
     >
-      <Avatar className="group-hover:ring-primary/20 h-10 w-10 shrink-0 ring-2 ring-transparent transition-all">
-        <AvatarFallback className="bg-primary/10 text-primary group-hover:bg-primary/20 text-sm font-medium transition-colors">
+      <Avatar className="group-hover:ring-primary/20 h-9 w-9 shrink-0 ring-2 ring-transparent transition-all">
+        <AvatarFallback className="bg-primary/10 text-primary group-hover:bg-primary/20 text-xs font-medium transition-colors">
           {initials}
         </AvatarFallback>
       </Avatar>
 
       <div className="min-w-0 flex-1">
-        <p className="group-hover:text-primary truncate font-medium transition-colors">
+        <p className="group-hover:text-primary truncate text-sm font-medium transition-colors">
           {displayName}
         </p>
-        <div className="text-muted-foreground mt-0.5 flex items-center gap-1.5 text-sm">
+        <div className="text-muted-foreground mt-0.5 flex items-center gap-1 text-xs">
           <Mail className="h-3 w-3 shrink-0" />
           <span className="truncate">{member.email ?? "No email"}</span>
         </div>
@@ -76,7 +78,7 @@ function MemberCard({ member, stats }: MemberCardProps) {
           </p>
         )}
 
-        <div className="mt-2 flex flex-wrap items-center gap-1.5">
+        <div className="mt-1.5 flex flex-wrap items-center gap-1">
           {isDirectory && (
             <Badge
               variant="secondary"
@@ -132,7 +134,7 @@ export function MembersList({
 }: MembersListProps) {
   if (!members || members.length === 0) {
     return (
-      <div className="text-muted-foreground flex flex-col items-center justify-center rounded-lg border border-dashed py-8 text-center">
+      <div className="text-muted-foreground flex flex-col items-center justify-center border border-dashed py-8 text-center">
         <p className="text-sm font-medium">No members found</p>
         <p className="text-xs">Members will appear here once added</p>
       </div>
@@ -140,7 +142,7 @@ export function MembersList({
   }
 
   return (
-    <div className={cn("space-y-3", className)}>
+    <div className={cn("space-y-2", className)}>
       {members.map((member) => (
         <MemberCard
           key={member.id}
@@ -167,22 +169,30 @@ export function MembersPanel({
 }: MembersPanelProps) {
   return (
     <div className={cn("flex h-full flex-col", className)}>
-      <div className="flex shrink-0 items-center justify-between border-b px-6 py-4">
+      <div className="flex shrink-0 items-center justify-between border-b px-4 py-3">
         <div>
-          <h2 className="text-xl font-semibold tracking-tight">{title}</h2>
-          <p className="text-muted-foreground text-sm">
+          <h2 className="text-lg font-semibold tracking-tight">{title}</h2>
+          <p className="text-muted-foreground text-xs">
             {members.length} {members.length === 1 ? "member" : "members"}
           </p>
         </div>
-        <Button variant="outline" size="sm" asChild>
-          <Link href="/member">
-            View All
-            <ExternalLink className="ml-1.5 h-3.5 w-3.5" />
-          </Link>
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" asChild>
+            <Link href="/member">
+              View All
+              <ExternalLink className="ml-1.5 h-3 w-3" />
+            </Link>
+          </Button>
+          <SheetPrimitive.Close asChild>
+            <Button variant="outline" size="sm" className="h-8 w-8 p-0">
+              <X className="h-4 w-4" />
+              <span className="sr-only">Close</span>
+            </Button>
+          </SheetPrimitive.Close>
+        </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto px-6 py-4">
+      <div className="flex-1 overflow-y-auto px-4 py-3">
         <MembersList members={members} memberStats={memberStats} />
       </div>
     </div>

@@ -25,9 +25,9 @@ export async function OrganizationDetails() {
       : (currentUser?.email ?? "Member");
 
   return (
-    <div className="flex flex-wrap items-center justify-between gap-4">
-      <div className="flex items-center gap-3">
-        <div className="bg-primary/10 flex h-9 w-9 items-center justify-center rounded-full">
+    <div className="flex flex-wrap items-center justify-between gap-3">
+      <div className="flex items-center gap-2">
+        <div className="bg-primary/10 flex h-8 w-8 items-center justify-center">
           <User className="text-primary h-4 w-4" />
         </div>
         <span className="text-muted-foreground text-sm">

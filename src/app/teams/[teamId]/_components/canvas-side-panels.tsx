@@ -11,6 +11,7 @@ import {
   Target,
   Trash2,
   Users,
+  X,
 } from "lucide-react";
 
 import { DashboardSidebar } from "@/app/dashboard/[teamId]/_components/dashboard-sidebar";
@@ -37,9 +38,11 @@ function NonModalSheetContent({
   className,
   children,
   side = "right",
+  hideCloseButton = false,
   ...props
 }: React.ComponentProps<typeof SheetPrimitive.Content> & {
   side?: "top" | "right" | "bottom" | "left";
+  hideCloseButton?: boolean;
 }) {
   return (
     <SheetPrimitive.Portal>
@@ -56,6 +59,12 @@ function NonModalSheetContent({
       >
         <SheetPrimitive.Title className="sr-only">Sidebar</SheetPrimitive.Title>
         {children}
+        {!hideCloseButton && (
+          <SheetPrimitive.Close className="border-border hover:bg-accent focus:ring-ring absolute top-2 right-2 flex h-6 w-6 items-center justify-center rounded-md border transition-all focus:ring-2 focus:outline-hidden disabled:pointer-events-none">
+            <X className="h-4 w-4" />
+            <span className="sr-only">Close</span>
+          </SheetPrimitive.Close>
+        )}
       </SheetPrimitive.Content>
     </SheetPrimitive.Portal>
   );
@@ -354,6 +363,7 @@ export function CanvasSidePanels({
         <NonModalSheetContent
           side="right"
           className="w-[40rem] overflow-hidden p-0 sm:max-w-none"
+          hideCloseButton
         >
           <MembersPanel members={members} memberStats={memberStats} />
         </NonModalSheetContent>
