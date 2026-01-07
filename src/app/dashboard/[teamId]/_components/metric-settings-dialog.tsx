@@ -88,7 +88,7 @@ export function MetricSettingsDialog({
         {/* Header */}
         <div className="flex shrink-0 items-center justify-between border-b">
           {/* Left side: Title and badges */}
-          <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2 px-4 py-3 sm:gap-3 sm:px-6">
+          <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2 px-4 py-4 sm:gap-3 sm:px-6">
             <DialogTitle className="max-w-40 truncate text-lg font-semibold sm:max-w-72 md:max-w-none">
               {metric.name}
             </DialogTitle>
