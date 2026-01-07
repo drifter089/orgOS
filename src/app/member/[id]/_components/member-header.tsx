@@ -3,7 +3,7 @@
 import { ClipboardCheck } from "lucide-react";
 import { Link } from "next-transition-router";
 
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { type RouterOutputs } from "@/trpc/react";
 
@@ -27,6 +27,9 @@ export function MemberHeader({ member }: MemberHeaderProps) {
   return (
     <div className="border-border/60 bg-card flex h-full items-center gap-4 border p-4">
       <Avatar className="h-16 w-16 shrink-0">
+        {member.profilePictureUrl && (
+          <AvatarImage src={member.profilePictureUrl} alt={userName} />
+        )}
         <AvatarFallback className="bg-primary/10 text-primary text-xl font-bold">
           {initials}
         </AvatarFallback>

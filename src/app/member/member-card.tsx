@@ -79,11 +79,13 @@ export function MemberCard({ member, dashboardCharts }: MemberCardProps) {
         <div className="flex w-full flex-col gap-4 md:w-[220px] md:shrink-0">
           <div className="flex items-center gap-4">
             <Avatar className="h-14 w-14 shrink-0">
-              <AvatarImage
-                src={`https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(getDisplayName(member))}`}
-                alt={getDisplayName(member)}
-              />
-              <AvatarFallback className="text-lg">
+              {member.profilePictureUrl && (
+                <AvatarImage
+                  src={member.profilePictureUrl}
+                  alt={getDisplayName(member)}
+                />
+              )}
+              <AvatarFallback className="bg-primary/10 text-primary text-lg">
                 {getInitials(member)}
               </AvatarFallback>
             </Avatar>

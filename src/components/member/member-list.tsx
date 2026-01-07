@@ -1,22 +1,14 @@
 "use client";
 
 import * as SheetPrimitive from "@radix-ui/react-dialog";
-import {
-  Briefcase,
-  ExternalLink,
-  FolderSync,
-  LogIn,
-  Mail,
-  Target,
-  X,
-} from "lucide-react";
+import { ExternalLink, X } from "lucide-react";
 import { Link } from "next-transition-router";
 
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { type RouterOutputs } from "@/trpc/react";
+
+import { MemberCard } from "./member-card";
 
 type Member = RouterOutputs["organization"]["getMembers"][number];
 type MemberStats = RouterOutputs["organization"]["getMemberStats"];
@@ -33,92 +25,6 @@ export function getMemberDisplayInfo(member: Member) {
       : (member.email ?? "Member");
 
   return { initials, displayName };
-}
-
-interface MemberCardProps {
-  member: Member;
-  stats?: MemberStats[string];
-}
-
-function MemberCard({ member, stats }: MemberCardProps) {
-  const { initials, displayName } = getMemberDisplayInfo(member);
-  const isDirectory = member.source === "directory" || member.source === "both";
-
-  const roleCount = stats?.roleCount ?? 0;
-  const goalsOnTrack = stats?.goalsOnTrack ?? 0;
-  const goalsTotal = stats?.goalsTotal ?? 0;
-
-  return (
-    <Link
-      href={`/member/${member.id}`}
-      aria-label={`View details for ${displayName}`}
-      className={cn(
-        "group relative flex cursor-pointer items-center gap-3 border p-3 transition-all duration-200",
-        "border-border bg-card hover:border-primary/30 hover:bg-accent/50",
-        "focus-visible:ring-ring focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none",
-      )}
-    >
-      <Avatar className="group-hover:ring-primary/20 h-9 w-9 shrink-0 ring-2 ring-transparent transition-all">
-        <AvatarFallback className="bg-primary/10 text-primary group-hover:bg-primary/20 text-xs font-medium transition-colors">
-          {initials}
-        </AvatarFallback>
-      </Avatar>
-
-      <div className="min-w-0 flex-1">
-        <p className="group-hover:text-primary truncate text-sm font-medium transition-colors">
-          {displayName}
-        </p>
-        <div className="text-muted-foreground mt-0.5 flex items-center gap-1 text-xs">
-          <Mail className="h-3 w-3 shrink-0" />
-          <span className="truncate">{member.email ?? "No email"}</span>
-        </div>
-        {member.jobTitle && (
-          <p className="text-muted-foreground mt-0.5 truncate text-xs">
-            {member.jobTitle}
-          </p>
-        )}
-
-        <div className="mt-1.5 flex flex-wrap items-center gap-1">
-          {isDirectory && (
-            <Badge
-              variant="secondary"
-              className="flex items-center gap-1 text-xs"
-            >
-              <FolderSync className="h-3 w-3" />
-              Directory
-            </Badge>
-          )}
-          {member.canLogin && (
-            <Badge
-              variant="outline"
-              className="flex items-center gap-1 border-green-500/50 text-xs text-green-600 dark:text-green-400"
-            >
-              <LogIn className="h-3 w-3" />
-              Can Login
-            </Badge>
-          )}
-          {roleCount > 0 && (
-            <Badge
-              variant="secondary"
-              className="flex items-center gap-1 text-xs"
-            >
-              <Briefcase className="h-3 w-3" />
-              {roleCount} {roleCount === 1 ? "role" : "roles"}
-            </Badge>
-          )}
-          {goalsTotal > 0 && (
-            <Badge
-              variant="outline"
-              className="flex items-center gap-1 text-xs"
-            >
-              <Target className="h-3 w-3" />
-              {goalsOnTrack}/{goalsTotal} goals
-            </Badge>
-          )}
-        </div>
-      </div>
-    </Link>
-  );
 }
 
 interface MembersListProps {
