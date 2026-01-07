@@ -273,11 +273,11 @@ export function DashboardSidebar({
       <Sheet open={isOpen} onOpenChange={setIsOpen} modal={false}>
         <SheetContent
           side={side}
-          className="z-[52] w-[40rem] overflow-hidden p-0 sm:max-w-none"
+          className="z-[52] w-[22rem] overflow-hidden p-0 sm:max-w-none"
         >
           <SheetTitle className="sr-only">Dashboard Sidebar</SheetTitle>
           <div className="flex h-full flex-col">
-            <div className="flex-shrink-0 border-b px-6 py-4">
+            <div className="flex-shrink-0 border-b px-4 py-3">
               <div className="flex items-start justify-between gap-4">
                 <div className="space-y-1">
                   <h2 className="text-lg font-semibold tracking-tight">
@@ -315,7 +315,7 @@ export function DashboardSidebar({
               </div>
             </div>
 
-            <div className="[&::-webkit-scrollbar-thumb]:bg-border/40 hover:[&::-webkit-scrollbar-thumb]:bg-border/60 flex-1 space-y-5 overflow-y-auto px-6 py-5 [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-track]:bg-transparent">
+            <div className="[&::-webkit-scrollbar-thumb]:bg-border/40 hover:[&::-webkit-scrollbar-thumb]:bg-border/60 flex-1 space-y-4 overflow-y-auto px-4 py-3 [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-track]:bg-transparent">
               <div className="space-y-3">
                 <h3 className="text-muted-foreground text-xs font-medium tracking-wide uppercase">
                   Your Metrics

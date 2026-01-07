@@ -48,7 +48,7 @@ function NonModalSheetContent({
     <SheetPrimitive.Portal>
       <SheetPrimitive.Content
         className={cn(
-          "bg-background data-[state=open]:animate-in data-[state=closed]:animate-out fixed z-40 flex flex-col gap-4 shadow-lg transition ease-in-out data-[state=closed]:duration-300 data-[state=open]:duration-500",
+          "bg-background data-[state=open]:animate-in data-[state=closed]:animate-out fixed z-[60] flex flex-col gap-4 shadow-lg transition ease-in-out data-[state=closed]:duration-200 data-[state=open]:duration-300",
           side === "right" &&
             "data-[state=closed]:slide-out-to-right data-[state=open]:slide-in-from-right inset-y-0 right-0 h-full border-l",
           side === "left" &&
@@ -220,16 +220,16 @@ function RightSideToggleButtons({
   kpiCount,
 }: RightSideToggleButtonsProps) {
   const getButtonPosition = () => {
-    return activePanel ? "right-[40.5rem]" : "right-4";
+    return activePanel ? "right-[22.5rem]" : "right-4";
   };
 
   const buttonBaseClass = cn(
-    "flex items-center gap-1.5 md:gap-2",
-    "h-9 px-2.5 md:h-10 md:px-3",
-    "rounded-lg border bg-background",
-    "shadow-lg hover:shadow-xl",
+    "flex items-center gap-1 md:gap-1.5",
+    "h-8 px-2 md:h-9 md:px-2.5",
+    "rounded-md border bg-background",
+    "shadow-md hover:shadow-lg",
     "transition-all duration-200",
-    "text-sm font-medium",
+    "text-xs md:text-sm font-medium",
   );
 
   const activeClass = "bg-accent border-primary";
@@ -367,7 +367,7 @@ export function CanvasSidePanels({
       >
         <NonModalSheetContent
           side="right"
-          className="w-[40rem] overflow-hidden p-0 sm:max-w-none"
+          className="w-[22rem] overflow-hidden p-0 sm:max-w-none"
           hideCloseButton
         >
           <MembersPanel members={members} memberStats={memberStats} />
@@ -381,17 +381,17 @@ export function CanvasSidePanels({
       >
         <NonModalSheetContent
           side="right"
-          className="w-[40rem] overflow-hidden p-0 sm:max-w-none"
+          className="w-[22rem] overflow-hidden p-0 sm:max-w-none"
         >
           <div className="flex h-full flex-col">
-            <div className="flex-shrink-0 border-b px-6 py-4">
+            <div className="flex-shrink-0 border-b px-4 py-3">
               <div className="flex items-center justify-between">
                 <h2 className="text-2xl font-bold tracking-tight">Roles</h2>
                 <RoleDialog teamId={teamId} />
               </div>
             </div>
 
-            <div className="[&::-webkit-scrollbar-thumb]:bg-border/40 hover:[&::-webkit-scrollbar-thumb]:bg-border/60 flex-1 space-y-6 overflow-y-auto px-6 py-4 [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-track]:bg-transparent">
+            <div className="[&::-webkit-scrollbar-thumb]:bg-border/40 hover:[&::-webkit-scrollbar-thumb]:bg-border/60 flex-1 space-y-4 overflow-y-auto px-4 py-3 [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-track]:bg-transparent">
               <div>
                 <h3 className="text-muted-foreground mb-2 text-xs font-semibold tracking-wider uppercase">
                   Team Info

@@ -63,7 +63,7 @@ export function MemberCard({
   return (
     <div
       className={cn(
-        "flex flex-col gap-3 border p-3 transition-colors",
+        "flex flex-col gap-2 rounded-md border p-2.5 transition-colors sm:gap-3 sm:p-3",
         isActive
           ? "bg-primary text-primary-foreground border-primary"
           : "bg-card border-border hover:bg-accent/50",
@@ -71,15 +71,15 @@ export function MemberCard({
       )}
     >
       {/* Top row: Avatar + Info + Badges */}
-      <div className="flex items-start gap-3">
+      <div className="flex items-start gap-2 sm:gap-3">
         {/* Avatar */}
-        <Avatar className="h-10 w-10 shrink-0">
+        <Avatar className="h-8 w-8 shrink-0 sm:h-10 sm:w-10">
           {member.profilePictureUrl && (
             <AvatarImage src={member.profilePictureUrl} alt={displayName} />
           )}
           <AvatarFallback
             className={cn(
-              "text-xs font-medium",
+              "text-[10px] font-medium sm:text-xs",
               isActive
                 ? "bg-primary-foreground/20 text-primary-foreground"
                 : "bg-primary/10 text-primary",
@@ -91,10 +91,12 @@ export function MemberCard({
 
         {/* Name + Email + Job Title */}
         <div className="min-w-0 flex-1">
-          <p className="truncate text-sm font-medium">{displayName}</p>
+          <p className="truncate text-xs font-medium sm:text-sm">
+            {displayName}
+          </p>
           <p
             className={cn(
-              "truncate text-xs",
+              "truncate text-[10px] sm:text-xs",
               isActive ? "text-primary-foreground/70" : "text-muted-foreground",
             )}
           >
@@ -103,7 +105,7 @@ export function MemberCard({
           {member.jobTitle && (
             <p
               className={cn(
-                "mt-0.5 truncate text-xs",
+                "mt-0.5 truncate text-[10px] sm:text-xs",
                 isActive
                   ? "text-primary-foreground/60"
                   : "text-muted-foreground/80",
@@ -114,76 +116,76 @@ export function MemberCard({
           )}
         </div>
 
-        {/* Admin + Directory badges */}
-        <div className="flex shrink-0 items-center gap-1">
+        {/* Admin + Directory badges - hidden on very small widths */}
+        <div className="xs:flex hidden shrink-0 items-center gap-1">
           {member.canLogin && (
             <Badge
               variant="outline"
               className={cn(
-                "h-5 gap-0.5 px-1.5 text-[10px] font-normal",
+                "h-5 gap-0.5 px-1 text-[9px] font-normal sm:px-1.5 sm:text-[10px]",
                 isActive
                   ? "border-primary-foreground/30 text-primary-foreground"
                   : "border-green-500/50 text-green-600 dark:text-green-400",
               )}
             >
               <UserCog className="h-2.5 w-2.5" />
-              Admin
+              <span className="hidden sm:inline">Admin</span>
             </Badge>
           )}
           {isDirectory && (
             <Badge
               variant="secondary"
               className={cn(
-                "h-5 gap-0.5 px-1.5 text-[10px] font-normal",
+                "h-5 gap-0.5 px-1 text-[9px] font-normal sm:px-1.5 sm:text-[10px]",
                 isActive && "bg-primary-foreground/20 text-primary-foreground",
               )}
             >
               <FolderSync className="h-2.5 w-2.5" />
-              Dir
+              <span className="hidden sm:inline">Dir</span>
             </Badge>
           )}
         </div>
       </div>
 
       {/* Bottom row: Stats + More Details button */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-2">
         {/* Stats badges */}
-        <div className="flex flex-wrap items-center gap-1">
+        <div className="flex min-w-0 flex-wrap items-center gap-1">
           {roleCount > 0 && (
             <Badge
               variant="secondary"
               className={cn(
-                "h-5 gap-0.5 px-1.5 text-[10px] font-normal",
+                "h-4 gap-0.5 px-1 text-[9px] font-normal sm:h-5 sm:px-1.5 sm:text-[10px]",
                 isActive && "bg-primary-foreground/20 text-primary-foreground",
               )}
             >
-              <Briefcase className="h-2.5 w-2.5" />
-              {roleCount} {roleCount === 1 ? "role" : "roles"}
+              <Briefcase className="h-2 w-2 sm:h-2.5 sm:w-2.5" />
+              {roleCount}
             </Badge>
           )}
           {totalEffort > 0 && (
             <Badge
               variant="outline"
               className={cn(
-                "h-5 gap-0.5 px-1.5 text-[10px] font-normal",
+                "h-4 gap-0.5 px-1 text-[9px] font-normal sm:h-5 sm:px-1.5 sm:text-[10px]",
                 isActive &&
                   "border-primary-foreground/30 text-primary-foreground",
               )}
             >
-              <Gauge className="h-2.5 w-2.5" />
-              {totalEffort} pts
+              <Gauge className="h-2 w-2 sm:h-2.5 sm:w-2.5" />
+              {totalEffort}
             </Badge>
           )}
           {goalsTotal > 0 && (
             <Badge
               variant="outline"
               className={cn(
-                "h-5 gap-0.5 px-1.5 text-[10px] font-normal",
+                "h-4 gap-0.5 px-1 text-[9px] font-normal sm:h-5 sm:px-1.5 sm:text-[10px]",
                 isActive &&
                   "border-primary-foreground/30 text-primary-foreground",
               )}
             >
-              <Target className="h-2.5 w-2.5" />
+              <Target className="h-2 w-2 sm:h-2.5 sm:w-2.5" />
               {goalsOnTrack}/{goalsTotal}
             </Badge>
           )}
@@ -192,17 +194,19 @@ export function MemberCard({
         {/* More Details button */}
         <Button
           asChild
-          variant={isActive ? "secondary" : "ghost"}
+          variant={isActive ? "secondary" : "outline"}
           size="sm"
           className={cn(
-            "h-6 gap-1 px-2 text-xs",
-            isActive &&
-              "bg-primary-foreground/20 text-primary-foreground hover:bg-primary-foreground/30",
+            "h-5 shrink-0 gap-0.5 border px-1.5 text-[10px] transition-all duration-200 hover:scale-[1.02] sm:h-6 sm:gap-1 sm:px-2 sm:text-xs",
+            isActive
+              ? "bg-primary-foreground/20 text-primary-foreground hover:bg-primary-foreground/30"
+              : "border-border hover:border-primary/50 hover:bg-accent/50",
           )}
         >
           <Link href={`/member/${member.id}`}>
-            Details
-            <ArrowRight className="h-3 w-3" />
+            <span className="hidden sm:inline">Details</span>
+            <span className="sm:hidden">View</span>
+            <ArrowRight className="h-2.5 w-2.5 transition-transform duration-200 group-hover:translate-x-0.5 sm:h-3 sm:w-3" />
           </Link>
         </Button>
       </div>
