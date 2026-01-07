@@ -362,7 +362,7 @@ export function CanvasSidePanels({
       >
         <NonModalSheetContent
           side="right"
-          className="w-full overflow-hidden p-0 sm:max-w-md"
+          className="w-[40rem] overflow-hidden p-0 sm:max-w-none"
           hideCloseButton
         >
           <MembersPanel members={members} memberStats={memberStats} />
