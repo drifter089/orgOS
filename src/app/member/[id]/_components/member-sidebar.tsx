@@ -3,7 +3,7 @@
 import { Briefcase, Gauge, Target } from "lucide-react";
 import { Link } from "next-transition-router";
 
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
@@ -64,6 +64,12 @@ export function MemberSidebar({
                 )}
               >
                 <Avatar className="h-9 w-9 flex-shrink-0">
+                  {member.profilePictureUrl && (
+                    <AvatarImage
+                      src={member.profilePictureUrl}
+                      alt={userName}
+                    />
+                  )}
                   <AvatarFallback
                     className={cn(
                       "text-xs font-medium",

@@ -12,7 +12,7 @@ import {
 } from "lucide-react";
 import { Link } from "next-transition-router";
 
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -59,6 +59,9 @@ function MemberCard({ member, stats }: MemberCardProps) {
       )}
     >
       <Avatar className="group-hover:ring-primary/20 h-9 w-9 shrink-0 ring-2 ring-transparent transition-all">
+        {member.profilePictureUrl && (
+          <AvatarImage src={member.profilePictureUrl} alt={displayName} />
+        )}
         <AvatarFallback className="bg-primary/10 text-primary group-hover:bg-primary/20 text-xs font-medium transition-colors">
           {initials}
         </AvatarFallback>
