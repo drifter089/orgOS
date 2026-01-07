@@ -82,13 +82,13 @@ export function MetricSettingsDialog({
       <DialogTrigger asChild>{trigger}</DialogTrigger>
 
       <DialogContent
-        className="flex h-[92vh] max-h-[92vh] w-full max-w-[calc(100%-1rem)] flex-col gap-0 overflow-hidden p-0 sm:h-[85vh] sm:max-h-[85vh] sm:max-w-4xl md:h-[80vh] md:max-h-[80vh] md:max-w-5xl"
+        className="flex h-[92vh] max-h-[92vh] w-full max-w-[calc(100%-1rem)] flex-col gap-0 overflow-hidden p-0 sm:h-[85vh] sm:max-h-[85vh] sm:max-w-5xl md:h-[80vh] md:max-h-[80vh] md:max-w-6xl"
         showCloseButton={false}
       >
         {/* Header */}
-        <div className="flex items-center justify-between border-b">
+        <div className="flex items-center justify-between">
           {/* Left side: Title and badges */}
-          <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2 px-4 py-3 sm:gap-3 sm:px-6">
+          <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2 border-b px-4 py-3 sm:gap-3 sm:px-6">
             <DialogTitle className="max-w-40 truncate text-lg font-semibold sm:max-w-72 md:max-w-none">
               {metric.name}
             </DialogTitle>
@@ -135,7 +135,7 @@ export function MetricSettingsDialog({
             )}
           </div>
 
-          {/* Right side: Action buttons - flush to edge */}
+          {/* Right side: Action buttons - flush to edge with borders */}
           <div className="flex shrink-0 items-center">
             {!isIntegrationMetric && (
               <Tooltip>
@@ -143,7 +143,7 @@ export function MetricSettingsDialog({
                   <Button
                     variant="ghost"
                     size="sm"
-                    className="h-10 gap-1 rounded-none px-3"
+                    className="hover:bg-muted h-10 gap-1 rounded-none border-b border-l px-3"
                     asChild
                   >
                     <Link href={`/metric/check-in/${metricId}`}>
@@ -158,54 +158,53 @@ export function MetricSettingsDialog({
               </Tooltip>
             )}
 
-            <div className="flex items-center">
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-10 gap-2 rounded-none px-3"
-                    onClick={() => handleRefresh(forceRebuild)}
-                    disabled={processing}
-                  >
-                    <RefreshCw
-                      className={cn("h-4 w-4", processing && "animate-spin")}
-                    />
-                    <span className="hidden text-xs sm:inline">
-                      {forceRebuild ? "Rebuild" : "Refresh"}
-                    </span>
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent side="bottom" className="max-w-52">
-                  <p className="text-xs">
-                    {forceRebuild
-                      ? "Rebuild: Re-fetch and regenerate chart from scratch"
-                      : "Refresh: Fetch latest data"}
-                  </p>
-                </TooltipContent>
-              </Tooltip>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <div className="flex h-10 items-center border-l px-2">
-                    <Switch
-                      checked={forceRebuild}
-                      onCheckedChange={setForceRebuild}
-                      className="h-4 w-7 data-[state=checked]:bg-amber-500"
-                    />
-                  </div>
-                </TooltipTrigger>
-                <TooltipContent side="bottom">
-                  <p className="text-xs">Toggle rebuild mode</p>
-                </TooltipContent>
-              </Tooltip>
-            </div>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="hover:bg-muted h-10 gap-2 rounded-none border-b border-l px-3"
+                  onClick={() => handleRefresh(forceRebuild)}
+                  disabled={processing}
+                >
+                  <RefreshCw
+                    className={cn("h-4 w-4", processing && "animate-spin")}
+                  />
+                  <span className="hidden text-xs sm:inline">
+                    {forceRebuild ? "Rebuild" : "Refresh"}
+                  </span>
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom" className="max-w-52">
+                <p className="text-xs">
+                  {forceRebuild
+                    ? "Rebuild: Re-fetch and regenerate chart from scratch"
+                    : "Refresh: Fetch latest data"}
+                </p>
+              </TooltipContent>
+            </Tooltip>
+
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <div className="flex h-10 items-center border-b border-l px-2">
+                  <Switch
+                    checked={forceRebuild}
+                    onCheckedChange={setForceRebuild}
+                    className="h-4 w-7 data-[state=checked]:bg-amber-500"
+                  />
+                </div>
+              </TooltipTrigger>
+              <TooltipContent side="bottom">
+                <p className="text-xs">Toggle rebuild mode</p>
+              </TooltipContent>
+            </Tooltip>
 
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90 h-10 w-10 rounded-none"
+                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90 h-10 w-10 rounded-none border-b border-l"
                   onClick={handleDelete}
                   disabled={isDeleting}
                 >
@@ -226,7 +225,7 @@ export function MetricSettingsDialog({
               <Button
                 variant="ghost"
                 size="icon"
-                className="hover:bg-muted h-10 w-10 rounded-none"
+                className="hover:bg-muted h-10 w-10 rounded-none border-b border-l"
               >
                 <X className="h-4 w-4" />
                 <span className="sr-only">Close</span>

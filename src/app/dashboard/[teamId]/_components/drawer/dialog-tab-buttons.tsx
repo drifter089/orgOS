@@ -23,7 +23,7 @@ export function DialogTabButtons({
 
   return (
     <div
-      className="bg-muted/30 flex items-center gap-1 border-b px-4 py-2 sm:px-6"
+      className="grid grid-cols-3"
       role="tablist"
       aria-label="Metric settings tabs"
     >
@@ -37,10 +37,10 @@ export function DialogTabButtons({
             aria-controls={`tabpanel-${tab.id}`}
             onClick={() => onTabChange(tab.id)}
             className={cn(
-              "flex flex-1 items-center justify-center gap-2 border px-3 py-2 text-sm transition-all duration-150 active:scale-[0.98] sm:flex-initial sm:px-4",
+              "flex items-center justify-center gap-2 border-r border-b px-3 py-2 text-sm transition-all duration-150 last:border-r-0 active:scale-[0.98]",
               isActive
-                ? "bg-background text-foreground border-border font-medium shadow-sm"
-                : "text-muted-foreground hover:text-foreground hover:bg-background/50 border-transparent",
+                ? "bg-background text-foreground font-medium"
+                : "bg-muted/30 text-muted-foreground hover:text-foreground hover:bg-muted/50",
             )}
           >
             <tab.icon className="h-4 w-4 shrink-0" />
