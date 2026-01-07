@@ -11,12 +11,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Version update notification toast to alert users of new releases (#333)
+- Team canvas link to member page for improved navigation (#331)
+- Enhanced edge action buttons UX with improved interaction and zoom controls (#330)
+- Automatic canvas edge syncing with drawer role-metric assignments (#329)
 - Claude Code GitHub workflow for AI-assisted code reviews and development (#313)
 - Daily automated changelog update workflow (#314)
 - "Check-in" action on metric cards for quick navigation to metric check-in page (#307)
 
 ### Changed
 
+- Default metric poll frequency changed from frequent (15m) to hourly (#326)
 - Enhanced radar chart UI with semi-transparent tooltip and improved legend (#317)
 - Increased chart heights from 320px to 380px for better visibility (#317)
 - Standardized button variants from `ghost` to `outline` for consistent border styling across UI (#311)
@@ -27,10 +32,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Team canvas UX improvements with resizable charts and keyboard shortcuts (#332)
+- Chart Y-axis scaling to properly include goal line in view (#328)
+- Drawer height increased for better visibility on smaller screens (#327)
+- Metric drawer responsiveness across all screen sizes (#325)
+- Dashboard context made optional for canvas chart nodes and drawer components (#322, #323)
+- Radar chart grid line visibility and tooltip transparency issues (#319)
 - GitHub Actions workflow permissions for Claude Code to allow PR comments and file editing (#316)
 - Radar chart polygon rendering by adding PolarRadiusAxis with explicit domain [0, 100] (#315)
 - Processing badge disappearing on metric refresh by removing premature cache invalidation (#309)
 - Calendar input overflow in manual metric dialog for daily/weekly/monthly tracking periods (#307)
+
+### Reverted
+
+- Dashboard context optimization changes due to compatibility issues (#324, reverted #320)
 
 ### Refactored
 
