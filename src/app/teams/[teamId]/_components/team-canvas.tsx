@@ -465,6 +465,10 @@ export function TeamCanvas() {
       const sourceNodeId = connectionState.fromNode?.id;
       if (!sourceNodeId) return;
 
+      // Don't auto-create role nodes when dropping edges from KPI chart nodes
+      const sourceNode = nodes.find((n) => n.id === sourceNodeId);
+      if (sourceNode?.type === "chart-node") return;
+
       const { clientX, clientY } =
         "changedTouches" in event ? event.changedTouches[0]! : event;
 
@@ -497,7 +501,7 @@ export function TeamCanvas() {
         });
       }
     },
-    [teamId, screenToFlowPosition, consumeNextRole, createRole],
+    [teamId, screenToFlowPosition, consumeNextRole, createRole, nodes],
   );
 
   // Get selected role data from editingNodeId
