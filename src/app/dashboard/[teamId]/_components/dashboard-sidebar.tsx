@@ -8,7 +8,9 @@ import {
   EyeOff,
   GripVertical,
   Loader2,
+  Plus,
   Settings,
+  X,
 } from "lucide-react";
 
 import { PlatformsDialog } from "@/app/integration/_components";
@@ -19,7 +21,6 @@ import {
 import type { ChartDragData } from "@/app/teams/[teamId]/hooks/use-chart-drag-drop";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Separator } from "@/components/ui/separator";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import {
   Tooltip,
@@ -94,7 +95,7 @@ function SidebarMetricCard({
 
       <div
         className={cn(
-          "h-8 w-1 rounded-full",
+          "h-8 w-1.5 border",
           getPlatformConfig(metric.integration?.providerId ?? "manual").bgColor,
         )}
       />
@@ -110,9 +111,9 @@ function SidebarMetricCard({
           {isOnCanvas && (
             <Badge
               variant="outline"
-              className="border-primary/30 text-primary shrink-0 text-xs"
+              className="border-primary/30 text-primary h-5 shrink-0 px-1.5 text-[10px]"
             >
-              <Check className="mr-1 h-3 w-3" />
+              <Check className="mr-0.5 h-2.5 w-2.5" />
               On canvas
             </Badge>
           )}
@@ -277,33 +278,48 @@ export function DashboardSidebar({
           <SheetTitle className="sr-only">Dashboard Sidebar</SheetTitle>
           <div className="flex h-full flex-col">
             <div className="flex-shrink-0 border-b px-6 py-4">
-              <div className="space-y-1">
-                <h2 className="text-xl font-bold tracking-tight">
-                  Manage KPIs
-                </h2>
-                <p className="text-muted-foreground text-sm leading-relaxed">
-                  Connect platforms and create KPIs for your dashboard
-                </p>
-              </div>
-            </div>
-
-            <div className="[&::-webkit-scrollbar-thumb]:bg-border/40 hover:[&::-webkit-scrollbar-thumb]:bg-border/60 flex-1 space-y-6 overflow-y-auto px-6 py-4 [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-track]:bg-transparent">
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <h3 className="font-semibold">Platforms</h3>
+              <div className="flex items-start justify-between gap-4">
+                <div className="space-y-1">
+                  <h2 className="text-lg font-semibold tracking-tight">
+                    Manage KPIs
+                  </h2>
+                  <p className="text-muted-foreground text-xs">
+                    Connect platforms and track metrics
+                  </p>
+                </div>
+                <div className="flex items-center gap-2">
                   <PlatformsDialog
                     teamId={teamId}
                     initialIntegrations={initialIntegrations}
                     onMetricCreated={onMetricCreated}
+                    trigger={
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-8 border px-3"
+                      >
+                        <Plus className="mr-1.5 h-3.5 w-3.5" />
+                        KPI
+                      </Button>
+                    }
                   />
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-8 w-8 border p-0"
+                    onClick={() => setIsOpen(false)}
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
                 </div>
               </div>
+            </div>
 
-              <Separator />
-
-              {/* Metrics Tabs */}
-              <div className="space-y-4">
-                <h3 className="font-semibold">Your Metrics</h3>
+            <div className="[&::-webkit-scrollbar-thumb]:bg-border/40 hover:[&::-webkit-scrollbar-thumb]:bg-border/60 flex-1 space-y-5 overflow-y-auto px-6 py-5 [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-track]:bg-transparent">
+              <div className="space-y-3">
+                <h3 className="text-muted-foreground text-xs font-medium tracking-wide uppercase">
+                  Your Metrics
+                </h3>
                 <MetricTabsDisplay
                   teamId={teamId}
                   className="w-full"

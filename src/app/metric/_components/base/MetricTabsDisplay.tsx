@@ -71,22 +71,22 @@ export function MetricTabsDisplay({
     <Tabs defaultValue="all" className={className}>
       <TabsList
         className={cn(
-          "grid h-auto grid-cols-3 gap-2 bg-transparent p-0",
+          "grid h-auto auto-cols-fr grid-flow-col gap-1.5 bg-transparent p-0",
           tabsListClassName,
         )}
       >
         <TabsTrigger
           value="all"
           className={cn(
-            "bg-muted/50 h-10 rounded-none border px-3 py-2 text-xs font-medium shadow-sm",
-            "transition-all duration-150 ease-in-out",
-            "hover:bg-accent hover:-translate-y-0.5 hover:shadow-md",
-            "data-[state=active]:border-primary data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:ring-primary/20 data-[state=active]:shadow-lg data-[state=active]:ring-2",
+            "h-9 rounded-md border bg-transparent px-2.5 py-1.5 text-xs font-medium",
+            "transition-all duration-200 ease-out",
+            "hover:bg-accent/50 hover:scale-[1.02]",
+            "data-[state=active]:border-primary data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:font-semibold",
             tabTriggerClassName,
           )}
         >
           All
-          <Badge className="ml-1.5" variant="secondary">
+          <Badge className="ml-1.5 h-4 px-1 text-[10px]" variant="secondary">
             {totalCount}
           </Badge>
         </TabsTrigger>
@@ -95,15 +95,15 @@ export function MetricTabsDisplay({
             key={tab.id}
             value={tab.id}
             className={cn(
-              "bg-muted/50 h-10 rounded-none border px-3 py-2 text-xs font-medium capitalize shadow-sm",
-              "transition-all duration-150 ease-in-out",
-              "hover:bg-accent hover:-translate-y-0.5 hover:shadow-md",
-              "data-[state=active]:border-primary data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:ring-primary/20 data-[state=active]:shadow-lg data-[state=active]:ring-2",
+              "h-9 rounded-md border bg-transparent px-2.5 py-1.5 text-xs font-medium capitalize",
+              "transition-all duration-200 ease-out",
+              "hover:bg-accent/50 hover:scale-[1.02]",
+              "data-[state=active]:border-primary data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:font-semibold",
               tabTriggerClassName,
             )}
           >
             {tab.label}
-            <Badge className="ml-1.5" variant="secondary">
+            <Badge className="ml-1.5 h-4 px-1 text-[10px]" variant="secondary">
               {tab.count}
             </Badge>
           </TabsTrigger>
