@@ -44,8 +44,8 @@ export function RoleTabContent({
   }
 
   return (
-    <div className="flex h-full flex-col overflow-y-auto p-4 pb-6 sm:p-5 sm:pb-8">
-      <div className="mb-5">
+    <div className="flex h-full flex-col overflow-y-auto p-6">
+      <div className="mb-6">
         <h3 className="text-base font-semibold">Assigned Roles</h3>
         <p className="text-muted-foreground mt-1 text-xs leading-relaxed">
           Assign team roles responsible for this metric. Each role can have a
@@ -59,25 +59,25 @@ export function RoleTabContent({
           {roles.map((role) => (
             <div
               key={role.id}
-              className="bg-background group border p-3 shadow-sm"
+              className="bg-background group border p-4"
               style={{ borderLeftColor: role.color, borderLeftWidth: 3 }}
             >
-              <div className="flex items-start gap-3">
+              <div className="flex items-start gap-4">
                 <div
-                  className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center"
+                  className="flex h-10 w-10 shrink-0 items-center justify-center"
                   style={{ backgroundColor: `${role.color}20` }}
                 >
                   <Target className="h-4 w-4" style={{ color: role.color }} />
                 </div>
                 <div className="min-w-0 flex-1">
-                  <div className="font-medium">{role.title}</div>
+                  <div className="text-sm font-medium">{role.title}</div>
                   {role.assignedUserName ? (
-                    <div className="text-muted-foreground mt-0.5 flex items-center gap-1 text-xs">
-                      <User className="h-3 w-3" />
+                    <div className="text-muted-foreground mt-1 flex items-center gap-1 text-xs">
+                      <User className="h-3.5 w-3.5" />
                       {role.assignedUserName}
                     </div>
                   ) : (
-                    <div className="text-muted-foreground mt-0.5 text-xs italic">
+                    <div className="text-muted-foreground mt-1 text-xs italic">
                       Unassigned
                     </div>
                   )}
@@ -85,7 +85,7 @@ export function RoleTabContent({
                 <Button
                   variant="outline"
                   size="icon"
-                  className="h-7 w-7 opacity-0 transition-opacity group-hover:opacity-100"
+                  className="h-8 w-8 opacity-0 transition-opacity group-hover:opacity-100"
                   onClick={() => setEditingRoleId(role.id)}
                 >
                   <Pencil className="h-3.5 w-3.5" />
@@ -95,8 +95,8 @@ export function RoleTabContent({
           ))}
         </div>
       ) : (
-        <div className="bg-muted/20 mb-3 flex items-center gap-3 border border-dashed p-3">
-          <div className="bg-muted flex h-9 w-9 shrink-0 items-center justify-center">
+        <div className="bg-muted/20 mb-4 flex items-center gap-4 border border-dashed p-4">
+          <div className="bg-muted flex h-10 w-10 shrink-0 items-center justify-center">
             <Users className="text-muted-foreground h-4 w-4" />
           </div>
           <div>
@@ -112,7 +112,7 @@ export function RoleTabContent({
 
       {/* Assign Role dropdown */}
       <div className="space-y-2">
-        <Label className="text-xs">Add Role</Label>
+        <Label className="text-xs font-medium">Add Role</Label>
         <RoleAssignment
           metricId={metricId}
           metricName={metricName}

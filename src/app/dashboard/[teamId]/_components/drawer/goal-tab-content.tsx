@@ -101,22 +101,22 @@ export function GoalTabContent({
   // Loading skeleton when goal data is being recalculated
   if (isRecalculating && goal) {
     return (
-      <div className="flex h-full flex-col overflow-y-auto p-4 pb-6 sm:p-5 sm:pb-8">
-        <div className="mb-5">
+      <div className="flex h-full flex-col p-4">
+        <div className="mb-3">
           <h3 className="text-base font-semibold">Goal Progress</h3>
-          <p className="text-muted-foreground mt-1 text-xs">Updating...</p>
+          <p className="text-muted-foreground mt-0.5 text-xs">Updating...</p>
         </div>
         <div className="space-y-4">
           {/* Progress skeleton */}
-          <div className="bg-background border p-4 text-center shadow-sm">
+          <div className="bg-background border p-4 text-center">
             <Skeleton className="mx-auto mb-1 h-10 w-24" />
             <Skeleton className="mx-auto h-3 w-20" />
-            <div className="mt-3">
-              <Skeleton className="h-2.5 w-full" />
+            <div className="mt-4">
+              <Skeleton className="h-2 w-full" />
             </div>
           </div>
           {/* Time elapsed skeleton */}
-          <div className="bg-background border p-3 shadow-sm">
+          <div className="bg-background border p-4">
             <div className="flex items-center justify-between">
               <Skeleton className="h-3 w-20" />
               <Skeleton className="h-3 w-24" />
@@ -127,12 +127,12 @@ export function GoalTabContent({
             </div>
           </div>
           {/* Current/Target skeleton */}
-          <div className="grid grid-cols-2 gap-3">
-            <div className="bg-background border p-3 shadow-sm">
+          <div className="grid grid-cols-2 gap-4">
+            <div className="bg-background border p-4">
               <Skeleton className="mb-1 h-3 w-12" />
               <Skeleton className="h-6 w-16" />
             </div>
-            <div className="bg-background border p-3 shadow-sm">
+            <div className="bg-background border p-4">
               <Skeleton className="mb-1 h-3 w-12" />
               <Skeleton className="h-6 w-16" />
             </div>
@@ -145,34 +145,31 @@ export function GoalTabContent({
   // Editing Mode
   if (isEditing || !goal) {
     return (
-      <div className="flex h-full flex-col overflow-y-auto p-4 pb-6 sm:p-5 sm:pb-8">
-        <div className="mb-5">
+      <div className="flex h-full flex-col p-4">
+        <div className="mb-3">
           <h3 className="text-base font-semibold">
             {goal ? "Edit Goal" : "Set Goal"}
           </h3>
-          <p className="text-muted-foreground mt-1 text-xs leading-relaxed">
-            Define targets for this metric and track your progress over time.
+          <p className="text-muted-foreground mt-0.5 text-xs">
+            Define targets for this metric and track progress.
           </p>
         </div>
 
         {/* Empty state intro when no goal */}
         {!goal && !isEditing && (
           <div className="bg-muted/20 mb-3 flex items-center gap-3 border border-dashed p-3">
-            <div className="bg-muted flex h-9 w-9 shrink-0 items-center justify-center">
-              <Target className="text-muted-foreground h-4 w-4" />
+            <div className="bg-muted flex h-8 w-8 shrink-0 items-center justify-center">
+              <Target className="text-muted-foreground h-3.5 w-3.5" />
             </div>
             <div>
               <p className="text-muted-foreground text-sm">No goal set yet</p>
-              <p className="text-muted-foreground text-xs">
-                Set a target below
-              </p>
             </div>
           </div>
         )}
 
         <div className="space-y-4">
           <div className="space-y-2">
-            <Label className="text-xs">Type</Label>
+            <Label className="text-xs font-medium">Type</Label>
             <ToggleGroup
               type="single"
               value={goalType}
@@ -181,13 +178,13 @@ export function GoalTabContent({
             >
               <ToggleGroupItem
                 value="ABSOLUTE"
-                className="data-[state=on]:border-primary data-[state=on]:bg-primary data-[state=on]:text-primary-foreground border text-xs"
+                className="data-[state=on]:border-primary data-[state=on]:bg-primary data-[state=on]:text-primary-foreground border text-sm"
               >
                 Absolute
               </ToggleGroupItem>
               <ToggleGroupItem
                 value="RELATIVE"
-                className="data-[state=on]:border-primary data-[state=on]:bg-primary data-[state=on]:text-primary-foreground border text-xs"
+                className="data-[state=on]:border-primary data-[state=on]:bg-primary data-[state=on]:text-primary-foreground border text-sm"
               >
                 Relative %
               </ToggleGroupItem>
@@ -196,8 +193,8 @@ export function GoalTabContent({
 
           {cadence && (
             <div className="space-y-2">
-              <Label className="text-xs">Period</Label>
-              <div className="bg-muted/50 flex h-9 items-center border px-3">
+              <Label className="text-xs font-medium">Period</Label>
+              <div className="bg-muted/50 flex h-10 items-center border px-4">
                 <span className="text-muted-foreground text-sm capitalize">
                   {formatCadence(cadence)}
                 </span>
@@ -220,13 +217,13 @@ export function GoalTabContent({
             suffix={goalType === "RELATIVE" ? "%" : undefined}
           />
 
-          <div className="flex gap-2 pt-2">
+          <div className="flex gap-2 pt-4">
             {goal && (
               <Button
                 variant="outline"
                 size="sm"
                 onClick={() => setIsEditing(false)}
-                className="flex-1 transition-all duration-200 active:scale-[0.98]"
+                className="h-10 flex-1 transition-all duration-200 active:scale-[0.98]"
               >
                 Cancel
               </Button>
@@ -235,9 +232,9 @@ export function GoalTabContent({
               size="sm"
               onClick={handleSaveGoal}
               disabled={isUpserting || targetValue <= 0}
-              className="flex-1 transition-all duration-200 active:scale-[0.98]"
+              className="h-10 flex-1 transition-all duration-200 active:scale-[0.98]"
             >
-              {isUpserting && <Loader2 className="mr-1 h-3 w-3 animate-spin" />}
+              {isUpserting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Save Goal
             </Button>
           </div>
@@ -248,39 +245,41 @@ export function GoalTabContent({
 
   // Display Mode
   return (
-    <div className="flex h-full flex-col overflow-y-auto p-4 pb-6 sm:p-5 sm:pb-8">
-      <div className="mb-5">
-        <div className="flex items-start justify-between">
-          <h3 className="text-base font-semibold">Goal Progress</h3>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={handleEditGoal}
-            className="text-muted-foreground hover:text-foreground -mr-2 h-7 px-2"
-          >
-            <Pencil className="mr-1 h-3 w-3" />
-            Edit
-          </Button>
-        </div>
-        <p className="text-muted-foreground mt-1 text-xs leading-relaxed">
-          Track your progress towards the target you&apos;ve set.
+    <div className="relative flex h-full flex-col p-4">
+      {/* Edit button at top right */}
+      <Button
+        variant="outline"
+        size="icon"
+        onClick={handleEditGoal}
+        className="absolute top-0 right-0 h-8 w-8 rounded-none border-t-0 border-r-0 border-b border-l"
+      >
+        <Pencil className="h-3.5 w-3.5" />
+        <span className="sr-only">Edit goal</span>
+      </Button>
+
+      <div className="mb-3 pr-10">
+        <h3 className="text-base font-semibold">Goal Progress</h3>
+        <p className="text-muted-foreground mt-0.5 text-xs">
+          Track your progress towards your target.
         </p>
       </div>
 
       <div className="space-y-4">
         {/* Progress Percentage - in a card */}
-        <div className="bg-background border p-4 text-center shadow-sm">
+        <div className="bg-background border p-4 text-center">
           <div className="text-4xl font-bold">
             {goalProgress
               ? `${Math.round(goalProgress.progressPercent)}%`
               : "--"}
           </div>
-          <div className="text-muted-foreground text-xs">of goal achieved</div>
+          <div className="text-muted-foreground mt-1 text-xs">
+            of goal achieved
+          </div>
 
           {/* Progress Bar */}
           {goalProgress && (
-            <div className="mt-3 space-y-1">
-              <div className="bg-muted h-2.5 w-full overflow-hidden">
+            <div className="mt-4 space-y-1">
+              <div className="bg-muted h-2 w-full overflow-hidden">
                 <div
                   className={cn(
                     "h-full transition-all duration-300",
@@ -295,7 +294,7 @@ export function GoalTabContent({
                   }}
                 />
               </div>
-              <div className="text-muted-foreground flex justify-between text-[10px]">
+              <div className="text-muted-foreground flex justify-between text-xs">
                 <span>0%</span>
                 <span>100%</span>
               </div>
@@ -305,16 +304,16 @@ export function GoalTabContent({
 
         {/* Time Elapsed */}
         {goalProgress && (
-          <div className="bg-background border p-3 shadow-sm">
+          <div className="bg-background border p-4">
             <div className="flex items-center justify-between">
-              <Label className="text-xs">Time Elapsed</Label>
-              <div className="text-muted-foreground flex items-center gap-1 text-[10px]">
-                <Calendar className="h-3 w-3" />
+              <Label className="text-xs font-medium">Time Elapsed</Label>
+              <div className="text-muted-foreground flex items-center gap-1 text-xs">
+                <Calendar className="h-3.5 w-3.5" />
                 {format(new Date(goalProgress.periodStart), "MMM d")} -{" "}
                 {format(new Date(goalProgress.periodEnd), "MMM d")}
               </div>
             </div>
-            <div className="mt-2 space-y-1">
+            <div className="mt-3 space-y-1">
               <div className="bg-muted h-2 w-full overflow-hidden">
                 <div
                   className="bg-chart-2 h-full transition-all duration-300"
@@ -329,7 +328,7 @@ export function GoalTabContent({
                   }}
                 />
               </div>
-              <div className="text-muted-foreground text-[10px]">
+              <div className="text-muted-foreground text-xs">
                 {formatTimeRemaining(goalProgress)} remaining
               </div>
             </div>
@@ -337,31 +336,31 @@ export function GoalTabContent({
         )}
 
         {/* Current / Target */}
-        <div className="grid grid-cols-2 gap-3">
-          <div className="bg-background border p-3 shadow-sm">
-            <div className="text-muted-foreground text-[10px] uppercase">
+        <div className="grid grid-cols-2 gap-4">
+          <div className="bg-background border p-4">
+            <div className="text-muted-foreground text-xs font-medium tracking-wide uppercase">
               Current
             </div>
-            <div className="text-lg font-semibold">
+            <div className="mt-1 text-lg font-semibold">
               {currentValue ? formatValue(currentValue.value) : "--"}
             </div>
             {valueLabel && (
-              <div className="text-muted-foreground text-[10px]">
+              <div className="text-muted-foreground mt-0.5 text-xs">
                 {valueLabel}
               </div>
             )}
           </div>
-          <div className="bg-background border p-3 shadow-sm">
-            <div className="text-muted-foreground text-[10px] uppercase">
+          <div className="bg-background border p-4">
+            <div className="text-muted-foreground text-xs font-medium tracking-wide uppercase">
               Target
             </div>
-            <div className="text-lg font-semibold">
+            <div className="mt-1 text-lg font-semibold">
               {goal.goalType === "ABSOLUTE"
                 ? formatValue(goalTargetValue ?? goal.targetValue)
                 : `+${goal.targetValue}%`}
             </div>
             {cadence && (
-              <div className="text-muted-foreground text-[10px]">
+              <div className="text-muted-foreground mt-0.5 text-xs">
                 {formatCadence(cadence)}
               </div>
             )}
@@ -374,12 +373,12 @@ export function GoalTabContent({
           size="sm"
           onClick={deleteGoal}
           disabled={isDeleting}
-          className="text-destructive hover:text-destructive hover:bg-destructive/10 border-destructive/30 mt-2 w-full transition-all duration-200 active:scale-[0.98]"
+          className="text-destructive hover:text-destructive hover:bg-destructive/10 border-destructive/30 mt-4 h-10 w-full transition-all duration-200 active:scale-[0.98]"
         >
           {isDeleting ? (
-            <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
           ) : (
-            <Trash2 className="mr-1 h-3 w-3" />
+            <Trash2 className="mr-2 h-4 w-4" />
           )}
           Remove Goal
         </Button>

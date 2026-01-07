@@ -31,7 +31,7 @@ import { cn } from "@/lib/utils";
 import type { RouterOutputs } from "@/trpc/react";
 
 import { DashboardSheetEdgeTrigger } from "./dashboard-sheet-edge-trigger";
-import { MetricSettingsDrawer } from "./metric-settings-drawer";
+import { MetricSettingsDialog } from "./metric-settings-dialog";
 
 type IntegrationsWithStats = RouterOutputs["integration"]["listWithStats"];
 
@@ -122,8 +122,8 @@ function SidebarMetricCard({
         </p>
       </div>
 
-      {/* Settings button - opens unified drawer */}
-      <MetricSettingsDrawer
+      {/* Settings button - opens unified dialog */}
+      <MetricSettingsDialog
         dashboardChart={dashboardChart}
         teamId={teamId}
         trigger={

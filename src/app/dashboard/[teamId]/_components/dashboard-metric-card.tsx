@@ -15,7 +15,7 @@ import type { ChartTransformResult } from "@/lib/metrics/transformer-types";
 import type { DashboardChartWithRelations } from "@/types/dashboard";
 
 import { DashboardMetricChart } from "./dashboard-metric-chart";
-import { MetricSettingsDrawer } from "./metric-settings-drawer";
+import { MetricSettingsDialog } from "./metric-settings-dialog";
 import { useDashboardCharts } from "./use-dashboard-charts";
 
 interface DashboardMetricCardProps {
@@ -74,7 +74,7 @@ export function DashboardMetricCard({
             </TooltipContent>
           </Tooltip>
         )}
-        <MetricSettingsDrawer
+        <MetricSettingsDialog
           dashboardChart={dashboardChart}
           teamId={teamId}
           trigger={
