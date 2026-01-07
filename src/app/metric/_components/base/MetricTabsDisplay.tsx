@@ -71,7 +71,7 @@ export function MetricTabsDisplay({
     <Tabs defaultValue="all" className={className}>
       <TabsList
         className={cn(
-          "grid h-auto auto-cols-fr grid-flow-col gap-1.5 bg-transparent p-0",
+          "flex h-auto flex-wrap gap-1.5 bg-transparent p-0",
           tabsListClassName,
         )}
       >

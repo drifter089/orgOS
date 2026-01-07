@@ -147,19 +147,21 @@ export function MemberCard({
         </div>
       </div>
 
-      {/* Bottom row: Stats + More Details button */}
-      <div className="flex items-center justify-between gap-2">
-        {/* Stats badges */}
-        <div className="flex min-w-0 flex-wrap items-center gap-1">
+      {/* Bottom row: Stats + Details button */}
+      <div className="flex items-center justify-between px-0.5">
+        {/* Stats badges - all use outline variant for consistency */}
+        <div className="flex min-w-0 flex-wrap items-center gap-1.5">
           {roleCount > 0 && (
             <Badge
-              variant="secondary"
+              variant="outline"
               className={cn(
-                "h-4 gap-0.5 px-1 text-[10px] font-normal sm:h-5 sm:px-1.5 sm:text-[10px]",
-                isActive && "bg-primary-foreground/20 text-primary-foreground",
+                "h-5 gap-0.5 px-1.5 text-[10px] font-normal",
+                isActive
+                  ? "border-primary-foreground/30 text-primary-foreground"
+                  : "border-border",
               )}
             >
-              <Briefcase className="h-2 w-2 sm:h-2.5 sm:w-2.5" />
+              <Briefcase className="h-2.5 w-2.5" />
               {roleCount}
             </Badge>
           )}
@@ -167,12 +169,13 @@ export function MemberCard({
             <Badge
               variant="outline"
               className={cn(
-                "h-4 gap-0.5 px-1 text-[10px] font-normal sm:h-5 sm:px-1.5 sm:text-[10px]",
-                isActive &&
-                  "border-primary-foreground/30 text-primary-foreground",
+                "h-5 gap-0.5 px-1.5 text-[10px] font-normal",
+                isActive
+                  ? "border-primary-foreground/30 text-primary-foreground"
+                  : "border-border",
               )}
             >
-              <Gauge className="h-2 w-2 sm:h-2.5 sm:w-2.5" />
+              <Gauge className="h-2.5 w-2.5" />
               {totalEffort}
             </Badge>
           )}
@@ -180,33 +183,33 @@ export function MemberCard({
             <Badge
               variant="outline"
               className={cn(
-                "h-4 gap-0.5 px-1 text-[10px] font-normal sm:h-5 sm:px-1.5 sm:text-[10px]",
-                isActive &&
-                  "border-primary-foreground/30 text-primary-foreground",
+                "h-5 gap-0.5 px-1.5 text-[10px] font-normal",
+                isActive
+                  ? "border-primary-foreground/30 text-primary-foreground"
+                  : "border-border",
               )}
             >
-              <Target className="h-2 w-2 sm:h-2.5 sm:w-2.5" />
+              <Target className="h-2.5 w-2.5" />
               {goalsOnTrack}/{goalsTotal}
             </Badge>
           )}
         </div>
 
-        {/* More Details button */}
+        {/* Details button */}
         <Button
           asChild
           variant={isActive ? "secondary" : "outline"}
           size="sm"
           className={cn(
-            "group h-5 shrink-0 gap-0.5 px-1.5 text-[10px] transition-all duration-200 hover:scale-[1.02] sm:h-6 sm:gap-1 sm:px-2 sm:text-xs",
+            "group h-6 shrink-0 gap-1 px-2 text-xs transition-all duration-200 hover:scale-[1.02]",
             isActive
               ? "bg-primary-foreground/20 text-primary-foreground hover:bg-primary-foreground/30"
               : "border-border hover:border-primary/50 hover:bg-accent/50",
           )}
         >
           <Link href={`/member/${member.id}`}>
-            <span className="hidden sm:inline">Details</span>
-            <span className="sm:hidden">View</span>
-            <ArrowRight className="h-2.5 w-2.5 transition-transform duration-200 group-hover:translate-x-0.5 sm:h-3 sm:w-3" />
+            Details
+            <ArrowRight className="h-3 w-3 transition-transform duration-200 group-hover:translate-x-0.5" />
           </Link>
         </Button>
       </div>

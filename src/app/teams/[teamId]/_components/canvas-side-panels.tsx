@@ -220,7 +220,7 @@ function RightSideToggleButtons({
   kpiCount,
 }: RightSideToggleButtonsProps) {
   const getButtonPosition = () => {
-    return activePanel ? "right-[22.5rem]" : "right-4";
+    return activePanel ? "right-[26.5rem]" : "right-4";
   };
 
   const buttonBaseClass = cn(
@@ -367,7 +367,7 @@ export function CanvasSidePanels({
       >
         <NonModalSheetContent
           side="right"
-          className="w-[22rem] overflow-hidden p-0 sm:max-w-none"
+          className="w-[26rem] overflow-hidden p-0 sm:max-w-none"
           hideCloseButton
         >
           <MembersPanel members={members} memberStats={memberStats} />
@@ -381,12 +381,12 @@ export function CanvasSidePanels({
       >
         <NonModalSheetContent
           side="right"
-          className="w-[22rem] overflow-hidden p-0 sm:max-w-none"
+          className="w-[26rem] overflow-hidden p-0 sm:max-w-none"
         >
           <div className="flex h-full flex-col">
             <div className="flex-shrink-0 border-b px-4 py-3">
               <div className="flex items-center justify-between">
-                <h2 className="text-2xl font-bold tracking-tight">Roles</h2>
+                <h2 className="text-xl font-bold tracking-tight">Roles</h2>
                 <RoleDialog teamId={teamId} />
               </div>
             </div>

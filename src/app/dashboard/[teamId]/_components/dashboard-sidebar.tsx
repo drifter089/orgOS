@@ -2,16 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 
-import {
-  Check,
-  Eye,
-  EyeOff,
-  GripVertical,
-  Loader2,
-  Plus,
-  Settings,
-  X,
-} from "lucide-react";
+import { Eye, GripVertical, Loader2, Plus, Settings, X } from "lucide-react";
 
 import { PlatformsDialog } from "@/app/integration/_components";
 import {
@@ -95,7 +86,7 @@ function SidebarMetricCard({
 
       <div
         className={cn(
-          "h-8 w-1.5 border",
+          "h-8 w-1.5 rounded-sm",
           getPlatformConfig(metric.integration?.providerId ?? "manual").bgColor,
         )}
       />
@@ -108,62 +99,62 @@ function SidebarMetricCard({
               Processing
             </Badge>
           )}
-          {isOnCanvas && (
-            <Badge
-              variant="outline"
-              className="border-primary/30 text-primary h-5 shrink-0 px-1.5 text-[10px]"
-            >
-              <Check className="mr-0.5 h-2.5 w-2.5" />
-              On canvas
-            </Badge>
-          )}
         </div>
         <p className="text-muted-foreground text-xs capitalize">
           {metric.integration?.providerId ?? "manual"}
         </p>
       </div>
 
-      {/* Settings button - opens unified dialog */}
-      <MetricSettingsDialog
-        dashboardChart={dashboardChart}
-        teamId={teamId}
-        trigger={
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-7 w-7 shrink-0 opacity-0 transition-opacity group-hover:opacity-100"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <Settings className="h-4 w-4" />
-          </Button>
-        }
-      />
-
-      {/* Eye toggle button - only when drag-drop is enabled */}
-      {enableDragDrop && onToggleChartVisibility && (
+      {/* Action buttons - same size, aligned, with tooltips */}
+      <div className="flex shrink-0 items-center gap-1">
+        {/* Settings button */}
         <Tooltip>
           <TooltipTrigger asChild>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-7 w-7 shrink-0 opacity-0 transition-opacity group-hover:opacity-100"
-              onClick={(e) => {
-                e.stopPropagation();
-                onToggleChartVisibility(dashboardChart);
-              }}
-            >
-              {isOnCanvas ? (
-                <EyeOff className="h-4 w-4" />
-              ) : (
-                <Eye className="h-4 w-4" />
-              )}
-            </Button>
+            <MetricSettingsDialog
+              dashboardChart={dashboardChart}
+              teamId={teamId}
+              trigger={
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="border-border hover:border-primary/50 h-7 w-7 opacity-0 transition-all duration-200 group-hover:opacity-100 hover:scale-105"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <Settings className="h-3.5 w-3.5" />
+                </Button>
+              }
+            />
           </TooltipTrigger>
-          <TooltipContent side="left">
-            {isOnCanvas ? "Remove from canvas" : "Add to canvas"}
-          </TooltipContent>
+          <TooltipContent side="top">Metric settings</TooltipContent>
         </Tooltip>
-      )}
+
+        {/* Eye toggle button - shows canvas status via icon style */}
+        {enableDragDrop && onToggleChartVisibility && (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="outline"
+                size="icon"
+                className={cn(
+                  "h-7 w-7 transition-all duration-200 hover:scale-105",
+                  isOnCanvas
+                    ? "border-primary bg-primary/10 text-primary hover:bg-primary/20"
+                    : "border-border hover:border-primary/50 opacity-0 group-hover:opacity-100",
+                )}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onToggleChartVisibility(dashboardChart);
+                }}
+              >
+                <Eye className="h-3.5 w-3.5" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="top">
+              {isOnCanvas ? "Remove from canvas" : "Add to canvas"}
+            </TooltipContent>
+          </Tooltip>
+        )}
+      </div>
     </div>
   );
 }
@@ -273,7 +264,8 @@ export function DashboardSidebar({
       <Sheet open={isOpen} onOpenChange={setIsOpen} modal={false}>
         <SheetContent
           side={side}
-          className="z-[52] w-[22rem] overflow-hidden p-0 sm:max-w-none"
+          className="z-[60] w-[26rem] overflow-hidden p-0 sm:max-w-none"
+          hideCloseButton
         >
           <SheetTitle className="sr-only">Dashboard Sidebar</SheetTitle>
           <div className="flex h-full flex-col">
