@@ -78,7 +78,7 @@ export function MetricTabsDisplay({
         <TabsTrigger
           value="all"
           className={cn(
-            "h-9 rounded-md border bg-transparent px-2.5 py-1.5 text-xs font-medium",
+            "border-border h-9 rounded-md border bg-transparent px-2.5 py-1.5 text-xs font-medium",
             "transition-all duration-200 ease-out",
             "hover:bg-accent/50 hover:scale-[1.02]",
             "data-[state=active]:border-primary data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:font-semibold",
@@ -95,7 +95,7 @@ export function MetricTabsDisplay({
             key={tab.id}
             value={tab.id}
             className={cn(
-              "h-9 rounded-md border bg-transparent px-2.5 py-1.5 text-xs font-medium capitalize",
+              "border-border h-9 rounded-md border bg-transparent px-2.5 py-1.5 text-xs font-medium capitalize",
               "transition-all duration-200 ease-out",
               "hover:bg-accent/50 hover:scale-[1.02]",
               "data-[state=active]:border-primary data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:font-semibold",
