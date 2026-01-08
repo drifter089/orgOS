@@ -1,3 +1,8 @@
+/**
+ * Shared constants for role forms and displays.
+ * Used by RoleCard, RoleDialog, and other role-related components.
+ */
+
 export const ROLE_FIELD_TOOLTIPS = {
   title:
     "The official name for this role. Keep it clear and recognizable (e.g., 'Product Manager', 'Lead Engineer').",

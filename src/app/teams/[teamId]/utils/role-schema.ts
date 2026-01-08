@@ -1,19 +1,7 @@
-import { z } from "zod";
-
-export const roleFormSchema = z.object({
-  title: z.string().min(1, "Title is required").max(100),
-  purpose: z.string().min(1, "Purpose is required"),
-  accountabilities: z.string().optional(),
-  metricId: z.string().optional(),
-  assignedUserId: z.string().nullable().optional(),
-  effortPoints: z.number().int().nullable().optional(),
-  color: z
-    .string()
-    .regex(/^#[0-9A-F]{6}$/i)
-    .optional(),
-});
-
-export type RoleFormData = z.infer<typeof roleFormSchema>;
+/**
+ * Canvas-specific role utilities.
+ * Form schema and types have been moved to @/lib/role/role-form-schema.ts
+ */
 
 /** Calculate the center position of the current viewport in flow coordinates */
 export function getViewportCenter(

@@ -2,11 +2,11 @@
 
 import { useState } from "react";
 
-import { Pencil, Target, User, Users } from "lucide-react";
+import { Users } from "lucide-react";
 
+import { RoleDialog } from "@/app/teams/[teamId]/_components/role-dialog";
 import { RoleAssignment } from "@/components/metric/role-assignment";
-import { RoleEditDialog } from "@/components/role/role-edit-dialog";
-import { Button } from "@/components/ui/button";
+import { RoleCard } from "@/components/role/role-card";
 import { Label } from "@/components/ui/label";
 
 interface RoleTabContentProps {
@@ -17,6 +17,8 @@ interface RoleTabContentProps {
     id: string;
     title: string;
     color: string;
+    purpose?: string;
+    effortPoints?: number | null;
     assignedUserId: string | null;
     assignedUserName: string | null;
   }>;
@@ -57,41 +59,21 @@ export function RoleTabContent({
       {roles.length > 0 ? (
         <div className="mb-4 space-y-3">
           {roles.map((role) => (
-            <div
+            <RoleCard
               key={role.id}
-              className="bg-background group border p-4"
-              style={{ borderLeftColor: role.color, borderLeftWidth: 3 }}
-            >
-              <div className="flex items-start gap-4">
-                <div
-                  className="flex h-10 w-10 shrink-0 items-center justify-center"
-                  style={{ backgroundColor: `${role.color}20` }}
-                >
-                  <Target className="h-4 w-4" style={{ color: role.color }} />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <div className="text-sm font-medium">{role.title}</div>
-                  {role.assignedUserName ? (
-                    <div className="text-muted-foreground mt-1 flex items-center gap-1 text-xs">
-                      <User className="h-3.5 w-3.5" />
-                      {role.assignedUserName}
-                    </div>
-                  ) : (
-                    <div className="text-muted-foreground mt-1 text-xs italic">
-                      Unassigned
-                    </div>
-                  )}
-                </div>
-                <Button
-                  variant="outline"
-                  size="icon"
-                  className="h-8 w-8 opacity-0 transition-opacity group-hover:opacity-100"
-                  onClick={() => setEditingRoleId(role.id)}
-                >
-                  <Pencil className="h-3.5 w-3.5" />
-                </Button>
-              </div>
-            </div>
+              role={{
+                id: role.id,
+                title: role.title,
+                color: role.color,
+                purpose: role.purpose ?? "",
+                effortPoints: role.effortPoints,
+                assignedUserId: role.assignedUserId,
+                assignedUserName: role.assignedUserName,
+              }}
+              teamId={teamId}
+              variant="list"
+              onEdit={() => setEditingRoleId(role.id)}
+            />
           ))}
         </div>
       ) : (
@@ -122,9 +104,9 @@ export function RoleTabContent({
       </div>
 
       {editingRoleId && (
-        <RoleEditDialog
+        <RoleDialog
           teamId={teamId}
-          roleId={editingRoleId}
+          roleData={{ roleId: editingRoleId }}
           open={!!editingRoleId}
           onOpenChange={(open) => {
             if (!open) setEditingRoleId(null);
