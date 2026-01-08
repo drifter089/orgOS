@@ -146,6 +146,7 @@ function RoleCardComponent({
       if (teamId) {
         void utils.role.getByTeamId.invalidate({ teamId });
         void utils.team.getById.invalidate({ id: teamId });
+        void utils.dashboard.getDashboardCharts.invalidate({ teamId });
       }
     },
   });

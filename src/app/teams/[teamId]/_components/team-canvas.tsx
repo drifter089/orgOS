@@ -481,7 +481,7 @@ export function TeamCanvas() {
       createRole.mutate({
         teamId,
         title: "New Role",
-        purpose: "",
+        purpose: "Define this role's purpose",
         nodeId,
         color: ROLE_COLORS[0],
       });
