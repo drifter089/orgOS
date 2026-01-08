@@ -88,6 +88,7 @@ export function PublicTeamCanvasUnified() {
           id: node.id,
           type: "chart-node" as const,
           position: node.position,
+          style: node.style ?? { width: 750, height: 420 },
           data: {
             dashboardMetricId,
             teamId: team?.id ?? "",
@@ -105,6 +106,7 @@ export function PublicTeamCanvasUnified() {
         id: node.id,
         type: "role-node" as const,
         position: node.position,
+        style: node.style ?? { width: 240, height: 180 },
         data: {
           roleId,
           readOnly: true,
