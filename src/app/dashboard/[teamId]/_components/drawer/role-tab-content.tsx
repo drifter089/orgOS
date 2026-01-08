@@ -71,7 +71,6 @@ export function RoleTabContent({
                 assignedUserName: role.assignedUserName,
               }}
               teamId={teamId}
-              variant="list"
               onEdit={() => setEditingRoleId(role.id)}
             />
           ))}
