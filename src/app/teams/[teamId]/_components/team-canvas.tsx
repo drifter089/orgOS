@@ -30,14 +30,13 @@ import {
   useDrawingUndoRedo,
   useForceLayout,
 } from "@/lib/canvas";
-import { cn, markdownToHtml } from "@/lib/utils";
+import { ROLE_COLORS, cn } from "@/lib/utils";
 
 import { useChartDragContext } from "../context/chart-drag-context";
 import { useAutoSave } from "../hooks/use-auto-save";
 import { useChartDragDrop } from "../hooks/use-chart-drag-drop";
 import { useCreateRole } from "../hooks/use-create-role";
 import { useRoleMetricSync } from "../hooks/use-role-metric-sync";
-import { useRoleSuggestions } from "../hooks/use-role-suggestions";
 import {
   type TeamEdge as TeamEdgeType,
   type TeamNode,
@@ -186,7 +185,6 @@ export function TeamCanvas() {
   // Track mouse position on canvas for "T" shortcut
   const mousePositionRef = useRef<{ x: number; y: number } | null>(null);
   const { isSaving, lastSaved } = useAutoSave();
-  const { consumeNextRole } = useRoleSuggestions(teamId);
 
   // Sync KPI edge changes (role-metric assignments) to backend
   useRoleMetricSync();
@@ -480,28 +478,15 @@ export function TeamCanvas() {
       pendingDropContextRef.current = { position, sourceNodeId };
 
       const nodeId = `role-node-${nanoid(8)}`;
-      const suggestion = consumeNextRole();
-
-      if (suggestion) {
-        createRole.mutate({
-          teamId,
-          title: suggestion.title,
-          purpose: markdownToHtml(suggestion.purpose),
-          accountabilities: markdownToHtml(suggestion.accountabilities),
-          nodeId,
-          color: suggestion.color,
-        });
-      } else {
-        createRole.mutate({
-          teamId,
-          title: "New Role",
-          purpose: "Define the purpose of this role",
-          nodeId,
-          color: "#3b82f6",
-        });
-      }
+      createRole.mutate({
+        teamId,
+        title: "New Role",
+        purpose: "",
+        nodeId,
+        color: ROLE_COLORS[0],
+      });
     },
-    [teamId, screenToFlowPosition, consumeNextRole, createRole, nodes],
+    [teamId, screenToFlowPosition, createRole, nodes],
   );
 
   // Get selected role data from editingNodeId

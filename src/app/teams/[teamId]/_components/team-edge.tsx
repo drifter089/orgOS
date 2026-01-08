@@ -13,10 +13,9 @@ import {
 import { nanoid } from "nanoid";
 
 import { EdgeActionButtons, getFloatingEdgeParams } from "@/lib/canvas";
-import { markdownToHtml } from "@/lib/utils";
+import { ROLE_COLORS } from "@/lib/utils";
 
 import { useCreateRole } from "../hooks/use-create-role";
-import { useRoleSuggestions } from "../hooks/use-role-suggestions";
 import {
   type TeamEdge as TeamEdgeType,
   useTeamStore,
@@ -47,12 +46,9 @@ export function TeamEdge({
   const setEdges = useTeamStore((state) => state.setEdges);
   const markDirty = useTeamStore((state) => state.markDirty);
 
-  const { consumeNextRole } = useRoleSuggestions(teamId);
-
   const positionRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
 
   const getNodeOptions = useCallback(() => {
-    // Offset to center node on edge midpoint
     return {
       position: {
         x: positionRef.current.x - 140,
@@ -68,7 +64,6 @@ export function TeamEdge({
         const edge = currentEdges[edgeIndex];
         if (!edge) return currentEdges;
 
-        // Split edge: remove old, add two new edges
         return [
           ...currentEdges.slice(0, edgeIndex),
           ...currentEdges.slice(edgeIndex + 1),
@@ -102,27 +97,14 @@ export function TeamEdge({
 
   const handleAddRole = useCallback(() => {
     const nodeId = `role-node-${nanoid(8)}`;
-    const suggestion = consumeNextRole();
-
-    if (suggestion) {
-      createRole.mutate({
-        teamId,
-        title: suggestion.title,
-        purpose: markdownToHtml(suggestion.purpose),
-        accountabilities: markdownToHtml(suggestion.accountabilities),
-        nodeId,
-        color: suggestion.color,
-      });
-    } else {
-      createRole.mutate({
-        teamId,
-        title: "New Role",
-        purpose: "Define the purpose of this role",
-        nodeId,
-        color: "#3b82f6",
-      });
-    }
-  }, [teamId, createRole, consumeNextRole]);
+    createRole.mutate({
+      teamId,
+      title: "New Role",
+      purpose: "",
+      nodeId,
+      color: ROLE_COLORS[0],
+    });
+  }, [teamId, createRole]);
 
   const handleDeleteEdge = useCallback(() => {
     const currentEdges = storeApi.getState().edges;
@@ -131,12 +113,10 @@ export function TeamEdge({
     markDirty();
   }, [storeApi, id, setEdges, markDirty]);
 
-  // Early return after all hooks
   if (!sourceNode || !targetNode) {
     return null;
   }
 
-  // Calculate floating edge path
   const { sx, sy, tx, ty, sourcePos, targetPos } = getFloatingEdgeParams(
     sourceNode,
     targetNode,
@@ -150,14 +130,12 @@ export function TeamEdge({
     targetPosition: targetPos,
   });
 
-  // Update the position ref each render so onMutate has access to current values
   positionRef.current = { x: labelX, y: labelY };
 
   const isReadOnly = data?.readOnly ?? false;
 
   return (
     <>
-      {/* Arrow marker definition with theme-aware color */}
       <defs>
         <marker
           id={markerId}

@@ -4,9 +4,9 @@ import { useState } from "react";
 
 import { Users } from "lucide-react";
 
+import { RoleDialog } from "@/app/teams/[teamId]/_components/role-dialog";
 import { RoleAssignment } from "@/components/metric/role-assignment";
 import { RoleCard } from "@/components/role/role-card";
-import { RoleDialog } from "@/components/role/role-dialog";
 import { Label } from "@/components/ui/label";
 
 interface RoleTabContentProps {
