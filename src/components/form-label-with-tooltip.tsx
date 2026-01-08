@@ -27,9 +27,7 @@ export function FormLabelWithTooltip({
     <div className={cn("flex items-center gap-1.5", className)}>
       <FormLabel>
         {label}
-        {!required && (
-          <span className="text-muted-foreground ml-1 text-xs">(Optional)</span>
-        )}
+        {required && <span className="text-destructive ml-0.5">*</span>}
       </FormLabel>
       <Tooltip>
         <TooltipTrigger asChild>
