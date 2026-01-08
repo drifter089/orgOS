@@ -16,7 +16,7 @@ import { Button } from "@/components/ui/button";
 import { useRoleData, useUserName } from "@/hooks/use-role-data";
 import { stripHtml } from "@/lib/html-utils";
 import { getLatestMetricValue } from "@/lib/metrics/get-latest-value";
-import type { ChartTransformResult } from "@/lib/metrics/transformer-types";
+import { type ChartTransformResult } from "@/lib/metrics/transformer-types";
 import { cn } from "@/lib/utils";
 import { useConfirmationOptional } from "@/providers/ConfirmationDialogProvider";
 import { api } from "@/trpc/react";
