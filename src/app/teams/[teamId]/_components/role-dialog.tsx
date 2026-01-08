@@ -1,9 +1,9 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Gauge, Plus } from "lucide-react";
+import { Briefcase, Gauge, Plus, User } from "lucide-react";
 import { nanoid } from "nanoid";
 import { useForm } from "react-hook-form";
 
@@ -127,6 +127,24 @@ export function RoleDialog({
 
   const { data: metrics = [] } = api.metric.getByTeamId.useQuery({ teamId });
   const { data: members = [] } = api.organization.getMembers.useQuery();
+  const { data: memberStats } = api.organization.getMemberStats.useQuery();
+
+  const selectedUserId = form.watch("assignedUserId");
+  const selectedMember = useMemo(() => {
+    if (
+      !selectedUserId ||
+      selectedUserId === "__none__" ||
+      members.length === 0
+    )
+      return null;
+    return members.find((m) => m.id === selectedUserId) ?? null;
+  }, [selectedUserId, members]);
+
+  const selectedMemberStats = useMemo(() => {
+    if (!selectedUserId || selectedUserId === "__none__" || !memberStats)
+      return null;
+    return memberStats[selectedUserId] ?? null;
+  }, [selectedUserId, memberStats]);
 
   const onBeforeMutate = useCallback(() => {
     setOpen(false);
@@ -270,7 +288,7 @@ export function RoleDialog({
             <Form {...form}>
               <form onSubmit={form.handleSubmit(onSubmit)}>
                 <div className="grid grid-cols-1 gap-6 p-6 md:grid-cols-3">
-                  <div className="space-y-5 md:col-span-2">
+                  <div className="space-y-4 md:col-span-2">
                     <FormField
                       control={form.control}
                       name="title"
@@ -338,7 +356,7 @@ export function RoleDialog({
                     />
                   </div>
 
-                  <div className="space-y-5">
+                  <div className="space-y-4">
                     <FormField
                       control={form.control}
                       name="color"
@@ -348,7 +366,7 @@ export function RoleDialog({
                             label="Color"
                             tooltip={ROLE_FIELD_TOOLTIPS.color}
                           />
-                          <div className="grid grid-cols-7 gap-1.5">
+                          <div className="grid grid-cols-7 gap-1.5 pt-1">
                             {ROLE_COLORS.map((color) => (
                               <button
                                 key={color}
@@ -384,24 +402,77 @@ export function RoleDialog({
                             value={field.value ?? undefined}
                           >
                             <FormControl>
-                              <SelectTrigger className="h-10">
-                                <SelectValue placeholder="Select member" />
+                              <SelectTrigger className="h-auto min-h-10 w-full py-2">
+                                {selectedMember ? (
+                                  <div className="flex items-center gap-2">
+                                    <User
+                                      className="text-muted-foreground h-4 w-4 shrink-0"
+                                      aria-hidden="true"
+                                    />
+                                    <div className="flex flex-col items-start text-left">
+                                      <span className="text-sm font-medium">
+                                        {selectedMember.firstName}{" "}
+                                        {selectedMember.lastName}
+                                      </span>
+                                      {selectedMemberStats && (
+                                        <span className="text-muted-foreground text-xs">
+                                          {selectedMemberStats.roleCount} role
+                                          {selectedMemberStats.roleCount !== 1
+                                            ? "s"
+                                            : ""}{" "}
+                                          · {selectedMemberStats.totalEffort}{" "}
+                                          pts
+                                        </span>
+                                      )}
+                                    </div>
+                                  </div>
+                                ) : (
+                                  <SelectValue placeholder="Select member" />
+                                )}
                               </SelectTrigger>
                             </FormControl>
                             <SelectContent>
-                              <SelectItem value="__none__">None</SelectItem>
-                              {members.map((member) => (
-                                <SelectItem key={member.id} value={member.id}>
-                                  <div className="flex flex-col">
-                                    <span>
-                                      {member.firstName} {member.lastName}
-                                    </span>
-                                    <span className="text-muted-foreground text-xs">
-                                      {member.email}
-                                    </span>
-                                  </div>
-                                </SelectItem>
-                              ))}
+                              <SelectItem value="__none__">
+                                <span className="text-muted-foreground">
+                                  None
+                                </span>
+                              </SelectItem>
+                              {members.map((member) => {
+                                const stats = memberStats?.[member.id];
+                                return (
+                                  <SelectItem key={member.id} value={member.id}>
+                                    <div className="flex w-full items-center justify-between gap-3">
+                                      <span className="font-medium">
+                                        {member.firstName} {member.lastName}
+                                      </span>
+                                      {stats && (
+                                        <div className="text-muted-foreground flex items-center gap-2 text-xs">
+                                          <span
+                                            className="flex items-center gap-0.5"
+                                            aria-label={`${stats.roleCount} roles`}
+                                          >
+                                            <Briefcase
+                                              className="h-3 w-3"
+                                              aria-hidden="true"
+                                            />
+                                            {stats.roleCount}
+                                          </span>
+                                          <span
+                                            className="flex items-center gap-0.5"
+                                            aria-label={`${stats.totalEffort} effort points`}
+                                          >
+                                            <Gauge
+                                              className="h-3 w-3"
+                                              aria-hidden="true"
+                                            />
+                                            {stats.totalEffort}
+                                          </span>
+                                        </div>
+                                      )}
+                                    </div>
+                                  </SelectItem>
+                                );
+                              })}
                             </SelectContent>
                           </Select>
                           <FormMessage />
@@ -423,12 +494,16 @@ export function RoleDialog({
                             value={field.value ?? undefined}
                           >
                             <FormControl>
-                              <SelectTrigger className="h-10">
+                              <SelectTrigger className="h-10 w-full">
                                 <SelectValue placeholder="Select metric" />
                               </SelectTrigger>
                             </FormControl>
                             <SelectContent>
-                              <SelectItem value="__none__">None</SelectItem>
+                              <SelectItem value="__none__">
+                                <span className="text-muted-foreground">
+                                  None
+                                </span>
+                              </SelectItem>
                               {metrics.map((metric) => (
                                 <SelectItem key={metric.id} value={metric.id}>
                                   {metric.name}
@@ -461,7 +536,7 @@ export function RoleDialog({
                             value={field.value?.toString() ?? undefined}
                           >
                             <FormControl>
-                              <SelectTrigger className="h-10">
+                              <SelectTrigger className="h-10 w-full">
                                 <SelectValue placeholder="Select points">
                                   {field.value && (
                                     <div className="flex items-center gap-2">
@@ -476,7 +551,11 @@ export function RoleDialog({
                               </SelectTrigger>
                             </FormControl>
                             <SelectContent>
-                              <SelectItem value="__none__">None</SelectItem>
+                              <SelectItem value="__none__">
+                                <span className="text-muted-foreground">
+                                  None
+                                </span>
+                              </SelectItem>
                               {EFFORT_POINT_OPTIONS.map((points) => (
                                 <SelectItem
                                   key={points}
