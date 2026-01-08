@@ -11,6 +11,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- PostHog analytics integration for tracking user behavior and product metrics (#334)
+- WorkOS profile pictures for members with initials fallback when unavailable (#341)
 - Version update notification toast to alert users of new releases (#333)
 - Team canvas link to member page for improved navigation (#331)
 - Enhanced edge action buttons UX with improved interaction and zoom controls (#330)
@@ -21,6 +23,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Metric settings drawer converted to dialog with horizontal tabs (Goal, Roles, Settings) (#338)
+- Organization page redesigned with consistent typography, 8px-based spacing, and improved responsiveness (#337)
+- Canvas sidebar UI styling and responsiveness improved with compact layout and better mobile support (#342)
+- Worktree command enhanced to create 3 worktrees with creative names and auto-open terminals (#339)
 - Default metric poll frequency changed from frequent (15m) to hourly (#326)
 - Enhanced radar chart UI with semi-transparent tooltip and improved legend (#317)
 - Increased chart heights from 320px to 380px for better visibility (#317)
@@ -32,6 +38,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Dark mode shadow visibility by using pure black with higher opacity values (#344)
+- Sidebar and member card UI with improved responsive design, consistent badge styling, and better button layouts (#343)
+- Auto-creating role nodes from KPI chart edge drops on team canvas (#340)
 - Team canvas UX improvements with resizable charts and keyboard shortcuts (#332)
 - Chart Y-axis scaling to properly include goal line in view (#328)
 - Drawer height increased for better visibility on smaller screens (#327)
