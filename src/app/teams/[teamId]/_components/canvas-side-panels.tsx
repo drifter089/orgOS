@@ -105,7 +105,6 @@ function RolesList({
             key={role.id}
             role={role}
             teamId={teamId}
-            variant="list"
             isPending={isPending}
             onEdit={() => !isPending && onRoleClick?.(role.id)}
           />
