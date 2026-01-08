@@ -84,7 +84,7 @@ function RoleNodeComponent({ data, selected, id }: NodeProps<RoleNode>) {
         pendingColor={data.pendingColor}
         roleDataOverride={data.roleDataOverride}
         userNameOverride={data.userNameOverride}
-        variant="canvas"
+        className="h-[160px] w-[320px]"
         selected={selected}
         readOnly={data.readOnly}
         onEdit={!data.readOnly ? handleEdit : undefined}

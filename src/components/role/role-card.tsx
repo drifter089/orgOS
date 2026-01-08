@@ -61,9 +61,7 @@ interface RoleCardProps {
   /** Pre-resolved user name for public views */
   userNameOverride?: string | null;
 
-  /** Display variant: canvas (320x160) or list (compact) */
-  variant?: "canvas" | "list";
-  /** Visual selection state (canvas variant only) */
+  /** Visual selection state */
   selected?: boolean;
   /** Hide all buttons and disable interactions */
   readOnly?: boolean;
@@ -86,7 +84,6 @@ function RoleCardComponent({
   pendingColor,
   roleDataOverride,
   userNameOverride,
-  variant = "canvas",
   selected = false,
   readOnly = false,
   onEdit,
@@ -115,7 +112,6 @@ function RoleCardComponent({
   const effortPoints = role?.effortPoints;
   const roleIdResolved = role?.id ?? roleId ?? "";
 
-  // Metric value extraction
   const dashboardCharts = role?.metric?.dashboardCharts;
   const chartConfig = dashboardCharts?.[0]
     ?.chartConfig as ChartTransformResult | null;
@@ -124,7 +120,6 @@ function RoleCardComponent({
   const metricDate = latestMetric?.date;
   const isValueLoading = metricName && dashboardCharts?.length === 0;
 
-  // Delete mutation
   const utils = api.useUtils();
   const deleteRoleMutation = api.role.delete.useMutation({
     onMutate: async () => {
@@ -175,7 +170,6 @@ function RoleCardComponent({
     }
   }, [onDelete, teamId, roleIdResolved, title, confirm, deleteRoleMutation]);
 
-  // Strip HTML and truncate for display
   const plainPurpose = stripHtml(purpose);
   const truncatedPurpose =
     plainPurpose.length > 100
@@ -184,142 +178,10 @@ function RoleCardComponent({
 
   const showActions = !isPending && !readOnly && (onEdit ?? teamId);
 
-  if (variant === "list") {
-    return (
-      <div
-        className={cn(
-          "bg-card group relative rounded-lg border p-3 transition-all hover:shadow-md",
-          isPending && "opacity-60",
-          isDeleting && "opacity-50",
-          className,
-        )}
-        style={{ borderLeftColor: color, borderLeftWidth: "3px" }}
-      >
-        {/* Action Buttons */}
-        {showActions && (
-          <div className="absolute top-2 right-2 flex gap-1 opacity-0 transition-opacity group-hover:opacity-100">
-            {onEdit && (
-              <Button
-                variant="outline"
-                size="icon"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onEdit();
-                }}
-                className="h-7 w-7"
-                title="Edit role"
-              >
-                <Settings className="h-3.5 w-3.5" />
-              </Button>
-            )}
-            {(onDelete ?? teamId) && (
-              <Button
-                variant="outline"
-                size="icon"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  void handleDelete();
-                }}
-                disabled={isDeleting}
-                className="hover:bg-destructive/10 hover:text-destructive h-7 w-7"
-                title="Delete role"
-              >
-                {isDeleting ? (
-                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                ) : (
-                  <Trash2 className="h-3.5 w-3.5" />
-                )}
-              </Button>
-            )}
-          </div>
-        )}
-
-        {/* Header */}
-        <div className="flex items-center gap-2">
-          <div
-            className="flex h-8 w-8 shrink-0 items-center justify-center rounded"
-            style={{ backgroundColor: `${color}20` }}
-          >
-            <User className="h-4 w-4" style={{ color }} />
-          </div>
-          <div className="min-w-0 flex-1">
-            <h3 className="truncate text-sm font-semibold">{title}</h3>
-            {isPending && (
-              <div className="flex items-center gap-1">
-                <div className="bg-primary h-1 w-1 animate-pulse rounded-full" />
-                <div
-                  className="bg-primary h-1 w-1 animate-pulse rounded-full"
-                  style={{ animationDelay: "0.2s" }}
-                />
-                <div
-                  className="bg-primary h-1 w-1 animate-pulse rounded-full"
-                  style={{ animationDelay: "0.4s" }}
-                />
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Purpose */}
-        {truncatedPurpose && (
-          <p className="text-muted-foreground mt-2 line-clamp-2 text-xs">
-            {truncatedPurpose}
-          </p>
-        )}
-
-        {/* Footer Info */}
-        <div className="mt-2 flex flex-wrap items-center gap-2">
-          {/* Assigned User */}
-          {assignedUserName && (
-            <div className="text-muted-foreground flex items-center gap-1 text-xs">
-              <User className="h-3 w-3" />
-              {role?.assignedUserId ? (
-                <Link
-                  href={`/member/${role.assignedUserId}`}
-                  className="hover:text-primary truncate underline-offset-2 hover:underline"
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  {assignedUserName}
-                </Link>
-              ) : (
-                <span className="truncate">{assignedUserName}</span>
-              )}
-            </div>
-          )}
-
-          {/* Metric Badge */}
-          {metricName && (
-            <div className="bg-muted flex items-center gap-1 rounded px-1.5 py-0.5 text-xs">
-              <TrendingUp className="h-3 w-3" />
-              <span className="truncate">{metricName}</span>
-              {metricValue !== undefined && (
-                <span className="text-primary font-semibold">
-                  {Number.isInteger(metricValue)
-                    ? metricValue
-                    : metricValue.toFixed(1)}
-                </span>
-              )}
-            </div>
-          )}
-
-          {/* Effort Points */}
-          {effortPoints && (
-            <div className="text-muted-foreground flex items-center gap-1 text-xs">
-              <Gauge className="h-3 w-3" />
-              <span>{effortPoints}pt</span>
-            </div>
-          )}
-        </div>
-      </div>
-    );
-  }
-
-  // Canvas variant (320x160)
   return (
     <div
       className={cn(
         "bg-card group relative flex flex-col rounded-lg border transition-all duration-200 hover:shadow-lg",
-        "h-[160px] w-[320px]",
         selected && "ring-primary ring-2 ring-offset-2",
         isPending && "opacity-70",
         isDeleting && "opacity-50",
@@ -397,9 +259,11 @@ function RoleCardComponent({
       {/* Body */}
       <div className="flex min-h-0 flex-1 flex-col gap-1.5 overflow-hidden px-4 py-2">
         {/* Purpose */}
-        <p className="text-muted-foreground line-clamp-2 text-xs">
-          {truncatedPurpose}
-        </p>
+        {truncatedPurpose && (
+          <p className="text-muted-foreground line-clamp-2 text-xs">
+            {truncatedPurpose}
+          </p>
+        )}
 
         {/* Metric & Assigned User - at bottom */}
         <div className="mt-auto space-y-1">
