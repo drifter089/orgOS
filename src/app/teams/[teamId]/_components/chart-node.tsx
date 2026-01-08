@@ -58,7 +58,7 @@ function ChartNodeComponent({ data, selected }: NodeProps<ChartNode>) {
     return (
       <div
         className={cn(
-          "bg-card h-full w-full rounded-xl border-2 p-6 shadow-md",
+          "bg-card h-full w-full rounded-xl border p-6 shadow-md",
           selected && "ring-primary ring-2 ring-offset-2",
         )}
       >
@@ -105,8 +105,7 @@ function ChartNodeComponent({ data, selected }: NodeProps<ChartNode>) {
   return (
     <div
       className={cn(
-        "bg-card h-full w-full rounded-xl border-2 p-3 shadow-md",
-        "transition-shadow hover:shadow-lg",
+        "h-full w-full rounded-xl",
         selected && "ring-primary ring-2 ring-offset-2",
       )}
     >
@@ -144,16 +143,14 @@ function ChartNodeComponent({ data, selected }: NodeProps<ChartNode>) {
         className={handleClassName}
       />
 
-      <div className="h-full overflow-hidden rounded-lg">
-        {isReadOnly ? (
-          <ReadOnlyMetricCard dashboardChart={dashboardMetric} />
-        ) : (
-          <DashboardMetricCard
-            dashboardChart={dashboardMetric}
-            teamId={data.teamId}
-          />
-        )}
-      </div>
+      {isReadOnly ? (
+        <ReadOnlyMetricCard dashboardChart={dashboardMetric} />
+      ) : (
+        <DashboardMetricCard
+          dashboardChart={dashboardMetric}
+          teamId={data.teamId}
+        />
+      )}
     </div>
   );
 }
