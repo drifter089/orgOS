@@ -88,6 +88,7 @@ export function PublicTeamCanvasUnified() {
           id: node.id,
           type: "chart-node" as const,
           position: node.position,
+          style: node.style,
           data: {
             dashboardMetricId,
             teamId: team?.id ?? "",
