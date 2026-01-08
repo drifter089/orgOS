@@ -4,7 +4,6 @@ import { useCallback, useEffect, useState } from "react";
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Gauge, Plus, Sparkles } from "lucide-react";
-import { nanoid } from "nanoid";
 import { useForm } from "react-hook-form";
 
 import { FormLabelWithTooltip } from "@/components/form-label-with-tooltip";
@@ -35,6 +34,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { useOptimisticRoleUpdate } from "@/hooks/use-optimistic-role-update";
 import { useRoleDataWithStatus } from "@/hooks/use-role-data";
 import {
   EFFORT_POINT_OPTIONS,
@@ -44,46 +44,79 @@ import { type RoleFormData, roleFormSchema } from "@/lib/role/role-form-schema";
 import { ROLE_COLORS, markdownToHtml } from "@/lib/utils";
 import { api } from "@/trpc/react";
 
-import { useCreateRole } from "../hooks/use-create-role";
-import type { SuggestedRole } from "../hooks/use-role-suggestions";
-import { useUpdateRole } from "../hooks/use-update-role";
-import { useTeamStoreApi } from "../store/team-store";
-import { getViewportCenter } from "../utils/role-schema";
-import { AIRoleSuggestions } from "./ai-role-suggestions";
-
 /**
  * Props for editing an existing role.
- * Only roleId and nodeId are needed - role data is fetched from cache.
+ * Only roleId is needed - role data is fetched from cache.
  */
 interface EditRoleData {
   roleId: string;
-  nodeId: string;
+  /** Only needed for canvas context */
+  nodeId?: string;
+}
+
+/**
+ * Suggested role from AI panel
+ */
+interface SuggestedRole {
+  title: string;
+  purpose: string;
+  accountabilities: string;
+  color: string;
 }
 
 interface RoleDialogProps {
   teamId: string;
-  /** For edit mode: pass roleId and nodeId */
+  /** For edit mode: pass roleId (and optionally nodeId for canvas) */
   roleData?: EditRoleData;
   trigger?: React.ReactNode;
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
+  /** Show AI suggestions panel (create mode only, canvas context) */
+  showAISuggestions?: boolean;
+  /** AI suggestions component (passed from canvas to avoid import issues) */
+  aiSuggestionsPanel?: React.ComponentType<{
+    teamId: string;
+    onSelectRole: (role: SuggestedRole) => void;
+    onSelectTitle: (title: string) => void;
+    currentTitle: string;
+    currentPurpose: string;
+    className?: string;
+  }>;
+  /** Called when role is created (canvas context - for node creation) */
+  onRoleCreated?: (data: {
+    id: string;
+    title: string;
+    purpose: string;
+    color: string;
+    effortPoints?: number;
+    metricId?: string;
+    assignedUserId?: string | null;
+  }) => void;
 }
 
+/**
+ * Unified role dialog for both create and edit modes.
+ * Works in canvas context (with AI suggestions) and standalone (dashboard, etc.)
+ */
 export function RoleDialog({
   teamId,
   roleData,
   trigger,
   open: controlledOpen,
   onOpenChange,
+  showAISuggestions: showAISuggestionsProp = false,
+  aiSuggestionsPanel: AISuggestionsPanel,
+  onRoleCreated,
 }: RoleDialogProps) {
   const [internalOpen, setInternalOpen] = useState(false);
-  const [showAISuggestions, setShowAISuggestions] = useState(true);
+  const [showAISuggestionsState, setShowAISuggestionsState] = useState(true);
   const isControlled = controlledOpen !== undefined;
   const open = isControlled ? controlledOpen : internalOpen;
   const setOpen = isControlled ? onOpenChange! : setInternalOpen;
 
   const isEditMode = !!roleData;
-  const storeApi = useTeamStoreApi();
+  const showAISuggestions =
+    showAISuggestionsProp && !isEditMode && showAISuggestionsState;
 
   // Fetch role data from TanStack Query cache for edit mode
   const {
@@ -136,26 +169,16 @@ export function RoleDialog({
   const { data: metrics = [] } = api.metric.getByTeamId.useQuery({ teamId });
   const { data: members = [] } = api.organization.getMembers.useQuery();
 
-  // Callbacks for hooks
-  const onBeforeMutate = useCallback(() => {
+  // Use optimistic update hook for edit mode
+  const updateRole = useOptimisticRoleUpdate(teamId);
+
+  // Use create mutation for create mode
+  const createRole = api.role.create.useMutation();
+
+  const handleClose = useCallback(() => {
     setOpen(false);
     form.reset();
   }, [setOpen, form]);
-
-  // Mutation hooks
-  const createRole = useCreateRole({
-    teamId,
-    getNodeOptions: useCallback(() => {
-      const reactFlowInstance = storeApi.getState().reactFlowInstance;
-      return { position: getViewportCenter(reactFlowInstance) };
-    }, [storeApi]),
-    onBeforeMutate,
-  });
-
-  const updateRole = useUpdateRole({
-    teamId,
-    onBeforeMutate,
-  });
 
   function onSubmit(data: RoleFormData) {
     const metricId =
@@ -166,6 +189,7 @@ export function RoleDialog({
       data.assignedUserId === "__none__" ? null : data.assignedUserId;
 
     if (isEditMode && roleData) {
+      handleClose();
       updateRole.mutate({
         id: roleData.roleId,
         title: data.title,
@@ -177,17 +201,33 @@ export function RoleDialog({
         color: data.color,
       });
     } else {
-      createRole.mutate({
-        teamId,
-        title: data.title,
-        purpose: data.purpose,
-        accountabilities: data.accountabilities,
-        metricId,
-        assignedUserId,
-        effortPoints: data.effortPoints ?? undefined,
-        nodeId: `role-node-${nanoid(8)}`,
-        color: data.color,
-      });
+      // Create mode - if onRoleCreated is provided, let parent handle creation
+      if (onRoleCreated) {
+        handleClose();
+        onRoleCreated({
+          id: "", // Will be assigned by parent/server
+          title: data.title,
+          purpose: data.purpose,
+          color: data.color ?? ROLE_COLORS[0],
+          effortPoints: data.effortPoints ?? undefined,
+          metricId,
+          assignedUserId,
+        });
+      } else {
+        // Standalone create - use direct mutation
+        handleClose();
+        createRole.mutate({
+          teamId,
+          title: data.title,
+          purpose: data.purpose,
+          accountabilities: data.accountabilities,
+          metricId,
+          assignedUserId,
+          effortPoints: data.effortPoints ?? undefined,
+          nodeId: `role-node-standalone-${Date.now()}`,
+          color: data.color,
+        });
+      }
     }
   }
 
@@ -202,9 +242,7 @@ export function RoleDialog({
     form.setValue(
       "accountabilities",
       markdownToHtml(suggestedRole.accountabilities),
-      {
-        shouldDirty: true,
-      },
+      { shouldDirty: true },
     );
     form.setValue("color", suggestedRole.color, { shouldDirty: true });
   };
@@ -225,7 +263,7 @@ export function RoleDialog({
         </DialogTrigger>
       )}
       <DialogContent
-        className={`max-h-[90vh] overflow-y-auto transition-[max-width] duration-300 ease-in-out ${!isEditMode && showAISuggestions ? "sm:max-w-[53rem]" : "sm:max-w-[31rem]"}`}
+        className={`max-h-[90vh] overflow-y-auto transition-[max-width] duration-300 ease-in-out ${showAISuggestions ? "sm:max-w-[53rem]" : "sm:max-w-[31rem]"}`}
       >
         <DialogHeader>
           <div className="flex items-center justify-between">
@@ -236,14 +274,16 @@ export function RoleDialog({
               <DialogDescription>
                 {isEditMode
                   ? "Update role details and assignments"
-                  : "Add a new role to your team canvas"}
+                  : "Add a new role to your team"}
               </DialogDescription>
             </div>
-            {!isEditMode && (
+            {showAISuggestionsProp && !isEditMode && AISuggestionsPanel && (
               <Button
-                variant={showAISuggestions ? "secondary" : "outline"}
+                variant={showAISuggestionsState ? "secondary" : "outline"}
                 size="sm"
-                onClick={() => setShowAISuggestions(!showAISuggestions)}
+                onClick={() =>
+                  setShowAISuggestionsState(!showAISuggestionsState)
+                }
                 className="gap-1.5"
               >
                 <Sparkles className="h-4 w-4" />
@@ -276,13 +316,13 @@ export function RoleDialog({
         {/* Show form when not loading/error in edit mode, or always in create mode */}
         {(!isEditMode || (!isRoleLoading && !isRoleError)) && (
           <div
-            className={`flex gap-4 ${!isEditMode && showAISuggestions ? "flex-col sm:flex-row" : ""}`}
+            className={`flex gap-4 ${showAISuggestions ? "flex-col sm:flex-row" : ""}`}
           >
             <TooltipProvider>
               <Form {...form}>
                 <form
                   onSubmit={form.handleSubmit(onSubmit)}
-                  className={`space-y-4 ${!isEditMode && showAISuggestions ? "flex-1" : "w-full"}`}
+                  className={`space-y-4 ${showAISuggestions ? "flex-1" : "w-full"}`}
                 >
                   <FormField
                     control={form.control}
@@ -527,14 +567,14 @@ export function RoleDialog({
               </Form>
             </TooltipProvider>
 
-            {/* AI Suggestions Panel - only show in create mode */}
-            {!isEditMode && (
+            {/* AI Suggestions Panel - only show in create mode when enabled */}
+            {showAISuggestions && AISuggestionsPanel && (
               <div
                 className={`overflow-hidden transition-all duration-300 ease-in-out ${
-                  showAISuggestions ? "w-64 opacity-100" : "w-0 opacity-0"
+                  showAISuggestionsState ? "w-64 opacity-100" : "w-0 opacity-0"
                 }`}
               >
-                <AIRoleSuggestions
+                <AISuggestionsPanel
                   teamId={teamId}
                   onSelectRole={handleSelectSuggestedRole}
                   onSelectTitle={(title) => form.setValue("title", title)}

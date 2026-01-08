@@ -7,9 +7,7 @@ import {
   Briefcase,
   ChevronLeft,
   ChevronRight,
-  Loader2,
   Target,
-  Trash2,
   Users,
   X,
 } from "lucide-react";
@@ -17,17 +15,14 @@ import {
 import { DashboardSidebar } from "@/app/dashboard/[teamId]/_components/dashboard-sidebar";
 import { type DashboardChart } from "@/app/metric/_components";
 import { MembersPanel } from "@/components/member/member-list";
+import { RoleCard } from "@/components/role/role-card";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { Sheet } from "@/components/ui/sheet";
 import { Skeleton } from "@/components/ui/skeleton";
-import { stripHtml } from "@/lib/html-utils";
 import { cn } from "@/lib/utils";
-import { useConfirmation } from "@/providers/ConfirmationDialogProvider";
 import { type RouterOutputs, api } from "@/trpc/react";
 
 import { useChartDragContext } from "../context/chart-drag-context";
-import { useDeleteRole } from "../hooks/use-delete-role";
 import { useTeamStore } from "../store/team-store";
 import { RoleDialog } from "./role-dialog";
 
@@ -77,11 +72,6 @@ function RolesList({
   teamId: string;
   onRoleClick?: (roleId: string) => void;
 }) {
-  const [deletingRoleId, setDeletingRoleId] = useState<string | null>(null);
-
-  const { confirm } = useConfirmation();
-  const deleteRoleMutation = useDeleteRole(teamId);
-
   const { data: roles, isLoading } = api.role.getByTeamId.useQuery({ teamId });
 
   if (isLoading) {
@@ -111,91 +101,14 @@ function RolesList({
         );
 
         return (
-          <div
+          <RoleCard
             key={role.id}
-            className={cn(
-              "group bg-card hover:bg-accent/50 relative flex cursor-pointer items-start gap-3 overflow-hidden rounded-lg border p-3 shadow-sm transition-all hover:shadow",
-              isPending && "opacity-60",
-            )}
-            onClick={() => !isPending && onRoleClick?.(role.id)}
-          >
-            <div className="min-w-0 flex-1">
-              <div className="flex items-center gap-2">
-                <div
-                  className="border-background h-3 w-3 flex-shrink-0 rounded-full border-2 shadow-sm"
-                  style={{
-                    backgroundColor: role.color,
-                    boxShadow: `0 0 0 1px ${role.color}40`,
-                  }}
-                  aria-label={`Role color: ${role.color}`}
-                />
-                <h4 className="truncate text-sm leading-tight font-semibold">
-                  {role.title}
-                </h4>
-                {isPending && (
-                  <div className="flex items-center gap-1">
-                    <div className="bg-primary h-1.5 w-1.5 animate-pulse rounded-full" />
-                    <div
-                      className="bg-primary h-1.5 w-1.5 animate-pulse rounded-full"
-                      style={{ animationDelay: "0.2s" }}
-                    />
-                    <div
-                      className="bg-primary h-1.5 w-1.5 animate-pulse rounded-full"
-                      style={{ animationDelay: "0.4s" }}
-                    />
-                  </div>
-                )}
-              </div>
-              <p className="text-muted-foreground mt-1.5 line-clamp-2 text-xs leading-relaxed">
-                {stripHtml(role.purpose ?? "")}
-              </p>
-              {role.metric && (
-                <Badge
-                  variant="outline"
-                  className="border-primary/20 mt-2 max-w-full text-xs font-medium"
-                >
-                  <span className="truncate">{role.metric.name}</span>
-                </Badge>
-              )}
-              {isPending && (
-                <p className="text-muted-foreground mt-1 text-xs italic">
-                  Saving...
-                </p>
-              )}
-            </div>
-            {!isPending && (
-              <Button
-                variant="outline"
-                size="icon"
-                className="text-muted-foreground hover:text-destructive hover:bg-destructive/10 h-8 w-8 flex-shrink-0 opacity-0 transition-all group-hover:opacity-100"
-                onClick={async (e) => {
-                  e.stopPropagation();
-                  const confirmed = await confirm({
-                    title: "Delete role",
-                    description: `Are you sure you want to delete "${role.title}"? This will also remove it from the canvas.`,
-                    confirmText: "Delete",
-                    variant: "destructive",
-                  });
-
-                  if (confirmed) {
-                    setDeletingRoleId(role.id);
-                    deleteRoleMutation.mutate(
-                      { id: role.id },
-                      { onSettled: () => setDeletingRoleId(null) },
-                    );
-                  }
-                }}
-                disabled={deletingRoleId === role.id}
-                aria-label={`Delete ${role.title}`}
-              >
-                {deletingRoleId === role.id ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <Trash2 className="h-4 w-4" />
-                )}
-              </Button>
-            )}
-          </div>
+            role={role}
+            teamId={teamId}
+            variant="list"
+            isPending={isPending}
+            onEdit={() => !isPending && onRoleClick?.(role.id)}
+          />
         );
       })}
     </div>

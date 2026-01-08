@@ -4,21 +4,18 @@ import { useMemo } from "react";
 
 import { api } from "@/trpc/react";
 
-import { useTeamStoreOptional } from "../store/team-store";
-
 /**
  * Hook to get role data from the TanStack Query cache.
- * This allows role nodes to display data without storing it in node.data,
- * eliminating the dual source of truth issue.
+ * This version accepts teamId as a parameter, making it usable outside the canvas context.
  *
+ * @param teamId - The team ID to fetch roles for
  * @param roleId - The role ID to look up
  * @returns The role data from cache, or undefined if not found/loading
  */
-export function useRoleData(roleId: string) {
-  const teamId = useTeamStoreOptional((state) => state.teamId);
+export function useRoleData(teamId: string, roleId: string) {
   const { data: roles } = api.role.getByTeamId.useQuery(
-    { teamId: teamId ?? "" },
-    { enabled: !!teamId },
+    { teamId },
+    { enabled: !!teamId && !!roleId },
   );
 
   return useMemo(
@@ -31,17 +28,17 @@ export function useRoleData(roleId: string) {
  * Hook to get role data with loading and error states.
  * Use this in components that need to handle loading/error UI (e.g., dialogs).
  *
+ * @param teamId - The team ID to fetch roles for
  * @param roleId - The role ID to look up
  * @returns Object with data, isLoading, and isError states
  */
-export function useRoleDataWithStatus(roleId: string) {
-  const teamId = useTeamStoreOptional((state) => state.teamId);
+export function useRoleDataWithStatus(teamId: string, roleId: string) {
   const {
     data: roles,
     isLoading,
     isError,
   } = api.role.getByTeamId.useQuery(
-    { teamId: teamId ?? "" },
+    { teamId },
     { enabled: !!teamId && !!roleId },
   );
 
