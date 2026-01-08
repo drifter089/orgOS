@@ -77,7 +77,7 @@ export function DeleteTeamDialog({
           <AlertDialogTrigger asChild>
             <button
               data-delete-button
-              className="bg-destructive/10 text-destructive border-destructive/30 hover:bg-destructive hover:text-destructive-foreground hover:border-destructive absolute top-0 right-0 z-10 flex h-6 w-6 items-center justify-center rounded-tr-[calc(var(--radius)-1px)] rounded-bl-md border-b border-l transition-all"
+              className="bg-destructive/10 text-destructive border-destructive/30 hover:bg-destructive hover:text-destructive-foreground hover:border-destructive flex h-6 w-6 items-center justify-center rounded-tr-[calc(var(--radius)-1px)] rounded-bl-md border-b border-l transition-all"
               onClick={(e) => {
                 e.stopPropagation();
               }}

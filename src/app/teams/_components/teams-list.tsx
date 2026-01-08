@@ -28,6 +28,7 @@ import { api } from "@/trpc/react";
 
 import { CreateTeamDialog } from "./create-team-dialog";
 import { DeleteTeamDialog } from "./delete-team-dialog";
+import { EditTeamDialog } from "./edit-team-dialog";
 
 function TeamCardSkeleton() {
   return (
@@ -202,24 +203,32 @@ export function TeamsList() {
               layout
               exit={{ opacity: 0, scale: 0.95 }}
             >
-              <Card className="group has-[[data-delete-button]:hover]:border-border hover:border-primary/50 relative cursor-pointer p-4 transition-all duration-200 hover:shadow-md has-[[data-delete-button]:hover]:bg-transparent">
+              <Card className="group has-[[data-delete-button]:hover,[data-edit-button]:hover]:border-border hover:border-primary/50 relative cursor-pointer p-4 transition-all duration-200 hover:shadow-md has-[[data-delete-button]:hover,[data-edit-button]:hover]:bg-transparent">
                 <Link
                   href={`/teams/${team.id}`}
                   className="absolute inset-0 z-0"
                   aria-label={`View ${team.name} team`}
                 />
-                <DeleteTeamDialog
-                  teamId={team.id}
-                  teamName={team.name}
-                  roleCount={team._count.roles}
-                  metricCount={team._count.metrics}
-                />
+                <div className="absolute top-0 right-0 z-10 flex">
+                  <EditTeamDialog
+                    teamId={team.id}
+                    teamName={team.name}
+                    roleCount={team._count.roles}
+                    metricCount={team._count.metrics}
+                  />
+                  <DeleteTeamDialog
+                    teamId={team.id}
+                    teamName={team.name}
+                    roleCount={team._count.roles}
+                    metricCount={team._count.metrics}
+                  />
+                </div>
                 <div className="pointer-events-none relative z-0 flex flex-col gap-2 pr-8">
                   <div className="flex items-center gap-2">
-                    <CardTitle className="group-has-[[data-delete-button]:hover]:text-foreground group-hover:text-primary line-clamp-1 text-lg font-semibold transition-colors">
+                    <CardTitle className="group-has-[[data-delete-button]:hover,[data-edit-button]:hover]:text-foreground group-hover:text-primary line-clamp-1 text-lg font-semibold transition-colors">
                       {team.name}
                     </CardTitle>
-                    <ArrowRight className="text-primary h-4 w-4 translate-x-0 opacity-0 transition-all duration-200 group-hover:translate-x-1 group-hover:opacity-100 group-has-[[data-delete-button]:hover]:translate-x-0 group-has-[[data-delete-button]:hover]:opacity-0" />
+                    <ArrowRight className="text-primary h-4 w-4 translate-x-0 opacity-0 transition-all duration-200 group-hover:translate-x-1 group-hover:opacity-100 group-has-[[data-delete-button]:hover,[data-edit-button]:hover]:translate-x-0 group-has-[[data-delete-button]:hover,[data-edit-button]:hover]:opacity-0" />
                   </div>
                   <div className="flex gap-2">
                     <Badge variant="secondary" className="gap-1">
