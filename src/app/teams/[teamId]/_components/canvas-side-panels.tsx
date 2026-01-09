@@ -137,11 +137,11 @@ function RightSideToggleButtons({
 
   const buttonBaseClass = cn(
     "flex items-center gap-1 md:gap-1.5",
-    "h-8 px-2 md:h-9 md:px-2.5",
+    "h-7 px-1.5 md:h-8 md:px-2",
     "rounded-md border bg-background",
     "shadow-md hover:shadow-lg",
     "transition-all duration-200",
-    "text-xs md:text-sm font-medium",
+    "text-xs font-medium",
   );
 
   const activeClass = "bg-accent border-primary";
@@ -166,13 +166,14 @@ function RightSideToggleButtons({
             : "Open Members sidebar"
         }
       >
-        <Users className="h-4 w-4" />
+        <Users className="h-3.5 w-3.5" />
         <span className="hidden md:inline">Members</span>
-        <span>({memberCount})</span>
+        <span className="text-muted-foreground">|</span>
+        <span>{memberCount}</span>
         {activePanel === "members" ? (
-          <ChevronRight className="h-4 w-4" />
+          <ChevronRight className="h-3.5 w-3.5" />
         ) : (
-          <ChevronLeft className="h-4 w-4" />
+          <ChevronLeft className="h-3.5 w-3.5" />
         )}
       </button>
 
@@ -186,13 +187,14 @@ function RightSideToggleButtons({
           activePanel === "roles" ? "Close Roles sidebar" : "Open Roles sidebar"
         }
       >
-        <Briefcase className="h-4 w-4" />
+        <Briefcase className="h-3.5 w-3.5" />
         <span className="hidden md:inline">Roles</span>
-        <span>({roleCount})</span>
+        <span className="text-muted-foreground">|</span>
+        <span>{roleCount}</span>
         {activePanel === "roles" ? (
-          <ChevronRight className="h-4 w-4" />
+          <ChevronRight className="h-3.5 w-3.5" />
         ) : (
-          <ChevronLeft className="h-4 w-4" />
+          <ChevronLeft className="h-3.5 w-3.5" />
         )}
       </button>
 
@@ -206,13 +208,14 @@ function RightSideToggleButtons({
           activePanel === "kpis" ? "Close KPIs sidebar" : "Open KPIs sidebar"
         }
       >
-        <Target className="h-4 w-4" />
+        <Target className="h-3.5 w-3.5" />
         <span className="hidden md:inline">KPIs</span>
-        <span>({kpiCount})</span>
+        <span className="text-muted-foreground">|</span>
+        <span>{kpiCount}</span>
         {activePanel === "kpis" ? (
-          <ChevronRight className="h-4 w-4" />
+          <ChevronRight className="h-3.5 w-3.5" />
         ) : (
-          <ChevronLeft className="h-4 w-4" />
+          <ChevronLeft className="h-3.5 w-3.5" />
         )}
       </button>
     </div>
