@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Briefcase, Loader2, Pencil, Target } from "lucide-react";
@@ -66,14 +66,21 @@ export function EditTeamDialog({
   const utils = api.useUtils();
 
   // Queries - only fetch when dialog is open
-  const { data: team, isLoading: teamLoading } = api.team.getById.useQuery(
-    { id: teamId },
-    { enabled: open },
-  );
-  const { data: roles, isLoading: rolesLoading } =
-    api.role.getByTeamId.useQuery({ teamId }, { enabled: open });
-  const { data: dashboardCharts, isLoading: chartsLoading } =
-    api.dashboard.getDashboardCharts.useQuery({ teamId }, { enabled: open });
+  const {
+    data: team,
+    isLoading: teamLoading,
+    isError: teamError,
+  } = api.team.getById.useQuery({ id: teamId }, { enabled: open });
+  const {
+    data: roles,
+    isLoading: rolesLoading,
+    isError: rolesError,
+  } = api.role.getByTeamId.useQuery({ teamId }, { enabled: open });
+  const {
+    data: dashboardCharts,
+    isLoading: chartsLoading,
+    isError: chartsError,
+  } = api.dashboard.getDashboardCharts.useQuery({ teamId }, { enabled: open });
 
   const form = useForm<TeamFormData>({
     resolver: zodResolver(teamFormSchema),
@@ -144,16 +151,13 @@ export function EditTeamDialog({
     },
   });
 
-  const onSubmit = useCallback(
-    (data: TeamFormData) => {
-      updateTeam.mutate({
-        id: teamId,
-        name: data.name,
-        description: data.description,
-      });
-    },
-    [teamId, updateTeam],
-  );
+  const onSubmit = (data: TeamFormData) => {
+    updateTeam.mutate({
+      id: teamId,
+      name: data.name,
+      description: data.description,
+    });
+  };
 
   const roleCardData: RoleCardData[] =
     roles?.map((role) => ({
@@ -218,6 +222,10 @@ export function EditTeamDialog({
               <div className="space-y-3">
                 <Skeleton className="h-10 w-full" />
                 <Skeleton className="h-20 w-full" />
+              </div>
+            ) : teamError ? (
+              <div className="text-destructive rounded-lg border border-dashed p-4 text-center text-sm">
+                Failed to load team details. Please close and try again.
               </div>
             ) : (
               <Form {...form}>
@@ -298,6 +306,10 @@ export function EditTeamDialog({
                     <Skeleton key={i} className="h-32 w-full rounded-lg" />
                   ))}
                 </div>
+              ) : rolesError ? (
+                <div className="text-destructive rounded-lg border border-dashed p-6 text-center text-sm">
+                  Failed to load roles.
+                </div>
               ) : roleCardData.length === 0 ? (
                 <div className="text-muted-foreground rounded-lg border border-dashed p-6 text-center text-sm">
                   No roles yet. Create roles on the team canvas.
@@ -330,6 +342,10 @@ export function EditTeamDialog({
                   {Array.from({ length: metricCount || 2 }).map((_, i) => (
                     <Skeleton key={i} className="h-14 w-full rounded-lg" />
                   ))}
+                </div>
+              ) : chartsError ? (
+                <div className="text-destructive rounded-lg border border-dashed p-6 text-center text-sm">
+                  Failed to load KPIs.
                 </div>
               ) : !dashboardCharts || dashboardCharts.length === 0 ? (
                 <div className="text-muted-foreground rounded-lg border border-dashed p-6 text-center text-sm">
