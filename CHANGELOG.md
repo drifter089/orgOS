@@ -23,6 +23,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Role dialog enhanced with member dropdown showing role count and effort points for each member (#351)
+- Role card styling unified across canvas, sidebar, dashboard drawer, and member page with consistent colored header and layout (#350)
+- Consolidated role cards and dialogs into shared reusable components, reducing code duplication (#348)
+- Member page sidebar replaced with slide-out sheet component for consistent navigation pattern (#346)
 - Metric settings drawer converted to dialog with horizontal tabs (Goal, Roles, Settings) (#338)
 - Organization page redesigned with consistent typography, 8px-based spacing, and improved responsiveness (#337)
 - Canvas sidebar UI styling and responsiveness improved with compact layout and better mobile support (#342)
@@ -38,6 +42,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Double border issue on chart nodes in team canvas (#349)
+- Chart node dimensions now preserved in public canvas preview (#347)
 - Dark mode shadow visibility by using pure black with higher opacity values (#344)
 - Sidebar and member card UI with improved responsive design, consistent badge styling, and better button layouts (#343)
 - Auto-creating role nodes from KPI chart edge drops on team canvas (#340)
