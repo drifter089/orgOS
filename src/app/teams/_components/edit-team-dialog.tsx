@@ -222,9 +222,7 @@ export function EditTeamDialog({
           <div className="[&::-webkit-scrollbar-thumb]:bg-border/40 hover:[&::-webkit-scrollbar-thumb]:bg-border/60 grid min-h-0 flex-1 grid-cols-3 divide-x overflow-hidden [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-track]:bg-transparent">
             {/* Column 1: Team Details */}
             <div className="flex min-w-[17.5rem] flex-col overflow-y-auto p-6">
-              <h3 className="text-muted-foreground mb-4 text-sm font-medium">
-                Team Details
-              </h3>
+              <h3 className="mb-4 text-base font-semibold">Team Details</h3>
 
               {teamLoading ? (
                 <div className="space-y-3">
@@ -239,7 +237,7 @@ export function EditTeamDialog({
                 <Form {...form}>
                   <form
                     onSubmit={form.handleSubmit(onSubmit)}
-                    className="flex flex-1 flex-col space-y-4"
+                    className="space-y-4"
                   >
                     <FormField
                       control={form.control}
@@ -263,12 +261,12 @@ export function EditTeamDialog({
                       control={form.control}
                       name="description"
                       render={({ field }) => (
-                        <FormItem className="flex-1">
+                        <FormItem>
                           <FormLabel>Description</FormLabel>
                           <FormControl>
                             <Textarea
                               placeholder="Describe your team (optional)"
-                              className="min-h-[120px] resize-none"
+                              className="min-h-[7.5rem] resize-none"
                               {...field}
                             />
                           </FormControl>
@@ -277,7 +275,7 @@ export function EditTeamDialog({
                       )}
                     />
 
-                    <div className="pt-2">
+                    <div>
                       <Button
                         type="submit"
                         size="sm"
@@ -303,7 +301,7 @@ export function EditTeamDialog({
 
             {/* Column 2: Roles */}
             <div className="flex min-w-[20rem] flex-col overflow-y-auto p-6">
-              <h3 className="text-muted-foreground mb-4 flex items-center gap-2 text-sm font-medium">
+              <h3 className="mb-4 flex items-center gap-2 text-base font-semibold">
                 <Briefcase className="h-4 w-4" />
                 Roles
                 <Badge variant="secondary" className="ml-1">
@@ -341,7 +339,7 @@ export function EditTeamDialog({
 
             {/* Column 3: KPIs */}
             <div className="flex min-w-[20rem] flex-col overflow-y-auto p-6">
-              <h3 className="text-muted-foreground mb-4 flex items-center gap-2 text-sm font-medium">
+              <h3 className="mb-4 flex items-center gap-2 text-base font-semibold">
                 <Target className="h-4 w-4" />
                 KPIs
                 <Badge variant="secondary" className="ml-1">
