@@ -4,7 +4,7 @@ import { useCallback } from "react";
 
 import { useOptimisticRoleUpdate } from "@/hooks/use-optimistic-role-update";
 
-import { useTeamStore } from "../store/team-store";
+import { useTeamStoreOptional } from "../store/team-store";
 
 export interface UseUpdateRoleOptions {
   teamId: string;
@@ -22,7 +22,7 @@ export function useUpdateRole({
   teamId,
   onBeforeMutate,
 }: UseUpdateRoleOptions) {
-  const markDirty = useTeamStore((state) => state.markDirty);
+  const markDirty = useTeamStoreOptional((state) => state.markDirty);
   const updateRole = useOptimisticRoleUpdate(teamId);
 
   const mutate = useCallback(
@@ -31,7 +31,7 @@ export function useUpdateRole({
       options?: Parameters<typeof updateRole.mutate>[1],
     ) => {
       onBeforeMutate?.();
-      markDirty();
+      markDirty?.();
       updateRole.mutate(variables, options);
     },
     [onBeforeMutate, markDirty, updateRole],
@@ -43,7 +43,7 @@ export function useUpdateRole({
       options?: Parameters<typeof updateRole.mutateAsync>[1],
     ) => {
       onBeforeMutate?.();
-      markDirty();
+      markDirty?.();
       return updateRole.mutateAsync(variables, options);
     },
     [onBeforeMutate, markDirty, updateRole],

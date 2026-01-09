@@ -76,6 +76,8 @@ export function CreateTeamDialog() {
         isLocked: false,
         lockedByUserName: null,
         editSession: undefined,
+        roles: undefined,
+        members: [] as { id: string; name: string }[],
         _count: { roles: 0, metrics: 0 },
         isPending: true,
       };

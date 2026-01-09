@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardTitle } from "@/components/ui/card";
 import {
@@ -24,17 +25,38 @@ import {
   EmptyTitle,
 } from "@/components/ui/empty";
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { api } from "@/trpc/react";
 
 import { CreateTeamDialog } from "./create-team-dialog";
 import { DeleteTeamDialog } from "./delete-team-dialog";
 import { EditTeamDialog } from "./edit-team-dialog";
 
+function getInitials(name: string): string {
+  const parts = name.trim().split(/\s+/);
+  if (parts.length === 1) {
+    return parts[0]?.charAt(0).toUpperCase() ?? "";
+  }
+  return (
+    (parts[0]?.charAt(0) ?? "") + (parts[parts.length - 1]?.charAt(0) ?? "")
+  ).toUpperCase();
+}
+
 function TeamCardSkeleton() {
   return (
     <Card className="p-4">
       <div className="flex flex-col gap-3">
-        <Skeleton className="h-8 w-3/4" />
+        <Skeleton className="h-6 w-3/4" />
+        <Skeleton className="h-4 w-full" />
+        <div className="flex gap-1">
+          <Skeleton className="h-6 w-6 rounded-full" />
+          <Skeleton className="h-6 w-6 rounded-full" />
+          <Skeleton className="h-6 w-6 rounded-full" />
+        </div>
         <div className="flex gap-2">
           <Skeleton className="h-5 w-20 rounded-full" />
           <Skeleton className="h-5 w-20 rounded-full" />
@@ -154,6 +176,14 @@ export function TeamsList() {
           };
 
           if (isLocked) {
+            const lockedMaxVisibleMembers = 4;
+            const lockedVisibleMembers = team.members.slice(
+              0,
+              lockedMaxVisibleMembers,
+            );
+            const lockedRemainingCount =
+              team.members.length - lockedMaxVisibleMembers;
+
             return (
               <motion.div
                 key={team.id}
@@ -178,6 +208,35 @@ export function TeamsList() {
                         {lockedByUserName ?? "In use"}
                       </Badge>
                     </div>
+
+                    {team.description && (
+                      <p className="text-muted-foreground line-clamp-2 text-sm">
+                        {team.description}
+                      </p>
+                    )}
+
+                    {team.members.length > 0 && (
+                      <div className="flex items-center gap-1">
+                        {lockedVisibleMembers.map((member) => (
+                          <Avatar
+                            key={member.id}
+                            className="h-6 w-6 rounded-full"
+                          >
+                            <AvatarFallback className="bg-muted text-muted-foreground rounded-full text-xs font-medium">
+                              {getInitials(member.name)}
+                            </AvatarFallback>
+                          </Avatar>
+                        ))}
+                        {lockedRemainingCount > 0 && (
+                          <Avatar className="h-6 w-6 rounded-full">
+                            <AvatarFallback className="bg-muted text-muted-foreground rounded-full text-xs font-medium">
+                              +{lockedRemainingCount}
+                            </AvatarFallback>
+                          </Avatar>
+                        )}
+                      </div>
+                    )}
+
                     <div className="flex gap-2">
                       <Badge variant="secondary" className="gap-1">
                         <Briefcase className="h-3 w-3" />
@@ -195,6 +254,10 @@ export function TeamsList() {
               </motion.div>
             );
           }
+
+          const maxVisibleMembers = 4;
+          const visibleMembers = team.members.slice(0, maxVisibleMembers);
+          const remainingCount = team.members.length - maxVisibleMembers;
 
           return (
             <motion.div
@@ -230,6 +293,49 @@ export function TeamsList() {
                     </CardTitle>
                     <ArrowRight className="text-primary h-4 w-4 translate-x-0 opacity-0 transition-all duration-200 group-hover:translate-x-1 group-hover:opacity-100 group-has-[[data-delete-button]:hover,[data-edit-button]:hover]:translate-x-0 group-has-[[data-delete-button]:hover,[data-edit-button]:hover]:opacity-0" />
                   </div>
+
+                  {team.description && (
+                    <p className="text-muted-foreground line-clamp-2 text-sm">
+                      {team.description}
+                    </p>
+                  )}
+
+                  {team.members.length > 0 && (
+                    <div className="flex items-center gap-1">
+                      {visibleMembers.map((member) => (
+                        <Tooltip key={member.id}>
+                          <TooltipTrigger asChild>
+                            <Avatar className="h-6 w-6 rounded-full">
+                              <AvatarFallback className="bg-muted text-muted-foreground rounded-full text-xs font-medium">
+                                {getInitials(member.name)}
+                              </AvatarFallback>
+                            </Avatar>
+                          </TooltipTrigger>
+                          <TooltipContent side="top">
+                            {member.name}
+                          </TooltipContent>
+                        </Tooltip>
+                      ))}
+                      {remainingCount > 0 && (
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Avatar className="h-6 w-6 rounded-full">
+                              <AvatarFallback className="bg-muted text-muted-foreground rounded-full text-xs font-medium">
+                                +{remainingCount}
+                              </AvatarFallback>
+                            </Avatar>
+                          </TooltipTrigger>
+                          <TooltipContent side="top">
+                            {team.members
+                              .slice(maxVisibleMembers)
+                              .map((m) => m.name)
+                              .join(", ")}
+                          </TooltipContent>
+                        </Tooltip>
+                      )}
+                    </div>
+                  )}
+
                   <div className="flex gap-2">
                     <Badge variant="secondary" className="gap-1">
                       <Briefcase className="h-3 w-3" />
