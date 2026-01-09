@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 
-import { Eye, GripVertical, Loader2, Plus, Settings, X } from "lucide-react";
+import { Plus, X } from "lucide-react";
 
 import { PlatformsDialog } from "@/app/integration/_components";
 import {
@@ -10,154 +10,15 @@ import {
   MetricTabsDisplay,
 } from "@/app/metric/_components";
 import type { ChartDragData } from "@/app/teams/[teamId]/hooks/use-chart-drag-drop";
-import { Badge } from "@/components/ui/badge";
+import { KpiCard } from "@/components/metric/kpi-card";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
-import { getPlatformConfig } from "@/lib/platform-config";
 import { cn } from "@/lib/utils";
 import type { RouterOutputs } from "@/trpc/react";
 
 import { DashboardSheetEdgeTrigger } from "./dashboard-sheet-edge-trigger";
-import { MetricSettingsDialog } from "./metric-settings-dialog";
 
 type IntegrationsWithStats = RouterOutputs["integration"]["listWithStats"];
-
-// =============================================================================
-// Sidebar Metric Card with Settings Drawer
-// =============================================================================
-
-interface SidebarMetricCardProps {
-  dashboardChart: DashboardChart;
-  teamId: string;
-  enableDragDrop: boolean;
-  chartNodesOnCanvas?: Set<string>;
-  onToggleChartVisibility?: (dashboardChart: DashboardChart) => void;
-  isDragging: boolean;
-  onDragStart: (e: React.DragEvent, dashboardChart: DashboardChart) => void;
-  onDragEnd: () => void;
-}
-
-function SidebarMetricCard({
-  dashboardChart,
-  teamId,
-  enableDragDrop,
-  chartNodesOnCanvas,
-  onToggleChartVisibility,
-  isDragging,
-  onDragStart,
-  onDragEnd,
-}: SidebarMetricCardProps) {
-  const metric = dashboardChart.metric;
-  const isProcessing = !!metric.refreshStatus;
-  const isOnCanvas = chartNodesOnCanvas?.has(dashboardChart.id);
-  const canDrag = enableDragDrop && !isProcessing;
-  const isCurrentlyDragging = isDragging;
-
-  return (
-    <div
-      draggable={canDrag ? true : undefined}
-      onDragStart={(e) => {
-        e.stopPropagation();
-        if (canDrag) {
-          onDragStart(e, dashboardChart);
-        }
-      }}
-      onDragEnd={onDragEnd}
-      className={cn(
-        "group hover:bg-accent/50 relative flex items-center gap-3 rounded-lg border p-3",
-        isProcessing && "opacity-70",
-        canDrag && "cursor-grab active:cursor-grabbing",
-        isCurrentlyDragging && "border-primary opacity-50",
-        isOnCanvas && "border-primary/50 bg-primary/5",
-      )}
-    >
-      {/* Drag handle indicator */}
-      {enableDragDrop &&
-        (canDrag ? (
-          <GripVertical className="text-muted-foreground/50 group-hover:text-muted-foreground h-4 w-4 shrink-0 transition-colors" />
-        ) : (
-          <div className="h-4 w-4 shrink-0" />
-        ))}
-
-      <div
-        className={cn(
-          "h-8 w-1.5 rounded-sm",
-          getPlatformConfig(metric.integration?.providerId ?? "manual").bgColor,
-        )}
-      />
-      <div className="min-w-0 flex-1">
-        <div className="flex items-center gap-2">
-          <p className="truncate text-sm font-medium">{metric.name}</p>
-          {isProcessing && (
-            <Badge variant="secondary" className="shrink-0 text-xs">
-              <Loader2 className="mr-1 h-3 w-3 animate-spin" />
-              Processing
-            </Badge>
-          )}
-        </div>
-        <p className="text-muted-foreground text-xs capitalize">
-          {metric.integration?.providerId ?? "manual"}
-        </p>
-      </div>
-
-      {/* Action buttons - same size, aligned, with tooltips */}
-      <div className="flex shrink-0 items-center gap-1">
-        {/* Settings button */}
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <MetricSettingsDialog
-              dashboardChart={dashboardChart}
-              teamId={teamId}
-              trigger={
-                <Button
-                  variant="outline"
-                  size="icon"
-                  className="border-border hover:border-primary/50 h-7 w-7 opacity-0 transition-all duration-200 group-hover:opacity-100 hover:scale-105"
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  <Settings className="h-3.5 w-3.5" />
-                </Button>
-              }
-            />
-          </TooltipTrigger>
-          <TooltipContent side="top">Metric settings</TooltipContent>
-        </Tooltip>
-
-        {/* Eye toggle button - shows canvas status via icon style */}
-        {enableDragDrop && onToggleChartVisibility && (
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant="outline"
-                size="icon"
-                className={cn(
-                  "h-7 w-7 transition-all duration-200 hover:scale-105",
-                  isOnCanvas
-                    ? "border-primary bg-primary/10 text-primary hover:bg-primary/20"
-                    : "border-border hover:border-primary/50 opacity-0 group-hover:opacity-100",
-                )}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onToggleChartVisibility(dashboardChart);
-                }}
-              >
-                <Eye className="h-3.5 w-3.5" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent side="top">
-              {isOnCanvas ? "Remove from canvas" : "Add to canvas"}
-            </TooltipContent>
-          </Tooltip>
-        )}
-      </div>
-    </div>
-  );
-}
 
 // =============================================================================
 // Dashboard Sidebar
@@ -316,16 +177,16 @@ export function DashboardSidebar({
                   teamId={teamId}
                   className="w-full"
                   renderMetricCard={(dashboardChart) => (
-                    <SidebarMetricCard
+                    <KpiCard
                       key={dashboardChart.id}
                       dashboardChart={dashboardChart}
                       teamId={teamId}
                       enableDragDrop={enableDragDrop}
-                      chartNodesOnCanvas={chartNodesOnCanvas}
-                      onToggleChartVisibility={onToggleChartVisibility}
+                      isOnCanvas={chartNodesOnCanvas?.has(dashboardChart.id)}
                       isDragging={isDragging === dashboardChart.metric.id}
                       onDragStart={handleDragStart}
                       onDragEnd={handleDragEnd}
+                      onToggleVisibility={onToggleChartVisibility}
                     />
                   )}
                 />
