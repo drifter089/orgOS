@@ -98,13 +98,15 @@ export function useCreateRole({
       await utils.role.getByTeamId.cancel({ teamId });
 
       const previousRoles = utils.role.getByTeamId.getData({ teamId });
+      const tempRoleId = `temp-role-${nanoid(8)}`;
+      const nodeId = variables.nodeId;
 
       // When outside canvas context, skip canvas-specific operations
       if (!storeApi) {
         return {
           previousRoles,
-          tempRoleId: "",
-          nodeId: variables.nodeId,
+          tempRoleId,
+          nodeId,
           previousNodes: [],
           previousEdges: [],
         } as CreateRoleContext;
@@ -113,9 +115,6 @@ export function useCreateRole({
       const { nodes: currentNodes, edges: currentEdges } = storeApi.getState();
       const previousNodes = [...currentNodes];
       const previousEdges = [...currentEdges];
-
-      const tempRoleId = `temp-role-${nanoid(8)}`;
-      const nodeId = variables.nodeId;
       const nodeOptions = getNodeOptions(variables);
 
       // Create optimistic role for cache (component reads from here)

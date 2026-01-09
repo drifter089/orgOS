@@ -30,20 +30,107 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { getInitials } from "@/lib/helpers/get-initials";
 import { api } from "@/trpc/react";
 
 import { CreateTeamDialog } from "./create-team-dialog";
 import { DeleteTeamDialog } from "./delete-team-dialog";
 import { EditTeamDialog } from "./edit-team-dialog";
 
-function getInitials(name: string): string {
-  const parts = name.trim().split(/\s+/);
-  if (parts.length === 1) {
-    return parts[0]?.charAt(0).toUpperCase() ?? "";
-  }
+const MAX_VISIBLE_MEMBERS = 4;
+
+interface TeamMember {
+  id: string;
+  name: string;
+}
+
+interface TeamCardContentProps {
+  description: string | null;
+  members: TeamMember[];
+  roleCount: number;
+  metricCount: number;
+  showTooltips?: boolean;
+}
+
+function TeamCardContent({
+  description,
+  members,
+  roleCount,
+  metricCount,
+  showTooltips = false,
+}: TeamCardContentProps) {
+  const visibleMembers = members.slice(0, MAX_VISIBLE_MEMBERS);
+  const remainingCount = members.length - MAX_VISIBLE_MEMBERS;
+
   return (
-    (parts[0]?.charAt(0) ?? "") + (parts[parts.length - 1]?.charAt(0) ?? "")
-  ).toUpperCase();
+    <>
+      {description && (
+        <p className="text-muted-foreground line-clamp-2 text-sm">
+          {description}
+        </p>
+      )}
+
+      {members.length > 0 && (
+        <div className="flex items-center gap-1">
+          {visibleMembers.map((member) =>
+            showTooltips ? (
+              <Tooltip key={member.id}>
+                <TooltipTrigger asChild>
+                  <Avatar className="h-6 w-6 rounded-full">
+                    <AvatarFallback className="bg-muted text-muted-foreground rounded-full text-xs font-medium">
+                      {getInitials(member.name)}
+                    </AvatarFallback>
+                  </Avatar>
+                </TooltipTrigger>
+                <TooltipContent side="top">{member.name}</TooltipContent>
+              </Tooltip>
+            ) : (
+              <Avatar key={member.id} className="h-6 w-6 rounded-full">
+                <AvatarFallback className="bg-muted text-muted-foreground rounded-full text-xs font-medium">
+                  {getInitials(member.name)}
+                </AvatarFallback>
+              </Avatar>
+            ),
+          )}
+          {remainingCount > 0 &&
+            (showTooltips ? (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Avatar className="h-6 w-6 rounded-full">
+                    <AvatarFallback className="bg-muted text-muted-foreground rounded-full text-xs font-medium">
+                      +{remainingCount}
+                    </AvatarFallback>
+                  </Avatar>
+                </TooltipTrigger>
+                <TooltipContent side="top">
+                  {members
+                    .slice(MAX_VISIBLE_MEMBERS)
+                    .map((m) => m.name)
+                    .join(", ")}
+                </TooltipContent>
+              </Tooltip>
+            ) : (
+              <Avatar className="h-6 w-6 rounded-full">
+                <AvatarFallback className="bg-muted text-muted-foreground rounded-full text-xs font-medium">
+                  +{remainingCount}
+                </AvatarFallback>
+              </Avatar>
+            ))}
+        </div>
+      )}
+
+      <div className="flex gap-2">
+        <Badge variant="secondary" className="gap-1">
+          <Briefcase className="h-3 w-3" />
+          {roleCount} {roleCount !== 1 ? "roles" : "role"}
+        </Badge>
+        <Badge variant="secondary" className="gap-1">
+          <Target className="h-3 w-3" />
+          {metricCount} {metricCount !== 1 ? "KPIs" : "KPI"}
+        </Badge>
+      </div>
+    </>
+  );
 }
 
 function TeamCardSkeleton() {
@@ -176,14 +263,6 @@ export function TeamsList() {
           };
 
           if (isLocked) {
-            const lockedMaxVisibleMembers = 4;
-            const lockedVisibleMembers = team.members.slice(
-              0,
-              lockedMaxVisibleMembers,
-            );
-            const lockedRemainingCount =
-              team.members.length - lockedMaxVisibleMembers;
-
             return (
               <motion.div
                 key={team.id}
@@ -208,56 +287,18 @@ export function TeamsList() {
                         {lockedByUserName ?? "In use"}
                       </Badge>
                     </div>
-
-                    {team.description && (
-                      <p className="text-muted-foreground line-clamp-2 text-sm">
-                        {team.description}
-                      </p>
-                    )}
-
-                    {team.members.length > 0 && (
-                      <div className="flex items-center gap-1">
-                        {lockedVisibleMembers.map((member) => (
-                          <Avatar
-                            key={member.id}
-                            className="h-6 w-6 rounded-full"
-                          >
-                            <AvatarFallback className="bg-muted text-muted-foreground rounded-full text-xs font-medium">
-                              {getInitials(member.name)}
-                            </AvatarFallback>
-                          </Avatar>
-                        ))}
-                        {lockedRemainingCount > 0 && (
-                          <Avatar className="h-6 w-6 rounded-full">
-                            <AvatarFallback className="bg-muted text-muted-foreground rounded-full text-xs font-medium">
-                              +{lockedRemainingCount}
-                            </AvatarFallback>
-                          </Avatar>
-                        )}
-                      </div>
-                    )}
-
-                    <div className="flex gap-2">
-                      <Badge variant="secondary" className="gap-1">
-                        <Briefcase className="h-3 w-3" />
-                        {team._count.roles}{" "}
-                        {team._count.roles !== 1 ? "roles" : "role"}
-                      </Badge>
-                      <Badge variant="secondary" className="gap-1">
-                        <Target className="h-3 w-3" />
-                        {team._count.metrics}{" "}
-                        {team._count.metrics !== 1 ? "KPIs" : "KPI"}
-                      </Badge>
-                    </div>
+                    <TeamCardContent
+                      description={team.description}
+                      members={team.members}
+                      roleCount={team._count.roles}
+                      metricCount={team._count.metrics}
+                      showTooltips={false}
+                    />
                   </div>
                 </Card>
               </motion.div>
             );
           }
-
-          const maxVisibleMembers = 4;
-          const visibleMembers = team.members.slice(0, maxVisibleMembers);
-          const remainingCount = team.members.length - maxVisibleMembers;
 
           return (
             <motion.div
@@ -293,61 +334,13 @@ export function TeamsList() {
                     </CardTitle>
                     <ArrowRight className="text-primary h-4 w-4 translate-x-0 opacity-0 transition-all duration-200 group-hover:translate-x-1 group-hover:opacity-100 group-has-[[data-delete-button]:hover,[data-edit-button]:hover]:translate-x-0 group-has-[[data-delete-button]:hover,[data-edit-button]:hover]:opacity-0" />
                   </div>
-
-                  {team.description && (
-                    <p className="text-muted-foreground line-clamp-2 text-sm">
-                      {team.description}
-                    </p>
-                  )}
-
-                  {team.members.length > 0 && (
-                    <div className="flex items-center gap-1">
-                      {visibleMembers.map((member) => (
-                        <Tooltip key={member.id}>
-                          <TooltipTrigger asChild>
-                            <Avatar className="h-6 w-6 rounded-full">
-                              <AvatarFallback className="bg-muted text-muted-foreground rounded-full text-xs font-medium">
-                                {getInitials(member.name)}
-                              </AvatarFallback>
-                            </Avatar>
-                          </TooltipTrigger>
-                          <TooltipContent side="top">
-                            {member.name}
-                          </TooltipContent>
-                        </Tooltip>
-                      ))}
-                      {remainingCount > 0 && (
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <Avatar className="h-6 w-6 rounded-full">
-                              <AvatarFallback className="bg-muted text-muted-foreground rounded-full text-xs font-medium">
-                                +{remainingCount}
-                              </AvatarFallback>
-                            </Avatar>
-                          </TooltipTrigger>
-                          <TooltipContent side="top">
-                            {team.members
-                              .slice(maxVisibleMembers)
-                              .map((m) => m.name)
-                              .join(", ")}
-                          </TooltipContent>
-                        </Tooltip>
-                      )}
-                    </div>
-                  )}
-
-                  <div className="flex gap-2">
-                    <Badge variant="secondary" className="gap-1">
-                      <Briefcase className="h-3 w-3" />
-                      {team._count.roles}{" "}
-                      {team._count.roles !== 1 ? "roles" : "role"}
-                    </Badge>
-                    <Badge variant="secondary" className="gap-1">
-                      <Target className="h-3 w-3" />
-                      {team._count.metrics}{" "}
-                      {team._count.metrics !== 1 ? "KPIs" : "KPI"}
-                    </Badge>
-                  </div>
+                  <TeamCardContent
+                    description={team.description}
+                    members={team.members}
+                    roleCount={team._count.roles}
+                    metricCount={team._count.metrics}
+                    showTooltips={true}
+                  />
                 </div>
               </Card>
             </motion.div>

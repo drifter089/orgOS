@@ -44,14 +44,14 @@ export const teamRouter = createTRPCRouter({
       const isLocked =
         team.editSession && team.editSession.userId !== ctx.user.id;
 
-      // Get unique members assigned to roles
+      // Get unique members assigned to roles (fallback to "Unknown" if name not yet enriched)
       const uniqueMembers = Array.from(
         new Map(
           team.roles
-            .filter((r) => r.assignedUserId && r.assignedUserName)
-            .map((r) => [r.assignedUserId, r.assignedUserName]),
+            .filter((r) => r.assignedUserId)
+            .map((r) => [r.assignedUserId, r.assignedUserName ?? "Unknown"]),
         ).entries(),
-      ).map(([id, name]) => ({ id: id!, name: name! }));
+      ).map(([id, name]) => ({ id: id!, name }));
 
       return {
         ...team,
