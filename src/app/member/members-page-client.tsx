@@ -4,6 +4,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { api } from "@/trpc/react";
 
 import { MemberCard } from "./member-card";
+import { MembersSidebar } from "./members-sidebar";
 
 function MemberCardSkeleton() {
   return (
@@ -36,11 +37,16 @@ export function MembersPageClient() {
     api.organization.getMembers.useQuery();
   const { data: dashboardCharts, isLoading: chartsLoading } =
     api.dashboard.getDashboardCharts.useQuery();
+  const { data: memberStats } = api.organization.getMemberStats.useQuery();
 
   const isLoading = membersLoading || chartsLoading;
 
   return (
     <div className="min-h-screen">
+      {members && members.length > 0 && (
+        <MembersSidebar members={members} memberStats={memberStats} />
+      )}
+
       <div className="container mx-auto max-w-7xl px-6 pt-16 pb-8 sm:px-8 sm:pt-20 sm:pb-12 lg:px-12 lg:pt-24 lg:pb-16">
         <div className="animate-in fade-in slide-in-from-bottom-4 mb-8 duration-500">
           <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">

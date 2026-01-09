@@ -277,7 +277,8 @@ function ChartLegendContent({
   return (
     <div
       className={cn(
-        "flex items-center justify-center gap-4",
+        "flex flex-wrap items-center justify-center gap-x-3 gap-y-2 px-2",
+        "max-h-[100px] overflow-y-auto",
         verticalAlign === "top" ? "pb-3" : "pt-3",
         className,
       )}
@@ -305,7 +306,9 @@ function ChartLegendContent({
                   }}
                 />
               )}
-              {itemConfig?.label}
+              <span className="max-w-[80px] truncate text-xs">
+                {itemConfig?.label}
+              </span>
             </div>
           );
         })}

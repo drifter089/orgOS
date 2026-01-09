@@ -12,13 +12,7 @@ import {
   TrendingDown,
   TrendingUp,
 } from "lucide-react";
-import {
-  PolarAngleAxis,
-  PolarGrid,
-  PolarRadiusAxis,
-  Radar,
-  RadarChart,
-} from "recharts";
+import { Bar, BarChart, Cell, XAxis, YAxis } from "recharts";
 
 import { Badge } from "@/components/ui/badge";
 import {
@@ -120,6 +114,19 @@ function formatTimeRemaining(
     return `${hoursRemaining}h left`;
   }
   return `${daysRemaining}d left`;
+}
+
+function getBarColor(progress: number, expectedProgress: number): string {
+  if (progress >= 100) {
+    return "hsl(142, 76%, 36%)"; // green-500
+  }
+  if (progress >= expectedProgress) {
+    return "hsl(217, 91%, 60%)"; // blue-500
+  }
+  if (progress >= expectedProgress * 0.7) {
+    return "hsl(38, 92%, 50%)"; // amber-500
+  }
+  return "hsl(0, 84%, 60%)"; // red-500
 }
 
 interface ChartDataPoint {
@@ -276,51 +283,6 @@ function GoalTooltipContent({ active, payload }: GoalTooltipProps) {
   );
 }
 
-function GoalProgressBar({ data }: { data: ChartDataPoint }) {
-  const statusConfig = STATUS_CONFIG[data.status];
-  const progressPercent = Math.round(data.progress);
-  const expectedPercent = Math.round(data.expectedProgress);
-
-  return (
-    <div className="space-y-2 rounded-lg border p-3">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <Target className="text-muted-foreground h-4 w-4" />
-          <span className="text-sm font-medium">{data.goal}</span>
-        </div>
-        <Badge variant={statusConfig.variant} className="gap-1 text-[10px]">
-          {statusConfig.icon}
-          {statusConfig.label}
-        </Badge>
-      </div>
-      <div className="flex items-center gap-3">
-        <div className="relative flex-1">
-          <div className="bg-muted h-2.5 w-full overflow-hidden rounded-full">
-            <div
-              className={cn(
-                "h-full transition-[width] duration-300",
-                progressPercent >= 100
-                  ? "bg-green-500"
-                  : progressPercent >= expectedPercent
-                    ? "bg-blue-500"
-                    : "bg-amber-500",
-              )}
-              style={{ width: `${Math.min(progressPercent, 100)}%` }}
-            />
-          </div>
-          <div
-            className="bg-foreground/50 absolute top-0 h-2.5 w-0.5"
-            style={{ left: `${Math.min(expectedPercent, 100)}%` }}
-          />
-        </div>
-        <span className="w-12 text-right text-sm font-bold">
-          {progressPercent}%
-        </span>
-      </div>
-    </div>
-  );
-}
-
 export function GoalsRadarChart({
   metricIds,
   showHeader = true,
@@ -391,38 +353,6 @@ export function GoalsRadarChart({
     );
   }
 
-  if (chartData.length < 3) {
-    return (
-      <div
-        className={cn(
-          "border-border/60 bg-card flex flex-col border",
-          className,
-        )}
-      >
-        {showHeader && (
-          <div className="border-border/60 flex items-center justify-between border-b px-4 py-3">
-            <div>
-              <h3 className="text-sm font-semibold tracking-wider uppercase">
-                Goal Progress
-              </h3>
-              <p className="text-muted-foreground text-xs">
-                Progress toward metric goals
-              </p>
-            </div>
-            <span className="text-muted-foreground text-xs">
-              {chartData.length} {chartData.length === 1 ? "goal" : "goals"}
-            </span>
-          </div>
-        )}
-        <div className="flex-1 space-y-2 p-4">
-          {chartData.map((data) => (
-            <GoalProgressBar key={data.goal} data={data} />
-          ))}
-        </div>
-      </div>
-    );
-  }
-
   const chartConfig = {
     progress: {
       label: "Progress %",
@@ -452,42 +382,50 @@ export function GoalsRadarChart({
       <div className="flex flex-1 flex-col p-4">
         <ChartContainer
           config={chartConfig}
-          className="mx-auto aspect-square max-h-[280px] w-full"
+          className="mx-auto h-[220px] w-full"
         >
-          <RadarChart
+          <BarChart
             data={chartData}
-            margin={{ top: 10, right: 40, bottom: 10, left: 40 }}
+            margin={{ top: 20, right: 20, left: 0, bottom: 60 }}
           >
-            <ChartTooltip cursor={false} content={<GoalTooltipContent />} />
-            <PolarAngleAxis
+            <XAxis
               dataKey="goal"
-              tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }}
-              tickLine={false}
-            />
-            <PolarGrid
-              gridType="polygon"
-              stroke="hsl(var(--border))"
-              strokeOpacity={0.6}
-            />
-            <PolarRadiusAxis
-              angle={90}
-              domain={[0, 100]}
-              tickCount={5}
-              tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 10 }}
-              axisLine={false}
-            />
-            <Radar
-              dataKey="progress"
-              fill="var(--color-progress)"
-              fillOpacity={0.6}
-              stroke="var(--color-progress)"
-              strokeWidth={2}
-              dot={{
-                r: 4,
-                fillOpacity: 1,
+              tick={{
+                fill: "hsl(var(--muted-foreground))",
+                fontSize: 10,
               }}
+              angle={-45}
+              textAnchor="end"
+              height={60}
+              interval={0}
+              tickLine={false}
+              axisLine={{ stroke: "hsl(var(--border))" }}
             />
-          </RadarChart>
+            <YAxis
+              domain={[0, 100]}
+              tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 10 }}
+              tickFormatter={(v: number) => `${v}%`}
+              tickLine={false}
+              axisLine={false}
+              width={35}
+            />
+            <ChartTooltip cursor={false} content={<GoalTooltipContent />} />
+            <Bar
+              dataKey="progress"
+              radius={[4, 4, 0, 0]}
+              maxBarSize={40}
+              isAnimationActive={true}
+              animationDuration={800}
+              animationEasing="ease-out"
+            >
+              {chartData.map((entry, index) => (
+                <Cell
+                  key={`cell-${index}`}
+                  fill={getBarColor(entry.progress, entry.expectedProgress)}
+                />
+              ))}
+            </Bar>
+          </BarChart>
         </ChartContainer>
 
         <div className="border-border/40 mt-4 flex flex-wrap justify-center gap-x-3 gap-y-2 border-t pt-3">
@@ -500,7 +438,12 @@ export function GoalsRadarChart({
                     <div className="hover:bg-muted/50 border-border/40 flex cursor-pointer items-center gap-2 rounded-md border px-2.5 py-1.5 transition-colors">
                       <div
                         className="ring-border/20 h-2.5 w-2.5 shrink-0 rounded-full ring-1"
-                        style={{ backgroundColor: "hsl(var(--chart-1))" }}
+                        style={{
+                          backgroundColor: getBarColor(
+                            item.progress,
+                            item.expectedProgress,
+                          ),
+                        }}
                       />
                       <div className="flex min-w-0 flex-col">
                         <span className="text-foreground max-w-[120px] truncate text-xs font-medium">
