@@ -32,11 +32,13 @@ import { formatValue } from "@/lib/helpers/format-value";
 import { cn } from "@/lib/utils";
 import { api } from "@/trpc/react";
 
-interface GoalsRadarChartProps {
+interface GoalsBarChartProps {
   /** Array of metric IDs to display goal progress for */
   metricIds: string[];
   showHeader?: boolean;
   className?: string;
+  /** Use simplified legend with only colored dots and names (no status badges, percentages, or tooltips) */
+  simpleLegend?: boolean;
 }
 
 const STATUS_CONFIG: Record<
@@ -284,11 +286,12 @@ function GoalTooltipContent({ active, payload }: GoalTooltipProps) {
   );
 }
 
-export function GoalsRadarChart({
+export function GoalsBarChart({
   metricIds,
   showHeader = true,
   className,
-}: GoalsRadarChartProps) {
+  simpleLegend = false,
+}: GoalsBarChartProps) {
   // Fetch dashboard charts from cache (parent already fetched this)
   const { data: allCharts } = api.dashboard.getDashboardCharts.useQuery();
 
@@ -429,63 +432,86 @@ export function GoalsRadarChart({
           </BarChart>
         </ChartContainer>
 
-        <div className="border-border/40 mt-4 flex flex-wrap justify-center gap-x-3 gap-y-2 border-t pt-3">
-          {chartData.map((item) => {
-            const statusConfig = STATUS_CONFIG[item.status];
-            return (
-              <TooltipProvider key={item.goal} delayDuration={0}>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <div className="hover:bg-muted/50 border-border/40 flex cursor-pointer items-center gap-2 rounded-md border px-2.5 py-1.5 transition-colors">
-                      <div
-                        className="ring-border/20 h-2.5 w-2.5 shrink-0 rounded-full ring-1"
-                        style={{
-                          backgroundColor: getBarColor(
-                            item.progress,
-                            item.expectedProgress,
-                          ),
-                        }}
-                      />
-                      <div className="flex min-w-0 flex-col">
-                        <span className="text-foreground max-w-[120px] truncate text-xs font-medium">
-                          {item.goal}
-                        </span>
-                        <div className="flex items-center gap-1.5">
-                          <span className="text-muted-foreground text-[10px]">
-                            {Math.round(item.progress)}%
+        {simpleLegend ? (
+          <div className="border-border/40 mt-4 flex flex-wrap justify-center gap-3 border-t pt-3">
+            {chartData.map((item) => (
+              <div key={item.goal} className="flex items-center gap-1.5">
+                <div
+                  className="h-2 w-2 shrink-0 rounded-full"
+                  style={{
+                    backgroundColor: getBarColor(
+                      item.progress,
+                      item.expectedProgress,
+                    ),
+                  }}
+                />
+                <span className="text-foreground max-w-[100px] truncate text-xs">
+                  {item.goal}
+                </span>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="border-border/40 mt-4 flex flex-wrap justify-center gap-x-3 gap-y-2 border-t pt-3">
+            {chartData.map((item) => {
+              const statusConfig = STATUS_CONFIG[item.status];
+              return (
+                <TooltipProvider key={item.goal} delayDuration={0}>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div className="hover:bg-muted/50 border-border/40 flex cursor-pointer items-center gap-2 rounded-md border px-2.5 py-1.5 transition-colors">
+                        <div
+                          className="ring-border/20 h-2.5 w-2.5 shrink-0 rounded-full ring-1"
+                          style={{
+                            backgroundColor: getBarColor(
+                              item.progress,
+                              item.expectedProgress,
+                            ),
+                          }}
+                        />
+                        <div className="flex min-w-0 flex-col">
+                          <span className="text-foreground max-w-[120px] truncate text-xs font-medium">
+                            {item.goal}
                           </span>
-                          <Badge
-                            variant={statusConfig.variant}
-                            className="h-4 gap-0.5 px-1 text-[9px]"
-                          >
-                            {statusConfig.icon}
-                            {statusConfig.label}
-                          </Badge>
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-muted-foreground text-[10px]">
+                              {Math.round(item.progress)}%
+                            </span>
+                            <Badge
+                              variant={statusConfig.variant}
+                              className="h-4 gap-0.5 px-1 text-[9px]"
+                            >
+                              {statusConfig.icon}
+                              {statusConfig.label}
+                            </Badge>
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  </TooltipTrigger>
-                  <TooltipContent side="bottom" className="text-xs">
-                    <div className="space-y-1">
-                      <p className="font-medium">{item.goal}</p>
-                      {item.selectedDimension && (
-                        <p className="text-muted-foreground text-[10px]">
-                          Dimension: {item.selectedDimension}
-                        </p>
-                      )}
-                      <div className="flex items-center gap-2">
-                        <span className="text-muted-foreground">Progress:</span>
-                        <span className="font-semibold">
-                          {Math.round(item.progress)}%
-                        </span>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom" className="text-xs">
+                      <div className="space-y-1">
+                        <p className="font-medium">{item.goal}</p>
+                        {item.selectedDimension && (
+                          <p className="text-muted-foreground text-[10px]">
+                            Dimension: {item.selectedDimension}
+                          </p>
+                        )}
+                        <div className="flex items-center gap-2">
+                          <span className="text-muted-foreground">
+                            Progress:
+                          </span>
+                          <span className="font-semibold">
+                            {Math.round(item.progress)}%
+                          </span>
+                        </div>
                       </div>
-                    </div>
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-            );
-          })}
-        </div>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              );
+            })}
+          </div>
+        )}
       </div>
     </div>
   );
