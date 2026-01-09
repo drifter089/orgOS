@@ -13,7 +13,7 @@ import {
 } from "@/components/ui/collapsible";
 import { type RouterOutputs } from "@/trpc/react";
 
-import { MemberRoleCard } from "./member-role-card";
+import { RoleKpiPair } from "./role-kpi-pair";
 
 type Role = RouterOutputs["role"]["getByUser"][number];
 type DashboardMetrics = RouterOutputs["dashboard"]["getDashboardCharts"];
@@ -74,20 +74,19 @@ export function TeamSection({
         </CollapsibleTrigger>
 
         <CollapsibleContent>
-          <div className="border-border/60 border-t px-4 py-3">
-            <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
-              {roles.map((role) => (
-                <MemberRoleCard
-                  key={role.id}
-                  role={role}
-                  dashboardChart={
-                    role.metricId
-                      ? chartsByMetricId.get(role.metricId)
-                      : undefined
-                  }
-                />
-              ))}
-            </div>
+          <div className="border-border/60 space-y-4 border-t px-4 py-4">
+            {roles.map((role) => (
+              <RoleKpiPair
+                key={role.id}
+                role={role}
+                dashboardChart={
+                  role.metricId
+                    ? chartsByMetricId.get(role.metricId)
+                    : undefined
+                }
+                teamId={team.id}
+              />
+            ))}
           </div>
         </CollapsibleContent>
       </div>
