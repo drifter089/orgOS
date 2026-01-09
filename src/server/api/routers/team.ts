@@ -31,19 +31,35 @@ export const teamRouter = createTRPCRouter({
       include: {
         _count: { select: { roles: true, metrics: true } },
         editSession: true,
+        roles: {
+          where: { assignedUserId: { not: null } },
+          select: { assignedUserId: true, assignedUserName: true },
+        },
       },
       orderBy: { updatedAt: "desc" },
     });
 
-    // Add lock info for each team
+    // Add lock info and unique members for each team
     return teams.map((team) => {
       const isLocked =
         team.editSession && team.editSession.userId !== ctx.user.id;
+
+      // Get unique members assigned to roles (fallback to "Unknown" if name not yet enriched)
+      const uniqueMembers = Array.from(
+        new Map(
+          team.roles
+            .filter((r) => r.assignedUserId)
+            .map((r) => [r.assignedUserId, r.assignedUserName ?? "Unknown"]),
+        ).entries(),
+      ).map(([id, name]) => ({ id: id!, name }));
+
       return {
         ...team,
         isLocked: !!isLocked,
         lockedByUserName: isLocked ? team.editSession?.userName : null,
-        editSession: undefined, // Don't expose raw session data
+        editSession: undefined,
+        roles: undefined,
+        members: uniqueMembers,
       };
     });
   }),

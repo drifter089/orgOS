@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardTitle } from "@/components/ui/card";
 import {
@@ -24,17 +25,125 @@ import {
   EmptyTitle,
 } from "@/components/ui/empty";
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import { getInitials } from "@/lib/helpers/get-initials";
 import { api } from "@/trpc/react";
 
 import { CreateTeamDialog } from "./create-team-dialog";
 import { DeleteTeamDialog } from "./delete-team-dialog";
 import { EditTeamDialog } from "./edit-team-dialog";
 
+const MAX_VISIBLE_MEMBERS = 4;
+
+interface TeamMember {
+  id: string;
+  name: string;
+}
+
+interface TeamCardContentProps {
+  description: string | null;
+  members: TeamMember[];
+  roleCount: number;
+  metricCount: number;
+  showTooltips?: boolean;
+}
+
+function TeamCardContent({
+  description,
+  members,
+  roleCount,
+  metricCount,
+  showTooltips = false,
+}: TeamCardContentProps) {
+  const visibleMembers = members.slice(0, MAX_VISIBLE_MEMBERS);
+  const remainingCount = members.length - MAX_VISIBLE_MEMBERS;
+
+  return (
+    <>
+      {description && (
+        <p className="text-muted-foreground line-clamp-2 text-sm">
+          {description}
+        </p>
+      )}
+
+      {members.length > 0 && (
+        <div className="flex items-center gap-1">
+          {visibleMembers.map((member) =>
+            showTooltips ? (
+              <Tooltip key={member.id}>
+                <TooltipTrigger asChild>
+                  <Avatar className="h-6 w-6 rounded-full">
+                    <AvatarFallback className="bg-muted text-muted-foreground rounded-full text-xs font-medium">
+                      {getInitials(member.name)}
+                    </AvatarFallback>
+                  </Avatar>
+                </TooltipTrigger>
+                <TooltipContent side="top">{member.name}</TooltipContent>
+              </Tooltip>
+            ) : (
+              <Avatar key={member.id} className="h-6 w-6 rounded-full">
+                <AvatarFallback className="bg-muted text-muted-foreground rounded-full text-xs font-medium">
+                  {getInitials(member.name)}
+                </AvatarFallback>
+              </Avatar>
+            ),
+          )}
+          {remainingCount > 0 &&
+            (showTooltips ? (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Avatar className="h-6 w-6 rounded-full">
+                    <AvatarFallback className="bg-muted text-muted-foreground rounded-full text-xs font-medium">
+                      +{remainingCount}
+                    </AvatarFallback>
+                  </Avatar>
+                </TooltipTrigger>
+                <TooltipContent side="top">
+                  {members
+                    .slice(MAX_VISIBLE_MEMBERS)
+                    .map((m) => m.name)
+                    .join(", ")}
+                </TooltipContent>
+              </Tooltip>
+            ) : (
+              <Avatar className="h-6 w-6 rounded-full">
+                <AvatarFallback className="bg-muted text-muted-foreground rounded-full text-xs font-medium">
+                  +{remainingCount}
+                </AvatarFallback>
+              </Avatar>
+            ))}
+        </div>
+      )}
+
+      <div className="flex gap-2">
+        <Badge variant="secondary" className="gap-1">
+          <Briefcase className="h-3 w-3" />
+          {roleCount} {roleCount !== 1 ? "roles" : "role"}
+        </Badge>
+        <Badge variant="secondary" className="gap-1">
+          <Target className="h-3 w-3" />
+          {metricCount} {metricCount !== 1 ? "KPIs" : "KPI"}
+        </Badge>
+      </div>
+    </>
+  );
+}
+
 function TeamCardSkeleton() {
   return (
     <Card className="p-4">
       <div className="flex flex-col gap-3">
-        <Skeleton className="h-8 w-3/4" />
+        <Skeleton className="h-6 w-3/4" />
+        <Skeleton className="h-4 w-full" />
+        <div className="flex gap-1">
+          <Skeleton className="h-6 w-6 rounded-full" />
+          <Skeleton className="h-6 w-6 rounded-full" />
+          <Skeleton className="h-6 w-6 rounded-full" />
+        </div>
         <div className="flex gap-2">
           <Skeleton className="h-5 w-20 rounded-full" />
           <Skeleton className="h-5 w-20 rounded-full" />
@@ -178,18 +287,13 @@ export function TeamsList() {
                         {lockedByUserName ?? "In use"}
                       </Badge>
                     </div>
-                    <div className="flex gap-2">
-                      <Badge variant="secondary" className="gap-1">
-                        <Briefcase className="h-3 w-3" />
-                        {team._count.roles}{" "}
-                        {team._count.roles !== 1 ? "roles" : "role"}
-                      </Badge>
-                      <Badge variant="secondary" className="gap-1">
-                        <Target className="h-3 w-3" />
-                        {team._count.metrics}{" "}
-                        {team._count.metrics !== 1 ? "KPIs" : "KPI"}
-                      </Badge>
-                    </div>
+                    <TeamCardContent
+                      description={team.description}
+                      members={team.members}
+                      roleCount={team._count.roles}
+                      metricCount={team._count.metrics}
+                      showTooltips={false}
+                    />
                   </div>
                 </Card>
               </motion.div>
@@ -230,18 +334,13 @@ export function TeamsList() {
                     </CardTitle>
                     <ArrowRight className="text-primary h-4 w-4 translate-x-0 opacity-0 transition-all duration-200 group-hover:translate-x-1 group-hover:opacity-100 group-has-[[data-delete-button]:hover,[data-edit-button]:hover]:translate-x-0 group-has-[[data-delete-button]:hover,[data-edit-button]:hover]:opacity-0" />
                   </div>
-                  <div className="flex gap-2">
-                    <Badge variant="secondary" className="gap-1">
-                      <Briefcase className="h-3 w-3" />
-                      {team._count.roles}{" "}
-                      {team._count.roles !== 1 ? "roles" : "role"}
-                    </Badge>
-                    <Badge variant="secondary" className="gap-1">
-                      <Target className="h-3 w-3" />
-                      {team._count.metrics}{" "}
-                      {team._count.metrics !== 1 ? "KPIs" : "KPI"}
-                    </Badge>
-                  </div>
+                  <TeamCardContent
+                    description={team.description}
+                    members={team.members}
+                    roleCount={team._count.roles}
+                    metricCount={team._count.metrics}
+                    showTooltips={true}
+                  />
                 </div>
               </Card>
             </motion.div>

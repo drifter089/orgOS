@@ -9,8 +9,8 @@ import type { RoleNodeData } from "../_components/role-node";
 import {
   type TeamEdge,
   type TeamNode,
-  useTeamStore,
-  useTeamStoreApi,
+  useTeamStoreApiOptional,
+  useTeamStoreOptional,
 } from "../store/team-store";
 
 /**
@@ -86,10 +86,10 @@ export function useCreateRole({
   getEdgeOptions,
   onBeforeMutate,
 }: UseCreateRoleOptions) {
-  const storeApi = useTeamStoreApi();
-  const setNodes = useTeamStore((state) => state.setNodes);
-  const setEdges = useTeamStore((state) => state.setEdges);
-  const markDirty = useTeamStore((state) => state.markDirty);
+  const storeApi = useTeamStoreApiOptional();
+  const setNodes = useTeamStoreOptional((state) => state.setNodes);
+  const setEdges = useTeamStoreOptional((state) => state.setEdges);
+  const markDirty = useTeamStoreOptional((state) => state.markDirty);
   const utils = api.useUtils();
 
   return api.role.create.useMutation({
@@ -98,12 +98,23 @@ export function useCreateRole({
       await utils.role.getByTeamId.cancel({ teamId });
 
       const previousRoles = utils.role.getByTeamId.getData({ teamId });
+      const tempRoleId = `temp-role-${nanoid(8)}`;
+      const nodeId = variables.nodeId;
+
+      // When outside canvas context, skip canvas-specific operations
+      if (!storeApi) {
+        return {
+          previousRoles,
+          tempRoleId,
+          nodeId,
+          previousNodes: [],
+          previousEdges: [],
+        } as CreateRoleContext;
+      }
+
       const { nodes: currentNodes, edges: currentEdges } = storeApi.getState();
       const previousNodes = [...currentNodes];
       const previousEdges = [...currentEdges];
-
-      const tempRoleId = `temp-role-${nanoid(8)}`;
-      const nodeId = variables.nodeId;
       const nodeOptions = getNodeOptions(variables);
 
       // Create optimistic role for cache (component reads from here)
@@ -140,13 +151,13 @@ export function useCreateRole({
         },
       };
 
-      setNodes([...currentNodes, optimisticNode]);
+      setNodes?.([...currentNodes, optimisticNode]);
 
       // Handle edges
       const edgeOptions = getEdgeOptions?.(nodeId);
       if (edgeOptions?.createEdges) {
         const newEdges = edgeOptions.createEdges(nodeId, currentEdges);
-        setEdges(newEdges);
+        setEdges?.(newEdges);
       } else if (edgeOptions?.sourceNodeId) {
         const { MarkerType } = await import("@xyflow/react");
         const newEdge: TeamEdge = {
@@ -157,10 +168,10 @@ export function useCreateRole({
           animated: true,
           markerEnd: { type: MarkerType.ArrowClosed, width: 20, height: 20 },
         };
-        setEdges([...currentEdges, newEdge]);
+        setEdges?.([...currentEdges, newEdge]);
       }
 
-      markDirty();
+      markDirty?.();
 
       // Add optimistic role to cache
       utils.role.getByTeamId.setData({ teamId }, (old) => {
@@ -188,24 +199,25 @@ export function useCreateRole({
       void utils.team.getById.invalidate({ id: teamId });
       void utils.role.getByTeamId.invalidate({ teamId });
 
-      // Update node with real roleId and clear pending state
-      const currentNodes = storeApi.getState().nodes;
-      const updatedNodes = currentNodes.map((node) => {
-        if (node.id === context.nodeId && node.type === "role-node") {
-          return {
-            ...node,
-            data: {
-              roleId: newRole.id,
-              // Clear pending fields
-              isPending: undefined,
-              pendingTitle: undefined,
-              pendingColor: undefined,
-            },
-          };
-        }
-        return node;
-      });
-      setNodes(updatedNodes);
+      // Update node with real roleId and clear pending state (canvas context only)
+      if (storeApi && setNodes) {
+        const currentNodes = storeApi.getState().nodes;
+        const updatedNodes = currentNodes.map((node) => {
+          if (node.id === context.nodeId && node.type === "role-node") {
+            return {
+              ...node,
+              data: {
+                roleId: newRole.id,
+                isPending: undefined,
+                pendingTitle: undefined,
+                pendingColor: undefined,
+              },
+            };
+          }
+          return node;
+        });
+        setNodes(updatedNodes);
+      }
 
       // Replace temp role with real role in cache
       utils.role.getByTeamId.setData({ teamId }, (old) => {
@@ -224,10 +236,10 @@ export function useCreateRole({
           >[1],
         );
       }
-      if (context?.previousNodes) {
+      if (context?.previousNodes && setNodes) {
         setNodes(context.previousNodes);
       }
-      if (context?.previousEdges) {
+      if (context?.previousEdges && setEdges) {
         setEdges(context.previousEdges);
       }
       toast.error("Failed to create role", {
