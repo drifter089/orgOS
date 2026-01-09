@@ -89,7 +89,10 @@ export function MetricPieChart({
           )}
         </Pie>
         {showLegend && (
-          <ChartLegend content={<ChartLegendContent nameKey={xAxisKey} />} />
+          <ChartLegend
+            content={<ChartLegendContent nameKey={xAxisKey} />}
+            wrapperStyle={{ paddingTop: 16 }}
+          />
         )}
       </PieChart>
     </ChartContainer>
