@@ -6,11 +6,6 @@ import { MetricSettingsDialog } from "@/app/dashboard/[teamId]/_components/metri
 import { type DashboardChart } from "@/app/metric/_components";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
 import { getPlatformConfig } from "@/lib/platform-config";
 import { cn } from "@/lib/utils";
 
@@ -55,25 +50,21 @@ export function EditTeamMetricCard({
       </div>
 
       <div className="flex shrink-0 items-center">
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <MetricSettingsDialog
-              dashboardChart={dashboardChart}
-              teamId={teamId}
-              trigger={
-                <Button
-                  variant="outline"
-                  size="icon"
-                  className="border-border hover:border-primary/50 h-7 w-7 opacity-0 transition-all duration-200 group-hover:opacity-100 hover:scale-105"
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  <Settings className="h-3.5 w-3.5" />
-                </Button>
-              }
-            />
-          </TooltipTrigger>
-          <TooltipContent side="top">Metric settings</TooltipContent>
-        </Tooltip>
+        <MetricSettingsDialog
+          dashboardChart={dashboardChart}
+          teamId={teamId}
+          trigger={
+            <Button
+              variant="outline"
+              size="icon"
+              className="border-border hover:border-primary/50 h-7 w-7 opacity-0 transition-all duration-200 group-hover:opacity-100 hover:scale-105"
+              onClick={(e) => e.stopPropagation()}
+              title="Metric settings"
+            >
+              <Settings className="h-3.5 w-3.5" />
+            </Button>
+          }
+        />
       </div>
     </div>
   );

@@ -5,6 +5,7 @@ import { useCallback, useEffect, useState } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Briefcase, Loader2, Pencil, Target } from "lucide-react";
 import { useForm } from "react-hook-form";
+import { toast } from "sonner";
 import { z } from "zod";
 
 import { RoleDialog } from "@/app/teams/[teamId]/_components/role-dialog";
@@ -82,15 +83,17 @@ export function EditTeamDialog({
     },
   });
 
+  const { reset } = form;
+
   // Reset form when team data loads
   useEffect(() => {
     if (team && open) {
-      form.reset({
+      reset({
         name: team.name,
         description: team.description ?? "",
       });
     }
-  }, [team, open, form]);
+  }, [team, open, reset]);
 
   const updateTeam = api.team.update.useMutation({
     onMutate: async (newData) => {
@@ -128,6 +131,12 @@ export function EditTeamDialog({
       if (context?.previousTeam) {
         utils.team.getById.setData({ id: teamId }, context.previousTeam);
       }
+      toast.error("Failed to update team", {
+        description: "Please try again.",
+      });
+    },
+    onSuccess: () => {
+      toast.success("Team updated successfully");
     },
     onSettled: () => {
       void utils.team.getAll.invalidate();
