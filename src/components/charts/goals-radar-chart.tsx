@@ -116,17 +116,18 @@ function formatTimeRemaining(
   return `${daysRemaining}d left`;
 }
 
+const STATUS_COLORS = {
+  exceeded: "hsl(142, 76%, 36%)",
+  onTrack: "hsl(217, 91%, 60%)",
+  behind: "hsl(38, 92%, 50%)",
+  atRisk: "hsl(0, 84%, 60%)",
+} as const;
+
 function getBarColor(progress: number, expectedProgress: number): string {
-  if (progress >= 100) {
-    return "hsl(142, 76%, 36%)"; // green-500
-  }
-  if (progress >= expectedProgress) {
-    return "hsl(217, 91%, 60%)"; // blue-500
-  }
-  if (progress >= expectedProgress * 0.7) {
-    return "hsl(38, 92%, 50%)"; // amber-500
-  }
-  return "hsl(0, 84%, 60%)"; // red-500
+  if (progress >= 100) return STATUS_COLORS.exceeded;
+  if (progress >= expectedProgress) return STATUS_COLORS.onTrack;
+  if (progress >= expectedProgress * 0.7) return STATUS_COLORS.behind;
+  return STATUS_COLORS.atRisk;
 }
 
 interface ChartDataPoint {

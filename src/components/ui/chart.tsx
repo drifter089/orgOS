@@ -278,7 +278,7 @@ function ChartLegendContent({
     <div
       className={cn(
         "flex flex-wrap items-center justify-center gap-x-3 gap-y-2 px-2",
-        "max-h-[100px] overflow-y-auto",
+        "max-h-[80px] overflow-y-auto sm:max-h-[100px]",
         verticalAlign === "top" ? "pb-3" : "pt-3",
         className,
       )}

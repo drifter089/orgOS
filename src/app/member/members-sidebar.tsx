@@ -13,6 +13,9 @@ import type { RouterOutputs } from "@/trpc/react";
 type Member = RouterOutputs["organization"]["getMembers"][number];
 type MemberStats = RouterOutputs["organization"]["getMemberStats"];
 
+const SIDEBAR_WIDTH = "26rem";
+const SIDEBAR_WIDTH_OFFSET = "26.5rem";
+
 function NonModalSheetContent({
   className,
   children,
@@ -39,6 +42,9 @@ function NonModalSheetContent({
         <SheetPrimitive.Title className="sr-only">
           Members Sidebar
         </SheetPrimitive.Title>
+        <SheetPrimitive.Description className="sr-only">
+          Quick navigation panel to view and access all organization members
+        </SheetPrimitive.Description>
         {children}
         {!hideCloseButton && (
           <SheetPrimitive.Close className="border-border hover:bg-accent focus:ring-ring absolute top-2 right-2 flex h-6 w-6 items-center justify-center rounded-md border transition-all focus:ring-2 focus:outline-hidden disabled:pointer-events-none">
@@ -61,9 +67,9 @@ export function MembersSidebar({ members, memberStats }: MembersSidebarProps) {
 
   return (
     <>
-      {/* Toggle button - same styling as canvas side panels */}
       <button
         onClick={() => setIsOpen(!isOpen)}
+        style={{ right: isOpen ? SIDEBAR_WIDTH_OFFSET : undefined }}
         className={cn(
           "fixed top-1/2 z-50 -translate-y-1/2 transition-all duration-300 ease-in-out",
           "flex items-center gap-1 md:gap-1.5",
@@ -71,9 +77,7 @@ export function MembersSidebar({ members, memberStats }: MembersSidebarProps) {
           "bg-background rounded-md border",
           "shadow-md hover:shadow-lg",
           "text-xs font-medium md:text-sm",
-          isOpen
-            ? "border-primary bg-accent right-[26.5rem]"
-            : "hover:bg-accent/50 right-4",
+          isOpen ? "border-primary bg-accent" : "hover:bg-accent/50 right-4",
         )}
         aria-label={isOpen ? "Close Members sidebar" : "Open Members sidebar"}
       >
@@ -87,11 +91,11 @@ export function MembersSidebar({ members, memberStats }: MembersSidebarProps) {
         )}
       </button>
 
-      {/* Panel - non-modal sheet from right */}
       <Sheet open={isOpen} onOpenChange={setIsOpen} modal={false}>
         <NonModalSheetContent
           side="right"
-          className="w-[26rem] overflow-hidden p-0 sm:max-w-none"
+          style={{ width: SIDEBAR_WIDTH }}
+          className="overflow-hidden p-0 sm:max-w-none"
           hideCloseButton
         >
           <MembersPanel members={members} memberStats={memberStats} />
