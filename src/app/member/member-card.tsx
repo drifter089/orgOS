@@ -55,12 +55,11 @@ export function MemberCard({ member, dashboardCharts }: MemberCardProps) {
   const rolesWithEffort =
     roles?.filter((role) => role.effortPoints && role.effortPoints > 0) ?? [];
 
-  // Extract unique teams from roles
   const uniqueTeams = useMemo(() => {
     if (!roles) return [];
     const teamMap = new Map<string, { id: string; name: string }>();
     for (const role of roles) {
-      if (role.team && !teamMap.has(role.team.id)) {
+      if (!teamMap.has(role.team.id)) {
         teamMap.set(role.team.id, { id: role.team.id, name: role.team.name });
       }
     }
