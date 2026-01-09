@@ -121,18 +121,8 @@ function formatTimeRemaining(
   return `${daysRemaining}d left`;
 }
 
-const STATUS_COLORS = {
-  exceeded: "#22c55e", // green-500
-  onTrack: "#3b82f6", // blue-500
-  behind: "#f59e0b", // amber-500
-  atRisk: "#ef4444", // red-500
-} as const;
-
-function getBarColor(progress: number, expectedProgress: number): string {
-  if (progress >= 100) return STATUS_COLORS.exceeded;
-  if (progress >= expectedProgress) return STATUS_COLORS.onTrack;
-  if (progress >= expectedProgress * 0.7) return STATUS_COLORS.behind;
-  return STATUS_COLORS.atRisk;
+function getChartColor(index: number): string {
+  return `hsl(var(--chart-${(index % 5) + 1}))`;
 }
 
 interface ChartDataPoint {
@@ -448,11 +438,8 @@ export function GoalsBarChart({
               animationDuration={800}
               animationEasing="ease-out"
             >
-              {chartData.map((entry, index) => (
-                <Cell
-                  key={`cell-${index}`}
-                  fill={getBarColor(entry.progress, entry.expectedProgress)}
-                />
+              {chartData.map((_, index) => (
+                <Cell key={`cell-${index}`} fill={getChartColor(index)} />
               ))}
             </Bar>
           </BarChart>
@@ -460,16 +447,11 @@ export function GoalsBarChart({
 
         {simpleLegend ? (
           <div className="mt-2 flex flex-wrap justify-center gap-3">
-            {chartData.map((item) => (
+            {chartData.map((item, index) => (
               <div key={item.goal} className="flex items-center gap-1.5">
                 <div
                   className="h-2 w-2 shrink-0 rounded-full"
-                  style={{
-                    backgroundColor: getBarColor(
-                      item.progress,
-                      item.expectedProgress,
-                    ),
-                  }}
+                  style={{ backgroundColor: getChartColor(index) }}
                 />
                 <span className="text-foreground max-w-[100px] truncate text-xs">
                   {item.goal}
@@ -479,7 +461,7 @@ export function GoalsBarChart({
           </div>
         ) : (
           <div className="border-border/40 mt-4 flex flex-wrap justify-center gap-x-3 gap-y-2 border-t pt-3">
-            {chartData.map((item) => {
+            {chartData.map((item, index) => {
               const statusConfig = STATUS_CONFIG[item.status];
               return (
                 <TooltipProvider key={item.goal} delayDuration={0}>
@@ -488,12 +470,7 @@ export function GoalsBarChart({
                       <div className="hover:bg-muted/50 border-border/40 flex cursor-pointer items-center gap-2 rounded-md border px-2.5 py-1.5 transition-colors">
                         <div
                           className="ring-border/20 h-2.5 w-2.5 shrink-0 rounded-full ring-1"
-                          style={{
-                            backgroundColor: getBarColor(
-                              item.progress,
-                              item.expectedProgress,
-                            ),
-                          }}
+                          style={{ backgroundColor: getChartColor(index) }}
                         />
                         <div className="flex min-w-0 flex-col">
                           <span className="text-foreground max-w-[120px] truncate text-xs font-medium">
