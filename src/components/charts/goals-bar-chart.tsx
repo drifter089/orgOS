@@ -12,7 +12,7 @@ import {
   TrendingDown,
   TrendingUp,
 } from "lucide-react";
-import { Bar, BarChart, Cell, XAxis, YAxis } from "recharts";
+import { Bar, BarChart, CartesianGrid, Cell, XAxis, YAxis } from "recharts";
 
 import { Badge } from "@/components/ui/badge";
 import {
@@ -35,10 +35,13 @@ import { api } from "@/trpc/react";
 interface GoalsBarChartProps {
   /** Array of metric IDs to display goal progress for */
   metricIds: string[];
+  /** Show header with title and goal count (default: true) */
   showHeader?: boolean;
   className?: string;
-  /** Use simplified legend with only colored dots and names (no status badges, percentages, or tooltips) */
+  /** Use simplified legend with only colored dots and names (default: false) */
   simpleLegend?: boolean;
+  /** Remove border and background styling (default: false) */
+  noBorder?: boolean;
 }
 
 const STATUS_CONFIG: Record<
@@ -119,10 +122,10 @@ function formatTimeRemaining(
 }
 
 const STATUS_COLORS = {
-  exceeded: "hsl(142, 76%, 36%)",
-  onTrack: "hsl(217, 91%, 60%)",
-  behind: "hsl(38, 92%, 50%)",
-  atRisk: "hsl(0, 84%, 60%)",
+  exceeded: "#22c55e", // green-500
+  onTrack: "#3b82f6", // blue-500
+  behind: "#f59e0b", // amber-500
+  atRisk: "#ef4444", // red-500
 } as const;
 
 function getBarColor(progress: number, expectedProgress: number): string {
@@ -291,6 +294,7 @@ export function GoalsBarChart({
   showHeader = true,
   className,
   simpleLegend = false,
+  noBorder = false,
 }: GoalsBarChartProps) {
   // Fetch dashboard charts from cache (parent already fetched this)
   const { data: allCharts } = api.dashboard.getDashboardCharts.useQuery();
@@ -334,7 +338,8 @@ export function GoalsBarChart({
     return (
       <div
         className={cn(
-          "border-border/60 bg-card flex flex-col border",
+          "flex flex-col",
+          !noBorder && "border-border/60 bg-card border",
           className,
         )}
       >
@@ -366,7 +371,11 @@ export function GoalsBarChart({
 
   return (
     <div
-      className={cn("border-border/60 bg-card flex flex-col border", className)}
+      className={cn(
+        "flex flex-col",
+        !noBorder && "border-border/60 bg-card border",
+        className,
+      )}
     >
       {showHeader && (
         <div className="border-border/60 flex items-center justify-between border-b px-4 py-3">
@@ -383,20 +392,28 @@ export function GoalsBarChart({
           </span>
         </div>
       )}
-      <div className="flex flex-1 flex-col p-4">
-        <ChartContainer
-          config={chartConfig}
-          className="mx-auto h-[220px] w-full"
-        >
+      <div className={cn("flex flex-1 flex-col", !noBorder && "p-4")}>
+        {noBorder && (
+          <span className="text-muted-foreground mb-1 text-xs font-semibold tracking-wider uppercase">
+            Goal Progress
+          </span>
+        )}
+        <ChartContainer config={chartConfig} className="mx-auto h-full w-full">
           <BarChart
             data={chartData}
             margin={{
-              top: 20,
-              right: 20,
+              top: 10,
+              right: 10,
               left: 0,
-              bottom: simpleLegend ? 10 : 60,
+              bottom: simpleLegend ? 5 : 60,
             }}
           >
+            <CartesianGrid
+              strokeDasharray="3 3"
+              vertical={false}
+              stroke="hsl(var(--border))"
+              strokeOpacity={0.5}
+            />
             <XAxis
               dataKey="goal"
               tick={
@@ -442,7 +459,7 @@ export function GoalsBarChart({
         </ChartContainer>
 
         {simpleLegend ? (
-          <div className="border-border/40 mt-4 flex flex-wrap justify-center gap-3 border-t pt-3">
+          <div className="mt-2 flex flex-wrap justify-center gap-3">
             {chartData.map((item) => (
               <div key={item.goal} className="flex items-center gap-1.5">
                 <div

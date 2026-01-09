@@ -28,7 +28,7 @@ export function MetricPieChart({
   return (
     <ChartContainer
       config={chartConfig}
-      className={cn("mx-auto h-[250px] w-full", className)}
+      className={cn("mx-auto h-full w-full", className)}
     >
       <PieChart>
         {showTooltip && (
@@ -41,8 +41,8 @@ export function MetricPieChart({
           data={chartData}
           dataKey={dataKey}
           nameKey={xAxisKey}
-          innerRadius="40%"
-          outerRadius="70%"
+          innerRadius="50%"
+          outerRadius="85%"
           strokeWidth={2}
           isAnimationActive={true}
           animationDuration={800}
@@ -92,8 +92,8 @@ export function MetricPieChart({
           <ChartLegend
             content={<ChartLegendContent nameKey={xAxisKey} />}
             wrapperStyle={{
-              paddingTop: 8,
-              maxHeight: "80px",
+              paddingTop: 4,
+              maxHeight: "60px",
               overflowY: "auto",
             }}
           />

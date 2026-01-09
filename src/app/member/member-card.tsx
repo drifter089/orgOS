@@ -27,6 +27,8 @@ type Member = RouterOutputs["organization"]["getMembers"][number];
 type DashboardCharts = RouterOutputs["dashboard"]["getDashboardCharts"];
 type Role = RouterOutputs["role"]["getByUser"][number];
 
+const CHART_HEIGHT = "h-[280px]";
+
 interface MemberCardProps {
   member: Member;
   dashboardCharts: DashboardCharts;
@@ -172,17 +174,17 @@ export function MemberCard({ member, dashboardCharts }: MemberCardProps) {
               </div>
 
               {uniqueTeams.length > 0 && (
-                <div className="space-y-1.5">
-                  <div className="text-muted-foreground flex items-center gap-1.5">
+                <div className="mt-1 space-y-1.5">
+                  <div className="text-foreground flex items-center gap-1.5">
                     <LayoutGrid className="h-3.5 w-3.5" />
-                    <span className="text-xs font-medium">Teams</span>
+                    <span className="text-sm font-semibold">Teams</span>
                   </div>
                   <ul className="space-y-1 pl-5">
                     {uniqueTeams.map((team) => (
                       <li key={team.id}>
                         <Link
                           href={`/teams/${team.id}`}
-                          className="hover:text-primary text-sm font-medium underline-offset-2 transition-colors hover:underline"
+                          className="text-muted-foreground hover:text-primary text-xs underline-offset-2 transition-colors hover:underline"
                         >
                           {team.name}
                         </Link>
@@ -211,13 +213,13 @@ export function MemberCard({ member, dashboardCharts }: MemberCardProps) {
         <div className="grid flex-1 grid-cols-1 gap-4 md:grid-cols-2">
           {isLoading ? (
             <>
-              <Skeleton className="h-[320px] w-full" />
-              <Skeleton className="h-[320px] w-full" />
+              <Skeleton className={`${CHART_HEIGHT} w-full`} />
+              <Skeleton className={`${CHART_HEIGHT} w-full`} />
             </>
           ) : (
             <>
-              <div className="border-border/40 flex h-[340px] flex-col rounded-lg border p-4">
-                <span className="text-muted-foreground mb-2 text-xs font-semibold tracking-wider uppercase">
+              <div className={`flex ${CHART_HEIGHT} flex-col`}>
+                <span className="text-muted-foreground mb-1 text-xs font-semibold tracking-wider uppercase">
                   Effort Distribution
                 </span>
                 {rolesWithEffort.length > 0 ? (
@@ -232,7 +234,7 @@ export function MemberCard({ member, dashboardCharts }: MemberCardProps) {
                       value: totalEffortPoints,
                       label: "Total",
                     }}
-                    className="h-[260px] w-full"
+                    className="h-full w-full"
                   />
                 ) : (
                   <div className="text-muted-foreground flex flex-1 items-center justify-center text-sm">
@@ -245,7 +247,8 @@ export function MemberCard({ member, dashboardCharts }: MemberCardProps) {
                 metricIds={metricIdsWithGoals}
                 showHeader={false}
                 simpleLegend={true}
-                className="h-[340px] rounded-lg"
+                className={CHART_HEIGHT}
+                noBorder={true}
               />
             </>
           )}
@@ -257,19 +260,19 @@ export function MemberCard({ member, dashboardCharts }: MemberCardProps) {
         <Collapsible open={isExpanded} onOpenChange={setIsExpanded}>
           <CollapsibleTrigger asChild>
             <Button
-              variant="outline"
+              variant={isExpanded ? "outline" : "secondary"}
               size="sm"
-              className="text-muted-foreground hover:text-foreground mt-4 w-full justify-center gap-2"
+              className="mt-4 w-full justify-center gap-2"
             >
               {isExpanded ? (
                 <>
                   <ChevronUp className="h-4 w-4" />
-                  <span className="text-xs font-medium">Hide Roles & KPIs</span>
+                  <span className="text-sm font-medium">Hide Roles & KPIs</span>
                 </>
               ) : (
                 <>
                   <ChevronDown className="h-4 w-4" />
-                  <span className="text-xs font-medium">Show Roles & KPIs</span>
+                  <span className="text-sm font-medium">Show Roles & KPIs</span>
                 </>
               )}
             </Button>
