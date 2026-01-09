@@ -84,7 +84,6 @@ export function TeamSection({
                     ? chartsByMetricId.get(role.metricId)
                     : undefined
                 }
-                teamId={team.id}
               />
             ))}
           </div>

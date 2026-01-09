@@ -181,7 +181,8 @@ function RoleCardComponent({
   return (
     <div
       className={cn(
-        "bg-card group relative flex flex-col rounded-lg border transition-all duration-200 hover:shadow-lg",
+        "bg-card group relative flex flex-col rounded-lg border transition-all duration-200",
+        !readOnly && "hover:shadow-lg",
         selected && "ring-primary ring-2 ring-offset-2",
         isPending && "opacity-70",
         isDeleting && "opacity-50",
