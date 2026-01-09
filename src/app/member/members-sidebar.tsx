@@ -73,21 +73,22 @@ export function MembersSidebar({ members, memberStats }: MembersSidebarProps) {
         className={cn(
           "fixed top-1/2 z-50 -translate-y-1/2 transition-all duration-300 ease-in-out",
           "flex items-center gap-1 md:gap-1.5",
-          "h-8 px-2 md:h-9 md:px-2.5",
+          "h-7 px-1.5 md:h-8 md:px-2",
           "bg-background rounded-md border",
           "shadow-md hover:shadow-lg",
-          "text-xs font-medium md:text-sm",
+          "text-xs font-medium",
           isOpen ? "border-primary bg-accent" : "hover:bg-accent/50 right-4",
         )}
         aria-label={isOpen ? "Close Members sidebar" : "Open Members sidebar"}
       >
-        <Users className="h-4 w-4" />
+        <Users className="h-3.5 w-3.5" />
         <span className="hidden md:inline">Members</span>
-        <span>({members.length})</span>
+        <span className="text-muted-foreground">|</span>
+        <span>{members.length}</span>
         {isOpen ? (
-          <ChevronRight className="h-4 w-4" />
+          <ChevronRight className="h-3.5 w-3.5" />
         ) : (
-          <ChevronLeft className="h-4 w-4" />
+          <ChevronLeft className="h-3.5 w-3.5" />
         )}
       </button>
 

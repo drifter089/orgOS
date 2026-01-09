@@ -390,20 +390,29 @@ export function GoalsBarChart({
         >
           <BarChart
             data={chartData}
-            margin={{ top: 20, right: 20, left: 0, bottom: 60 }}
+            margin={{
+              top: 20,
+              right: 20,
+              left: 0,
+              bottom: simpleLegend ? 10 : 60,
+            }}
           >
             <XAxis
               dataKey="goal"
-              tick={{
-                fill: "hsl(var(--muted-foreground))",
-                fontSize: 10,
-              }}
-              angle={-45}
-              textAnchor="end"
-              height={60}
+              tick={
+                simpleLegend
+                  ? false
+                  : {
+                      fill: "hsl(var(--muted-foreground))",
+                      fontSize: 10,
+                    }
+              }
+              angle={simpleLegend ? 0 : -45}
+              textAnchor={simpleLegend ? "middle" : "end"}
+              height={simpleLegend ? 10 : 60}
               interval={0}
               tickLine={false}
-              axisLine={{ stroke: "hsl(var(--border))" }}
+              axisLine={simpleLegend ? false : { stroke: "hsl(var(--border))" }}
             />
             <YAxis
               domain={[0, 100]}

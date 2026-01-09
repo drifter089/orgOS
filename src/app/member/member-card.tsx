@@ -172,21 +172,23 @@ export function MemberCard({ member, dashboardCharts }: MemberCardProps) {
               </div>
 
               {uniqueTeams.length > 0 && (
-                <div className="flex flex-wrap items-center gap-2">
+                <div className="space-y-1.5">
                   <div className="text-muted-foreground flex items-center gap-1.5">
                     <LayoutGrid className="h-3.5 w-3.5" />
-                    <span className="text-xs font-medium">Teams:</span>
+                    <span className="text-xs font-medium">Teams</span>
                   </div>
-                  {uniqueTeams.map((team) => (
-                    <Link key={team.id} href={`/teams/${team.id}`}>
-                      <Badge
-                        variant="outline"
-                        className="hover:bg-accent hover:border-accent-foreground/20 cursor-pointer text-xs transition-colors"
-                      >
-                        {team.name}
-                      </Badge>
-                    </Link>
-                  ))}
+                  <ul className="space-y-1 pl-5">
+                    {uniqueTeams.map((team) => (
+                      <li key={team.id}>
+                        <Link
+                          href={`/teams/${team.id}`}
+                          className="hover:text-primary text-sm font-medium underline-offset-2 transition-colors hover:underline"
+                        >
+                          {team.name}
+                        </Link>
+                      </li>
+                    ))}
+                  </ul>
                 </div>
               )}
             </>
@@ -255,7 +257,7 @@ export function MemberCard({ member, dashboardCharts }: MemberCardProps) {
         <Collapsible open={isExpanded} onOpenChange={setIsExpanded}>
           <CollapsibleTrigger asChild>
             <Button
-              variant="ghost"
+              variant="outline"
               size="sm"
               className="text-muted-foreground hover:text-foreground mt-4 w-full justify-center gap-2"
             >

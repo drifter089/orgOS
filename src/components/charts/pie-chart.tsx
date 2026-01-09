@@ -41,8 +41,8 @@ export function MetricPieChart({
           data={chartData}
           dataKey={dataKey}
           nameKey={xAxisKey}
-          innerRadius={60}
-          outerRadius={100}
+          innerRadius="40%"
+          outerRadius="70%"
           strokeWidth={2}
           isAnimationActive={true}
           animationDuration={800}
@@ -91,7 +91,11 @@ export function MetricPieChart({
         {showLegend && (
           <ChartLegend
             content={<ChartLegendContent nameKey={xAxisKey} />}
-            wrapperStyle={{ paddingTop: 16 }}
+            wrapperStyle={{
+              paddingTop: 8,
+              maxHeight: "80px",
+              overflowY: "auto",
+            }}
           />
         )}
       </PieChart>
