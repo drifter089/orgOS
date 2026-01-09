@@ -188,7 +188,7 @@ export function EditTeamDialog({
                   "bg-primary/10 text-primary border-primary/30",
                   "hover:bg-primary hover:text-primary-foreground hover:border-primary",
                   "flex h-6 w-6 items-center justify-center",
-                  "rounded-tl-[calc(var(--radius)-1px)] rounded-br-md border-r border-b",
+                  "rounded-tl-[calc(var(--radius)-1px)] rounded-br-md border-r border-b border-l",
                   "transition-all",
                 )}
                 onClick={(e) => {

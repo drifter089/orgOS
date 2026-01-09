@@ -50,22 +50,30 @@ function TeamCardContent({
 }: TeamCardContentProps) {
   return (
     <>
-      {description && (
-        <p className="text-muted-foreground line-clamp-2 text-sm">
-          {description}
-        </p>
-      )}
-
-      {members.length > 0 && (
-        <div className="flex items-center gap-1">
-          <Users className="text-muted-foreground h-3.5 w-3.5 shrink-0" />
-          <p className="text-muted-foreground line-clamp-1 text-sm">
-            {members.map((m) => m.name).join(", ")}
+      <div className="min-h-[2.5rem]">
+        {description ? (
+          <p className="text-muted-foreground line-clamp-2 text-sm">
+            {description}
           </p>
-        </div>
-      )}
+        ) : (
+          <p className="text-muted-foreground/50 line-clamp-2 text-sm italic">
+            No description
+          </p>
+        )}
+      </div>
 
-      <div className="flex gap-2">
+      <div className="min-h-[1.25rem]">
+        {members.length > 0 && (
+          <div className="flex items-center gap-1.5">
+            <Users className="text-muted-foreground/70 h-3.5 w-3.5 shrink-0" />
+            <p className="text-muted-foreground/70 line-clamp-1 text-xs font-medium">
+              {members.map((m) => m.name).join(", ")}
+            </p>
+          </div>
+        )}
+      </div>
+
+      <div className="flex gap-2 pt-1">
         <Badge variant="secondary" className="gap-1">
           <Briefcase className="h-3 w-3" />
           {roleCount} {roleCount !== 1 ? "roles" : "role"}
