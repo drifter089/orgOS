@@ -136,7 +136,7 @@ export function KpiCard({
                     <Button
                       variant="outline"
                       size="icon"
-                      className="h-7 w-7 border opacity-0 shadow-sm transition-all group-hover:opacity-100"
+                      className="h-7 w-7 border opacity-60 shadow-sm transition-all group-hover:opacity-100"
                       onClick={(e) => e.stopPropagation()}
                     >
                       <Settings className="h-3.5 w-3.5" />

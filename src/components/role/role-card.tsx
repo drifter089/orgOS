@@ -191,7 +191,7 @@ function RoleCardComponent({
     >
       {/* Action Buttons */}
       {showActions && (
-        <div className="nodrag absolute top-1 right-1 z-10 flex gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
+        <div className="nodrag absolute top-1 right-1 z-10 flex gap-0.5 opacity-60 transition-opacity group-hover:opacity-100">
           {onEdit && (
             <Button
               variant="outline"
