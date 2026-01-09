@@ -85,7 +85,6 @@ export function KpiCard({
         isOnCanvas && "border-primary/50 bg-primary/5",
       )}
     >
-      {/* Header row */}
       <div className="flex items-center gap-3">
         {enableDragDrop &&
           (canDrag ? (
@@ -99,7 +98,7 @@ export function KpiCard({
 
         <div
           className={cn(
-            "h-9 w-1.5 shrink-0 rounded-full",
+            "h-9 w-1.5 shrink-0 rounded-sm",
             getPlatformConfig(metric.integration?.providerId ?? "manual")
               .bgColor,
           )}
@@ -135,9 +134,9 @@ export function KpiCard({
                   teamId={teamId}
                   trigger={
                     <Button
-                      variant="ghost"
+                      variant="outline"
                       size="icon"
-                      className="text-muted-foreground hover:text-foreground h-7 w-7 opacity-0 transition-all group-hover:opacity-100"
+                      className="h-7 w-7 border opacity-0 shadow-sm transition-all group-hover:opacity-100"
                       onClick={(e) => e.stopPropagation()}
                     >
                       <Settings className="h-3.5 w-3.5" />
@@ -153,13 +152,13 @@ export function KpiCard({
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button
-                  variant="ghost"
+                  variant="outline"
                   size="icon"
                   className={cn(
-                    "h-7 w-7 transition-all",
+                    "h-7 w-7 border shadow-sm transition-all",
                     isOnCanvas
-                      ? "text-primary bg-primary/10 opacity-100"
-                      : "text-muted-foreground hover:text-foreground opacity-0 group-hover:opacity-100",
+                      ? "border-primary bg-primary/10 text-primary opacity-100"
+                      : "opacity-0 group-hover:opacity-100",
                   )}
                   onClick={(e) => {
                     e.stopPropagation();
@@ -177,7 +176,6 @@ export function KpiCard({
         </div>
       </div>
 
-      {/* Progress section */}
       {goalProgress && timeElapsedPercent !== null && (
         <div className="mt-4 space-y-3">
           <p className="text-muted-foreground text-[11px] font-medium tracking-wider uppercase">
@@ -185,7 +183,6 @@ export function KpiCard({
           </p>
 
           <div className="space-y-2.5">
-            {/* Goal Progress */}
             <div className="flex items-center gap-3">
               <div className="bg-muted h-2 flex-1 overflow-hidden rounded-full">
                 <div
@@ -210,7 +207,6 @@ export function KpiCard({
               </div>
             </div>
 
-            {/* Time Progress */}
             <div className="flex items-center gap-3">
               <div className="bg-muted h-2 flex-1 overflow-hidden rounded-full">
                 <div
@@ -233,7 +229,6 @@ export function KpiCard({
         </div>
       )}
 
-      {/* No goal state */}
       {!goalProgress && (
         <div className="mt-4">
           <div className="flex items-center gap-3">
@@ -245,7 +240,6 @@ export function KpiCard({
         </div>
       )}
 
-      {/* Role display */}
       <div className="mt-3 flex items-center gap-1.5">
         {roles.length > 0 ? (
           <>
