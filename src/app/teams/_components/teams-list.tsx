@@ -13,7 +13,6 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardTitle } from "@/components/ui/card";
 import {
@@ -25,19 +24,11 @@ import {
   EmptyTitle,
 } from "@/components/ui/empty";
 import { Skeleton } from "@/components/ui/skeleton";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
-import { getInitials } from "@/lib/helpers/get-initials";
 import { api } from "@/trpc/react";
 
 import { CreateTeamDialog } from "./create-team-dialog";
 import { DeleteTeamDialog } from "./delete-team-dialog";
 import { EditTeamDialog } from "./edit-team-dialog";
-
-const MAX_VISIBLE_MEMBERS = 4;
 
 interface TeamMember {
   id: string;
@@ -49,7 +40,6 @@ interface TeamCardContentProps {
   members: TeamMember[];
   roleCount: number;
   metricCount: number;
-  showTooltips?: boolean;
 }
 
 function TeamCardContent({
@@ -57,11 +47,7 @@ function TeamCardContent({
   members,
   roleCount,
   metricCount,
-  showTooltips = false,
 }: TeamCardContentProps) {
-  const visibleMembers = members.slice(0, MAX_VISIBLE_MEMBERS);
-  const remainingCount = members.length - MAX_VISIBLE_MEMBERS;
-
   return (
     <>
       {description && (
@@ -72,50 +58,10 @@ function TeamCardContent({
 
       {members.length > 0 && (
         <div className="flex items-center gap-1">
-          {visibleMembers.map((member) =>
-            showTooltips ? (
-              <Tooltip key={member.id}>
-                <TooltipTrigger asChild>
-                  <Avatar className="h-6 w-6 rounded-full">
-                    <AvatarFallback className="bg-muted text-muted-foreground rounded-full text-xs font-medium">
-                      {getInitials(member.name)}
-                    </AvatarFallback>
-                  </Avatar>
-                </TooltipTrigger>
-                <TooltipContent side="top">{member.name}</TooltipContent>
-              </Tooltip>
-            ) : (
-              <Avatar key={member.id} className="h-6 w-6 rounded-full">
-                <AvatarFallback className="bg-muted text-muted-foreground rounded-full text-xs font-medium">
-                  {getInitials(member.name)}
-                </AvatarFallback>
-              </Avatar>
-            ),
-          )}
-          {remainingCount > 0 &&
-            (showTooltips ? (
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Avatar className="h-6 w-6 rounded-full">
-                    <AvatarFallback className="bg-muted text-muted-foreground rounded-full text-xs font-medium">
-                      +{remainingCount}
-                    </AvatarFallback>
-                  </Avatar>
-                </TooltipTrigger>
-                <TooltipContent side="top">
-                  {members
-                    .slice(MAX_VISIBLE_MEMBERS)
-                    .map((m) => m.name)
-                    .join(", ")}
-                </TooltipContent>
-              </Tooltip>
-            ) : (
-              <Avatar className="h-6 w-6 rounded-full">
-                <AvatarFallback className="bg-muted text-muted-foreground rounded-full text-xs font-medium">
-                  +{remainingCount}
-                </AvatarFallback>
-              </Avatar>
-            ))}
+          <Users className="text-muted-foreground h-3.5 w-3.5 shrink-0" />
+          <p className="text-muted-foreground line-clamp-1 text-sm">
+            {members.map((m) => m.name).join(", ")}
+          </p>
         </div>
       )}
 
@@ -139,11 +85,7 @@ function TeamCardSkeleton() {
       <div className="flex flex-col gap-3">
         <Skeleton className="h-6 w-3/4" />
         <Skeleton className="h-4 w-full" />
-        <div className="flex gap-1">
-          <Skeleton className="h-6 w-6 rounded-full" />
-          <Skeleton className="h-6 w-6 rounded-full" />
-          <Skeleton className="h-6 w-6 rounded-full" />
-        </div>
+        <Skeleton className="h-4 w-2/3" />
         <div className="flex gap-2">
           <Skeleton className="h-5 w-20 rounded-full" />
           <Skeleton className="h-5 w-20 rounded-full" />
@@ -292,7 +234,6 @@ export function TeamsList() {
                       members={team.members}
                       roleCount={team._count.roles}
                       metricCount={team._count.metrics}
-                      showTooltips={false}
                     />
                   </div>
                 </Card>
@@ -339,7 +280,6 @@ export function TeamsList() {
                     members={team.members}
                     roleCount={team._count.roles}
                     metricCount={team._count.metrics}
-                    showTooltips={true}
                   />
                 </div>
               </Card>

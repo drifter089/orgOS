@@ -13,6 +13,10 @@ import {
   invalidateCacheByTags,
   teamCanvasCache,
 } from "@/server/api/utils/cache-strategy";
+import {
+  buildMemberNameMap,
+  fetchOrganizationMembers,
+} from "@/server/api/utils/organization-members";
 
 // Session expires after 60 seconds of no heartbeat
 const SESSION_TIMEOUT_MS = 60000;
@@ -39,17 +43,39 @@ export const teamRouter = createTRPCRouter({
       orderBy: { updatedAt: "desc" },
     });
 
+    // Check if any roles need name enrichment
+    const allRoles = teams.flatMap((t) => t.roles);
+    const needsEnrichment = allRoles.some(
+      (r) => r.assignedUserId && !r.assignedUserName,
+    );
+
+    // Fetch members once if any role needs enrichment
+    let nameMap: Map<string, string> | null = null;
+    if (needsEnrichment) {
+      const members = await fetchOrganizationMembers(
+        ctx.workspace.organizationId,
+        ctx.workspace.directory?.id,
+      );
+      nameMap = buildMemberNameMap(members);
+    }
+
     // Add lock info and unique members for each team
     return teams.map((team) => {
       const isLocked =
         team.editSession && team.editSession.userId !== ctx.user.id;
 
-      // Get unique members assigned to roles (fallback to "Unknown" if name not yet enriched)
+      // Get unique members assigned to roles (enrich names if needed)
       const uniqueMembers = Array.from(
         new Map(
           team.roles
             .filter((r) => r.assignedUserId)
-            .map((r) => [r.assignedUserId, r.assignedUserName ?? "Unknown"]),
+            .map((r) => {
+              const name =
+                r.assignedUserName ??
+                nameMap?.get(r.assignedUserId!) ??
+                `User ${r.assignedUserId!.substring(0, 8)}`;
+              return [r.assignedUserId, name];
+            }),
         ).entries(),
       ).map(([id, name]) => ({ id: id!, name }));
 
