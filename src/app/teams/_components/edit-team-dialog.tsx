@@ -207,7 +207,7 @@ export function EditTeamDialog({
         </Tooltip>
 
         <DialogContent
-          className="flex h-[90vh] max-h-[90vh] w-[95vw] max-w-[1400px] flex-col gap-0 overflow-hidden p-0"
+          className="flex h-[90vh] max-h-[90vh] w-[95vw] max-w-[87.5rem] flex-col gap-0 overflow-hidden p-0 sm:max-w-[87.5rem]"
           onClick={(e) => e.stopPropagation()}
         >
           <div className="shrink-0 border-b px-6 py-4">
@@ -221,7 +221,7 @@ export function EditTeamDialog({
 
           <div className="[&::-webkit-scrollbar-thumb]:bg-border/40 hover:[&::-webkit-scrollbar-thumb]:bg-border/60 grid min-h-0 flex-1 grid-cols-3 divide-x overflow-hidden [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-track]:bg-transparent">
             {/* Column 1: Team Details */}
-            <div className="flex min-w-[280px] flex-col overflow-y-auto p-6">
+            <div className="flex min-w-[17.5rem] flex-col overflow-y-auto p-6">
               <h3 className="text-muted-foreground mb-4 text-sm font-medium">
                 Team Details
               </h3>
@@ -302,7 +302,7 @@ export function EditTeamDialog({
             </div>
 
             {/* Column 2: Roles */}
-            <div className="flex min-w-[320px] flex-col overflow-y-auto p-6">
+            <div className="flex min-w-[20rem] flex-col overflow-y-auto p-6">
               <h3 className="text-muted-foreground mb-4 flex items-center gap-2 text-sm font-medium">
                 <Briefcase className="h-4 w-4" />
                 Roles
@@ -340,7 +340,7 @@ export function EditTeamDialog({
             </div>
 
             {/* Column 3: KPIs */}
-            <div className="flex min-w-[320px] flex-col overflow-y-auto p-6">
+            <div className="flex min-w-[20rem] flex-col overflow-y-auto p-6">
               <h3 className="text-muted-foreground mb-4 flex items-center gap-2 text-sm font-medium">
                 <Target className="h-4 w-4" />
                 KPIs
