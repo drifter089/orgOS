@@ -1,8 +1,10 @@
 "use client";
 
+import { useMemo } from "react";
+
 import Link from "next/link";
 
-import { ArrowRight } from "lucide-react";
+import { ArrowRight, Users } from "lucide-react";
 
 import { GoalsRadarChart, MetricPieChart } from "@/components/charts";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -52,6 +54,18 @@ export function MemberCard({ member, dashboardCharts }: MemberCardProps) {
 
   const rolesWithEffort =
     roles?.filter((role) => role.effortPoints && role.effortPoints > 0) ?? [];
+
+  // Extract unique teams from roles
+  const uniqueTeams = useMemo(() => {
+    if (!roles) return [];
+    const teamMap = new Map<string, { id: string; name: string }>();
+    for (const role of roles) {
+      if (role.team && !teamMap.has(role.team.id)) {
+        teamMap.set(role.team.id, { id: role.team.id, name: role.team.name });
+      }
+    }
+    return Array.from(teamMap.values());
+  }, [roles]);
 
   const pieChartData = rolesWithEffort.map((role, index) => ({
     name: role.title,
@@ -104,12 +118,29 @@ export function MemberCard({ member, dashboardCharts }: MemberCardProps) {
               <Skeleton className="h-5 w-20" />
             </div>
           ) : (
-            <div className="flex flex-wrap gap-2">
-              <Badge variant="secondary">
-                {roles?.length ?? 0} {roles?.length === 1 ? "role" : "roles"}
-              </Badge>
-              <Badge variant="outline">{totalEffortPoints} pts</Badge>
-            </div>
+            <>
+              <div className="flex flex-wrap gap-2">
+                <Badge variant="secondary">
+                  {roles?.length ?? 0} {roles?.length === 1 ? "role" : "roles"}
+                </Badge>
+                <Badge variant="outline">{totalEffortPoints} pts</Badge>
+              </div>
+              {uniqueTeams.length > 0 && (
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <Users className="text-muted-foreground h-3.5 w-3.5" />
+                  {uniqueTeams.map((team) => (
+                    <Link key={team.id} href={`/teams/${team.id}`}>
+                      <Badge
+                        variant="outline"
+                        className="hover:bg-accent cursor-pointer text-xs transition-colors"
+                      >
+                        {team.name}
+                      </Badge>
+                    </Link>
+                  ))}
+                </div>
+              )}
+            </>
           )}
           <Button
             asChild

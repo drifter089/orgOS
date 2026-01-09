@@ -6,6 +6,7 @@ export default async function MemberPage() {
   await Promise.all([
     api.organization.getMembers.prefetch(),
     api.dashboard.getDashboardCharts.prefetch(),
+    api.organization.getMemberStats.prefetch(),
   ]);
 
   return (
