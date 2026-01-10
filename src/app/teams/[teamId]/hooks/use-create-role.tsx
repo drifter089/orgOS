@@ -195,9 +195,13 @@ export function useCreateRole({
     onSuccess: (newRole, _variables, context) => {
       if (!context) return;
 
-      // Invalidate caches to ensure fresh data on next fetch
-      void utils.team.getById.invalidate({ id: teamId });
-      void utils.role.getByTeamId.invalidate({ teamId });
+      // Update cache BEFORE node so RoleCard finds newRole.id on re-render
+      utils.role.getByTeamId.setData({ teamId }, (old) => {
+        if (!old) return [newRole];
+        return old.map((role) =>
+          role.id === context.tempRoleId ? newRole : role,
+        );
+      });
 
       // Update node with real roleId and clear pending state (canvas context only)
       if (storeApi && setNodes) {
@@ -219,13 +223,9 @@ export function useCreateRole({
         setNodes(updatedNodes);
       }
 
-      // Replace temp role with real role in cache
-      utils.role.getByTeamId.setData({ teamId }, (old) => {
-        if (!old) return [newRole];
-        return old.map((role) =>
-          role.id === context.tempRoleId ? newRole : role,
-        );
-      });
+      // Invalidate caches for background refresh
+      void utils.team.getById.invalidate({ id: teamId });
+      void utils.role.getByTeamId.invalidate({ teamId });
     },
     onError: (error, _variables, context) => {
       if (context?.previousRoles !== undefined) {
