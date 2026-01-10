@@ -11,6 +11,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Team edit dialog with inline role and metric management for comprehensive team configuration (#352)
+- Member page sidebar toggle for quick navigation between members (#356)
+- Collapsible members list sidebar showing member statistics (#356)
+- Team links as clickable badges on member cards linking to team pages (#356)
+- Full chart card visualization for KPIs on member page instead of compact cards (#368)
+- Unified KPI card component with goal progress tracking and time tracking (#362)
+- Effort points selector added to role configuration dialog (#352)
 - PostHog analytics integration for tracking user behavior and product metrics (#334)
 - WorkOS profile pictures for members with initials fallback when unavailable (#341)
 - Version update notification toast to alert users of new releases (#333)
@@ -23,6 +30,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Member page redesigned with vertical bar chart for goals, replacing radar chart visualization (#356)
+- Member cards redesigned with expandable roles and KPIs section showing detailed cards (#366)
+- Team cards enhanced with description field and member avatar display (#355)
+- Team edit dialog made wider with more spacious column layout for better content display (#357)
+- Member names displayed as text in team cards instead of avatars only (#358)
+- Goal tab scrolling and edit button positioning improved for better UX (#361)
+- KPI card layout redesigned with compact color pill and full-width progress bars (#363)
+- KPI card button styling enhanced with borders and shadows (#364)
+- Canvas sidebar toggle buttons refined with separator and smaller size (#365)
+- Form labels now show required "*" indicator instead of "(Optional)" text (#352)
+- Role and member role cards redesigned with refreshed header/body/footer, truncation, and hover styles (#352)
+- Dashboard metric cards updated with rounded styling and simplified layouts (#352)
+- Chart legends made responsive with flex-wrap and scrolling for overflow handling (#356)
+- Bar chart enhanced with horizontal gridlines for better readability (#371)
+- Pie chart size increased to 85% outer radius for better visibility (#371)
+- Chart colors changed to theme-aware variables (--chart-1, --chart-2) instead of hardcoded status colors (#371)
+- Goals bar chart performance optimized with improved color rendering logic (#371)
 - Role dialog enhanced with member dropdown showing role count and effort points for each member (#351)
 - Role card styling unified across canvas, sidebar, dashboard drawer, and member page with consistent colored header and layout (#350)
 - Consolidated role cards and dialogs into shared reusable components, reducing code duplication (#348)
@@ -42,6 +66,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Member card text hierarchy with teams heading now larger than team names (#371, #370, #369)
+- Chart borders removed from member cards for cleaner presentation (#371, #370, #369)
+- Bar and pie chart heights equalized using shared height constant (#371, #370, #369)
+- Pie chart legend overflow with flex-wrap and scrolling for many roles (#356)
+- Team card styling improved with consistent heights and text hierarchy (#360)
+- Team edit dialog max-width override applied for proper display (#359)
+- Hover animations removed from role cards when in read-only mode (#368)
+- Member assignment preview now shows member stats in role dialog dropdowns (#352)
 - Double border issue on chart nodes in team canvas (#349)
 - Chart node dimensions now preserved in public canvas preview (#347)
 - Dark mode shadow visibility by using pure black with higher opacity values (#344)
@@ -64,6 +96,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Refactored
 
+- Consolidated metric card components into unified KpiCard reducing code duplication (#362)
+- Reused RoleCard and KpiCard components in member page for consistency (#367)
 - Eliminated goals data duplication by moving transformation logic into GoalsRadarChart component (#315)
 - Consolidated cache invalidation patterns into shared `invalidateDashboardCache()` utility (#312)
 - Standardized user name functions: `getUserDisplayName()` (client), `fetchUserDisplayName()` (server) (#312)
