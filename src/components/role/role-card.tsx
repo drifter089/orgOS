@@ -137,13 +137,6 @@ function RoleCardComponent({
         utils.role.getByTeamId.setData({ teamId }, context.previousRoles);
       }
     },
-    onSettled: () => {
-      if (teamId) {
-        void utils.role.getByTeamId.invalidate({ teamId });
-        void utils.team.getById.invalidate({ id: teamId });
-        void utils.dashboard.getDashboardCharts.invalidate({ teamId });
-      }
-    },
   });
 
   const handleDelete = useCallback(async () => {

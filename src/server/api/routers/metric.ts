@@ -9,7 +9,10 @@ import {
   getMetricAndVerifyAccess,
   getTeamAndVerifyAccess,
 } from "@/server/api/utils/authorization";
-import { invalidateDashboardCache } from "@/server/api/utils/cache-strategy";
+import {
+  invalidateCacheByTags,
+  invalidateDashboardCache,
+} from "@/server/api/utils/cache-strategy";
 
 import { runBackgroundTask } from "./pipeline";
 
@@ -267,12 +270,13 @@ export const metricRouter = createTRPCRouter({
         where: { id: input.id },
       });
 
-      // Invalidate Prisma cache for dashboard queries
+      // Invalidate Prisma cache for dashboard and role queries
       await invalidateDashboardCache(
         ctx.db,
         metric.organizationId,
         metric.teamId,
       );
+      await invalidateCacheByTags(ctx.db, [`team_${metric.teamId}`]);
 
       return { success: true };
     }),

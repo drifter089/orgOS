@@ -222,10 +222,6 @@ export function useCreateRole({
         });
         setNodes(updatedNodes);
       }
-
-      // Invalidate caches for background refresh
-      void utils.team.getById.invalidate({ id: teamId });
-      void utils.role.getByTeamId.invalidate({ teamId });
     },
     onError: (error, _variables, context) => {
       if (context?.previousRoles !== undefined) {
