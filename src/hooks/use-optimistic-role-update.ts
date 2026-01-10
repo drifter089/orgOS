@@ -218,13 +218,6 @@ export function useOptimisticRoleUpdate(teamId: string) {
           return chart;
         });
       });
-
-      // Delayed invalidation for eventual consistency
-      // Wait for Prisma Accelerate cache propagation before background refresh
-      setTimeout(() => {
-        void utils.role.getByTeamId.invalidate({ teamId });
-        void utils.dashboard.getDashboardCharts.invalidate({ teamId });
-      }, 5000);
     },
 
     onError: (error, _vars, context) => {
