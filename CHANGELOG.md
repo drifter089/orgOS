@@ -42,6 +42,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Role data disappearing after mutations by removing TanStack cache invalidations that overwrote correct data with stale responses (#374)
+- Blank flash when creating role in canvas by reordering cache updates before node updates (#373)
 - Double border issue on chart nodes in team canvas (#349)
 - Chart node dimensions now preserved in public canvas preview (#347)
 - Dark mode shadow visibility by using pure black with higher opacity values (#344)
