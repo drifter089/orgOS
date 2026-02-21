@@ -1,0 +1,8 @@
+# Environment files
+.env
+
+# Nango compiled output
+.nango/
+
+# Node modules
+node_modules/
